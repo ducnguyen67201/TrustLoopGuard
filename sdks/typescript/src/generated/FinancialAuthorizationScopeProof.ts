@@ -3,4 +3,4 @@ import type { FinancialEligibilityStatus } from "./FinancialEligibilityStatus";
 import type { FinancialMandate } from "./FinancialMandate";
 import type { MandateRef } from "./MandateRef";
 
-export type FinancialAuthorizationScopeProof = { checked: boolean, result: FinancialEligibilityStatus, scope_ref?: MandateRef, scope_snapshot?: FinancialMandate, source?: string, reason?: string, };
+export type FinancialAuthorizationScopeProof = { checked: boolean, result: FinancialEligibilityStatus, scope_ref?: MandateRef, scope_snapshot?: FinancialMandate, source?: string, mandate_hash?: string, normalized_scope?: Record<string, unknown> | null, reason?: string, };

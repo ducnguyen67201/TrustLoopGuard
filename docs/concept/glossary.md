@@ -179,6 +179,18 @@ A `family: financial` policy applying only to typed [Financial action](#financia
 
 The dashboard-facing authoring surface for a `family: financial` policy. A spending control is created from Financial -> Spending controls, posted as typed JSON to `POST /v1/financial/policies`, stored in the unified Rust policy registry, enabled per environment, and evaluated before financial action execution. It is a different policy family from content protection rules, not a separate policy system.
 
+### Financial mandate
+
+A tenant-scoped authorization boundary for a specific financial task. A mandate answers what the user or customer app authorized this agent to do, such as paying up to $5 in USD for one x402 resource on a specific host, network, asset, and `pay_to` address. A mandate is not a standing policy: financial policies set general rules and spend limits; mandates prove task-specific intent. TrustLoopGuard-managed mandates are stored by Rust financial APIs and referenced by `MandateRef` during runtime authorization.
+
+### Payment mandate scope
+
+The structured boundary inside a financial mandate for agentic payments. The typed `payment_scope` create field normalizes into durable mandate `scope` JSON and can constrain action kind, operation, rail, currency, max amount, counterparty, x402 host/resource/network/asset/payee, and required evidence preconditions.
+
+### External mandate
+
+A mandate created by a customer's own authorization system and supplied to TrustLoopGuard for runtime checking. The current product model distinguishes this from TrustLoopGuard-managed mandates, but cryptographic verifier configuration is a separate hardening slice. Bearer API authentication proves the caller can call TrustLoopGuard; it does not by itself prove an external mandate signature.
+
 ### Financial action eligibility
 
 Evidence-backed business legitimacy for a financial action. For example, a refund may require proof that the order exists, payment was captured, the refund window is open, the amount is within refundable balance, the destination is the original payment method, and the refund is not a duplicate. AI output may draft the candidate action, but it is not trusted evidence. `family: financial` policies can require preconditions and the financial service evaluates them from trusted `EvidenceRef.metadata` before execution.
@@ -194,6 +206,22 @@ A tenant-scoped proof record for a financial action. A `FinancialReceipt` links 
 ### Financial action outcome
 
 The operational and risk result of a financial action after authorization or execution. Outcomes record provider status, provider reference, reversal capability, recovery status, dispute/loss metadata, and final loss amount when known. Outcomes do not replace ledger entries: ledger entries answer spend/reservation questions, while outcomes answer whether the action succeeded, failed, reversed, recovered, was disputed, or caused loss.
+
+### Agentic payment
+
+An agent-initiated typed [Financial action](#financial-action) that needs authorization before a payment credential, signature, or settlement attempt is released. In the x402 path, the agent submits the payment requirement to TrustLoopGuard first, receives an action-bound authorization/reservation, then either commits with settlement proof or rolls the reservation back before settlement.
+
+### x402 payment requirement
+
+The x402 payment details a resource server asks the agent to satisfy: amount, payee, and optional network, asset, scheme, resource, method, host, facilitator, and raw provider payload. TrustLoopGuard normalizes those fields into a canonical hash so the later settlement proof can be checked against the exact authorized requirement.
+
+### Payment session
+
+A time-boxed budget context for agentic payments. A payment session is bound to one workspace principal and currency and tracks maximum amount, reserved amount, committed amount, and released amount. It is the concurrency boundary that prevents parallel agent payments from overspending the same budget.
+
+### Payment reservation
+
+An action-bound hold against a [Payment session](#payment-session), keyed by normalized x402 payment requirement hash. Reserved budget can be committed after settlement proof or released before settlement. Releasing a reservation is not the same thing as reversing a settled payment.
 
 ### Reversal capability
 

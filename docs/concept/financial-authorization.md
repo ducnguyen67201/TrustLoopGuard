@@ -10,6 +10,18 @@ Financial authorization
   FinancialAction -> financial policy -> financial service -> ledger/outcome/receipt
 ```
 
+## Policies, Mandates, And Runtime Payments
+
+Agentic payments use three separate authorization primitives:
+
+- A financial policy is a standing rule for an agent or class of actions. It answers "what is this principal generally allowed to do?" Examples: require a mandate for x402 payments, cap a payment at $5, hold over $50, block unknown counterparties, or limit daily spend.
+- A mandate is task-specific authority. It answers "what did the user or customer app authorize for this purchase?" Examples: `spid:commerce-agent` may pay up to $5 in USD for `/premium/article/agentic-commerce` on `base-sepolia` to a specific `pay_to` address.
+- A runtime payment is the merchant or provider request the agent is about to execute. For x402, this is the HTTP 402 payment requirement returned by the merchant.
+
+TrustLoopGuard sits between the runtime payment request and wallet signing. The service normalizes the payment requirement, checks it against the active mandate boundary, then applies standing financial policy and budget reservation before returning `signable: true`.
+
+Mandates can be stored by TrustLoopGuard or supplied by a customer's external mandate system. The current production path is TrustLoopGuard-managed mandates: `POST /v1/financial/mandates` accepts either legacy raw `scope` JSON or a typed `payment_scope` that the service normalizes into the durable scope. External signed mandates are represented in the product model, but cryptographic verifier configuration is a separate hardening slice; do not treat bearer API authentication as proof that an external mandate signature was verified.
+
 ## Contract
 
 `FinancialAction` lives in `tl-core` so Rust, OpenAPI, SDKs, server code, storage, and dashboard code share one wire shape. The action carries:
@@ -32,6 +44,8 @@ Decision receipts and execution receipts answer different audit questions. A `Fi
 - `financial_actions` stores the tenant-scoped requested action, idempotency key, current status, kind, operation, amount, principal, counterparty, mandate, rail, metadata, and evidence snapshot.
 - `financial_action_events` is the append-only action event stream for creation and status transitions.
 - `financial_ledger_entries` is the accounting source for spend windows. Reserved and executed entries add to net spend; released and reversed entries subtract from it. Spend caps must use this ledger, not generic traces.
+- `financial_payment_sessions` stores x402 agentic payment budget sessions: principal, currency, maximum spend, reserved amount, committed amount, released amount, expiry, and metadata.
+- `financial_payment_reservations` stores action-bound x402 reservations keyed by action, session, and normalized payment requirement hash. It is the concurrency boundary for pre-signing budget reservation, commit, and rollback.
 - `approval_requests` stores pending/decided authorization recovery work for held actions.
 - `mandates` stores tenant-scoped authorization scopes that can be created, listed, and revoked through the financial service.
 - `financial_receipts` stores tenant-scoped proof records for executed actions. The receipt id matches the action id and records action, evidence, mandate, approval-request, policy, ledger, and `payment_http` provider proof snapshots.
@@ -48,6 +62,11 @@ The Rust server exposes the first financial action lifecycle endpoints:
 - `GET /v1/financial/actions` lists tenant-scoped action records newest first.
 - `GET /v1/financial/actions/{id}` reads the durable action record.
 - `GET /v1/financial/actions/{id}/decision-receipt` reads the per-action decision receipt for proposed, held, denied, authorized, failed, or executed actions.
+- `POST /v1/financial/agentic-payments/authorize` creates the canonical `FinancialAction` for an x402 payment, normalizes the payment requirement, applies mandate and financial policy checks, and reserves session budget before the agent signs.
+- `GET /v1/financial/agentic-payments/{id}` reads the action-bound x402 payment record, including normalized requirement and reservation state.
+- `POST /v1/financial/agentic-payments/{id}/commit` verifies the settlement proof against the authorized requirement, commits the reservation, writes execution ledger entries, creates a receipt, and records a provider outcome.
+- `POST /v1/financial/agentic-payments/{id}/rollback` releases an unsettled reservation and records a failed/rolled-back outcome. It does not reverse a settled payment.
+- `GET /v1/financial/agentic-payments/{id}/receipt` reads the execution receipt for a committed x402 payment.
 - `GET /v1/financial/approval-requests` lists tenant-scoped financial approval requests newest first.
 - `POST /v1/financial/mandates` creates a tenant-scoped financial mandate.
 - `GET /v1/financial/mandates` lists tenant-scoped financial mandates newest first.
@@ -63,11 +82,35 @@ The Rust server exposes the first financial action lifecycle endpoints:
 
 These endpoints route through `FinancialAuthorizationService`, the Rust service layer that owns create/list/read/hold/approve/deny/execute/outcome/policy intent before storage is called. Today the service performs request validation, financial spending-control authoring, mandate lookup and validity checks for referenced mandates, action-local financial policy evaluation, eligibility precondition evaluation from trusted evidence refs, ledger-derived daily/monthly window evaluation, status orchestration, durable approval request creation for held actions, policy-driven approver role assignment, approver actor capture from `x-tlg-user-id` when approval or denial is routed through HTTP, ledger reservation/release/execution entries for lifecycle transitions, mandate create/list/revoke operations, `payment_http` provider execution for payment-rail actions, structured receipt creation after execution, and append-only outcome recording/listing. Action read/list responses include `status_reason` when the latest status transition recorded a reason, such as a failed eligibility precondition or spend-window breach.
 
+## Agentic x402 Payments
+
+x402 payments use the same financial authorization source of truth, but they add a pre-signing lifecycle because an agent can discover many payment requirements concurrently before anything settles.
+
+```text
+x402 payment requirement
+    -> authorize FinancialAction
+    -> mandate + financial policies
+    -> reserve session budget
+    -> agent signs/pays
+    -> commit with settlement proof
+       or rollback before settlement
+```
+
+`POST /v1/financial/agentic-payments/authorize` is the first call an agent runtime makes after receiving an x402 payment requirement. The service normalizes the requirement into a canonical hash over amount, payee, network, asset, scheme, resource, method, host, and facilitator. That hash is persisted on the action and reservation so commit can prove the settlement corresponds to the exact authorized requirement. The action uses `kind: payment`, `rail: x402`, the runtime principal, the normalized amount, and an x402 counterparty derived from `pay_to`.
+
+Runtime workspace API keys bind the acting principal. If a key has `principal_id`, the request principal must match it; otherwise the API key id is the principal. Dashboard/internal calls may submit a principal explicitly. This prevents a runtime agent from authorizing payment under another agent's budget identity.
+
+Payment sessions bound concurrent reservations to one time-boxed budget. The first authorization for a session creates `financial_payment_sessions` with the requested session limit; later authorizations for the same session lock that row and update reserved/committed/released counters atomically. A reservation is idempotent for `(workspace_id, session_id, payment_requirement_hash)`, conflicts if the same requirement is reused for a different action, and conflicts if projected reserved plus committed spend would exceed the session max. This row lock is the infrastructure-level guard against stale balance reads under parallel agent payments.
+
+Commit only accepts an authorized action. Held actions must be approved first through the normal financial approval endpoint. `commit` verifies the supplied x402 settlement proof against the stored normalized requirement, commits the reservation, releases the pre-signing ledger reservation, writes an executed ledger entry, creates a `financial_execution_receipt.v1`, and appends a succeeded outcome. `rollback` only releases an unsettled internal reservation and fails the action; it is not a blockchain or provider reversal after settlement.
+
 If `CreateFinancialActionRequest.execute` is true and checks leave the action clean, the service authorizes and executes the action immediately. Held actions write a reserved ledger entry, denied held actions write a release entry, and executed actions write execution ledger evidence into the receipt. Decision receipts use `schema: "financial_action_decision_receipt.v1"` and product-facing `authorization_scope` fields. For a $75 refund under a $100 authorization scope and a $50 approval threshold, the decision receipt reports `decision: "hold"`, `risks: ["amount_above_auto_approve_threshold"]`, `authorization_scope.result: "passed"`, passed evidence checks, and `execution.status: "not_started"` until the action is approved and executed. Execution receipts use `schema: "financial_execution_receipt.v1"` and snapshot the executed action, evidence refs, mandate ref and mandate record when present, matching policy families, approval requests for the action including `decided_by` when known, ledger event ids, and provider proof. For `rail: payment_http`, execution is structural: the service resolves the workspace's vaulted `payment_http` gateway provider connection, unseals the credential server-side, forwards the request with an idempotency key, records provider status/reference/response in the receipt, and appends a provider outcome. If no provider is configured or the forward fails, the internal financial action becomes `failed`. These ledger entries are the accounting state used by financial spend windows.
 
 The web dashboard reads this state through Rust APIs and same-origin proxy routes. `/financial` shows the financial action ledger, latest outcomes, inline approve/deny controls for pending approval requests, spending controls, and payment-provider setup state; its Spending controls card creates financial policies through `/api/financial/policies`, which proxies Rust `/v1/financial/policies`. Approving a held row calls the financial approve endpoint and then the execute endpoint so held actions resume execution. `/financial/mandates` lists, creates, and revokes mandates. `/financial/actions/{id}/decision` shows the action's decision receipt. `/financial/receipts/{id}` shows the execution receipt proof, provider response, latest outcome/recovery state, and ledger event ids. The dashboard does not own financial authorization state.
 
-When an action includes a `MandateRef`, the service resolves the mandate in the same workspace before applying policy. The referenced mandate must be active, match the action principal, be inside its start/expiry window, and cover the action according to any structured scope fields present today: `action_kinds`, `currency` or `currencies`, and `max_amount_minor`. A failed mandate proof transitions the action to `denied` so the attempt remains auditable. A missing mandate on an action is still governed by `family: financial` policy through `mandate_required`; the runtime does not silently convert generic guard events into financial actions.
+When an action includes a `MandateRef`, the service resolves the mandate in the same workspace before applying policy. The referenced mandate must be active, match the action principal, be inside its start/expiry window, and cover the action according to any structured scope fields present today: `action_kinds`, `operation`, `rail`, `currency` or `currencies`, `max_amount_minor`, `allowed_counterparty_ids`, and for x402 payments `allowed_hosts`, `allowed_resources`, `allowed_networks`, `allowed_assets`, and `allowed_pay_to`. A failed mandate proof transitions the action to `denied` so the attempt remains auditable. A missing mandate on an action is still governed by `family: financial` policy through `mandate_required`; the runtime does not silently convert generic guard events into financial actions.
+
+Decision receipts include `authorization_scope.mandate_hash` and `authorization_scope.normalized_scope` when a mandate was checked. The hash lets a customer prove which mandate boundary was evaluated without relying on dashboard copy. If a matching financial policy requires a mandate and no scope exists, the receipt reports `authorization_scope.result: "missing"` and the x402 response is not signable.
 
 `demo/financial-refund` is the offline wedge demo for this surface. It uses SDK-shaped financial helpers to create a refund mandate, submit typed refund actions, prove normal execution, hold-approval-resume, denial without provider execution, duplicate idempotency, receipt export, and outcome recording.
 

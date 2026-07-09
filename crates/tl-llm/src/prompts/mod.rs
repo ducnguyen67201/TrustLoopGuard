@@ -111,6 +111,7 @@ pub mod semantic_policy {
     use super::*;
 
     pub const TEMPLATE: &str = include_str!("semantic_policy.md");
+    pub const BATCH_TEMPLATE: &str = include_str!("semantic_policy_batch.md");
 
     pub fn schema() -> JsonSchema {
         JsonSchema {
@@ -151,6 +152,54 @@ pub mod semantic_policy {
             .replace("{{MATCH_CLAUSE}}", match_clause)
             .replace("{{POLICY_ACTION}}", policy_action)
             .replace("{{POLICY_SEVERITY}}", policy_severity)
+            .replace("{{EVENT_SUMMARY}}", event_summary)
+            .replace("{{TEXT}}", text)
+    }
+
+    pub fn batch_schema() -> JsonSchema {
+        JsonSchema {
+            name: "SemanticPolicyBatchVerdict".into(),
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "decisions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "policy_id": { "type": "string" },
+                                "matched": { "type": "boolean" },
+                                "confidence": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                },
+                                "reason": { "type": "string" },
+                                "evidence": {
+                                    "type": "array",
+                                    "items": { "type": "string" }
+                                }
+                            },
+                            "required": [
+                                "policy_id",
+                                "matched",
+                                "confidence",
+                                "reason",
+                                "evidence"
+                            ],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                "required": ["decisions"],
+                "additionalProperties": false
+            }),
+        }
+    }
+
+    pub fn build_batch(event_summary: &str, text: &str, policies_json: &str) -> String {
+        BATCH_TEMPLATE
+            .replace("{{POLICIES_JSON}}", policies_json)
             .replace("{{EVENT_SUMMARY}}", event_summary)
             .replace("{{TEXT}}", text)
     }
@@ -219,6 +268,21 @@ mod tests {
     }
 
     #[test]
+    fn semantic_policy_batch_template_substitutes_all_placeholders() {
+        let out = semantic_policy::build_batch(
+            "kind: output.proposed\nagent_id: support",
+            "you are dumb",
+            r#"[{"policy_id":"tone-policy"}]"#,
+        );
+        assert!(out.contains("tone-policy"));
+        assert!(out.contains("output.proposed"));
+        assert!(out.contains("you are dumb"));
+        assert!(!out.contains("{{POLICIES_JSON}}"));
+        assert!(!out.contains("{{EVENT_SUMMARY}}"));
+        assert!(!out.contains("{{TEXT}}"));
+    }
+
+    #[test]
     fn schemas_have_required_fields() {
         let s = hallucination::schema();
         assert_eq!(s.name, "HallucinationVerdict");
@@ -238,5 +302,10 @@ mod tests {
         assert!(req.iter().any(|v| v == "confidence"));
         assert!(req.iter().any(|v| v == "reason"));
         assert!(req.iter().any(|v| v == "evidence"));
+
+        let s = semantic_policy::batch_schema();
+        assert_eq!(s.name, "SemanticPolicyBatchVerdict");
+        let req = s.schema["required"].as_array().unwrap();
+        assert!(req.iter().any(|v| v == "decisions"));
     }
 }

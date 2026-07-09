@@ -6,11 +6,12 @@ use uuid::Uuid;
 use crate::schema::{
     agents, approval_requests, budget_alert_configs, budget_alert_firings, enforcement_profiles,
     entity_versions, escalations, financial_action_events, financial_action_outcomes,
-    financial_actions, financial_ledger_entries, financial_receipts, gateway_provider_connections,
-    gateway_routes, human_review_events, llm_model_prices, llm_usage_events, mandates,
-    oauth_identities, policies, policy_environment_deployments, redteam_attack_sessions,
-    redteam_jobs, redteam_plans, redteam_report_shares, redteam_session_events, run_events, runs,
-    tool_metadata, traces, users, workspace_environments,
+    financial_actions, financial_ledger_entries, financial_payment_reservations,
+    financial_payment_sessions, financial_receipts, gateway_provider_connections, gateway_routes,
+    human_review_events, llm_model_prices, llm_usage_events, mandates, oauth_identities, policies,
+    policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
+    redteam_report_shares, redteam_session_events, run_events, runs, tool_metadata, traces, users,
+    workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -269,6 +270,74 @@ pub struct FinancialLedgerEntryRecord {
     pub metadata: Value,
     pub effective_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = financial_payment_sessions)]
+pub struct NewFinancialPaymentSession {
+    pub workspace_id: String,
+    pub id: String,
+    pub principal_id: String,
+    pub currency: String,
+    pub max_amount_minor: i64,
+    pub expires_at: DateTime<Utc>,
+    pub metadata: Value,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = financial_payment_sessions)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct FinancialPaymentSessionRecord {
+    pub workspace_id: String,
+    pub id: String,
+    pub principal_id: String,
+    pub currency: String,
+    pub max_amount_minor: i64,
+    pub reserved_minor: i64,
+    pub committed_minor: i64,
+    pub released_minor: i64,
+    pub status: String,
+    pub expires_at: DateTime<Utc>,
+    pub metadata: Value,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = financial_payment_reservations)]
+pub struct NewFinancialPaymentReservation {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub session_id: String,
+    pub principal_id: String,
+    pub payment_requirement_hash: String,
+    pub amount_minor: i64,
+    pub currency: String,
+    pub expires_at: DateTime<Utc>,
+    pub metadata: Value,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = financial_payment_reservations)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct FinancialPaymentReservationRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub session_id: String,
+    pub principal_id: String,
+    pub payment_requirement_hash: String,
+    pub amount_minor: i64,
+    pub currency: String,
+    pub status: String,
+    pub expires_at: DateTime<Utc>,
+    pub commit_proof: Option<Value>,
+    pub metadata: Value,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub committed_at: Option<DateTime<Utc>>,
+    pub released_at: Option<DateTime<Utc>>,
 }
 
 /// Upsert row for a workspace model price. `currency` is omitted — the

@@ -2,11 +2,13 @@ use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    Json,
+    Extension, Json,
 };
 #[allow(unused_imports)]
 use tl_core::ApiError;
 use tl_core::{
+    AgenticPaymentAuthorizationResponse, AgenticPaymentAuthorizeRequest,
+    AgenticPaymentCommitRequest, AgenticPaymentRecord, AgenticPaymentRollbackRequest,
     CreateFinancialActionRequest, CreateFinancialMandateRequest, CreateFinancialPolicyRequest,
     FinancialActionDecisionReceipt, FinancialActionListResponse, FinancialActionOutcome,
     FinancialActionRecord, FinancialApprovalRequestListResponse, FinancialMandate,
@@ -15,6 +17,7 @@ use tl_core::{
 };
 
 use super::{response::financial_error_response, FinancialState};
+use crate::auth::WorkspaceKeyContext;
 
 #[utoipa::path(
     post,
@@ -58,6 +61,162 @@ pub async fn list_actions(State(state): State<FinancialState>, headers: HeaderMa
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
     match state.service.list_actions(&workspace_id).await {
         Ok(actions) => Json(actions).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/v1/financial/agentic-payments/authorize",
+    tag = "financial",
+    request_body = AgenticPaymentAuthorizeRequest,
+    responses(
+        (status = 201, description = "x402 agentic payment authorized or held", body = AgenticPaymentAuthorizationResponse),
+        (status = 400, description = "Malformed or invalid request", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 409, description = "Reservation conflict or budget exceeded", body = ApiError),
+    ),
+)]
+pub async fn authorize_agentic_payment(
+    State(state): State<FinancialState>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
+    headers: HeaderMap,
+    Json(input): Json<AgenticPaymentAuthorizeRequest>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let environment_id = crate::environments::environment_id_from_headers(&headers)
+        .unwrap_or_else(|| DEFAULT_ENVIRONMENT_ID.to_string());
+    match state
+        .service
+        .authorize_agentic_payment_in_environment(
+            &workspace_id,
+            &environment_id,
+            runtime_key.map(|Extension(key)| key),
+            input,
+        )
+        .await
+    {
+        Ok(result) => (StatusCode::CREATED, Json(result)).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/v1/financial/agentic-payments/{id}",
+    tag = "financial",
+    params(("id" = String, Path, description = "Canonical financial action id")),
+    responses(
+        (status = 200, description = "x402 agentic payment record", body = AgenticPaymentRecord),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Agentic payment not found", body = ApiError),
+    ),
+)]
+pub async fn get_agentic_payment(
+    State(state): State<FinancialState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.service.get_agentic_payment(&workspace_id, &id).await {
+        Ok(record) => Json(record).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/v1/financial/agentic-payments/{id}/commit",
+    tag = "financial",
+    params(("id" = String, Path, description = "Canonical financial action id")),
+    request_body = AgenticPaymentCommitRequest,
+    responses(
+        (status = 200, description = "x402 agentic payment committed", body = AgenticPaymentRecord),
+        (status = 400, description = "Malformed or invalid request", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Agentic payment not found", body = ApiError),
+        (status = 409, description = "Invalid lifecycle transition", body = ApiError),
+    ),
+)]
+pub async fn commit_agentic_payment(
+    State(state): State<FinancialState>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(input): Json<AgenticPaymentCommitRequest>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state
+        .service
+        .commit_agentic_payment(
+            &workspace_id,
+            &id,
+            runtime_key.map(|Extension(key)| key),
+            input,
+        )
+        .await
+    {
+        Ok(record) => Json(record).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/v1/financial/agentic-payments/{id}/rollback",
+    tag = "financial",
+    params(("id" = String, Path, description = "Canonical financial action id")),
+    request_body = AgenticPaymentRollbackRequest,
+    responses(
+        (status = 200, description = "x402 agentic payment reservation released", body = AgenticPaymentRecord),
+        (status = 400, description = "Malformed or invalid request", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Agentic payment not found", body = ApiError),
+        (status = 409, description = "Invalid lifecycle transition", body = ApiError),
+    ),
+)]
+pub async fn rollback_agentic_payment(
+    State(state): State<FinancialState>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(input): Json<AgenticPaymentRollbackRequest>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state
+        .service
+        .rollback_agentic_payment(
+            &workspace_id,
+            &id,
+            runtime_key.map(|Extension(key)| key),
+            input,
+        )
+        .await
+    {
+        Ok(record) => Json(record).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/v1/financial/agentic-payments/{id}/receipt",
+    tag = "financial",
+    params(("id" = String, Path, description = "Canonical financial action id")),
+    responses(
+        (status = 200, description = "x402 agentic payment receipt", body = FinancialReceipt),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Agentic payment receipt not found", body = ApiError),
+    ),
+)]
+pub async fn get_agentic_payment_receipt(
+    State(state): State<FinancialState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.service.get_receipt(&workspace_id, &id).await {
+        Ok(receipt) => Json(receipt).into_response(),
         Err(error) => financial_error_response(error),
     }
 }

@@ -35,12 +35,13 @@ type FinancialControlForm = {
   actionKind: 'refund' | 'payment' | 'payout';
   operation: string;
   currency: string;
-  rail: 'payment_http' | 'card' | 'ach' | 'wire' | 'internal' | 'other';
+  rail: 'payment_http' | 'x402' | 'card' | 'ach' | 'wire' | 'internal' | 'other';
   perAction: string;
   holdAbove: string;
   daily: string;
   weekly: string;
   monthly: string;
+  mandateRequired: boolean;
   onBreach: 'block' | 'escalate';
   missingEvidenceAction: 'block' | 'escalate';
   failedPreconditionAction: 'block' | 'escalate';
@@ -54,6 +55,7 @@ const ACTION_KINDS: ReadonlyArray<FinancialControlForm['actionKind']> = [
 ];
 const RAILS: ReadonlyArray<FinancialControlForm['rail']> = [
   'payment_http',
+  'x402',
   'card',
   'ach',
   'wire',
@@ -72,23 +74,24 @@ const REFUND_PRECONDITIONS = [
 ] as const;
 
 const DEFAULT_FORM: FinancialControlForm = {
-  id: 'refund-bot-refund-controls',
-  description: 'Refund controls for support agents',
+  id: 'x402-agentic-payment-mandate-required',
+  description: 'x402 payment controls for commerce agents',
   meter: 'actions',
-  agent: 'refund-bot',
-  actionKind: 'refund',
-  operation: 'issue_refund',
+  agent: 'spid:commerce-agent',
+  actionKind: 'payment',
+  operation: 'x402_read_paid_resource',
   currency: 'USD',
-  rail: 'payment_http',
-  perAction: '100',
-  holdAbove: '50',
-  daily: '500',
+  rail: 'x402',
+  perAction: '5',
+  holdAbove: '',
+  daily: '50',
   weekly: '',
   monthly: '5000',
+  mandateRequired: true,
   onBreach: 'block',
   missingEvidenceAction: 'escalate',
   failedPreconditionAction: 'block',
-  requiredPreconditions: REFUND_PRECONDITIONS.map((item) => item.id),
+  requiredPreconditions: [],
 };
 
 const DEFAULT_LLM_BUDGET_FORM: FinancialControlForm = {
@@ -102,6 +105,8 @@ const DEFAULT_LLM_BUDGET_FORM: FinancialControlForm = {
   daily: '',
   weekly: '50',
   monthly: '',
+  mandateRequired: false,
+  requiredPreconditions: [],
 };
 
 export function FinancialPolicyCreateDialog({
@@ -166,7 +171,7 @@ export function FinancialPolicyCreateDialog({
           <DialogDescription>
             {form.meter === 'llm_usage'
               ? 'Cap gateway LLM spend per principal. A workspace-wide budget evaluates per principal — each principal gets its own cap.'
-              : 'Define the caps, evidence checks, and approval behavior TrustLoopGuard evaluates before agent execution.'}
+              : 'Define the mandate requirement, caps, evidence checks, and approval behavior TrustLoopGuard evaluates before agent execution.'}
           </DialogDescription>
         </DialogHeader>
         <div className="grid max-h-[70vh] gap-4 overflow-y-auto pr-1">
@@ -253,6 +258,7 @@ export function FinancialPolicyCreateDialog({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="payment_http">Payment HTTP</SelectItem>
+                      <SelectItem value="x402">x402</SelectItem>
                       <SelectItem value="card">Card</SelectItem>
                       <SelectItem value="ach">ACH</SelectItem>
                       <SelectItem value="wire">Wire</SelectItem>
@@ -280,6 +286,40 @@ export function FinancialPolicyCreateDialog({
             <MoneyField label="Weekly cap" valueKey="weekly" form={form} setForm={setForm} />
             <MoneyField label="Monthly cap" valueKey="monthly" form={form} setForm={setForm} />
           </div>
+          {form.meter === 'actions' ? (
+            <div className="rounded-md border p-3">
+              <label className="flex items-start gap-3 text-sm">
+                <Checkbox
+                  checked={form.mandateRequired}
+                  onCheckedChange={(checked) =>
+                    setFormValue(setForm, 'mandateRequired', checked === true)
+                  }
+                />
+                <span className="grid gap-2">
+                  <span className="font-medium">Require user intent proof</span>
+                  <span className="text-muted-foreground">
+                    Turn this on when each payment must point back to the user&apos;s request, such
+                    as “buy this article” or “buy this coffee.”
+                  </span>
+                  <span className="grid gap-1 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+                    <span>
+                      <span className="font-medium text-foreground">Where it comes from:</span>{' '}
+                      TrustLoopGuard can store an internal mandate from the user message, or the
+                      customer app can send an external mandate reference.
+                    </span>
+                    <span>
+                      <span className="font-medium text-foreground">What this policy does:</span>{' '}
+                      requires the payment action to include that mandate before signing.
+                    </span>
+                    <span>
+                      <span className="font-medium text-foreground">What gets checked:</span> agent,
+                      amount, rail, merchant/resource, pay-to, and x402 network/asset.
+                    </span>
+                  </span>
+                </span>
+              </label>
+            </div>
+          ) : null}
           <div className="grid gap-3 md:grid-cols-3">
             <ActionField
               label="Cap breach"
@@ -303,7 +343,7 @@ export function FinancialPolicyCreateDialog({
               </>
             ) : null}
           </div>
-          {form.meter === 'actions' ? (
+          {form.meter === 'actions' && form.actionKind === 'refund' ? (
             <div className="grid gap-2">
               <Label>Required refund evidence</Label>
               <div className="grid gap-2 md:grid-cols-2">
@@ -355,8 +395,8 @@ function formFromPolicy(policy: FamilyPolicyRow): FinancialControlForm {
     id: policy.id,
     description: policy.description ?? '',
     meter,
-    // An LLM budget with no principal selector applies to every
-    // principal; do not backfill the actions-flavored default agent.
+    // An LLM budget with no principal selector applies to every principal;
+    // do not backfill the actions-flavored default agent.
     agent: policy.when?.agents?.[0] ?? (meter === 'llm_usage' ? '' : DEFAULT_FORM.agent),
     actionKind: pick(policy.when?.action_kinds?.[0], ACTION_KINDS, DEFAULT_FORM.actionKind),
     operation: policy.when?.operations?.[0] ?? DEFAULT_FORM.operation,
@@ -367,6 +407,8 @@ function formFromPolicy(policy: FamilyPolicyRow): FinancialControlForm {
     daily: minorToDollars(policy.daily_minor),
     weekly: minorToDollars(policy.weekly_minor),
     monthly: minorToDollars(policy.monthly_minor),
+    mandateRequired:
+      policy.mandate_required ?? (meter === 'llm_usage' ? false : DEFAULT_FORM.mandateRequired),
     onBreach: pick(policy.on_breach, ACTIONS, DEFAULT_FORM.onBreach),
     missingEvidenceAction: pick(
       policy.missing_evidence_action,
@@ -378,7 +420,9 @@ function formFromPolicy(policy: FamilyPolicyRow): FinancialControlForm {
       ACTIONS,
       DEFAULT_FORM.failedPreconditionAction,
     ),
-    requiredPreconditions: policy.required_preconditions ?? DEFAULT_FORM.requiredPreconditions,
+    requiredPreconditions:
+      policy.required_preconditions ??
+      (policy.when?.action_kinds?.[0] === 'refund' ? DEFAULT_FORM.requiredPreconditions : []),
   };
 }
 
@@ -403,6 +447,8 @@ function formForMeter(
       weekly: form.weekly === DEFAULT_FORM.weekly ? DEFAULT_LLM_BUDGET_FORM.weekly : form.weekly,
       monthly:
         form.monthly === DEFAULT_FORM.monthly ? DEFAULT_LLM_BUDGET_FORM.monthly : form.monthly,
+      mandateRequired: false,
+      requiredPreconditions: [],
     };
   }
   return {
@@ -419,6 +465,7 @@ function formForMeter(
     daily: form.daily === DEFAULT_LLM_BUDGET_FORM.daily ? DEFAULT_FORM.daily : form.daily,
     weekly: form.weekly === DEFAULT_LLM_BUDGET_FORM.weekly ? DEFAULT_FORM.weekly : form.weekly,
     monthly: form.monthly === DEFAULT_LLM_BUDGET_FORM.monthly ? DEFAULT_FORM.monthly : form.monthly,
+    mandateRequired: form.mandateRequired || DEFAULT_FORM.mandateRequired,
   };
 }
 
@@ -538,7 +585,8 @@ function formPayload(form: FinancialControlForm) {
     daily_minor: dollarsToMinorOrUndefined(form.daily),
     weekly_minor: dollarsToMinorOrUndefined(form.weekly),
     monthly_minor: dollarsToMinorOrUndefined(form.monthly),
-    required_preconditions: form.requiredPreconditions,
+    mandate_required: form.mandateRequired,
+    required_preconditions: form.actionKind === 'refund' ? form.requiredPreconditions : [],
     missing_evidence_action: form.missingEvidenceAction,
     failed_precondition_action: form.failedPreconditionAction,
     on_breach: form.onBreach,

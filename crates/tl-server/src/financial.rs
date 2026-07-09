@@ -3,11 +3,11 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use tl_core::{
-    ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
-    FinancialActionStatus, FinancialApprovalRequest, FinancialApprovalRequestListResponse,
-    FinancialApprovalRequestStatus, FinancialMandate, FinancialMandateListResponse,
-    FinancialOutcomeListResponse, FinancialReceipt,
+    AgenticPaymentReservation, ApprovalRequirement, CreateFinancialActionRequest,
+    CreateFinancialMandateRequest, FinancialActionListResponse, FinancialActionOutcome,
+    FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequest,
+    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus, FinancialMandate,
+    FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialReceipt, MoneyAmount,
 };
 
 mod executor;
@@ -16,20 +16,25 @@ mod memory_store;
 mod response;
 mod service;
 mod validation;
+mod x402;
 
 pub use executor::{
     FinancialExecutionError, FinancialExecutionResult, FinancialExecutor,
     PaymentHttpFinancialExecutor,
 };
 pub use handlers::{
-    __path_approve_action, __path_create_action, __path_create_mandate, __path_create_policy,
-    __path_deny_action, __path_execute_action, __path_get_action, __path_get_decision_receipt,
-    __path_get_receipt, __path_list_action_outcomes, __path_list_actions,
-    __path_list_approval_requests, __path_list_mandates, __path_list_policies,
-    __path_record_action_outcome, __path_revoke_mandate, approve_action, create_action,
-    create_mandate, create_policy, deny_action, execute_action, get_action, get_decision_receipt,
-    get_receipt, list_action_outcomes, list_actions, list_approval_requests, list_mandates,
-    list_policies, record_action_outcome, revoke_mandate,
+    __path_approve_action, __path_authorize_agentic_payment, __path_commit_agentic_payment,
+    __path_create_action, __path_create_mandate, __path_create_policy, __path_deny_action,
+    __path_execute_action, __path_get_action, __path_get_agentic_payment,
+    __path_get_agentic_payment_receipt, __path_get_decision_receipt, __path_get_receipt,
+    __path_list_action_outcomes, __path_list_actions, __path_list_approval_requests,
+    __path_list_mandates, __path_list_policies, __path_record_action_outcome,
+    __path_revoke_mandate, __path_rollback_agentic_payment, approve_action,
+    authorize_agentic_payment, commit_agentic_payment, create_action, create_mandate,
+    create_policy, deny_action, execute_action, get_action, get_agentic_payment,
+    get_agentic_payment_receipt, get_decision_receipt, get_receipt, list_action_outcomes,
+    list_actions, list_approval_requests, list_mandates, list_policies, record_action_outcome,
+    revoke_mandate, rollback_agentic_payment,
 };
 pub use memory_store::MemoryFinancialStore;
 pub use service::{FinancialActionExecutionAttempt, FinancialAuthorizationService};
@@ -52,6 +57,19 @@ pub enum FinancialLedgerEntryKind {
     Released,
     Executed,
     Reversed,
+}
+
+#[derive(Debug, Clone)]
+pub struct AgenticPaymentBudgetReservationRequest {
+    pub workspace_id: String,
+    pub session_id: String,
+    pub principal_id: String,
+    pub action_id: String,
+    pub payment_requirement_hash: String,
+    pub amount: MoneyAmount,
+    pub session_limit_minor: i64,
+    pub expires_at: DateTime<Utc>,
+    pub metadata: serde_json::Value,
 }
 
 #[async_trait]
@@ -193,6 +211,32 @@ pub trait FinancialStore: Send + Sync {
     ) -> Result<i64, FinancialStoreError> {
         Ok(0)
     }
+
+    async fn try_reserve_agentic_payment_budget(
+        &self,
+        request: AgenticPaymentBudgetReservationRequest,
+    ) -> Result<AgenticPaymentReservation, FinancialStoreError>;
+
+    async fn get_agentic_payment_reservation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<AgenticPaymentReservation, FinancialStoreError>;
+
+    async fn commit_agentic_payment_reservation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        proof: serde_json::Value,
+    ) -> Result<AgenticPaymentReservation, FinancialStoreError>;
+
+    async fn release_agentic_payment_reservation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        reason: &str,
+        metadata: serde_json::Value,
+    ) -> Result<AgenticPaymentReservation, FinancialStoreError>;
 }
 
 #[derive(Clone)]

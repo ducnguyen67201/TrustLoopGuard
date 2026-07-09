@@ -3,17 +3,19 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use tl_core::{
-    ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
-    FinancialActionStatus, FinancialApprovalRequest, FinancialApprovalRequestListResponse,
-    FinancialApprovalRequestStatus, FinancialMandate, FinancialMandateListResponse,
-    FinancialMandateStatus, FinancialOutcomeListResponse, FinancialReceipt,
+    AgenticPaymentReservation, AgenticPaymentReservationStatus, ApprovalRequirement,
+    CreateFinancialActionRequest, CreateFinancialMandateRequest, FinancialActionListResponse,
+    FinancialActionOutcome, FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequest,
+    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus, FinancialMandate,
+    FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
+    FinancialReceipt, MoneyAmount,
 };
 use tokio::sync::RwLock;
 
 use super::{
     validation::{is_valid_transition, validate_create_action},
-    FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
+    AgenticPaymentBudgetReservationRequest, FinancialLedgerEntryKind, FinancialStore,
+    FinancialStoreError,
 };
 
 #[derive(Debug, Default)]
@@ -26,6 +28,7 @@ pub struct MemoryFinancialStore {
     outcomes: RwLock<HashMap<String, Vec<FinancialActionOutcome>>>,
     ledger_entries: RwLock<HashMap<String, MemoryLedgerEntry>>,
     ledger_idempotency: RwLock<HashMap<String, String>>,
+    agentic_payments: RwLock<MemoryAgenticPayments>,
 }
 
 impl MemoryFinancialStore {
@@ -43,6 +46,27 @@ struct MemoryLedgerEntry {
     amount_minor: i64,
     currency: String,
     effective_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Default)]
+struct MemoryAgenticPayments {
+    sessions: HashMap<String, MemoryAgenticPaymentSession>,
+    reservations: HashMap<String, AgenticPaymentReservation>,
+    by_action: HashMap<String, String>,
+    by_requirement: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone)]
+struct MemoryAgenticPaymentSession {
+    workspace_id: String,
+    id: String,
+    principal_id: String,
+    currency: String,
+    max_amount_minor: i64,
+    reserved_minor: i64,
+    committed_minor: i64,
+    released_minor: i64,
+    expires_at: DateTime<Utc>,
 }
 
 #[async_trait]
@@ -515,6 +539,274 @@ impl FinancialStore for MemoryFinancialStore {
             .map(|entry| signed_ledger_amount(entry.kind, entry.amount_minor))
             .sum())
     }
+
+    async fn try_reserve_agentic_payment_budget(
+        &self,
+        request: AgenticPaymentBudgetReservationRequest,
+    ) -> Result<AgenticPaymentReservation, FinancialStoreError> {
+        let AgenticPaymentBudgetReservationRequest {
+            workspace_id,
+            session_id,
+            principal_id,
+            action_id,
+            payment_requirement_hash,
+            amount,
+            session_limit_minor,
+            expires_at,
+            metadata,
+        } = request;
+        if amount.amount_minor <= 0 {
+            return Err(FinancialStoreError::Validation(
+                "agentic payment reservation amount must be positive".into(),
+            ));
+        }
+        if session_limit_minor < amount.amount_minor {
+            return Err(FinancialStoreError::Validation(
+                "agentic payment session limit is below requested amount".into(),
+            ));
+        }
+        let session_id = clean_required("session_id", &session_id)?;
+        let principal_id = clean_required("principal_id", &principal_id)?;
+        let payment_requirement_hash =
+            clean_required("payment_requirement_hash", &payment_requirement_hash)?;
+        let currency = clean_required("currency", &amount.currency)?.to_uppercase();
+        let action_key = key(&workspace_id, &action_id);
+        let session_key = key(&workspace_id, &session_id);
+        let requirement_key = format!("{workspace_id}:{session_id}:{payment_requirement_hash}");
+        {
+            let actions = self.actions.read().await;
+            let action = actions
+                .get(&action_key)
+                .ok_or(FinancialStoreError::NotFound)?;
+            if action.action.principal_id != principal_id
+                || !action
+                    .action
+                    .amount
+                    .currency
+                    .eq_ignore_ascii_case(&currency)
+                || action.action.amount.amount_minor != amount.amount_minor
+            {
+                return Err(FinancialStoreError::Conflict);
+            }
+        }
+        let mut payments = self.agentic_payments.write().await;
+        if let Some(existing_id) = payments.by_requirement.get(&requirement_key).cloned() {
+            let existing = payments
+                .reservations
+                .get(&existing_id)
+                .cloned()
+                .ok_or(FinancialStoreError::Conflict)?;
+            if existing.action_id != action_id
+                || existing.amount.amount_minor != amount.amount_minor
+                || !existing.amount.currency.eq_ignore_ascii_case(&currency)
+            {
+                return Err(FinancialStoreError::Conflict);
+            }
+            return Ok(existing);
+        }
+        if payments.by_action.contains_key(&action_key) {
+            return Err(FinancialStoreError::Conflict);
+        }
+        let session = payments
+            .sessions
+            .entry(session_key.clone())
+            .or_insert_with(|| MemoryAgenticPaymentSession {
+                workspace_id: workspace_id.clone(),
+                id: session_id.clone(),
+                principal_id: principal_id.clone(),
+                currency: currency.clone(),
+                max_amount_minor: session_limit_minor,
+                reserved_minor: 0,
+                committed_minor: 0,
+                released_minor: 0,
+                expires_at,
+            });
+        if session.workspace_id != workspace_id
+            || session.id != session_id
+            || session.principal_id != principal_id
+            || !session.currency.eq_ignore_ascii_case(&currency)
+        {
+            return Err(FinancialStoreError::Conflict);
+        }
+        if session.expires_at <= Utc::now() {
+            return Err(FinancialStoreError::Validation(
+                "agentic payment session is expired".into(),
+            ));
+        }
+        let next_reserved = session
+            .reserved_minor
+            .checked_add(amount.amount_minor)
+            .ok_or_else(|| {
+                FinancialStoreError::Internal("agentic payment reserved amount overflow".into())
+            })?;
+        let projected_total = next_reserved
+            .checked_add(session.committed_minor)
+            .ok_or_else(|| {
+                FinancialStoreError::Internal("agentic payment session amount overflow".into())
+            })?;
+        if projected_total > session.max_amount_minor {
+            return Err(FinancialStoreError::Validation(
+                "agentic payment session budget exceeded".into(),
+            ));
+        }
+        session.reserved_minor = next_reserved;
+        let reservation = AgenticPaymentReservation {
+            id: uuid::Uuid::now_v7().to_string(),
+            session_id,
+            action_id,
+            principal_id,
+            payment_requirement_hash,
+            amount: MoneyAmount {
+                amount_minor: amount.amount_minor,
+                currency,
+            },
+            status: AgenticPaymentReservationStatus::Reserved,
+            expires_at: expires_at.to_rfc3339(),
+            committed_at: None,
+            released_at: None,
+            metadata,
+        };
+        let reservation_key = key(&workspace_id, &reservation.id);
+        payments
+            .by_requirement
+            .insert(requirement_key, reservation_key.clone());
+        payments
+            .by_action
+            .insert(action_key, reservation_key.clone());
+        payments
+            .reservations
+            .insert(reservation_key, reservation.clone());
+        Ok(reservation)
+    }
+
+    async fn get_agentic_payment_reservation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<AgenticPaymentReservation, FinancialStoreError> {
+        let payments = self.agentic_payments.read().await;
+        let reservation_id = payments
+            .by_action
+            .get(&key(workspace_id, action_id))
+            .ok_or(FinancialStoreError::NotFound)?;
+        payments
+            .reservations
+            .get(reservation_id)
+            .cloned()
+            .ok_or(FinancialStoreError::NotFound)
+    }
+
+    async fn commit_agentic_payment_reservation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        proof: serde_json::Value,
+    ) -> Result<AgenticPaymentReservation, FinancialStoreError> {
+        let mut payments = self.agentic_payments.write().await;
+        let reservation_id = payments
+            .by_action
+            .get(&key(workspace_id, action_id))
+            .cloned()
+            .ok_or(FinancialStoreError::NotFound)?;
+        let mut reservation = payments
+            .reservations
+            .get(&reservation_id)
+            .cloned()
+            .ok_or(FinancialStoreError::NotFound)?;
+        if reservation.status == AgenticPaymentReservationStatus::Committed {
+            return Ok(reservation);
+        }
+        if reservation.status != AgenticPaymentReservationStatus::Reserved {
+            return Err(FinancialStoreError::Conflict);
+        }
+        let expires_at = chrono::DateTime::parse_from_rfc3339(&reservation.expires_at)
+            .map_err(|e| FinancialStoreError::Internal(format!("reservation expires_at: {e}")))?
+            .with_timezone(&Utc);
+        if expires_at <= Utc::now() {
+            return Err(FinancialStoreError::Conflict);
+        }
+        let session_key = key(workspace_id, &reservation.session_id);
+        let session = payments
+            .sessions
+            .get_mut(&session_key)
+            .ok_or(FinancialStoreError::NotFound)?;
+        if session.reserved_minor < reservation.amount.amount_minor {
+            return Err(FinancialStoreError::Conflict);
+        }
+        session.reserved_minor -= reservation.amount.amount_minor;
+        session.committed_minor = session
+            .committed_minor
+            .checked_add(reservation.amount.amount_minor)
+            .ok_or_else(|| {
+                FinancialStoreError::Internal("agentic payment committed amount overflow".into())
+            })?;
+        reservation.status = AgenticPaymentReservationStatus::Committed;
+        reservation.committed_at = Some(Utc::now().to_rfc3339());
+        reservation.metadata = merge_metadata(
+            reservation.metadata,
+            serde_json::json!({
+                "commit_proof": proof,
+            }),
+        );
+        payments
+            .reservations
+            .insert(reservation_id, reservation.clone());
+        Ok(reservation)
+    }
+
+    async fn release_agentic_payment_reservation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        reason: &str,
+        metadata: serde_json::Value,
+    ) -> Result<AgenticPaymentReservation, FinancialStoreError> {
+        let mut payments = self.agentic_payments.write().await;
+        let reservation_id = payments
+            .by_action
+            .get(&key(workspace_id, action_id))
+            .cloned()
+            .ok_or(FinancialStoreError::NotFound)?;
+        let mut reservation = payments
+            .reservations
+            .get(&reservation_id)
+            .cloned()
+            .ok_or(FinancialStoreError::NotFound)?;
+        if reservation.status == AgenticPaymentReservationStatus::Released {
+            return Ok(reservation);
+        }
+        if reservation.status != AgenticPaymentReservationStatus::Reserved {
+            return Err(FinancialStoreError::Conflict);
+        }
+        let session_key = key(workspace_id, &reservation.session_id);
+        let session = payments
+            .sessions
+            .get_mut(&session_key)
+            .ok_or(FinancialStoreError::NotFound)?;
+        if session.reserved_minor < reservation.amount.amount_minor {
+            return Err(FinancialStoreError::Conflict);
+        }
+        session.reserved_minor -= reservation.amount.amount_minor;
+        session.released_minor = session
+            .released_minor
+            .checked_add(reservation.amount.amount_minor)
+            .ok_or_else(|| {
+                FinancialStoreError::Internal("agentic payment released amount overflow".into())
+            })?;
+        reservation.status = AgenticPaymentReservationStatus::Released;
+        reservation.released_at = Some(Utc::now().to_rfc3339());
+        reservation.metadata = merge_metadata(
+            reservation.metadata,
+            serde_json::json!({
+                "release_reason": reason,
+                "release_metadata": metadata,
+            }),
+        );
+        payments
+            .reservations
+            .insert(reservation_id, reservation.clone());
+        Ok(reservation)
+    }
 }
 
 fn key(workspace_id: &str, action_id: &str) -> String {
@@ -568,5 +860,17 @@ fn signed_ledger_amount(kind: FinancialLedgerEntryKind, amount_minor: i64) -> i6
     match kind {
         FinancialLedgerEntryKind::Reserved | FinancialLedgerEntryKind::Executed => amount_minor,
         FinancialLedgerEntryKind::Released | FinancialLedgerEntryKind::Reversed => -amount_minor,
+    }
+}
+
+fn merge_metadata(mut base: serde_json::Value, extra: serde_json::Value) -> serde_json::Value {
+    match (&mut base, extra) {
+        (serde_json::Value::Object(base), serde_json::Value::Object(extra)) => {
+            for (key, value) in extra {
+                base.insert(key, value);
+            }
+            serde_json::Value::Object(base.clone())
+        }
+        (_, extra) => extra,
     }
 }

@@ -21,6 +21,14 @@ from trustloopguard.guard import (
 )
 from trustloopguard._generated.types import (
     Action,
+    AgenticPaymentAuthorizationResponse,
+    AgenticPaymentAuthorizeRequest,
+    AgenticPaymentCommitRequest,
+    AgenticPaymentDecision,
+    AgenticPaymentRecord,
+    AgenticPaymentReservation,
+    AgenticPaymentReservationStatus,
+    AgenticPaymentRollbackRequest,
     AllowedSource,
     ApiError,
     ApiErrorCode,
@@ -100,6 +108,9 @@ from trustloopguard._generated.types import (
     Trust,
     UpdateRunRequest,
     Verdict,
+    X402NormalizedPaymentRequirement,
+    X402PaymentRequirement,
+    X402SettlementProof,
 )
 from trustloopguard.errors import (
     Decode,
@@ -125,6 +136,14 @@ __all__ = [
     "FinancialOperation",
     # Wire types
     "Action",
+    "AgenticPaymentAuthorizationResponse",
+    "AgenticPaymentAuthorizeRequest",
+    "AgenticPaymentCommitRequest",
+    "AgenticPaymentDecision",
+    "AgenticPaymentRecord",
+    "AgenticPaymentReservation",
+    "AgenticPaymentReservationStatus",
+    "AgenticPaymentRollbackRequest",
     "AllowedSource",
     "ApiError",
     "ApiErrorCode",
@@ -204,6 +223,9 @@ __all__ = [
     "Trust",
     "UpdateRunRequest",
     "Verdict",
+    "X402NormalizedPaymentRequirement",
+    "X402PaymentRequirement",
+    "X402SettlementProof",
     # Retry
     "RetryConfig",
     # Errors

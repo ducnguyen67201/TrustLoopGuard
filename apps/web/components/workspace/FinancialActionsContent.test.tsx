@@ -1,7 +1,11 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { FinancialActionRecord, FinancialActionStatus } from '@trustloopguard/sdk';
+import type {
+  FinancialActionRecord,
+  FinancialActionStatus,
+  FinancialMandate,
+} from '@trustloopguard/sdk';
 
 import { FinancialActionsContent } from './FinancialActionsContent';
 
@@ -53,6 +57,8 @@ describe('FinancialActionsContent', () => {
             monthly_minor: null,
           },
         ]}
+        mandatesCount={1}
+        mandates={[]}
         providerConnections={[
           {
             id: 'provider_1',
@@ -118,6 +124,8 @@ describe('FinancialActionsContent', () => {
         ]}
         outcomesByActionId={{}}
         familyPolicies={[]}
+        mandatesCount={0}
+        mandates={[]}
         providerConnections={[]}
       />,
     );
@@ -173,6 +181,8 @@ describe('FinancialActionsContent', () => {
             enabled: true,
           },
         ]}
+        mandatesCount={0}
+        mandates={[]}
         providerConnections={[]}
       />,
     );
@@ -180,10 +190,56 @@ describe('FinancialActionsContent', () => {
     expect(screen.getByText('Policy controls')).toBeInTheDocument();
     expect(screen.getByText('1 active financial policy')).toBeInTheDocument();
     expect(screen.getByText('Refund controls for support agents')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /policies/i })).toHaveAttribute(
-      'href',
-      '/policies?workspace=demo&environment=production',
+    expect(
+      screen
+        .getAllByRole('link', { name: /policies/i })
+        .some(
+          (link) => link.getAttribute('href') === '/policies?workspace=demo&environment=production',
+        ),
+    ).toBe(true);
+  });
+
+  it('shows the mandate attached to an agentic payment in the ledger row', () => {
+    render(
+      <FinancialActionsContent
+        workspaceSlug="demo"
+        environmentId="production"
+        actions={[
+          {
+            ...action('act_x402', 'executed', 250),
+            action: {
+              ...action('act_x402', 'executed', 250).action,
+              kind: 'payment',
+              operation: 'x402_read_paid_resource',
+              principal_id: 'spid:commerce-agent',
+              counterparty: {
+                id: '0xabc1230000000000000000000000000000000000',
+                kind: 'wallet',
+                metadata: {},
+              },
+              rail: 'x402',
+              mandate: { id: 'mandate_x402_session_1', version: 1 },
+            },
+          },
+        ]}
+        approvals={[]}
+        outcomesByActionId={{}}
+        familyPolicies={[]}
+        mandatesCount={1}
+        mandates={[
+          mandate('mandate_x402_session_1', {
+            user_intent: 'Allow the commerce agent to pay for the premium article.',
+          }),
+        ]}
+        providerConnections={[]}
+      />,
     );
+
+    expect(screen.getByText('Internal mandate')).toBeInTheDocument();
+    expect(
+      screen.getByText('Allow the commerce agent to pay for the premium article.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/up to \$5\.00/)).toBeInTheDocument();
   });
 
   it('shows the financial action reason from failed eligibility evidence', () => {
@@ -212,6 +268,8 @@ describe('FinancialActionsContent', () => {
         approvals={[]}
         outcomesByActionId={{}}
         familyPolicies={[]}
+        mandatesCount={0}
+        mandates={[]}
         providerConnections={[]}
       />,
     );
@@ -234,6 +292,8 @@ describe('FinancialActionsContent', () => {
         approvals={[]}
         outcomesByActionId={{}}
         familyPolicies={[]}
+        mandatesCount={0}
+        mandates={[]}
         providerConnections={[]}
       />,
     );
@@ -278,6 +338,8 @@ describe('FinancialActionsContent', () => {
           ],
         }}
         familyPolicies={[]}
+        mandatesCount={0}
+        mandates={[]}
         providerConnections={[]}
       />,
     );
@@ -313,6 +375,26 @@ function action(
       metadata: {},
     },
     evidence: [],
+    created_at: '2026-07-05T20:00:00Z',
+    updated_at: '2026-07-05T20:00:00Z',
+  };
+}
+
+function mandate(id: string, metadata: Record<string, unknown> = {}): FinancialMandate {
+  return {
+    id,
+    workspace_id: 'ws_1',
+    version: 1,
+    status: 'active',
+    principal_id: 'spid:commerce-agent',
+    scope: {
+      action_kinds: ['payment'],
+      currency: 'USD',
+      max_amount_minor: 500,
+      allowed_hosts: ['127.0.0.1:4021'],
+      allowed_resources: ['/premium/article/agentic-commerce'],
+    },
+    metadata,
     created_at: '2026-07-05T20:00:00Z',
     updated_at: '2026-07-05T20:00:00Z',
   };

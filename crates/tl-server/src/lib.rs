@@ -48,8 +48,9 @@ pub use escalation::{
     RetryPolicy, WebhookDelivery,
 };
 pub use financial::{
-    FinancialActionExecutionAttempt, FinancialAuthorizationService, FinancialLedgerEntryKind,
-    FinancialState, FinancialStore, FinancialStoreError, MemoryFinancialStore,
+    AgenticPaymentBudgetReservationRequest, FinancialActionExecutionAttempt,
+    FinancialAuthorizationService, FinancialLedgerEntryKind, FinancialState, FinancialStore,
+    FinancialStoreError, MemoryFinancialStore,
 };
 pub use gateway::{build_seal_key, GatewayState, GatewayStore, MemoryGatewayStore};
 pub use human_review::{HumanReviewStore, HumanReviewStoreError, MemoryHumanReviewStore};

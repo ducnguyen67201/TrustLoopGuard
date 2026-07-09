@@ -1,26 +1,34 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
+use sha2::{Digest, Sha256};
 use tl_core::{
-    ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    CreateFinancialPolicyRequest, EvidenceRef, FinancialAction, FinancialActionDecision,
-    FinancialActionDecisionReceipt, FinancialActionListResponse, FinancialActionOutcome,
-    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionRecord,
-    FinancialActionStatus, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
+    AgenticPaymentAuthorizationResponse, AgenticPaymentAuthorizeRequest,
+    AgenticPaymentCommitRequest, AgenticPaymentDecision, AgenticPaymentMandateScope,
+    AgenticPaymentRecord, AgenticPaymentReservationStatus, AgenticPaymentRollbackRequest,
+    ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
+    CreateFinancialMandateRequest, CreateFinancialPolicyRequest, EvidenceRef, FinancialAction,
+    FinancialActionDecision, FinancialActionDecisionReceipt, FinancialActionKind,
+    FinancialActionListResponse, FinancialActionOutcome, FinancialActionOutcomeStatus,
+    FinancialActionPrecondition, FinancialActionRecord, FinancialActionStatus,
+    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
     FinancialAuthorizationScopeProof, FinancialDecisionRisk, FinancialDecisionRiskCode,
     FinancialEligibilityStatus, FinancialEvidenceProof, FinancialExecutionProof,
     FinancialExecutionProofStatus, FinancialMandate, FinancialMandateListResponse,
     FinancialMandateStatus, FinancialOutcomeListResponse, FinancialPolicyListResponse,
     FinancialPolicyRecord, FinancialPolicySelector, FinancialRail, FinancialReceipt, PolicyAction,
-    RecoveryStatus, ReversalCapability, Severity, Verdict, DEFAULT_ENVIRONMENT_ID,
+    RecoveryStatus, ReversalCapability, Severity, Verdict, X402NormalizedPaymentRequirement,
+    X402SettlementProof, DEFAULT_ENVIRONMENT_ID,
 };
 use tl_engine::{evaluate_financial_policies, financial_matches, financial_windowed_verdict};
 use tl_policy::{validate_family_policy, Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
 
 use super::{
-    validation::validate_create_action, FinancialExecutionError, FinancialExecutionResult,
-    FinancialExecutor, FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
+    validation::validate_create_action, x402, AgenticPaymentBudgetReservationRequest,
+    FinancialExecutionError, FinancialExecutionResult, FinancialExecutor, FinancialLedgerEntryKind,
+    FinancialStore, FinancialStoreError,
 };
+use crate::auth::WorkspaceKeyContext;
 use crate::budget_alerts::BudgetAlertRuntime;
 use crate::policies::PolicyStore;
 
@@ -125,6 +133,392 @@ impl FinancialAuthorizationService {
         self.store.list_actions(workspace_id).await
     }
 
+    pub async fn authorize_agentic_payment_in_environment(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        runtime_key: Option<WorkspaceKeyContext>,
+        input: AgenticPaymentAuthorizeRequest,
+    ) -> Result<AgenticPaymentAuthorizationResponse, FinancialStoreError> {
+        let principal_id = agentic_payment_principal(&input.principal_id, runtime_key.as_ref())?;
+        let normalized = x402::normalize_payment_requirement(&input.payment_requirement)?;
+        let reservation_expires_at = match input.reservation_expires_at.as_deref() {
+            Some(value) => parse_rfc3339("reservation_expires_at", value)?,
+            None => Utc::now() + Duration::minutes(15),
+        };
+        let session_limit_minor = input
+            .session_limit_minor
+            .unwrap_or(normalized.amount.amount_minor);
+        let action_input = CreateFinancialActionRequest {
+            idempotency_key: input.idempotency_key.clone(),
+            execute: false,
+            action: FinancialAction {
+                id: None,
+                kind: FinancialActionKind::Payment,
+                operation: input
+                    .operation
+                    .clone()
+                    .unwrap_or_else(|| "x402_payment".into()),
+                principal_id: principal_id.clone(),
+                amount: normalized.amount.clone(),
+                counterparty: Some(agentic_payment_counterparty(&normalized)),
+                rail: FinancialRail::X402,
+                mandate: input.mandate.clone(),
+                memo: Some("x402 agentic payment authorization".into()),
+                metadata: agentic_payment_metadata(
+                    &input,
+                    &normalized,
+                    principal_id.as_str(),
+                    runtime_key.as_ref(),
+                    session_limit_minor,
+                    reservation_expires_at,
+                ),
+            },
+            evidence: input.evidence.clone(),
+        };
+
+        validate_create_action(&action_input)?;
+        let mut action = self.store.create_action(workspace_id, action_input).await?;
+        if action.status == FinancialActionStatus::Proposed {
+            action = self.enforce_mandate(workspace_id, action).await?;
+        }
+        if action.status == FinancialActionStatus::Proposed {
+            action = self
+                .apply_financial_policies(workspace_id, environment_id, action)
+                .await?;
+        }
+
+        let mut reservation = None;
+        if matches!(
+            action.status,
+            FinancialActionStatus::Proposed | FinancialActionStatus::Held
+        ) {
+            let reserve_result = self
+                .store
+                .try_reserve_agentic_payment_budget(AgenticPaymentBudgetReservationRequest {
+                    workspace_id: workspace_id.to_string(),
+                    session_id: input.session_id.clone(),
+                    principal_id: principal_id.clone(),
+                    action_id: action.id.clone(),
+                    payment_requirement_hash: normalized.payment_requirement_hash.clone(),
+                    amount: normalized.amount.clone(),
+                    session_limit_minor,
+                    expires_at: reservation_expires_at,
+                    metadata: serde_json::json!({
+                        "source": "financial_authorization_service",
+                        "protocol": "x402",
+                        "action_id": action.id,
+                        "idempotency_key": input.idempotency_key,
+                        "normalized_requirement": normalized,
+                    }),
+                })
+                .await;
+            let reserved = match reserve_result {
+                Ok(reserved) => reserved,
+                Err(error) => {
+                    if action.status == FinancialActionStatus::Held {
+                        if self
+                            .ledger_entry_exists(workspace_id, &action, "reserved")
+                            .await?
+                        {
+                            self.record_action_ledger_entry(
+                                workspace_id,
+                                &action,
+                                FinancialLedgerEntryKind::Released,
+                                "released",
+                            )
+                            .await?;
+                        }
+                        self.store
+                            .resolve_pending_approval_requests(
+                                workspace_id,
+                                &action.id,
+                                FinancialApprovalRequestStatus::Denied,
+                                None,
+                            )
+                            .await?;
+                        self.transition_action(
+                            workspace_id,
+                            &action.id,
+                            FinancialActionStatus::Failed,
+                            "x402_reservation_failed",
+                        )
+                        .await?;
+                    }
+                    return Err(error);
+                }
+            };
+            reservation = Some(reserved);
+            if action.status == FinancialActionStatus::Proposed {
+                self.record_action_ledger_entry(
+                    workspace_id,
+                    &action,
+                    FinancialLedgerEntryKind::Reserved,
+                    "reserved",
+                )
+                .await?;
+                action = self
+                    .transition_action(
+                        workspace_id,
+                        &action.id,
+                        FinancialActionStatus::Authorized,
+                        "x402_reserved",
+                    )
+                    .await?;
+            }
+        }
+
+        if reservation.is_none() {
+            reservation = match self
+                .store
+                .get_agentic_payment_reservation(workspace_id, &action.id)
+                .await
+            {
+                Ok(reservation) => Some(reservation),
+                Err(FinancialStoreError::NotFound) => None,
+                Err(error) => return Err(error),
+            };
+        }
+        let decision = agentic_payment_decision(action.status);
+        let reason =
+            agentic_payment_authorization_reason(action.status, action.status_reason.as_deref());
+        Ok(AgenticPaymentAuthorizationResponse {
+            decision,
+            signable: matches!(
+                reservation.as_ref().map(|item| item.status),
+                Some(AgenticPaymentReservationStatus::Reserved)
+            ) && action.status == FinancialActionStatus::Authorized,
+            reason,
+            record: AgenticPaymentRecord {
+                id: action.id.clone(),
+                decision,
+                action,
+                normalized_requirement: normalized,
+                reservation,
+                proof: None,
+                receipt_id: None,
+            },
+            decision_receipt_id: None,
+        })
+    }
+
+    pub async fn get_agentic_payment(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<AgenticPaymentRecord, FinancialStoreError> {
+        let action = self.store.get_action(workspace_id, action_id).await?;
+        let normalized = normalized_requirement_from_action(&action)?;
+        let reservation = match self
+            .store
+            .get_agentic_payment_reservation(workspace_id, action_id)
+            .await
+        {
+            Ok(reservation) => Some(reservation),
+            Err(FinancialStoreError::NotFound) => None,
+            Err(error) => return Err(error),
+        };
+        let receipt_id = match self.store.get_receipt(workspace_id, action_id).await {
+            Ok(receipt) => Some(receipt.id),
+            Err(FinancialStoreError::NotFound) => None,
+            Err(error) => return Err(error),
+        };
+        Ok(AgenticPaymentRecord {
+            id: action.id.clone(),
+            decision: agentic_payment_decision(action.status),
+            action,
+            normalized_requirement: normalized,
+            reservation,
+            proof: None,
+            receipt_id,
+        })
+    }
+
+    pub async fn commit_agentic_payment(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        runtime_key: Option<WorkspaceKeyContext>,
+        input: AgenticPaymentCommitRequest,
+    ) -> Result<AgenticPaymentRecord, FinancialStoreError> {
+        let current = self.store.get_action(workspace_id, action_id).await?;
+        ensure_agentic_payment_principal(&current, runtime_key.as_ref())?;
+        let normalized = normalized_requirement_from_action(&current)?;
+        x402::verify_settlement_proof(&normalized, &input.proof)?;
+        match current.status {
+            FinancialActionStatus::Authorized => {}
+            FinancialActionStatus::Held => {
+                return Err(FinancialStoreError::Validation(
+                    "agentic payment requires approval before commit".into(),
+                ));
+            }
+            FinancialActionStatus::Executed => {
+                let receipt_id = match self.store.get_receipt(workspace_id, action_id).await {
+                    Ok(receipt) => Some(receipt.id),
+                    Err(FinancialStoreError::NotFound) => None,
+                    Err(error) => return Err(error),
+                };
+                let reservation = self
+                    .store
+                    .get_agentic_payment_reservation(workspace_id, action_id)
+                    .await
+                    .ok();
+                return Ok(AgenticPaymentRecord {
+                    id: current.id.clone(),
+                    decision: AgenticPaymentDecision::Committed,
+                    action: current,
+                    normalized_requirement: normalized,
+                    reservation,
+                    proof: Some(input.proof),
+                    receipt_id,
+                });
+            }
+            _ => {
+                return Err(FinancialStoreError::Validation(format!(
+                    "agentic payment with status `{}` cannot be committed",
+                    financial_status_label(current.status)
+                )))
+            }
+        }
+
+        let proof_value = serde_json::to_value(&input.proof)
+            .map_err(|e| FinancialStoreError::Internal(format!("x402 proof encode: {e}")))?;
+        let reservation = self
+            .store
+            .commit_agentic_payment_reservation(workspace_id, action_id, proof_value)
+            .await?;
+        let executed = self
+            .transition_action(
+                workspace_id,
+                action_id,
+                FinancialActionStatus::Executed,
+                "x402_committed",
+            )
+            .await?;
+        let mut ledger_event_ids = Vec::new();
+        if self
+            .ledger_entry_exists(workspace_id, &current, "reserved")
+            .await?
+        {
+            ledger_event_ids.push(
+                self.record_action_ledger_entry(
+                    workspace_id,
+                    &current,
+                    FinancialLedgerEntryKind::Released,
+                    "released",
+                )
+                .await?,
+            );
+        }
+        ledger_event_ids.push(
+            self.record_action_ledger_entry(
+                workspace_id,
+                &executed,
+                FinancialLedgerEntryKind::Executed,
+                "executed",
+            )
+            .await?,
+        );
+        self.notify_budget_alerts(workspace_id, &executed).await;
+        let provider_result = Some(agentic_payment_execution_result(&input.proof));
+        let receipt = self
+            .create_execution_receipt(
+                workspace_id,
+                DEFAULT_ENVIRONMENT_ID,
+                &executed,
+                &ledger_event_ids,
+                &provider_result,
+            )
+            .await?;
+        self.record_provider_success(
+            workspace_id,
+            &executed,
+            agentic_payment_execution_result(&input.proof),
+        )
+        .await?;
+        Ok(AgenticPaymentRecord {
+            id: executed.id.clone(),
+            decision: AgenticPaymentDecision::Committed,
+            action: executed,
+            normalized_requirement: normalized,
+            reservation: Some(reservation),
+            proof: Some(input.proof),
+            receipt_id: Some(receipt.id),
+        })
+    }
+
+    pub async fn rollback_agentic_payment(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        runtime_key: Option<WorkspaceKeyContext>,
+        input: AgenticPaymentRollbackRequest,
+    ) -> Result<AgenticPaymentRecord, FinancialStoreError> {
+        let current = self.store.get_action(workspace_id, action_id).await?;
+        ensure_agentic_payment_principal(&current, runtime_key.as_ref())?;
+        let normalized = normalized_requirement_from_action(&current)?;
+        if current.status == FinancialActionStatus::Executed {
+            return Err(FinancialStoreError::Validation(
+                "agentic payment rollback only releases an unsettled reservation; settled x402 payments cannot be reverted here".into(),
+            ));
+        }
+        let reservation = self
+            .store
+            .release_agentic_payment_reservation(
+                workspace_id,
+                action_id,
+                &input.reason,
+                serde_json::json!({
+                    "provider_error": input.provider_error,
+                    "idempotency_key": input.idempotency_key,
+                    "metadata": input.metadata,
+                    "source": "financial_authorization_service",
+                }),
+            )
+            .await?;
+        if self
+            .ledger_entry_exists(workspace_id, &current, "reserved")
+            .await?
+        {
+            self.record_action_ledger_entry(
+                workspace_id,
+                &current,
+                FinancialLedgerEntryKind::Released,
+                "released",
+            )
+            .await?;
+        }
+        let failed = match current.status {
+            FinancialActionStatus::Proposed
+            | FinancialActionStatus::Authorized
+            | FinancialActionStatus::Held => {
+                self.transition_action(
+                    workspace_id,
+                    action_id,
+                    FinancialActionStatus::Failed,
+                    "x402_rolled_back",
+                )
+                .await?
+            }
+            FinancialActionStatus::Denied
+            | FinancialActionStatus::Failed
+            | FinancialActionStatus::Reversed
+            | FinancialActionStatus::Expired => current,
+            FinancialActionStatus::Executed => unreachable!(),
+        };
+        self.record_provider_failure(workspace_id, &failed, input.reason)
+            .await?;
+        Ok(AgenticPaymentRecord {
+            id: failed.id.clone(),
+            decision: AgenticPaymentDecision::RolledBack,
+            action: failed,
+            normalized_requirement: normalized,
+            reservation: Some(reservation),
+            proof: None,
+            receipt_id: None,
+        })
+    }
+
     pub async fn create_financial_policy(
         &self,
         workspace_id: &str,
@@ -175,6 +569,7 @@ impl FinancialAuthorizationService {
         workspace_id: &str,
         input: CreateFinancialMandateRequest,
     ) -> Result<FinancialMandate, FinancialStoreError> {
+        let input = normalize_create_mandate_request(input)?;
         self.store.create_mandate(workspace_id, input).await
     }
 
@@ -892,6 +1287,8 @@ impl FinancialAuthorizationService {
                 scope_ref: None,
                 scope_snapshot: None,
                 source: Some("financial_authorization_service".into()),
+                mandate_hash: None,
+                normalized_scope: None,
                 reason: Some(if scope_required {
                     "authorization scope required before execution".into()
                 } else {
@@ -912,6 +1309,8 @@ impl FinancialAuthorizationService {
                     scope_ref: Some(scope_ref.clone()),
                     scope_snapshot: None,
                     source: Some("financial_authorization_service".into()),
+                    mandate_hash: None,
+                    normalized_scope: None,
                     reason: Some("authorization scope not found".into()),
                 });
             }
@@ -929,6 +1328,8 @@ impl FinancialAuthorizationService {
                 FinancialEligibilityStatus::Passed
             },
             scope_ref: Some(scope_ref.clone()),
+            mandate_hash: Some(mandate_hash(&snapshot.scope)?),
+            normalized_scope: Some(snapshot.scope.clone()),
             scope_snapshot: Some(snapshot),
             source: Some("financial_authorization_service".into()),
             reason,
@@ -1227,6 +1628,272 @@ impl FinancialAuthorizationService {
             decision = compose_policy_decisions(decision, Some(next));
         }
         Ok(decision)
+    }
+}
+
+fn agentic_payment_principal(
+    requested_principal_id: &str,
+    runtime_key: Option<&WorkspaceKeyContext>,
+) -> Result<String, FinancialStoreError> {
+    let requested = requested_principal_id.trim();
+    if requested.is_empty() {
+        return Err(FinancialStoreError::Validation(
+            "principal_id must not be empty".into(),
+        ));
+    }
+    let Some(runtime_key) = runtime_key else {
+        return Ok(requested.to_string());
+    };
+    let bound = runtime_key_principal(runtime_key);
+    if requested != bound {
+        return Err(FinancialStoreError::Validation(
+            "principal_id must match the runtime API key principal".into(),
+        ));
+    }
+    Ok(bound)
+}
+
+fn ensure_agentic_payment_principal(
+    action: &FinancialActionRecord,
+    runtime_key: Option<&WorkspaceKeyContext>,
+) -> Result<(), FinancialStoreError> {
+    let Some(runtime_key) = runtime_key else {
+        return Ok(());
+    };
+    let bound = runtime_key_principal(runtime_key);
+    if action.action.principal_id != bound {
+        return Err(FinancialStoreError::Validation(
+            "runtime API key principal cannot operate on this payment".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn runtime_key_principal(runtime_key: &WorkspaceKeyContext) -> String {
+    runtime_key
+        .principal_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(&runtime_key.api_key_id)
+        .to_string()
+}
+
+fn agentic_payment_counterparty(normalized: &X402NormalizedPaymentRequirement) -> CounterpartyRef {
+    CounterpartyRef {
+        id: normalized
+            .normalized_pay_to
+            .clone()
+            .unwrap_or_else(|| normalized.pay_to.clone()),
+        display_name: Some(normalized.pay_to.clone()),
+        kind: "x402_pay_to".into(),
+        country: None,
+        metadata: serde_json::json!({
+            "network": normalized.network,
+            "asset": normalized.asset,
+            "scheme": normalized.scheme,
+            "resource": normalized.resource,
+            "method": normalized.method,
+            "host": normalized.host,
+            "facilitator": normalized.facilitator,
+        }),
+    }
+}
+
+fn agentic_payment_metadata(
+    input: &AgenticPaymentAuthorizeRequest,
+    normalized: &X402NormalizedPaymentRequirement,
+    principal_id: &str,
+    runtime_key: Option<&WorkspaceKeyContext>,
+    session_limit_minor: i64,
+    reservation_expires_at: DateTime<Utc>,
+) -> serde_json::Value {
+    serde_json::json!({
+        "agentic_payment": {
+            "protocol": "x402",
+            "session_id": input.session_id,
+            "requested_principal_id": input.principal_id,
+            "principal_id": principal_id,
+            "session_limit_minor": session_limit_minor,
+            "reservation_expires_at": reservation_expires_at.to_rfc3339(),
+            "payment_requirement": input.payment_requirement,
+            "normalized_requirement": normalized,
+            "traceparent": input.traceparent,
+            "tracestate": input.tracestate,
+            "runtime_api_key_id": runtime_key.map(|key| key.api_key_id.as_str()),
+        },
+        "x402": {
+            "session_id": input.session_id,
+            "payment_requirement": input.payment_requirement,
+            "normalized_requirement": normalized,
+        },
+        "customer_metadata": input.metadata,
+    })
+}
+
+fn normalize_create_mandate_request(
+    mut input: CreateFinancialMandateRequest,
+) -> Result<CreateFinancialMandateRequest, FinancialStoreError> {
+    let Some(payment_scope) = input.payment_scope.as_ref() else {
+        return Ok(input);
+    };
+    validate_payment_mandate_scope(payment_scope)?;
+    let normalized_scope = payment_scope_json(payment_scope)?;
+    if !json_scope_is_empty(&input.scope) && input.scope != normalized_scope {
+        return Err(FinancialStoreError::Validation(
+            "provide either scope or payment_scope, not conflicting mandate scopes".into(),
+        ));
+    }
+    input.scope = normalized_scope;
+    Ok(input)
+}
+
+fn validate_payment_mandate_scope(
+    scope: &AgenticPaymentMandateScope,
+) -> Result<(), FinancialStoreError> {
+    if scope.action_kinds.is_empty() {
+        return Err(FinancialStoreError::Validation(
+            "payment_scope.action_kinds must include at least one action kind".into(),
+        ));
+    }
+    if scope
+        .currency
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or("")
+        .is_empty()
+    {
+        return Err(FinancialStoreError::Validation(
+            "payment_scope.currency is required".into(),
+        ));
+    }
+    match scope.max_amount_minor {
+        Some(amount) if amount > 0 => {}
+        _ => {
+            return Err(FinancialStoreError::Validation(
+                "payment_scope.max_amount_minor must be greater than zero".into(),
+            ))
+        }
+    }
+    Ok(())
+}
+
+fn payment_scope_json(
+    scope: &AgenticPaymentMandateScope,
+) -> Result<serde_json::Value, FinancialStoreError> {
+    let mut value = serde_json::to_value(scope)
+        .map_err(|e| FinancialStoreError::Internal(format!("payment scope encode: {e}")))?;
+    if let Some(object) = value.as_object_mut() {
+        object.retain(|_, value| match value {
+            serde_json::Value::Null => false,
+            serde_json::Value::Array(values) => !values.is_empty(),
+            serde_json::Value::String(value) => !value.trim().is_empty(),
+            _ => true,
+        });
+    }
+    Ok(value)
+}
+
+fn json_scope_is_empty(value: &serde_json::Value) -> bool {
+    match value {
+        serde_json::Value::Null => true,
+        serde_json::Value::Object(object) => object.is_empty(),
+        _ => false,
+    }
+}
+
+fn mandate_hash(scope: &serde_json::Value) -> Result<String, FinancialStoreError> {
+    let encoded = serde_json::to_vec(scope)
+        .map_err(|e| FinancialStoreError::Internal(format!("mandate scope encode: {e}")))?;
+    let mut hasher = Sha256::new();
+    hasher.update(encoded);
+    let hash_hex = hasher
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    Ok(format!("sha256:{hash_hex}"))
+}
+
+fn agentic_payment_decision(status: FinancialActionStatus) -> AgenticPaymentDecision {
+    match status {
+        FinancialActionStatus::Authorized | FinancialActionStatus::Proposed => {
+            AgenticPaymentDecision::Authorized
+        }
+        FinancialActionStatus::Held => AgenticPaymentDecision::Held,
+        FinancialActionStatus::Executed => AgenticPaymentDecision::Committed,
+        FinancialActionStatus::Denied => AgenticPaymentDecision::Denied,
+        FinancialActionStatus::Failed | FinancialActionStatus::Expired => {
+            AgenticPaymentDecision::Failed
+        }
+        FinancialActionStatus::Reversed => AgenticPaymentDecision::RolledBack,
+    }
+}
+
+fn agentic_payment_authorization_reason(
+    status: FinancialActionStatus,
+    status_reason: Option<&str>,
+) -> String {
+    if let Some(reason) = status_reason.filter(|reason| !reason.is_empty()) {
+        return reason.to_string();
+    }
+    match status {
+        FinancialActionStatus::Authorized => {
+            "x402 payment authorized; reservation is ready for signing".into()
+        }
+        FinancialActionStatus::Held => "x402 payment requires human approval before signing".into(),
+        FinancialActionStatus::Denied => "x402 payment denied before signing".into(),
+        FinancialActionStatus::Failed => "x402 payment authorization failed".into(),
+        FinancialActionStatus::Proposed => "x402 payment passed initial checks".into(),
+        FinancialActionStatus::Executed => "x402 payment already committed".into(),
+        FinancialActionStatus::Reversed => "x402 payment was rolled back".into(),
+        FinancialActionStatus::Expired => "x402 payment authorization expired".into(),
+    }
+}
+
+fn normalized_requirement_from_action(
+    action: &FinancialActionRecord,
+) -> Result<X402NormalizedPaymentRequirement, FinancialStoreError> {
+    if action.action.rail != FinancialRail::X402 {
+        return Err(FinancialStoreError::Validation(
+            "financial action is not an x402 agentic payment".into(),
+        ));
+    }
+    let value = action
+        .action
+        .metadata
+        .get("agentic_payment")
+        .and_then(|value| value.get("normalized_requirement"))
+        .or_else(|| {
+            action
+                .action
+                .metadata
+                .get("x402")
+                .and_then(|value| value.get("normalized_requirement"))
+        })
+        .cloned()
+        .ok_or_else(|| {
+            FinancialStoreError::Internal(
+                "x402 normalized payment requirement missing from action metadata".into(),
+            )
+        })?;
+    serde_json::from_value(value)
+        .map_err(|e| FinancialStoreError::Internal(format!("x402 metadata decode: {e}")))
+}
+
+fn agentic_payment_execution_result(proof: &X402SettlementProof) -> FinancialExecutionResult {
+    FinancialExecutionResult {
+        provider_status: Some("settled".into()),
+        provider_reference: proof.settlement_reference.clone(),
+        provider_response: serde_json::json!({
+            "protocol": "x402",
+            "provider": proof.provider,
+            "payment_requirement_hash": proof.payment_requirement_hash,
+            "payment_response": proof.payment_response,
+            "raw": proof.raw,
+        }),
+        reversal_capability: ReversalCapability::None,
+        recovery_status: RecoveryStatus::NotAvailable,
     }
 }
 
@@ -1725,6 +2392,29 @@ fn mandate_scope_denial_reason(
         }
     }
 
+    if let Some(operation) = mandate.scope.get("operation") {
+        let Some(operation) = operation.as_str() else {
+            return Ok(Some("mandate_scope_operation_invalid".into()));
+        };
+        if operation != action.action.operation {
+            return Ok(Some("mandate_scope_operation_mismatch".into()));
+        }
+    }
+
+    if let Some(rail) = mandate.scope.get("rail") {
+        let expected = serde_json::to_value(action.action.rail)
+            .map_err(|e| FinancialStoreError::Internal(format!("rail encode: {e}")))?;
+        let expected = expected
+            .as_str()
+            .ok_or_else(|| FinancialStoreError::Internal("rail encode".into()))?;
+        let Some(rail) = rail.as_str() else {
+            return Ok(Some("mandate_scope_rail_invalid".into()));
+        };
+        if !rail.eq_ignore_ascii_case(expected) {
+            return Ok(Some("mandate_scope_rail_mismatch".into()));
+        }
+    }
+
     if let Some(currency) = mandate.scope.get("currency") {
         let Some(currency) = currency.as_str() else {
             return Ok(Some("mandate_scope_currency_invalid".into()));
@@ -1749,6 +2439,81 @@ fn mandate_scope_denial_reason(
         }
     }
 
+    if let Some(counterparties) = mandate.scope.get("allowed_counterparty_ids") {
+        let Some(counterparty) = action.action.counterparty.as_ref() else {
+            return Ok(Some("mandate_scope_counterparty_mismatch".into()));
+        };
+        let mut candidates = vec![counterparty.id.as_str()];
+        if let Some(display_name) = counterparty.display_name.as_deref() {
+            candidates.push(display_name);
+        }
+        if !json_string_array_contains_any(counterparties, &candidates)? {
+            return Ok(Some("mandate_scope_counterparty_mismatch".into()));
+        }
+    }
+
+    let x402 = normalized_requirement_from_action(action).ok();
+    if let Some(hosts) = mandate.scope.get("allowed_hosts") {
+        let Some(host) = x402
+            .as_ref()
+            .and_then(|requirement| requirement.host.as_deref())
+        else {
+            return Ok(Some("mandate_scope_host_mismatch".into()));
+        };
+        if !json_string_array_contains(hosts, host)? {
+            return Ok(Some("mandate_scope_host_mismatch".into()));
+        }
+    }
+
+    if let Some(resources) = mandate.scope.get("allowed_resources") {
+        let Some(resource) = x402
+            .as_ref()
+            .and_then(|requirement| requirement.resource.as_deref())
+        else {
+            return Ok(Some("mandate_scope_resource_mismatch".into()));
+        };
+        if !json_string_array_contains(resources, resource)? {
+            return Ok(Some("mandate_scope_resource_mismatch".into()));
+        }
+    }
+
+    if let Some(networks) = mandate.scope.get("allowed_networks") {
+        let Some(network) = x402
+            .as_ref()
+            .and_then(|requirement| requirement.network.as_deref())
+        else {
+            return Ok(Some("mandate_scope_network_mismatch".into()));
+        };
+        if !json_string_array_contains(networks, network)? {
+            return Ok(Some("mandate_scope_network_mismatch".into()));
+        }
+    }
+
+    if let Some(assets) = mandate.scope.get("allowed_assets") {
+        let candidates = x402
+            .as_ref()
+            .and_then(|requirement| requirement.asset.as_deref())
+            .into_iter()
+            .chain(std::iter::once(action.action.amount.currency.as_str()))
+            .collect::<Vec<_>>();
+        if !json_string_array_contains_any(assets, &candidates)? {
+            return Ok(Some("mandate_scope_asset_mismatch".into()));
+        }
+    }
+
+    if let Some(pay_to) = mandate.scope.get("allowed_pay_to") {
+        let Some(requirement) = x402.as_ref() else {
+            return Ok(Some("mandate_scope_pay_to_mismatch".into()));
+        };
+        let mut candidates = vec![requirement.pay_to.as_str()];
+        if let Some(normalized_pay_to) = requirement.normalized_pay_to.as_deref() {
+            candidates.push(normalized_pay_to);
+        }
+        if !json_string_array_contains_any(pay_to, &candidates)? {
+            return Ok(Some("mandate_scope_pay_to_mismatch".into()));
+        }
+    }
+
     Ok(None)
 }
 
@@ -1761,6 +2526,12 @@ fn parse_optional_rfc3339(
         .transpose()
         .map_err(|e| FinancialStoreError::Validation(format!("{field}: {e}")))
         .map(|value| value.map(|dt| dt.with_timezone(&Utc)))
+}
+
+fn parse_rfc3339(field: &str, value: &str) -> Result<DateTime<Utc>, FinancialStoreError> {
+    DateTime::parse_from_rfc3339(value)
+        .map(|value| value.with_timezone(&Utc))
+        .map_err(|e| FinancialStoreError::Validation(format!("{field}: {e}")))
 }
 
 fn json_string_array_contains(
@@ -1777,6 +2548,18 @@ fn json_string_array_contains(
             ));
         };
         if candidate.eq_ignore_ascii_case(expected) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn json_string_array_contains_any(
+    value: &serde_json::Value,
+    expected_values: &[&str],
+) -> Result<bool, FinancialStoreError> {
+    for expected in expected_values {
+        if json_string_array_contains(value, expected)? {
             return Ok(true);
         }
     }

@@ -1,7 +1,9 @@
 use tracing::instrument;
 
 use crate::{
-    Client, CounterpartyRef, CreateFinancialActionRequest, CreateFinancialMandateRequest,
+    AgenticPaymentAuthorizationResponse, AgenticPaymentAuthorizeRequest,
+    AgenticPaymentCommitRequest, AgenticPaymentRecord, AgenticPaymentRollbackRequest, Client,
+    CounterpartyRef, CreateFinancialActionRequest, CreateFinancialMandateRequest,
     CreateFinancialPolicyRequest, EvidenceRef, FinancialAction, FinancialActionDecisionReceipt,
     FinancialActionKind, FinancialActionListResponse, FinancialActionOutcome,
     FinancialActionRecord, FinancialApprovalRequestListResponse, FinancialMandate,
@@ -136,6 +138,96 @@ impl Client {
             self.send_get("/v1/financial/actions")
         })
         .await
+    }
+
+    /// Authorize and reserve an x402 agentic payment before the agent signs or pays.
+    #[instrument(
+        name = "tl_sdk_rust::authorize_agentic_payment",
+        skip_all,
+        fields(
+            principal_id = %req.principal_id,
+            session_id = %req.session_id,
+            attempt = tracing::field::Empty,
+        ),
+    )]
+    pub async fn authorize_agentic_payment(
+        &self,
+        req: &AgenticPaymentAuthorizeRequest,
+    ) -> Result<AgenticPaymentAuthorizationResponse, SdkError> {
+        self.retry_loop("/v1/financial/agentic-payments/authorize", || {
+            self.send_post_json("/v1/financial/agentic-payments/authorize", req)
+        })
+        .await
+    }
+
+    /// Fetch an x402 agentic payment record by canonical financial action id.
+    #[instrument(
+        name = "tl_sdk_rust::get_agentic_payment",
+        skip_all,
+        fields(action_id = %action_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn get_agentic_payment(
+        &self,
+        action_id: &str,
+    ) -> Result<AgenticPaymentRecord, SdkError> {
+        let path = format!(
+            "/v1/financial/agentic-payments/{}",
+            urlencoding::encode(action_id)
+        );
+        self.retry_loop(&path, || self.send_get(&path)).await
+    }
+
+    /// Commit an authorized x402 payment after settlement proof is available.
+    #[instrument(
+        name = "tl_sdk_rust::commit_agentic_payment",
+        skip_all,
+        fields(action_id = %action_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn commit_agentic_payment(
+        &self,
+        action_id: &str,
+        req: &AgenticPaymentCommitRequest,
+    ) -> Result<AgenticPaymentRecord, SdkError> {
+        let path = format!(
+            "/v1/financial/agentic-payments/{}/commit",
+            urlencoding::encode(action_id)
+        );
+        self.send_post_json(&path, req).await
+    }
+
+    /// Release an x402 payment reservation when the agent does not settle.
+    #[instrument(
+        name = "tl_sdk_rust::rollback_agentic_payment",
+        skip_all,
+        fields(action_id = %action_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn rollback_agentic_payment(
+        &self,
+        action_id: &str,
+        req: &AgenticPaymentRollbackRequest,
+    ) -> Result<AgenticPaymentRecord, SdkError> {
+        let path = format!(
+            "/v1/financial/agentic-payments/{}/rollback",
+            urlencoding::encode(action_id)
+        );
+        self.send_post_json(&path, req).await
+    }
+
+    /// Fetch the signed financial receipt for an x402 agentic payment.
+    #[instrument(
+        name = "tl_sdk_rust::get_agentic_payment_receipt",
+        skip_all,
+        fields(action_id = %action_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn get_agentic_payment_receipt(
+        &self,
+        action_id: &str,
+    ) -> Result<FinancialReceipt, SdkError> {
+        let path = format!(
+            "/v1/financial/agentic-payments/{}/receipt",
+            urlencoding::encode(action_id)
+        );
+        self.retry_loop(&path, || self.send_get(&path)).await
     }
 
     /// Create or update a financial spending control.

@@ -18,6 +18,11 @@ from urllib.parse import quote
 
 from trustloopguard._generated.types import (
     Action,
+    AgenticPaymentAuthorizationResponse,
+    AgenticPaymentAuthorizeRequest,
+    AgenticPaymentCommitRequest,
+    AgenticPaymentRecord,
+    AgenticPaymentRollbackRequest,
     CounterpartyRef,
     CreateFinancialActionRequest,
     CreateFinancialMandateRequest,
@@ -474,6 +479,71 @@ class Client:
                 method="GET",
                 timeout=timeout,
                 model=FinancialActionListResponse,
+            )
+        )
+
+    def authorize_agentic_payment(
+        self, req: AgenticPaymentAuthorizeRequest, *, timeout: float | None = None
+    ) -> AgenticPaymentAuthorizationResponse:
+        return self._run_with_retry(
+            lambda: self._send_json_model(
+                "/v1/financial/agentic-payments/authorize",
+                method="POST",
+                body=req.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=AgenticPaymentAuthorizationResponse,
+            )
+        )
+
+    def get_agentic_payment(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> AgenticPaymentRecord:
+        path = f"/v1/financial/agentic-payments/{quote(action_id, safe='')}"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=AgenticPaymentRecord
+            )
+        )
+
+    def commit_agentic_payment(
+        self,
+        action_id: str,
+        req: AgenticPaymentCommitRequest,
+        *,
+        timeout: float | None = None,
+    ) -> AgenticPaymentRecord:
+        path = f"/v1/financial/agentic-payments/{quote(action_id, safe='')}/commit"
+        return self._send_json_model(
+            path,
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=AgenticPaymentRecord,
+        )
+
+    def rollback_agentic_payment(
+        self,
+        action_id: str,
+        req: AgenticPaymentRollbackRequest,
+        *,
+        timeout: float | None = None,
+    ) -> AgenticPaymentRecord:
+        path = f"/v1/financial/agentic-payments/{quote(action_id, safe='')}/rollback"
+        return self._send_json_model(
+            path,
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=AgenticPaymentRecord,
+        )
+
+    def get_agentic_payment_receipt(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialReceipt:
+        path = f"/v1/financial/agentic-payments/{quote(action_id, safe='')}/receipt"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialReceipt
             )
         )
 
@@ -1215,6 +1285,71 @@ class AsyncClient:
                 method="GET",
                 timeout=timeout,
                 model=FinancialActionListResponse,
+            )
+        )
+
+    async def authorize_agentic_payment(
+        self, req: AgenticPaymentAuthorizeRequest, *, timeout: float | None = None
+    ) -> AgenticPaymentAuthorizationResponse:
+        return await self._run_with_retry(
+            lambda: self._send_json_model(
+                "/v1/financial/agentic-payments/authorize",
+                method="POST",
+                body=req.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=AgenticPaymentAuthorizationResponse,
+            )
+        )
+
+    async def get_agentic_payment(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> AgenticPaymentRecord:
+        path = f"/v1/financial/agentic-payments/{quote(action_id, safe='')}"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=AgenticPaymentRecord
+            )
+        )
+
+    async def commit_agentic_payment(
+        self,
+        action_id: str,
+        req: AgenticPaymentCommitRequest,
+        *,
+        timeout: float | None = None,
+    ) -> AgenticPaymentRecord:
+        path = f"/v1/financial/agentic-payments/{quote(action_id, safe='')}/commit"
+        return await self._send_json_model(
+            path,
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=AgenticPaymentRecord,
+        )
+
+    async def rollback_agentic_payment(
+        self,
+        action_id: str,
+        req: AgenticPaymentRollbackRequest,
+        *,
+        timeout: float | None = None,
+    ) -> AgenticPaymentRecord:
+        path = f"/v1/financial/agentic-payments/{quote(action_id, safe='')}/rollback"
+        return await self._send_json_model(
+            path,
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=AgenticPaymentRecord,
+        )
+
+    async def get_agentic_payment_receipt(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialReceipt:
+        path = f"/v1/financial/agentic-payments/{quote(action_id, safe='')}/receipt"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialReceipt
             )
         )
 

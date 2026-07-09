@@ -48,6 +48,7 @@ import { PolicyBuilderEditor } from '@/components/policies/PolicyBuilderEditor';
 import { PolicyYamlDiffEditor } from '@/components/policies/PolicyYamlDiffEditor';
 import type { VersionEntry } from '@/components/policies/VersionPicker';
 import { FinancialPolicyCreateDialog } from '@/components/workspace/FinancialSpendingControlsCard';
+import { FinancialAuthorizationModel } from '@/components/workspace/FinancialAuthorizationModel';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
 import { PolicySeverityBadge } from '@/components/workspace/PolicySeverityBadge';
 import { useRowSelection } from '@/hooks/use-row-selection';
@@ -177,41 +178,35 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     const custom = Array.from(familyIds).filter((family) => !canonicalOrder.includes(family));
     return [...ordered, ...custom].map((family) => ({
       id: family,
-      label:
-        family === 'all'
-          ? 'All'
-          : FAMILY_LABEL[family] ?? `Advanced: ${titleLabel(family)}`,
-      count: family === 'all' ? policies.length : familyCounts.get(family) ?? 0,
+      label: family === 'all' ? 'All' : (FAMILY_LABEL[family] ?? `Advanced: ${titleLabel(family)}`),
+      count: family === 'all' ? policies.length : (familyCounts.get(family) ?? 0),
     }));
   }, [familyCounts, policies]);
-  const filteredPolicies = useMemo(
-    () => {
-      const query = searchQuery.trim().toLowerCase();
-      return policies.filter((policy) => {
-        const familyMatches = familyFilter === 'all' || policy.family === familyFilter;
-        if (!familyMatches) return false;
-        if (query === '') return true;
-        const financialPolicy = financialPolicyById.get(policy.id);
-        const searchable = [
-          policy.id,
-          policy.family,
-          policy.description,
-          policy.agent,
-          policy.action,
-          policy.severity,
-          financialPolicy?.when?.action_kinds?.join(' '),
-          financialPolicy?.when?.operations?.join(' '),
-          financialPolicy?.when?.agents?.join(' '),
-          financialPolicy?.required_preconditions?.join(' '),
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
-        return searchable.includes(query);
-      });
-    },
-    [familyFilter, financialPolicyById, policies, searchQuery],
-  );
+  const filteredPolicies = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return policies.filter((policy) => {
+      const familyMatches = familyFilter === 'all' || policy.family === familyFilter;
+      if (!familyMatches) return false;
+      if (query === '') return true;
+      const financialPolicy = financialPolicyById.get(policy.id);
+      const searchable = [
+        policy.id,
+        policy.family,
+        policy.description,
+        policy.agent,
+        policy.action,
+        policy.severity,
+        financialPolicy?.when?.action_kinds?.join(' '),
+        financialPolicy?.when?.operations?.join(' '),
+        financialPolicy?.when?.agents?.join(' '),
+        financialPolicy?.required_preconditions?.join(' '),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return searchable.includes(query);
+    });
+  }, [familyFilter, financialPolicyById, policies, searchQuery]);
   const enabledCount = useMemo(
     () => policies.filter((policy) => policy.enabled).length,
     [policies],
@@ -282,7 +277,9 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
       header: (
         <span className="inline-flex items-center gap-1">
           Status
-          <InfoHint>On = this rule is actively checking traffic right now. Off = saved but paused.</InfoHint>
+          <InfoHint>
+            On = this rule is actively checking traffic right now. Off = saved but paused.
+          </InfoHint>
         </span>
       ),
       align: 'right',
@@ -344,7 +341,9 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 onSelect={() =>
-                  financialPolicy ? setFinancialEditorPolicy(financialPolicy) : void openEditor(row.id)
+                  financialPolicy
+                    ? setFinancialEditorPolicy(financialPolicy)
+                    : void openEditor(row.id)
                 }
               >
                 Edit policy
@@ -502,7 +501,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
         eyebrow={data.activeWorkspace.name}
         title="Policy registry"
         help={<InfoHint term="policy" />}
-        description={`One registry for protection and financial authorization policies in ${data.activeEnvironment.name}.`}
+        description={`Standing rules for protection and financial authorization in ${data.activeEnvironment.name}.`}
         actions={
           <PolicyCreateDialog
             agents={data.agents}
@@ -514,6 +513,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
           </PolicyCreateDialog>
         }
       />
+      <FinancialAuthorizationModel active="policies" contextQuery={contextQuery} />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
@@ -553,7 +553,9 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
                         ids: selectedPolicies.map((policy) => policy.id),
                         label:
                           selectedPolicies.length === 1
-                            ? selectedPolicies[0]?.description || selectedPolicies[0]?.id || '1 policy'
+                            ? selectedPolicies[0]?.description ||
+                              selectedPolicies[0]?.id ||
+                              '1 policy'
                             : `${selectedPolicies.length} policies`,
                       }),
                   },
@@ -626,7 +628,12 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
       </Card>
 
       {/* Guided builder by default, raw YAML behind an Advanced tab */}
-      <Dialog open={editorOpen} onOpenChange={(open) => { if (!open) setEditorOpen(false); }}>
+      <Dialog
+        open={editorOpen}
+        onOpenChange={(open) => {
+          if (!open) setEditorOpen(false);
+        }}
+      >
         <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-5xl">
           <DialogHeader>
             <DialogTitle>Edit policy</DialogTitle>
@@ -656,8 +663,8 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
             </TabsContent>
             <TabsContent value="yaml">
               <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
-                This is the raw policy definition. Most people can stay on the guided form — only edit
-                here if you are comfortable with YAML.
+                This is the raw policy definition. Most people can stay on the guided form — only
+                edit here if you are comfortable with YAML.
               </p>
               <PolicyYamlDiffEditor
                 original={editorOriginal}
@@ -717,8 +724,10 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget?.label} will be removed for good and{' '}
-              {deleteCount > 1 ? 'will stop checking traffic' : 'this policy will stop checking traffic'}.
-              This can&apos;t be undone.
+              {deleteCount > 1
+                ? 'will stop checking traffic'
+                : 'this policy will stop checking traffic'}
+              . This can&apos;t be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -750,7 +759,7 @@ function mergeRegistryPolicies(
       family: 'financial',
       description: policy.description?.trim() || financialPolicyScope(policy),
       severity: policy.severity ?? 'high',
-      action: policy.hold_above_minor != null ? 'escalate' : policy.on_breach ?? 'block',
+      action: policy.hold_above_minor != null ? 'escalate' : (policy.on_breach ?? 'block'),
       enabled: policy.enabled ?? true,
       agent: policy.when?.agents?.[0] ?? 'Global',
     }));
@@ -759,11 +768,7 @@ function mergeRegistryPolicies(
 
 function FinancialPolicyDetails({ policy }: { policy: FamilyPolicyRow | undefined }) {
   if (!policy) {
-    return (
-      <span className="text-xs text-muted-foreground">
-        Financial authorization policy
-      </span>
-    );
+    return <span className="text-xs text-muted-foreground">Financial authorization policy</span>;
   }
   const currency = policy.when?.currencies?.[0] ?? 'USD';
   return (

@@ -20,6 +20,11 @@ import type { PolicyDraftResponse } from './generated/PolicyDraftResponse';
 import type { PolicyFamily } from './generated/PolicyFamily';
 import type { PolicyListResponse } from './generated/PolicyListResponse';
 import type { PolicyValidateResponse } from './generated/PolicyValidateResponse';
+import type { AgenticPaymentAuthorizationResponse } from './generated/AgenticPaymentAuthorizationResponse';
+import type { AgenticPaymentAuthorizeRequest } from './generated/AgenticPaymentAuthorizeRequest';
+import type { AgenticPaymentCommitRequest } from './generated/AgenticPaymentCommitRequest';
+import type { AgenticPaymentRecord } from './generated/AgenticPaymentRecord';
+import type { AgenticPaymentRollbackRequest } from './generated/AgenticPaymentRollbackRequest';
 import type { CreateFinancialActionRequest } from './generated/CreateFinancialActionRequest';
 import type { CreateFinancialMandateRequest } from './generated/CreateFinancialMandateRequest';
 import type { CreateFinancialPolicyRequest } from './generated/CreateFinancialPolicyRequest';
@@ -366,6 +371,81 @@ export class Client {
       (signal) =>
         this.sendJson<FinancialActionListResponse>(
           '/v1/financial/actions',
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async authorizeAgenticPayment(
+    req: AgenticPaymentAuthorizeRequest,
+    signal?: AbortSignal,
+  ): Promise<AgenticPaymentAuthorizationResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<AgenticPaymentAuthorizationResponse>(
+          '/v1/financial/agentic-payments/authorize',
+          {
+            method: 'POST',
+            body: stringifyJson(req),
+          },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async getAgenticPayment(actionId: string, signal?: AbortSignal): Promise<AgenticPaymentRecord> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<AgenticPaymentRecord>(
+          `/v1/financial/agentic-payments/${encodeURIComponent(actionId)}`,
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async commitAgenticPayment(
+    actionId: string,
+    req: AgenticPaymentCommitRequest,
+    signal?: AbortSignal,
+  ): Promise<AgenticPaymentRecord> {
+    return this.sendJson<AgenticPaymentRecord>(
+      `/v1/financial/agentic-payments/${encodeURIComponent(actionId)}/commit`,
+      {
+        method: 'POST',
+        body: stringifyJson(req),
+      },
+      signal,
+    );
+  }
+
+  async rollbackAgenticPayment(
+    actionId: string,
+    req: AgenticPaymentRollbackRequest,
+    signal?: AbortSignal,
+  ): Promise<AgenticPaymentRecord> {
+    return this.sendJson<AgenticPaymentRecord>(
+      `/v1/financial/agentic-payments/${encodeURIComponent(actionId)}/rollback`,
+      {
+        method: 'POST',
+        body: stringifyJson(req),
+      },
+      signal,
+    );
+  }
+
+  async getAgenticPaymentReceipt(
+    actionId: string,
+    signal?: AbortSignal,
+  ): Promise<FinancialReceipt> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialReceipt>(
+          `/v1/financial/agentic-payments/${encodeURIComponent(actionId)}/receipt`,
           { method: 'GET' },
           signal,
         ),

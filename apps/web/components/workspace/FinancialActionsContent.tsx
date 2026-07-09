@@ -17,6 +17,7 @@ import type {
   FinancialActionOutcome,
   FinancialActionRecord,
   FinancialApprovalRequest,
+  FinancialMandate,
   GatewayProviderConnection,
 } from '@trustloopguard/sdk';
 
@@ -27,12 +28,14 @@ import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { BudgetAlertsCard } from '@/components/workspace/BudgetAlertsCard';
+import { FinancialAuthorizationModel } from '@/components/workspace/FinancialAuthorizationModel';
 import type { FamilyPolicyRow } from '@/lib/server/dashboard-data';
 import {
   counterpartyLabel,
   currentContextQuery,
   FinancialStatusBadge,
   formatDateTime,
+  formatMinorUnits,
   formatMoney,
   latestOutcome,
   OutcomeBadge,
@@ -47,6 +50,8 @@ type FinancialActionsContentProps = {
   approvals: FinancialApprovalRequest[];
   outcomesByActionId: Record<string, FinancialActionOutcome[]>;
   familyPolicies: FamilyPolicyRow[];
+  mandatesCount: number;
+  mandates: FinancialMandate[];
   providerConnections: GatewayProviderConnection[];
   budgetAlerts?: BudgetAlertConfig[];
   budgetAlertFirings?: BudgetAlertFiring[];
@@ -59,6 +64,8 @@ export function FinancialActionsContent({
   approvals,
   outcomesByActionId,
   familyPolicies,
+  mandatesCount,
+  mandates,
   providerConnections,
   budgetAlerts = [],
   budgetAlertFirings = [],
@@ -86,6 +93,10 @@ export function FinancialActionsContent({
   const failedCount = actionRows.filter(
     (action) => action.status === 'failed' || action.status === 'denied',
   ).length;
+  const x402Actions = actionRows.filter((action) => action.action.rail === 'x402');
+  const x402ReservedCount = x402Actions.filter(
+    (action) => action.status === 'authorized' || action.status === 'held',
+  ).length;
   const paymentProviders = providerConnections.filter(
     (provider) => provider.kind === 'payment_http',
   );
@@ -108,6 +119,9 @@ export function FinancialActionsContent({
           <span className="truncate font-mono text-xs text-muted-foreground">
             {row.action.operation}
           </span>
+          <span>
+            <Badge variant="outline">{titleLabel(row.action.rail)}</Badge>
+          </span>
           <span className="truncate font-mono text-xs text-muted-foreground">{row.id}</span>
         </div>
       ),
@@ -127,6 +141,11 @@ export function FinancialActionsContent({
       id: 'agent',
       header: 'Agent',
       cell: (row) => <span className="font-mono text-xs">{row.action.principal_id}</span>,
+    },
+    {
+      id: 'mandate',
+      header: 'Mandate',
+      cell: (row) => <MandateCell action={row} mandate={mandateForAction(row, mandates)} />,
     },
     {
       id: 'outcome',
@@ -261,12 +280,14 @@ export function FinancialActionsContent({
       <PageHeader
         eyebrow="Financial authorization"
         title="Financial actions"
-        description="Typed spend, refund, payout, and approval records from the Rust financial authorization service."
+        description="Authorize agent payments before signing by checking the mandate, standing policy, payment requirement, reservation, and receipt."
       />
-      <div className="grid gap-3 md:grid-cols-3">
+      <FinancialAuthorizationModel active="actions" contextQuery={contextQuery} />
+      <div className="grid gap-3 md:grid-cols-4">
         <SummaryTile label="Held" value={heldCount} tone="held" />
         <SummaryTile label="Executed" value={executedCount} tone="executed" />
         <SummaryTile label="Denied or failed" value={failedCount} tone="failed" />
+        <SummaryTile label="Active mandates" value={mandatesCount} tone="x402" />
       </div>
       <Card>
         <CardHeader>
@@ -287,7 +308,7 @@ export function FinancialActionsContent({
           />
         </CardContent>
       </Card>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Policy controls</CardTitle>
@@ -300,7 +321,7 @@ export function FinancialActionsContent({
                   financial {financialPolicies.length === 1 ? 'policy' : 'policies'}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Caps, holds, evidence checks, and approval thresholds live in the policy registry.
+                  Standing caps and mandate requirements for agents live in the policy registry.
                 </p>
               </div>
               <Button asChild variant="outline">
@@ -323,6 +344,31 @@ export function FinancialActionsContent({
               {financialPolicies.length > 4 ? (
                 <Badge variant="outline">+{financialPolicies.length - 4} more</Badge>
               ) : null}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Agentic payments</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">
+                  {x402Actions.length} x402 {x402Actions.length === 1 ? 'action' : 'actions'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {x402ReservedCount} authorized,{' '}
+                  {x402Actions.filter((action) => action.status === 'executed').length} committed
+                </p>
+              </div>
+              <Badge variant={x402ReservedCount > 0 ? 'allow' : 'outline'}>x402</Badge>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <Badge variant="outline">Authorize</Badge>
+              <Badge variant="outline">Reserve</Badge>
+              <Badge variant="outline">Commit</Badge>
+              <Badge variant="outline">Rollback</Badge>
             </div>
           </CardContent>
         </Card>
@@ -445,6 +491,67 @@ function ReasonCell({
   );
 }
 
+function MandateCell({
+  action,
+  mandate,
+}: {
+  action: FinancialActionRecord;
+  mandate: FinancialMandate | null;
+}) {
+  const ref = action.action.mandate;
+  if (!ref) {
+    return (
+      <div className="grid min-w-36 gap-0.5">
+        <Badge variant="escalate">No mandate</Badge>
+        <span className="text-xs text-muted-foreground">No user/task boundary attached</span>
+      </div>
+    );
+  }
+
+  const intent = stringMetadata(mandate?.metadata, 'user_intent');
+  const scope = mandate?.scope;
+  const resource = firstString(scope, 'allowed_resources');
+  const host = firstString(scope, 'allowed_hosts');
+  const maxAmount = numberMetadata(scope, 'max_amount_minor');
+  const currency = stringMetadata(scope, 'currency') ?? action.action.amount.currency;
+  const source = mandate ? 'Internal mandate' : 'Mandate ref only';
+
+  return (
+    <div className="grid min-w-48 max-w-64 gap-1">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <Badge variant={mandate ? 'allow' : 'outline'}>{source}</Badge>
+        <span className="truncate font-mono text-xs text-muted-foreground">
+          {ref.id} v{ref.version ?? 1}
+        </span>
+      </div>
+      <span className="line-clamp-2 text-sm text-foreground">
+        {intent ?? resource ?? 'Mandate boundary attached'}
+      </span>
+      <span className="truncate text-xs text-muted-foreground">
+        {joinPresent([
+          maxAmount === null ? null : `up to ${formatMinorUnits(maxAmount, currency)}`,
+          host,
+          resource,
+        ])}
+      </span>
+    </div>
+  );
+}
+
+function mandateForAction(
+  action: FinancialActionRecord,
+  mandates: FinancialMandate[],
+): FinancialMandate | null {
+  const ref = action.action.mandate;
+  if (!ref) return null;
+  return (
+    mandates.find(
+      (mandate) =>
+        mandate.id === ref.id && (ref.version === undefined || mandate.version === ref.version),
+    ) ?? null
+  );
+}
+
 function actionReason(
   action: FinancialActionRecord,
   outcome: FinancialActionOutcome | undefined,
@@ -508,6 +615,24 @@ function stringMetadata(metadata: Record<string, unknown> | null | undefined, ke
   return typeof value === 'string' && value.trim() !== '' ? value : null;
 }
 
+function numberMetadata(metadata: Record<string, unknown> | null | undefined, key: string) {
+  const value = metadata?.[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function firstString(metadata: Record<string, unknown> | null | undefined, key: string) {
+  const value = metadata?.[key];
+  if (typeof value === 'string' && value.trim() !== '') return value;
+  if (!Array.isArray(value)) return null;
+  const first = value.find((item) => typeof item === 'string' && item.trim() !== '');
+  return typeof first === 'string' ? first : null;
+}
+
+function joinPresent(values: Array<string | null | undefined>): string {
+  const present = values.filter((value): value is string => Boolean(value));
+  return present.length === 0 ? '—' : present.join(' · ');
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -523,14 +648,16 @@ function SummaryTile({
 }: {
   label: string;
   value: number;
-  tone: 'held' | 'executed' | 'failed';
+  tone: 'held' | 'executed' | 'failed' | 'x402';
 }) {
   const color =
     tone === 'executed'
       ? 'text-[var(--color-allow)]'
       : tone === 'held'
         ? 'text-[var(--color-escalate)]'
-        : 'text-[var(--color-block)]';
+        : tone === 'x402'
+          ? 'text-primary'
+          : 'text-[var(--color-block)]';
   return (
     <div className="rounded-lg border bg-card px-4 py-3">
       <p className="text-xs uppercase text-muted-foreground">{label}</p>

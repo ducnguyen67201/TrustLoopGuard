@@ -43,6 +43,23 @@ pub struct SemanticPolicyJudgeInput {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct SemanticPolicyJudgePolicyInput {
+    pub policy_id: String,
+    pub policy_description: String,
+    pub match_clause: String,
+    pub policy_action: String,
+    pub policy_severity: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SemanticPolicyJudgeBatchInput {
+    pub tenant: String,
+    pub event_summary: String,
+    pub text: String,
+    pub policies: Vec<SemanticPolicyJudgePolicyInput>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum SemanticPolicyJudgeResult {
     Matched {
         confidence: f64,
@@ -62,6 +79,30 @@ pub trait SemanticPolicyJudge: Send + Sync {
     fn is_enabled(&self) -> bool;
 
     async fn judge_policy(&self, input: SemanticPolicyJudgeInput) -> SemanticPolicyJudgeResult;
+
+    async fn judge_policies(
+        &self,
+        input: SemanticPolicyJudgeBatchInput,
+    ) -> Vec<(String, SemanticPolicyJudgeResult)> {
+        let mut results = Vec::with_capacity(input.policies.len());
+        for policy in input.policies {
+            let policy_id = policy.policy_id.clone();
+            let result = self
+                .judge_policy(SemanticPolicyJudgeInput {
+                    tenant: input.tenant.clone(),
+                    policy_id: policy.policy_id,
+                    policy_description: policy.policy_description,
+                    match_clause: policy.match_clause,
+                    policy_action: policy.policy_action,
+                    policy_severity: policy.policy_severity,
+                    event_summary: input.event_summary.clone(),
+                    text: input.text.clone(),
+                })
+                .await;
+            results.push((policy_id, result));
+        }
+        results
+    }
 }
 
 #[async_trait]
@@ -94,6 +135,58 @@ impl SemanticPolicyJudge for LlmRouter {
             Err(error) => SemanticPolicyJudgeResult::Error(error.to_string()),
         }
     }
+
+    async fn judge_policies(
+        &self,
+        input: SemanticPolicyJudgeBatchInput,
+    ) -> Vec<(String, SemanticPolicyJudgeResult)> {
+        if input.policies.is_empty() {
+            return vec![];
+        }
+
+        let policies_json = serde_json::Value::Array(
+            input
+                .policies
+                .iter()
+                .map(|policy| {
+                    serde_json::json!({
+                        "policy_id": policy.policy_id,
+                        "policy_description": policy.policy_description,
+                        "match_clause": policy.match_clause,
+                        "policy_action": policy.policy_action,
+                        "policy_severity": policy.policy_severity,
+                    })
+                })
+                .collect(),
+        );
+        let prompt = semantic_policy::build_batch(
+            &input.event_summary,
+            &input.text,
+            &serde_json::to_string_pretty(&policies_json).unwrap_or_else(|_| "[]".into()),
+        );
+
+        match self
+            .judge(
+                JudgeKind::SemanticPolicy,
+                &input.tenant,
+                &prompt,
+                &semantic_policy::batch_schema(),
+            )
+            .await
+        {
+            Ok(output) => semantic_batch_result_from_json(output.json, &input.policies),
+            Err(error) => input
+                .policies
+                .into_iter()
+                .map(|policy| {
+                    (
+                        policy.policy_id,
+                        SemanticPolicyJudgeResult::Error(error.to_string()),
+                    )
+                })
+                .collect(),
+        }
+    }
 }
 
 pub async fn evaluate_event_policies<'a, I>(
@@ -109,6 +202,7 @@ where
     };
 
     let mut outcome = EventPolicyOutcome::empty();
+    let mut semantic_candidates = Vec::new();
     for policy in policies {
         if !policy_scope_matches(policy, event) {
             continue;
@@ -124,32 +218,65 @@ where
             }
             ClauseDecision::NotMatched => continue,
             ClauseDecision::NeedsSemantic => {
-                evaluate_semantic_policy(event, text, policy, &ctx, &mut outcome).await;
+                semantic_candidates.push(policy);
             }
         }
     }
+    evaluate_semantic_policies(event, text, &semantic_candidates, &ctx, &mut outcome).await;
 
     outcome
 }
 
-async fn evaluate_semantic_policy(
+async fn evaluate_semantic_policies(
     event: &GuardEvent,
     text: &str,
-    policy: &Policy,
+    policies: &[&Policy],
     ctx: &EventPolicyEvalCtx<'_>,
     outcome: &mut EventPolicyOutcome,
 ) {
-    let Some(judge) = ctx.semantic_judge else {
-        tracing::debug!(policy_id = %policy.id, "semantic policy skipped: no judge configured");
-        return;
-    };
-    if !judge.is_enabled() {
-        tracing::debug!(policy_id = %policy.id, "semantic policy skipped: no judge route configured");
+    if policies.is_empty() {
         return;
     }
 
-    let input = semantic_judge_input(ctx.tenant, event, text, policy);
-    match judge.judge_policy(input).await {
+    let Some(judge) = ctx.semantic_judge else {
+        tracing::debug!(
+            policy_count = policies.len(),
+            "semantic policies skipped: no judge configured"
+        );
+        return;
+    };
+    if !judge.is_enabled() {
+        tracing::debug!(
+            policy_count = policies.len(),
+            "semantic policies skipped: no judge route configured"
+        );
+        return;
+    }
+
+    let input = semantic_judge_batch_input(ctx.tenant, event, text, policies);
+    let results = judge.judge_policies(input).await;
+    for (policy_id, result) in results {
+        let Some(policy) = policies
+            .iter()
+            .copied()
+            .find(|policy| policy.id == policy_id)
+        else {
+            tracing::warn!(
+                policy_id = %policy_id,
+                "semantic policy judge returned unknown policy id"
+            );
+            continue;
+        };
+        apply_semantic_policy_result(policy, result, outcome);
+    }
+}
+
+fn apply_semantic_policy_result(
+    policy: &Policy,
+    result: SemanticPolicyJudgeResult,
+    outcome: &mut EventPolicyOutcome,
+) {
+    match result {
         SemanticPolicyJudgeResult::Matched {
             confidence,
             reason,
@@ -411,21 +538,30 @@ fn channel_name(channel: &tl_core::Channel) -> &'static str {
     }
 }
 
-fn semantic_judge_input(
-    tenant: &str,
-    event: &GuardEvent,
-    text: &str,
-    policy: &Policy,
-) -> SemanticPolicyJudgeInput {
-    SemanticPolicyJudgeInput {
-        tenant: tenant.to_string(),
+fn semantic_judge_policy_input(policy: &Policy) -> SemanticPolicyJudgePolicyInput {
+    SemanticPolicyJudgePolicyInput {
         policy_id: policy.id.clone(),
         policy_description: policy.description.clone().unwrap_or_default(),
         match_clause: serde_json::to_string(&policy.r#match).unwrap_or_else(|_| "<invalid>".into()),
         policy_action: format!("{:?}", policy.action).to_ascii_lowercase(),
         policy_severity: format!("{:?}", policy.severity).to_ascii_lowercase(),
+    }
+}
+
+fn semantic_judge_batch_input(
+    tenant: &str,
+    event: &GuardEvent,
+    text: &str,
+    policies: &[&Policy],
+) -> SemanticPolicyJudgeBatchInput {
+    SemanticPolicyJudgeBatchInput {
+        tenant: tenant.to_string(),
         event_summary: event_summary(event),
         text: text.to_string(),
+        policies: policies
+            .iter()
+            .map(|policy| semantic_judge_policy_input(policy))
+            .collect(),
     }
 }
 
@@ -486,6 +622,53 @@ fn semantic_result_from_json(json: serde_json::Value) -> SemanticPolicyJudgeResu
             evidence,
         }
     }
+}
+
+fn semantic_batch_result_from_json(
+    json: serde_json::Value,
+    policies: &[SemanticPolicyJudgePolicyInput],
+) -> Vec<(String, SemanticPolicyJudgeResult)> {
+    let Some(decisions) = json.get("decisions").and_then(serde_json::Value::as_array) else {
+        return policies
+            .iter()
+            .map(|policy| {
+                (
+                    policy.policy_id.clone(),
+                    SemanticPolicyJudgeResult::Error(
+                        "semantic policy judge returned malformed `decisions`".into(),
+                    ),
+                )
+            })
+            .collect();
+    };
+
+    let mut results = Vec::with_capacity(policies.len());
+    for decision in decisions {
+        let Some(policy_id) = decision
+            .get("policy_id")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string)
+        else {
+            continue;
+        };
+        results.push((policy_id, semantic_result_from_json(decision.clone())));
+    }
+
+    for policy in policies {
+        if !results
+            .iter()
+            .any(|(policy_id, _)| policy_id == &policy.policy_id)
+        {
+            results.push((
+                policy.policy_id.clone(),
+                SemanticPolicyJudgeResult::Error(
+                    "semantic policy judge omitted policy decision".into(),
+                ),
+            ));
+        }
+    }
+
+    results
 }
 
 fn json_string_array(value: Option<&serde_json::Value>) -> Option<Vec<String>> {
@@ -575,6 +758,49 @@ mod tests {
 
         fn calls(&self) -> usize {
             self.calls.load(Ordering::SeqCst)
+        }
+    }
+
+    struct BatchRecordingJudge {
+        results: Vec<(String, SemanticPolicyJudgeResult)>,
+        calls: AtomicUsize,
+        inputs: Mutex<Vec<SemanticPolicyJudgeBatchInput>>,
+    }
+
+    impl BatchRecordingJudge {
+        fn new(results: Vec<(String, SemanticPolicyJudgeResult)>) -> Self {
+            Self {
+                results,
+                calls: AtomicUsize::new(0),
+                inputs: Mutex::new(Vec::new()),
+            }
+        }
+
+        fn calls(&self) -> usize {
+            self.calls.load(Ordering::SeqCst)
+        }
+    }
+
+    #[async_trait]
+    impl SemanticPolicyJudge for BatchRecordingJudge {
+        fn is_enabled(&self) -> bool {
+            true
+        }
+
+        async fn judge_policy(
+            &self,
+            _input: SemanticPolicyJudgeInput,
+        ) -> SemanticPolicyJudgeResult {
+            SemanticPolicyJudgeResult::Error("single-policy judge should not be called".into())
+        }
+
+        async fn judge_policies(
+            &self,
+            input: SemanticPolicyJudgeBatchInput,
+        ) -> Vec<(String, SemanticPolicyJudgeResult)> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            self.inputs.lock().unwrap().push(input);
+            self.results.clone()
         }
     }
 
@@ -717,6 +943,64 @@ severity: high
         assert_eq!(outcome.triggered[0].id, "respectful-tone");
         assert!(outcome.triggered[0].reason.contains("confidence=0.94"));
         assert_eq!(judge.calls(), 1);
+    }
+
+    #[tokio::test]
+    async fn semantic_policies_are_batched_into_one_judge_call() {
+        let block_policy = load_str(
+            r#"
+id: no-insults
+match:
+  semantic: "the agent insults or demeans the user"
+action: block
+severity: high
+"#,
+        )
+        .unwrap();
+        let escalate_policy = load_str(
+            r#"
+id: no-legal-advice
+match:
+  semantic: "the agent gives legal advice"
+action: escalate
+severity: high
+"#,
+        )
+        .unwrap();
+        let judge = BatchRecordingJudge::new(vec![
+            (
+                "no-insults".into(),
+                SemanticPolicyJudgeResult::Matched {
+                    confidence: 0.95,
+                    reason: "direct insult".into(),
+                    evidence: vec!["you are dumb".into()],
+                },
+            ),
+            (
+                "no-legal-advice".into(),
+                SemanticPolicyJudgeResult::NotMatched {
+                    confidence: 0.10,
+                    reason: "no legal advice".into(),
+                    evidence: vec![],
+                },
+            ),
+        ]);
+
+        let outcome = evaluate_event_policies(
+            &output_event("you are dumb"),
+            &[block_policy, escalate_policy],
+            eval_ctx(Some(&judge)),
+        )
+        .await;
+
+        assert_eq!(judge.calls(), 1);
+        let inputs = judge.inputs.lock().unwrap();
+        assert_eq!(inputs[0].policies.len(), 2);
+        assert_eq!(inputs[0].policies[0].policy_id, "no-insults");
+        assert_eq!(inputs[0].policies[1].policy_id, "no-legal-advice");
+        assert_eq!(outcome.verdict, Some(Verdict::Block));
+        assert_eq!(outcome.triggered.len(), 1);
+        assert_eq!(outcome.triggered[0].id, "no-insults");
     }
 
     #[tokio::test]

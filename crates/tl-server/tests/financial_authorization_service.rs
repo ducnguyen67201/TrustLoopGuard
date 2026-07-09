@@ -5,19 +5,23 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use tl_core::{
-    ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
-    CreateFinancialMandateRequest, EvidenceRef, FinancialAction, FinancialActionDecision,
-    FinancialActionKind, FinancialActionOutcome, FinancialActionOutcomeStatus,
-    FinancialActionPrecondition, FinancialActionStatus, FinancialApprovalRequestStatus,
-    FinancialDecisionRiskCode, FinancialEligibilityStatus, FinancialExecutionProofStatus,
-    FinancialMandate, FinancialMandateListResponse, FinancialMandateStatus,
-    FinancialOutcomeListResponse, FinancialRail, FinancialReceipt, MandateRef, MoneyAmount,
-    RecoveryStatus, ReversalCapability,
+    AgenticPaymentAuthorizeRequest, AgenticPaymentCommitRequest, AgenticPaymentDecision,
+    AgenticPaymentMandateScope, AgenticPaymentReservation, AgenticPaymentReservationStatus,
+    AgenticPaymentRollbackRequest, ApprovalRequirement, CounterpartyRef,
+    CreateFinancialActionRequest, CreateFinancialMandateRequest, EvidenceRef, FinancialAction,
+    FinancialActionDecision, FinancialActionKind, FinancialActionOutcome,
+    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionStatus,
+    FinancialApprovalRequestStatus, FinancialDecisionRiskCode, FinancialEligibilityStatus,
+    FinancialExecutionProofStatus, FinancialMandate, FinancialMandateListResponse,
+    FinancialMandateStatus, FinancialOutcomeListResponse, FinancialRail, FinancialReceipt,
+    MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability, X402PaymentRequirement,
+    X402SettlementProof,
 };
 use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
 use tl_server::{
-    FinancialAuthorizationService, FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
-    MemoryFinancialStore, MemoryPolicyStore, PolicyStore,
+    AgenticPaymentBudgetReservationRequest, FinancialAuthorizationService,
+    FinancialLedgerEntryKind, FinancialStore, FinancialStoreError, MemoryFinancialStore,
+    MemoryPolicyStore, PolicyStore,
 };
 
 fn refund_request(idempotency_key: &str, amount_minor: i64) -> CreateFinancialActionRequest {
@@ -301,6 +305,46 @@ impl FinancialStore for SpendAwareStore {
             .await
     }
 
+    async fn try_reserve_agentic_payment_budget(
+        &self,
+        request: AgenticPaymentBudgetReservationRequest,
+    ) -> Result<AgenticPaymentReservation, FinancialStoreError> {
+        self.inner.try_reserve_agentic_payment_budget(request).await
+    }
+
+    async fn get_agentic_payment_reservation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<AgenticPaymentReservation, FinancialStoreError> {
+        self.inner
+            .get_agentic_payment_reservation(workspace_id, action_id)
+            .await
+    }
+
+    async fn commit_agentic_payment_reservation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        proof: serde_json::Value,
+    ) -> Result<AgenticPaymentReservation, FinancialStoreError> {
+        self.inner
+            .commit_agentic_payment_reservation(workspace_id, action_id, proof)
+            .await
+    }
+
+    async fn release_agentic_payment_reservation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        reason: &str,
+        metadata: serde_json::Value,
+    ) -> Result<AgenticPaymentReservation, FinancialStoreError> {
+        self.inner
+            .release_agentic_payment_reservation(workspace_id, action_id, reason, metadata)
+            .await
+    }
+
     async fn net_spend_minor(
         &self,
         _workspace_id: &str,
@@ -397,6 +441,7 @@ fn mandate_request(agent_id: &str) -> CreateFinancialMandateRequest {
             "max_amount_minor": 10_000,
             "currency": "USD"
         }),
+        payment_scope: None,
         metadata: serde_json::json!({ "source": "service_test" }),
         starts_at: None,
         expires_at: None,
@@ -448,6 +493,77 @@ async fn service_creates_lists_and_revokes_mandates() {
         .await
         .unwrap();
     assert_eq!(revoked.status, FinancialMandateStatus::Revoked);
+}
+
+#[tokio::test]
+async fn service_normalizes_typed_payment_scope_and_authorizes_matching_x402_payment() {
+    let service = service();
+    let mandate = service
+        .create_mandate(
+            "ws_finance",
+            CreateFinancialMandateRequest {
+                id: Some("mandate_x402_article".into()),
+                version: Some(1),
+                principal_id: "spid:pay-agent".into(),
+                scope: serde_json::Value::Null,
+                payment_scope: Some(AgenticPaymentMandateScope {
+                    intent_label: Some("Buy the requested paid article".into()),
+                    action_kinds: vec![FinancialActionKind::Payment],
+                    operation: Some("x402_resource_payment".into()),
+                    max_amount_minor: Some(800),
+                    currency: Some("USD".into()),
+                    rail: Some(FinancialRail::X402),
+                    allowed_counterparty_ids: vec!["0xcafe".into()],
+                    allowed_hosts: vec!["api.vendor.test".into()],
+                    allowed_resources: vec!["/article/typed".into()],
+                    allowed_networks: vec!["base".into()],
+                    allowed_assets: vec!["USDC".into()],
+                    allowed_pay_to: vec!["0xcafe".into()],
+                    required_preconditions: vec![],
+                }),
+                metadata: serde_json::json!({ "source": "service_test" }),
+                starts_at: None,
+                expires_at: None,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(mandate.scope["rail"], "x402");
+    assert_eq!(mandate.scope["operation"], "x402_resource_payment");
+    assert_eq!(mandate.scope["allowed_resources"][0], "/article/typed");
+
+    let mut request = x402_authorize_request(
+        "x402-typed-scope",
+        "session-typed",
+        700,
+        1_000,
+        "/article/typed",
+    );
+    request.mandate = Some(MandateRef {
+        id: mandate.id.clone(),
+        version: Some(mandate.version),
+    });
+
+    let authorized = service
+        .authorize_agentic_payment_in_environment("ws_finance", "prod", None, request)
+        .await
+        .unwrap();
+
+    assert!(authorized.signable);
+    let receipt = service
+        .get_decision_receipt("ws_finance", "prod", &authorized.record.id)
+        .await
+        .unwrap();
+    assert_eq!(
+        receipt.authorization_scope.result,
+        FinancialEligibilityStatus::Passed
+    );
+    assert!(receipt.authorization_scope.mandate_hash.is_some());
+    assert_eq!(
+        receipt.authorization_scope.normalized_scope.unwrap()["allowed_pay_to"][0],
+        "0xcafe"
+    );
 }
 
 #[tokio::test]
@@ -1387,4 +1503,220 @@ async fn service_validates_action_before_storage_transition() {
         .unwrap_err();
 
     assert!(matches!(error, FinancialStoreError::Validation(_)));
+}
+
+fn x402_authorize_request(
+    idempotency_key: &str,
+    session_id: &str,
+    amount_minor: i64,
+    session_limit_minor: i64,
+    resource: &str,
+) -> AgenticPaymentAuthorizeRequest {
+    AgenticPaymentAuthorizeRequest {
+        idempotency_key: idempotency_key.into(),
+        principal_id: "spid:pay-agent".into(),
+        session_id: session_id.into(),
+        operation: Some("x402_resource_payment".into()),
+        session_limit_minor: Some(session_limit_minor),
+        reservation_expires_at: None,
+        mandate: None,
+        payment_requirement: X402PaymentRequirement {
+            amount: MoneyAmount {
+                amount_minor,
+                currency: "usd".into(),
+            },
+            pay_to: "0xCAFE".into(),
+            network: Some("base".into()),
+            asset: Some("usdc".into()),
+            scheme: Some("exact".into()),
+            resource: Some(resource.into()),
+            method: Some("get".into()),
+            host: Some("api.vendor.test".into()),
+            facilitator: Some("facilitator.test".into()),
+            raw: serde_json::json!({ "source": "x402" }),
+        },
+        evidence: vec![],
+        metadata: serde_json::json!({ "tenant_ref": "tenant_123" }),
+        traceparent: None,
+        tracestate: None,
+    }
+}
+
+fn x402_commit_request(
+    payment_requirement_hash: String,
+    amount_minor: i64,
+) -> AgenticPaymentCommitRequest {
+    AgenticPaymentCommitRequest {
+        proof: X402SettlementProof {
+            settlement_reference: Some("settlement_123".into()),
+            provider: Some("coinbase".into()),
+            payment_requirement_hash: Some(payment_requirement_hash),
+            amount: Some(MoneyAmount {
+                amount_minor,
+                currency: "USD".into(),
+            }),
+            network: Some("base".into()),
+            asset: Some("USDC".into()),
+            pay_to: Some("0xcafe".into()),
+            payment_response: serde_json::json!({ "transaction": "0xsettled" }),
+            raw: serde_json::json!({ "facilitator": "ok" }),
+        },
+        idempotency_key: Some("commit_123".into()),
+    }
+}
+
+#[tokio::test]
+async fn service_authorizes_and_commits_x402_agentic_payment() {
+    let store = Arc::new(MemoryFinancialStore::new());
+    let service = FinancialAuthorizationService::new(store.clone());
+    let authorize_request =
+        x402_authorize_request("x402-idem-1", "session-1", 700, 1_000, "/article/1");
+
+    let authorized = service
+        .authorize_agentic_payment_in_environment(
+            "ws_finance",
+            "prod",
+            None,
+            authorize_request.clone(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(authorized.decision, AgenticPaymentDecision::Authorized);
+    assert!(authorized.signable);
+    assert_eq!(
+        authorized.record.action.status,
+        FinancialActionStatus::Authorized
+    );
+    assert_eq!(authorized.record.action.action.rail, FinancialRail::X402);
+    assert_eq!(
+        authorized.record.reservation.as_ref().unwrap().status,
+        AgenticPaymentReservationStatus::Reserved
+    );
+
+    let retried = service
+        .authorize_agentic_payment_in_environment("ws_finance", "prod", None, authorize_request)
+        .await
+        .unwrap();
+    assert!(retried.signable);
+    assert_eq!(retried.record.id, authorized.record.id);
+    assert_eq!(
+        retried.record.reservation.as_ref().unwrap().status,
+        AgenticPaymentReservationStatus::Reserved
+    );
+
+    let committed = service
+        .commit_agentic_payment(
+            "ws_finance",
+            &authorized.record.id,
+            None,
+            x402_commit_request(
+                authorized
+                    .record
+                    .normalized_requirement
+                    .payment_requirement_hash
+                    .clone(),
+                700,
+            ),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(committed.decision, AgenticPaymentDecision::Committed);
+    assert_eq!(committed.action.status, FinancialActionStatus::Executed);
+    assert_eq!(
+        committed.reservation.as_ref().unwrap().status,
+        AgenticPaymentReservationStatus::Committed
+    );
+    assert_eq!(committed.receipt_id.as_deref(), Some(committed.id.as_str()));
+
+    let spend = store
+        .net_spend_minor(
+            "ws_finance",
+            "spid:pay-agent",
+            "USD",
+            Utc::now() - Duration::minutes(5),
+            Utc::now() + Duration::minutes(5),
+        )
+        .await
+        .unwrap();
+    assert_eq!(spend, 700);
+}
+
+#[tokio::test]
+async fn service_rejects_x402_payment_when_session_budget_is_reserved() {
+    let service = service();
+
+    service
+        .authorize_agentic_payment_in_environment(
+            "ws_finance",
+            "prod",
+            None,
+            x402_authorize_request("x402-idem-2", "session-2", 700, 1_000, "/article/2"),
+        )
+        .await
+        .unwrap();
+
+    let error = service
+        .authorize_agentic_payment_in_environment(
+            "ws_finance",
+            "prod",
+            None,
+            x402_authorize_request("x402-idem-3", "session-2", 400, 1_000, "/article/3"),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        FinancialStoreError::Validation(_) | FinancialStoreError::Conflict
+    ));
+}
+
+#[tokio::test]
+async fn service_rolls_back_unsettled_x402_reservation_without_spend() {
+    let store = Arc::new(MemoryFinancialStore::new());
+    let service = FinancialAuthorizationService::new(store.clone());
+    let authorized = service
+        .authorize_agentic_payment_in_environment(
+            "ws_finance",
+            "prod",
+            None,
+            x402_authorize_request("x402-idem-4", "session-4", 500, 500, "/article/4"),
+        )
+        .await
+        .unwrap();
+
+    let rolled_back = service
+        .rollback_agentic_payment(
+            "ws_finance",
+            &authorized.record.id,
+            None,
+            AgenticPaymentRollbackRequest {
+                reason: "payment signing failed".into(),
+                provider_error: Some("wallet_rejected".into()),
+                idempotency_key: Some("rollback_123".into()),
+                metadata: serde_json::json!({}),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(rolled_back.decision, AgenticPaymentDecision::RolledBack);
+    assert_eq!(rolled_back.action.status, FinancialActionStatus::Failed);
+    assert_eq!(
+        rolled_back.reservation.as_ref().unwrap().status,
+        AgenticPaymentReservationStatus::Released
+    );
+    let spend = store
+        .net_spend_minor(
+            "ws_finance",
+            "spid:pay-agent",
+            "USD",
+            Utc::now() - Duration::minutes(5),
+            Utc::now() + Duration::minutes(5),
+        )
+        .await
+        .unwrap();
+    assert_eq!(spend, 0);
 }

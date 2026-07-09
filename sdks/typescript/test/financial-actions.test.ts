@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   Client,
+  type AgenticPaymentAuthorizeRequest,
+  type AgenticPaymentCommitRequest,
+  type AgenticPaymentRollbackRequest,
   type CreateFinancialActionRequest,
   type CreateFinancialMandateRequest,
   type CreateFinancialPolicyRequest,
@@ -156,6 +159,91 @@ const FINANCIAL_POLICY = {
   enabled: true,
 };
 
+const AGENTIC_AUTHORIZE_REQUEST: AgenticPaymentAuthorizeRequest = {
+  idempotency_key: 'x402-idem-1',
+  principal_id: 'spid:pay-agent',
+  session_id: 'session-1',
+  operation: 'x402_resource_payment',
+  session_limit_minor: 1000n,
+  payment_requirement: {
+    amount: { amount_minor: 700n, currency: 'USD' },
+    pay_to: '0xCAFE',
+    network: 'base',
+    asset: 'USDC',
+    scheme: 'exact',
+    resource: '/article/1',
+    method: 'GET',
+    host: 'api.vendor.test',
+    raw: {},
+  },
+  evidence: [],
+  metadata: { source: 'ts_sdk_test' },
+};
+
+const AGENTIC_RECORD = {
+  id: ACTION.id,
+  decision: 'authorized',
+  action: {
+    ...ACTION,
+    status: 'authorized',
+    action: {
+      ...ACTION.action,
+      kind: 'payment',
+      operation: 'x402_resource_payment',
+      principal_id: 'spid:pay-agent',
+      amount: { amount_minor: 700, currency: 'USD' },
+      rail: 'x402',
+      counterparty: { id: '0xcafe', display_name: '0xCAFE', kind: 'x402_pay_to', metadata: {} },
+    },
+  },
+  normalized_requirement: {
+    payment_requirement_hash: 'sha256:abc123',
+    amount: { amount_minor: 700, currency: 'USD' },
+    pay_to: '0xCAFE',
+    normalized_pay_to: '0xcafe',
+    network: 'base',
+    asset: 'USDC',
+    scheme: 'exact',
+    resource: '/article/1',
+    method: 'GET',
+    host: 'api.vendor.test',
+    canonical: {},
+  },
+  reservation: {
+    id: 'reservation_1',
+    session_id: 'session-1',
+    action_id: ACTION.id,
+    principal_id: 'spid:pay-agent',
+    payment_requirement_hash: 'sha256:abc123',
+    amount: { amount_minor: 700, currency: 'USD' },
+    status: 'reserved',
+    expires_at: '2026-07-05T00:15:00Z',
+    metadata: {},
+  },
+};
+
+const AGENTIC_COMMIT_REQUEST: AgenticPaymentCommitRequest = {
+  proof: {
+    settlement_reference: 'settlement_123',
+    provider: 'coinbase',
+    payment_requirement_hash: 'sha256:abc123',
+    amount: { amount_minor: 700n, currency: 'USD' },
+    network: 'base',
+    asset: 'USDC',
+    pay_to: '0xcafe',
+    payment_response: { transaction: '0xsettled' },
+    raw: {},
+  },
+  idempotency_key: 'commit_123',
+};
+
+const AGENTIC_ROLLBACK_REQUEST: AgenticPaymentRollbackRequest = {
+  reason: 'wallet rejected signing',
+  provider_error: 'wallet_rejected',
+  idempotency_key: 'rollback_123',
+  metadata: {},
+};
+
 describe('Client financial action methods', () => {
   it('verifyAction posts typed financial actions', async () => {
     const fetchSpy = mockFetch(async () => jsonResponse(ACTION, 201));
@@ -278,6 +366,71 @@ describe('Client financial action methods', () => {
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe('http://server.test/v1/financial/actions');
     expect((init as RequestInit).method).toBe('GET');
+  });
+
+  it('can authorize read commit rollback and receipt x402 agentic payments', async () => {
+    const fetchSpy = mockFetch(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/authorize')) {
+        return jsonResponse({
+          decision: 'authorized',
+          signable: true,
+          reason: 'x402 payment authorized',
+          record: AGENTIC_RECORD,
+        }, 201);
+      }
+      if (url.endsWith('/commit')) {
+        return jsonResponse({
+          ...AGENTIC_RECORD,
+          decision: 'committed',
+          action: { ...AGENTIC_RECORD.action, status: 'executed' },
+          reservation: { ...AGENTIC_RECORD.reservation, status: 'committed' },
+          receipt_id: ACTION.id,
+        });
+      }
+      if (url.endsWith('/rollback')) {
+        return jsonResponse({
+          ...AGENTIC_RECORD,
+          decision: 'rolled_back',
+          action: { ...AGENTIC_RECORD.action, status: 'failed' },
+          reservation: { ...AGENTIC_RECORD.reservation, status: 'released' },
+        });
+      }
+      if (url.endsWith('/receipt')) return jsonResponse(RECEIPT);
+      return jsonResponse(AGENTIC_RECORD);
+    });
+    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
+
+    await expect(client.authorizeAgenticPayment(AGENTIC_AUTHORIZE_REQUEST)).resolves.toMatchObject({
+      signable: true,
+      record: { normalized_requirement: { payment_requirement_hash: 'sha256:abc123' } },
+    });
+    await expect(client.getAgenticPayment('action/one')).resolves.toMatchObject({
+      decision: 'authorized',
+    });
+    await expect(
+      client.commitAgenticPayment('action/one', AGENTIC_COMMIT_REQUEST),
+    ).resolves.toMatchObject({ decision: 'committed', receipt_id: ACTION.id });
+    await expect(
+      client.rollbackAgenticPayment('action/one', AGENTIC_ROLLBACK_REQUEST),
+    ).resolves.toMatchObject({ decision: 'rolled_back' });
+    await expect(client.getAgenticPaymentReceipt('action/one')).resolves.toMatchObject({
+      id: ACTION.id,
+    });
+
+    expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual([
+      'http://server.test/v1/financial/agentic-payments/authorize',
+      'http://server.test/v1/financial/agentic-payments/action%2Fone',
+      'http://server.test/v1/financial/agentic-payments/action%2Fone/commit',
+      'http://server.test/v1/financial/agentic-payments/action%2Fone/rollback',
+      'http://server.test/v1/financial/agentic-payments/action%2Fone/receipt',
+    ]);
+    const [, authorizeInit] = fetchSpy.mock.calls[0]!;
+    expect(JSON.parse(String((authorizeInit as RequestInit).body))).toMatchObject({
+      idempotency_key: 'x402-idem-1',
+      session_limit_minor: 1000,
+      payment_requirement: { amount: { amount_minor: 700, currency: 'USD' } },
+    });
   });
 
   it('can create and list financial spending controls', async () => {

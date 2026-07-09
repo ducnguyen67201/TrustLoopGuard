@@ -52,6 +52,58 @@ const reply = await client.withRun({ agentId: '${opts.agentId}', kind: 'chat_ses
 });`;
 }
 
+export function buildPaymentSdkSnippet(opts: { baseUrl: string; agentId: string }): string {
+  return `import { Client } from '@trustloopguard/sdk';
+
+const client = new Client({
+  baseUrl: process.env.TLG_URL ?? '${opts.baseUrl}',
+  apiKey: process.env.TLG_API_KEY,
+});
+
+// 1. Your customer app creates or selects a mandate after the user asks to buy.
+const mandate = await client.createMandate({
+  principal_id: '${opts.agentId}',
+  scope: {},
+  payment_scope: {
+    intent_label: 'Buy the requested paid resource',
+    action_kinds: ['payment'],
+    operation: 'x402_read_paid_resource',
+    max_amount_minor: 500n,
+    currency: 'USD',
+    rail: 'x402',
+    allowed_hosts: ['merchant.example'],
+    allowed_resources: ['/premium/article'],
+    allowed_networks: ['base-sepolia'],
+    allowed_assets: ['USDC'],
+    allowed_pay_to: ['0xmerchant'],
+    allowed_counterparty_ids: ['0xmerchant'],
+    required_preconditions: [],
+  },
+  metadata: { source: 'customer_checkout' },
+});
+
+// 2. Your agent requests the resource and receives HTTP 402 from the merchant.
+const requirement = paymentRequired.accepts[0];
+
+// 3. TrustLoopGuard authorizes before the wallet signs or retries payment.
+const auth = await client.authorizeAgenticPayment({
+  idempotency_key: crypto.randomUUID(),
+  principal_id: '${opts.agentId}',
+  session_id: checkoutSessionId,
+  operation: 'x402_read_paid_resource',
+  mandate: { id: mandate.id, version: mandate.version },
+  payment_requirement: requirement,
+  evidence: [],
+  metadata: { order_id: checkoutSessionId },
+});
+
+if (!auth.signable) throw new Error('TrustLoopGuard denied payment: ' + auth.reason);
+
+// 4. Sign/pay with your wallet or x402 client, then commit or rollback.
+const settlement = await payWithWallet(requirement);
+await client.commitAgenticPayment(auth.record.id, { proof: settlement });`;
+}
+
 /**
  * A self-contained prompt the user pastes into their AI coding assistant
  * (Claude Code, Cursor, …) to do the integration for them.

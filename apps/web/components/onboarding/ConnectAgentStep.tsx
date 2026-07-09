@@ -25,6 +25,7 @@ import {
   assistantOptions,
   buildAssistantPrompt,
   buildClaudeCodeHookPrompt,
+  buildPaymentSdkSnippet,
   buildSdkSnippet,
   createApiKeyResponseSchema,
   sanitizeAgentId,
@@ -192,6 +193,10 @@ export function ConnectAgentStep({
               <IconSparkles aria-hidden />
               AI assistant
             </TabsTrigger>
+            <TabsTrigger value="payments">
+              <IconShieldBolt aria-hidden />
+              Agent payments
+            </TabsTrigger>
             <TabsTrigger value="claude-code">
               <IconShieldBolt aria-hidden />
               Guard Claude Code
@@ -206,6 +211,19 @@ export function ConnectAgentStep({
             <CopyBlock
               label="Add the SDK yourself"
               content={buildSdkSnippet({ baseUrl, agentId: cleanAgentId })}
+              previewLines={SDK_PREVIEW_LINES}
+            />
+          </TabsContent>
+
+          <TabsContent value="payments" className="grid gap-3">
+            <SurfaceIntro>
+              For ecommerce agents, place TrustLoopGuard between the merchant&apos;s 402 response and
+              the wallet signature. The mandate proves user intent; the policy enforces standing
+              limits.
+            </SurfaceIntro>
+            <CopyBlock
+              label="Authorize x402 payment before signing"
+              content={buildPaymentSdkSnippet({ baseUrl, agentId: cleanAgentId })}
               previewLines={SDK_PREVIEW_LINES}
             />
           </TabsContent>
