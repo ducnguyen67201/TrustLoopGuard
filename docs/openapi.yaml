@@ -7161,6 +7161,15 @@ components:
         prompt_tokens:
           type: integer
           format: int64
+        unpriced:
+          type:
+          - boolean
+          - 'null'
+          description: |-
+            `true` when this model bucket includes token-bearing calls that
+            were recorded with zero cost, so `cost_minor` undercounts the
+            selected window. Only set on `group_by=model` buckets; omitted
+            when every call in the bucket had a nonzero price.
     LlmUsageBucketsResponse:
       type: object
       required:

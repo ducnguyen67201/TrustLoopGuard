@@ -76,6 +76,7 @@ pub struct LlmUsageBucketRow {
     pub completion_tokens: i64,
     pub cost_minor: i64,
     pub calls: i64,
+    pub unpriced: Option<bool>,
 }
 
 pub struct LlmUsageRepo {
@@ -239,11 +240,18 @@ impl LlmUsageRepo {
                 completion_tokens: 0,
                 cost_minor: 0,
                 calls: 0,
+                unpriced: None,
             });
             bucket.prompt_tokens = bucket.prompt_tokens.saturating_add(prompt_tokens);
             bucket.completion_tokens = bucket.completion_tokens.saturating_add(completion_tokens);
             bucket.cost_minor = bucket.cost_minor.saturating_add(cost_minor);
             bucket.calls += 1;
+            if group_by == LlmUsageGroupBy::Model
+                && cost_minor == 0
+                && prompt_tokens.saturating_add(completion_tokens) > 0
+            {
+                bucket.unpriced = Some(true);
+            }
         }
         Ok(buckets.into_values().collect())
     }

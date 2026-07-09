@@ -781,9 +781,11 @@ export type FamilyPolicyRow = {
     currencies?: string[];
     rails?: string[];
   };
+  meter?: string;
   per_transaction_minor?: number | null;
   hold_above_minor?: number | null;
   daily_minor?: number | null;
+  weekly_minor?: number | null;
   monthly_minor?: number | null;
   allowed_counterparty_ids?: string[];
   denied_counterparty_ids?: string[];

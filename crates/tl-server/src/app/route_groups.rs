@@ -338,6 +338,7 @@ pub(super) fn llm_usage_routes(state: &AppState) -> Router {
         .route("/v1/llm-usage", get(llm_usage::list_llm_usage))
         .with_state(llm_usage::LlmUsageState {
             store: state.llm_usage_store.clone(),
+            pricing_store: state.llm_pricing_store.clone(),
         })
 }
 

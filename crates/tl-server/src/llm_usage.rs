@@ -105,6 +105,7 @@ pub trait LlmUsageStore: Send + Sync {
 #[derive(Clone)]
 pub struct LlmUsageState {
     pub store: Arc<dyn LlmUsageStore>,
+    pub pricing_store: Arc<dyn crate::llm_pricing::LlmPricingStore>,
 }
 
 #[utoipa::path(

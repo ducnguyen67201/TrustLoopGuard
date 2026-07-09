@@ -695,6 +695,10 @@ class LlmUsageBucket(BaseModel):
     cost_minor: int
     key: str
     prompt_tokens: int
+    unpriced: bool | None = Field(
+        None,
+        description='`true` when this model bucket includes token-bearing calls that\nwere recorded with zero cost, so `cost_minor` undercounts the\nselected window. Only set on `group_by=model` buckets; omitted\nwhen every call in the bucket had a nonzero price.',
+    )
 
 
 class LlmUsageBucketsResponse(BaseModel):

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { IBM_Plex_Mono, Inter } from 'next/font/google';
 import { Toaster } from '@/components/ui/sonner';
+import { VersionWatcher } from '@/components/version-watcher';
 import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
 
@@ -63,6 +64,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           {children}
           <Toaster />
+          <VersionWatcher />
         </ThemeProvider>
       </body>
     </html>

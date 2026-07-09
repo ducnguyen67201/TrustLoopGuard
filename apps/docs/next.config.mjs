@@ -8,6 +8,14 @@ const config = {
   reactStrictMode: true,
   output: 'standalone',
   outputFileTracingRoot: path.resolve(import.meta.dirname, '../../'),
+  async rewrites() {
+    return [
+      {
+        source: '/docs/:path*.md',
+        destination: '/api/raw-docs/:path*',
+      },
+    ];
+  },
 };
 
 export default withMDX(config);
