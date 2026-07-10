@@ -13,8 +13,8 @@ describe('getVisibleNavGroups', () => {
       group.items.map((item) => item.title),
     );
 
-    expect(titles).not.toContain('Attacks');
-    expect(titles).not.toContain('Knowledge sources');
+    expect(titles).not.toContain('Attacks (Beta)');
+    expect(titles).not.toContain('Knowledge sources (Beta)');
   });
 
   it('shows independently enabled workspace features', () => {
@@ -23,7 +23,16 @@ describe('getVisibleNavGroups', () => {
       (url) => url,
     ).flatMap((group) => group.items.map((item) => item.title));
 
-    expect(titles).toContain('Attacks');
-    expect(titles).not.toContain('Knowledge sources');
+    expect(titles).toContain('Attacks (Beta)');
+    expect(titles).not.toContain('Knowledge sources (Beta)');
+  });
+
+  it('labels enabled knowledge sources as beta', () => {
+    const titles = getVisibleNavGroups(
+      { ...workspace, isKnowledgeBaseEnabled: true },
+      (url) => url,
+    ).flatMap((group) => group.items.map((item) => item.title));
+
+    expect(titles).toContain('Knowledge sources (Beta)');
   });
 });
