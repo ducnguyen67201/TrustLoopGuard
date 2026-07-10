@@ -6,7 +6,7 @@ use tl_core::GatewayProviderConnection;
 use super::{mapping::provider_record_to_wire, GatewayProviderConnectionSecret, GatewayRepo};
 use crate::{
     models::{GatewayProviderConnectionRecord, NewGatewayProviderConnection},
-    schema::gateway_provider_connections,
+    schema::{gateway_provider_connections, gateway_routes},
     StorageError,
 };
 
@@ -114,18 +114,32 @@ impl GatewayRepo {
         id: &str,
     ) -> Result<(), StorageError> {
         let mut conn = self.connection().await?;
-        let count = diesel::update(
+        let route_count = gateway_routes::table
+            .filter(gateway_routes::workspace_id.eq(workspace_id))
+            .filter(gateway_routes::provider_connection_id.eq(id))
+            .count()
+            .get_result::<i64>(&mut conn)
+            .await?;
+        if route_count > 0 {
+            return Err(StorageError::Conflict);
+        }
+
+        let count = match diesel::delete(
             gateway_provider_connections::table
                 .filter(gateway_provider_connections::workspace_id.eq(workspace_id))
                 .filter(gateway_provider_connections::id.eq(id))
                 .filter(gateway_provider_connections::deleted_at.is_null()),
         )
-        .set((
-            gateway_provider_connections::deleted_at.eq(now),
-            gateway_provider_connections::updated_at.eq(now),
-        ))
         .execute(&mut conn)
-        .await?;
+        .await
+        {
+            Ok(count) => count,
+            Err(diesel::result::Error::DatabaseError(
+                diesel::result::DatabaseErrorKind::ForeignKeyViolation,
+                _,
+            )) => return Err(StorageError::Conflict),
+            Err(error) => return Err(error.into()),
+        };
         if count == 0 {
             return Err(StorageError::NotFound);
         }

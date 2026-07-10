@@ -42,6 +42,12 @@ layer. The canonical event pipeline is documented in [event-engine.md](event-eng
 A provider connection stores the customer-owned provider credential, provider kind, base URL, and
 default model. Plaintext provider credentials are never returned after creation.
 
+Provider connections can be edited without replacing the stored credential; supplying a new key
+rotates it, while omitting the key preserves the existing encrypted value. Deletion is a permanent
+removal of the provider row and encrypted credential. A provider referenced by any Gateway route
+cannot be deleted; the route must be moved to another provider first. Provider kind and stable id
+do not change during edits.
+
 A route binds a stable public route id to:
 
 - one provider connection
@@ -159,6 +165,13 @@ the top-level system prompt. Output checks evaluate the provider's assistant res
 
 ## Supported endpoints
 
+- `GET /v1/gateway/provider-connections`
+- `POST /v1/gateway/provider-connections`
+- `PATCH /v1/gateway/provider-connections/{id}`
+- `DELETE /v1/gateway/provider-connections/{id}`
+- `GET /v1/gateway/routes`
+- `POST /v1/gateway/routes`
+- `PATCH /v1/gateway/routes/{id}`
 - `POST /v1/gateway/{route_id}/openai/chat/completions`
 - `POST /v1/gateway/{route_id}/anthropic/v1/messages`
 

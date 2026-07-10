@@ -13,6 +13,7 @@ pub(super) fn gateway_store_error_response(error: GatewayStoreError) -> Response
         GatewayStoreError::NotFound => {
             api_error_response(StatusCode::NOT_FOUND, "gateway resource not found".into())
         }
+        GatewayStoreError::Conflict(message) => api_error_response(StatusCode::CONFLICT, message),
         GatewayStoreError::Internal(message) => {
             api_error_response(StatusCode::INTERNAL_SERVER_ERROR, message)
         }

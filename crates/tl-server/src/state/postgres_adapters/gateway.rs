@@ -78,6 +78,17 @@ impl GatewayStore for PostgresGatewayAdapter {
             .map_err(gateway_store_error)
     }
 
+    async fn delete_provider_connection(
+        &self,
+        workspace_id: &str,
+        id: &str,
+    ) -> Result<(), crate::gateway::GatewayStoreError> {
+        self.0
+            .delete_provider_connection(workspace_id, id)
+            .await
+            .map_err(gateway_store_error)
+    }
+
     async fn list_gateway_routes(
         &self,
         workspace_id: &str,
@@ -144,6 +155,9 @@ impl GatewayStore for PostgresGatewayAdapter {
 fn gateway_store_error(error: tl_storage::StorageError) -> crate::gateway::GatewayStoreError {
     match error {
         tl_storage::StorageError::NotFound => crate::gateway::GatewayStoreError::NotFound,
+        tl_storage::StorageError::Conflict => crate::gateway::GatewayStoreError::Conflict(
+            "provider connection is used by a gateway route".into(),
+        ),
         other => crate::gateway::GatewayStoreError::Internal(other.to_string()),
     }
 }

@@ -237,6 +237,11 @@ automatically. Route-specific client snippets live below the Routes table instea
 navigation tab. Empty, loading, and error states must describe those real dependencies and must not
 turn authenticated API failures into empty resource counts.
 
+Provider rows expose edit and delete actions. Editing never displays an existing secret: the key
+field is optional and only rotates the credential when the operator enters a replacement. Deletion
+uses an explicit destructive confirmation that says the provider and stored key are permanently
+removed. The API blocks deletion while a route still references the provider.
+
 ## Type tokens
 
 Color, spacing, radius, and font-family are defined once in `apps/web/app/globals.css` (Tailwind v4 `@theme`) and consumed as named utilities (`bg-primary`, `p-4`, `rounded-lg`, `font-mono`). Never use raw hex or magic numbers for those — see the rule in `AGENTS.md`.

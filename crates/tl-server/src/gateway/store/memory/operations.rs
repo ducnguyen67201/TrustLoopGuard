@@ -92,6 +92,31 @@ impl GatewayStore for MemoryGatewayStore {
         })
     }
 
+    async fn delete_provider_connection(
+        &self,
+        workspace_id: &str,
+        id: &str,
+    ) -> Result<(), GatewayStoreError> {
+        let routes = self.gateway_routes.read().map_err(lock_error)?;
+        if routes
+            .iter()
+            .any(|row| row.workspace_id == workspace_id && row.route.provider_connection_id == id)
+        {
+            return Err(GatewayStoreError::Conflict(
+                "provider connection is used by a gateway route".into(),
+            ));
+        }
+        drop(routes);
+
+        let mut providers = self.provider_connections.write().map_err(lock_error)?;
+        let index = providers
+            .iter()
+            .position(|row| row.workspace_id == workspace_id && row.connection.id == id)
+            .ok_or(GatewayStoreError::NotFound)?;
+        providers.remove(index);
+        Ok(())
+    }
+
     async fn list_gateway_routes(
         &self,
         workspace_id: &str,

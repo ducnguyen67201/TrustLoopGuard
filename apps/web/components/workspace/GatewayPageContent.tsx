@@ -4,9 +4,11 @@ import {
   IconAlertTriangle,
   IconCircleCheck,
   IconCopy,
+  IconEdit,
   IconPlugConnected,
   IconPlus,
   IconRoute,
+  IconTrash,
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -19,6 +21,16 @@ import type {
 } from '@trustloopguard/sdk';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,7 +74,10 @@ export function GatewayPageContent({
   data: GatewayPageData;
   apiBaseUrl: string;
 }) {
+  const router = useRouter();
   const [selectedRouteId, setSelectedRouteId] = useState(data.gatewayRoutes[0]?.id ?? '');
+  const [deleteTarget, setDeleteTarget] = useState<ProviderConnection | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setSelectedRouteId((current) => {
@@ -107,7 +122,58 @@ export function GatewayPageContent({
       align: 'right',
       cell: (row) => <CredentialBadge status={row.credential_status} />,
     },
+    {
+      id: 'actions',
+      header: '',
+      align: 'right',
+      cell: (row) => (
+        <div className="flex justify-end gap-1">
+          <ProviderConnectionDialog
+            workspaceSlug={data.activeWorkspace.slug}
+            provider={row}
+            trigger={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Edit ${row.display_name}`}
+              >
+                <IconEdit />
+              </Button>
+            }
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Delete ${row.display_name}`}
+            onClick={() => setDeleteTarget(row)}
+            className="text-destructive hover:text-destructive"
+          >
+            <IconTrash />
+          </Button>
+        </div>
+      ),
+    },
   ];
+
+  async function confirmDeleteProvider() {
+    if (deleteTarget === null || deleting) return;
+    const provider = deleteTarget;
+    setDeleting(true);
+    try {
+      await deleteGatewayConfig(
+        `/api/gateway/provider-connections/${encodeURIComponent(provider.id)}${query(data.activeWorkspace.slug)}`,
+      );
+      toast.success('Provider permanently deleted');
+      setDeleteTarget(null);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Request failed');
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const routeColumns: DataTableColumn<GatewayRoute>[] = [
     {
@@ -136,7 +202,9 @@ export function GatewayPageContent({
         </HeaderHint>
       ),
       cell: (row) => (
-        <span className="text-sm">{nameFor(data.providerConnections, row.provider_connection_id)}</span>
+        <span className="text-sm">
+          {nameFor(data.providerConnections, row.provider_connection_id)}
+        </span>
       ),
     },
     {
@@ -156,11 +224,7 @@ export function GatewayPageContent({
         const readiness = routeReadiness(data, row);
         return (
           <Badge variant={readiness.tone === 'ready' ? 'allow' : 'escalate'}>
-            {readiness.tone === 'ready' ? (
-              <IconCircleCheck />
-            ) : (
-              <IconAlertTriangle />
-            )}
+            {readiness.tone === 'ready' ? <IconCircleCheck /> : <IconAlertTriangle />}
             {readiness.label}
           </Badge>
         );
@@ -327,37 +391,76 @@ export function GatewayPageContent({
             )}
           </SectionCard>
         </TabsContent>
-
       </Tabs>
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && !deleting && setDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently delete this provider?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.display_name ?? 'This provider'} and its stored secret key will be
+              permanently deleted. This cannot be undone. Providers used by a route must be removed
+              from that route first.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Keep provider</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={deleting}
+              onClick={confirmDeleteProvider}
+            >
+              {deleting ? 'Deleting...' : 'Delete provider'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
-function ProviderConnectionDialog({ workspaceSlug }: { workspaceSlug: string }) {
+function ProviderConnectionDialog({
+  workspaceSlug,
+  provider,
+  trigger,
+}: {
+  workspaceSlug: string;
+  provider?: ProviderConnection;
+  trigger?: ReactNode;
+}) {
   const router = useRouter();
+  const editing = provider !== undefined;
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [id, setId] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [kind, setKind] = useState<GatewayProviderKind>('openai_compatible');
-  const [baseUrl, setBaseUrl] = useState('');
-  const [defaultModel, setDefaultModel] = useState('gpt-4o-mini');
+  const [displayName, setDisplayName] = useState(provider?.display_name ?? '');
+  const [kind, setKind] = useState<GatewayProviderKind>(provider?.kind ?? 'openai_compatible');
+  const [baseUrl, setBaseUrl] = useState(provider?.base_url ?? '');
+  const [defaultModel, setDefaultModel] = useState(provider?.default_model ?? 'gpt-4o-mini');
   const [providerApiKey, setProviderApiKey] = useState('');
+  const isPaymentProvider = kind === 'payment_http';
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
     setSubmitting(true);
     try {
-      await postGatewayConfig(`/api/gateway/provider-connections${query(workspaceSlug)}`, {
-        ...(id.trim() === '' ? {} : { id: id.trim() }),
+      const body = {
+        ...(!editing && id.trim() !== '' ? { id: id.trim() } : {}),
         display_name: displayName.trim(),
-        kind,
-        ...(baseUrl.trim() === '' ? {} : { base_url: baseUrl.trim() }),
-        default_model: defaultModel.trim(),
-        provider_api_key: providerApiKey.trim(),
-      });
-      toast.success('Provider connection created');
+        ...(!editing ? { kind } : {}),
+        ...(editing || baseUrl.trim() !== '' ? { base_url: baseUrl.trim() } : {}),
+        ...(!isPaymentProvider ? { default_model: defaultModel.trim() } : {}),
+        ...(providerApiKey.trim() !== '' ? { provider_api_key: providerApiKey.trim() } : {}),
+      };
+      const url = editing
+        ? `/api/gateway/provider-connections/${encodeURIComponent(provider.id)}${query(workspaceSlug)}`
+        : `/api/gateway/provider-connections${query(workspaceSlug)}`;
+      await sendGatewayConfig(url, editing ? 'PATCH' : 'POST', body);
+      toast.success(editing ? 'Provider updated' : 'Provider connection created');
       setOpen(false);
       reset();
       router.refresh();
@@ -370,45 +473,50 @@ function ProviderConnectionDialog({ workspaceSlug }: { workspaceSlug: string }) 
 
   function reset() {
     setId('');
-    setDisplayName('');
-    setKind('openai_compatible');
-    setBaseUrl('');
-    setDefaultModel('gpt-4o-mini');
+    setDisplayName(provider?.display_name ?? '');
+    setKind(provider?.kind ?? 'openai_compatible');
+    setBaseUrl(provider?.base_url ?? '');
+    setDefaultModel(provider?.default_model ?? 'gpt-4o-mini');
     setProviderApiKey('');
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">
-          <IconPlus />
-          Provider
-        </Button>
+        {trigger ?? (
+          <Button variant="outline">
+            <IconPlus />
+            Provider
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <form onSubmit={onSubmit} className="grid gap-4">
           <DialogHeader>
-            <DialogTitle>Connect a provider</DialogTitle>
+            <DialogTitle>{editing ? 'Edit provider' : 'Connect a provider'}</DialogTitle>
             <DialogDescription>
-              Connect an AI service like OpenAI or Anthropic so the gateway has somewhere to send
-              your requests. Your secret key is stored securely and never shown again.
+              {editing
+                ? 'Update this connection or enter a new secret key to rotate the stored credential.'
+                : 'Connect an AI service like OpenAI or Anthropic so the gateway has somewhere to send your requests. Your secret key is stored securely and never shown again.'}
             </DialogDescription>
           </DialogHeader>
-          <Field
-            label="Short id"
-            htmlFor="provider-id"
-            optional
-            hint="A short, lowercase nickname used in links (for example, openai-prod). Leave blank and we'll create one for you."
-          >
-            <Input
-              id="provider-id"
-              autoComplete="off"
-              className="font-mono"
-              placeholder="openai-prod"
-              value={id}
-              onChange={(event) => setId(event.target.value)}
-            />
-          </Field>
+          {!editing ? (
+            <Field
+              label="Short id"
+              htmlFor="provider-id"
+              optional
+              hint="A short, lowercase nickname used in links (for example, openai-prod). Leave blank and we'll create one for you."
+            >
+              <Input
+                id="provider-id"
+                autoComplete="off"
+                className="font-mono"
+                placeholder="openai-prod"
+                value={id}
+                onChange={(event) => setId(event.target.value)}
+              />
+            </Field>
+          ) : null}
           <Field
             label="Name"
             htmlFor="provider-name"
@@ -430,6 +538,7 @@ function ProviderConnectionDialog({ workspaceSlug }: { workspaceSlug: string }) 
           >
             <Select
               value={kind}
+              disabled={editing}
               onValueChange={(value) => {
                 const nextKind = value as GatewayProviderKind;
                 setKind(nextKind);
@@ -444,13 +553,16 @@ function ProviderConnectionDialog({ workspaceSlug }: { workspaceSlug: string }) 
               <SelectContent>
                 <SelectItem value="openai_compatible">OpenAI-compatible</SelectItem>
                 <SelectItem value="anthropic">Anthropic</SelectItem>
+                {isPaymentProvider ? (
+                  <SelectItem value="payment_http">Payment HTTP</SelectItem>
+                ) : null}
               </SelectContent>
             </Select>
           </Field>
           <Field
             label="Service address"
             htmlFor="provider-base-url"
-            optional
+            optional={!isPaymentProvider}
             hint="Only change this if you use a custom or self-hosted endpoint. Most people can leave it blank."
           >
             <Input
@@ -464,28 +576,31 @@ function ProviderConnectionDialog({ workspaceSlug }: { workspaceSlug: string }) 
               onChange={(event) => setBaseUrl(event.target.value)}
             />
           </Field>
+          {!isPaymentProvider ? (
+            <Field
+              label="Default model"
+              htmlFor="provider-model"
+              hint="The model used when a request doesn't name one — for example, gpt-4o-mini."
+            >
+              <Input
+                id="provider-model"
+                required
+                autoComplete="off"
+                className="font-mono"
+                value={defaultModel}
+                onChange={(event) => setDefaultModel(event.target.value)}
+              />
+            </Field>
+          ) : null}
           <Field
-            label="Default model"
-            htmlFor="provider-model"
-            hint="The model used when a request doesn't name one — for example, gpt-4o-mini."
-          >
-            <Input
-              id="provider-model"
-              required
-              autoComplete="off"
-              className="font-mono"
-              value={defaultModel}
-              onChange={(event) => setDefaultModel(event.target.value)}
-            />
-          </Field>
-          <Field
-            label="Secret key"
+            label={editing ? 'New secret key' : 'Secret key'}
             htmlFor="provider-key"
+            optional={editing}
             hint="The API key from your AI service account. We store it securely and never show it again."
           >
             <Input
               id="provider-key"
-              required
+              required={!editing}
               type="password"
               autoComplete="off"
               className="font-mono"
@@ -502,11 +617,18 @@ function ProviderConnectionDialog({ workspaceSlug }: { workspaceSlug: string }) 
               disabled={
                 submitting ||
                 !displayName.trim() ||
-                !defaultModel.trim() ||
-                !providerApiKey.trim()
+                (!isPaymentProvider && !defaultModel.trim()) ||
+                (isPaymentProvider && !baseUrl.trim()) ||
+                (!editing && !providerApiKey.trim())
               }
             >
-              {submitting ? 'Connecting...' : 'Connect provider'}
+              {submitting
+                ? editing
+                  ? 'Saving...'
+                  : 'Connecting...'
+                : editing
+                  ? 'Save changes'
+                  : 'Connect provider'}
             </Button>
           </DialogFooter>
         </form>
@@ -656,11 +778,7 @@ function GatewayRouteDialog({
             <Button
               type="submit"
               disabled={
-                submitting ||
-                !hasDependencies ||
-                !displayName.trim() ||
-                !providerId ||
-                !agentId
+                submitting || !hasDependencies || !displayName.trim() || !providerId || !agentId
               }
             >
               {submitting ? 'Creating...' : 'Create route'}
@@ -1058,12 +1176,31 @@ function EntitySelect({
   );
 }
 
-async function postGatewayConfig(url: string, body: Record<string, string | number>): Promise<void> {
+async function sendGatewayConfig(
+  url: string,
+  method: 'POST' | 'PATCH',
+  body: Record<string, string | number>,
+): Promise<void> {
   const res = await fetch(url, {
-    method: 'POST',
+    method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(readErrorMessage(text) ?? `request failed (${res.status})`);
+  }
+}
+
+async function postGatewayConfig(
+  url: string,
+  body: Record<string, string | number>,
+): Promise<void> {
+  return sendGatewayConfig(url, 'POST', body);
+}
+
+async function deleteGatewayConfig(url: string): Promise<void> {
+  const res = await fetch(url, { method: 'DELETE' });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(readErrorMessage(text) ?? `request failed (${res.status})`);
@@ -1092,7 +1229,9 @@ function nameForAgent(rows: Array<{ id: string; name: string }>, id: string): st
 }
 
 function providerKindLabel(kind: GatewayProviderKind): string {
-  return kind === 'openai_compatible' ? 'OpenAI-compatible' : 'Anthropic';
+  if (kind === 'openai_compatible') return 'OpenAI-compatible';
+  if (kind === 'anthropic') return 'Anthropic';
+  return 'Payment HTTP';
 }
 
 // A column header with an inline "?" that defines the term in plain language.

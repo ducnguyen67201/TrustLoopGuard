@@ -16,7 +16,8 @@ pub(super) fn gateway_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> Ro
         )
         .route(
             "/v1/gateway/provider-connections/:id",
-            patch(gateway::patch_gateway_provider_connection),
+            patch(gateway::patch_gateway_provider_connection)
+                .delete(gateway::delete_gateway_provider_connection),
         )
         .route(
             "/v1/gateway/routes",

@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { GatewayPageContent } from './GatewayPageContent';
 
@@ -54,6 +55,11 @@ const shell: Pick<
 };
 
 describe('GatewayPageContent', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
   it('shows the policy-authoritative two-resource setup', () => {
     render(
       <GatewayPageContent
@@ -92,5 +98,96 @@ describe('GatewayPageContent', () => {
 
     // Missing API key warning is phrased for a non-technical reader.
     expect(screen.getByText(/you need an api key first/i)).toBeInTheDocument();
+  });
+
+  it('edits a provider without requiring the existing secret', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <GatewayPageContent
+        apiBaseUrl="http://localhost:3001"
+        data={{
+          ...shell,
+          providerConnections: [
+            {
+              id: 'provider-1',
+              display_name: 'OpenAI production',
+              kind: 'openai_compatible',
+              base_url: 'https://api.openai.com',
+              default_model: 'gpt-4o-mini',
+              credential_status: 'configured',
+              created_at: '2026-07-10T00:00:00Z',
+              updated_at: '2026-07-10T00:00:00Z',
+            },
+          ],
+          gatewayRoutes: [],
+          activeRuntimeKeyCount: 1,
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Edit OpenAI production' }));
+    const name = screen.getByRole('textbox', { name: 'Name' });
+    await user.clear(name);
+    await user.type(name, 'OpenAI primary');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/gateway/provider-connections/provider-1?workspace=proxy-demo',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({
+            display_name: 'OpenAI primary',
+            base_url: 'https://api.openai.com',
+            default_model: 'gpt-4o-mini',
+          }),
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Edit provider' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('requires confirmation before permanently deleting a provider', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <GatewayPageContent
+        apiBaseUrl="http://localhost:3001"
+        data={{
+          ...shell,
+          providerConnections: [
+            {
+              id: 'provider-1',
+              display_name: 'OpenAI production',
+              kind: 'openai_compatible',
+              base_url: null,
+              default_model: 'gpt-4o-mini',
+              credential_status: 'configured',
+              created_at: '2026-07-10T00:00:00Z',
+              updated_at: '2026-07-10T00:00:00Z',
+            },
+          ],
+          gatewayRoutes: [],
+          activeRuntimeKeyCount: 1,
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Delete OpenAI production' }));
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(/permanently delete/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Delete provider' }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/gateway/provider-connections/provider-1?workspace=proxy-demo',
+      { method: 'DELETE' },
+    );
   });
 });

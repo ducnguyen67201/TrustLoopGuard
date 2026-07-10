@@ -9,8 +9,9 @@ pub(crate) mod proxy;
 pub(crate) mod routes;
 
 pub use provider_connections::{
-    __path_create_gateway_provider_connection, __path_list_gateway_provider_connections,
-    __path_patch_gateway_provider_connection, create_gateway_provider_connection,
+    __path_create_gateway_provider_connection, __path_delete_gateway_provider_connection,
+    __path_list_gateway_provider_connections, __path_patch_gateway_provider_connection,
+    create_gateway_provider_connection, delete_gateway_provider_connection,
     list_gateway_provider_connections, patch_gateway_provider_connection,
 };
 pub use proxy::{
