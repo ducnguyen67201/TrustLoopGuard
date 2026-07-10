@@ -175,6 +175,8 @@ impl TeamStore for MemoryTeamStore {
                 name: ws_id.clone(),
                 organization_id: format!("org_{}", ws_id),
                 role: m.role,
+                is_knowledge_base_enabled: false,
+                is_attacks_enabled: false,
             })
             .collect())
     }
@@ -208,6 +210,8 @@ impl TeamStore for MemoryTeamStore {
             name: trimmed.to_string(),
             organization_id: format!("org_{}", id),
             role: WorkspaceRole::Owner,
+            is_knowledge_base_enabled: false,
+            is_attacks_enabled: false,
         })
     }
 }

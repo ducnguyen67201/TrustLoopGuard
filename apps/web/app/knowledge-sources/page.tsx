@@ -1,7 +1,9 @@
 import { AppLayout } from '@/components/AppLayout';
+import { notFound } from 'next/navigation';
 import { KnowledgeSourcesPageContent } from '@/components/workspace/ManagementPages';
 import { readParam, readWorkspaceSlug } from '@/lib/search-params';
 import { getKnowledgePageData } from '@/lib/server/dashboard-data';
+import { isWorkspaceFeatureEnabled } from '@/lib/workspace-features';
 
 export default async function KnowledgeSourcesPage({
   searchParams,
@@ -12,6 +14,7 @@ export default async function KnowledgeSourcesPage({
   const workspaceSlug = readWorkspaceSlug(params);
   const environmentId = readParam(params.environment);
   const data = await getKnowledgePageData(workspaceSlug, environmentId);
+  if (!isWorkspaceFeatureEnabled(data.activeWorkspace, 'knowledgeBase')) notFound();
 
   return (
     <AppLayout title="Knowledge" workspaceSlug={workspaceSlug} environmentId={environmentId} shell={data}>

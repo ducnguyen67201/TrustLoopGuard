@@ -7295,9 +7295,15 @@ components:
       - name
       - role
       - organization_id
+      - is_knowledge_base_enabled
+      - is_attacks_enabled
       properties:
         id:
           type: string
+        is_attacks_enabled:
+          type: boolean
+        is_knowledge_base_enabled:
+          type: boolean
         name:
           type: string
         organization_id:

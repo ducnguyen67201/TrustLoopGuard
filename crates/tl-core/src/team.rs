@@ -169,6 +169,8 @@ pub struct MyWorkspace {
     pub name: String,
     pub role: WorkspaceRole,
     pub organization_id: String,
+    pub is_knowledge_base_enabled: bool,
+    pub is_attacks_enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

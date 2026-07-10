@@ -41,6 +41,8 @@ const shell: Pick<
     sourceCount: 0,
     apiKeyCount: 0,
     role: 'admin',
+    isKnowledgeBaseEnabled: false,
+    isAttacksEnabled: false,
   },
   workspaces: [],
   activeEnvironment: {

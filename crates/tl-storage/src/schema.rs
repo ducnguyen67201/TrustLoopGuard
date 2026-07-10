@@ -236,6 +236,8 @@ diesel::table! {
         name -> Text,
         slug -> Text,
         description -> Nullable<Text>,
+        is_knowledge_base_enabled -> Bool,
+        is_attacks_enabled -> Bool,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         deleted_at -> Nullable<Timestamptz>,

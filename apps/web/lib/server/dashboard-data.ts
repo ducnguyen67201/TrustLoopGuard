@@ -45,6 +45,8 @@ export interface WorkspaceSummary {
   sourceCount: number;
   apiKeyCount: number;
   role: string;
+  isKnowledgeBaseEnabled: boolean;
+  isAttacksEnabled: boolean;
 }
 
 export interface WorkspaceEnvironmentSummary {
@@ -967,6 +969,8 @@ interface MyWorkspaceWire {
   name: string;
   role: string;
   organization_id: string;
+  is_knowledge_base_enabled: boolean;
+  is_attacks_enabled: boolean;
 }
 
 interface MyWorkspacesWire {
@@ -1099,6 +1103,8 @@ async function buildWorkspaceSummary(
     sourceCount: knowledgeList.knowledge_sources.length,
     apiKeyCount: 0,
     role: membership?.role ?? 'Owner',
+    isKnowledgeBaseEnabled: membership?.is_knowledge_base_enabled ?? false,
+    isAttacksEnabled: membership?.is_attacks_enabled ?? false,
   };
 }
 
