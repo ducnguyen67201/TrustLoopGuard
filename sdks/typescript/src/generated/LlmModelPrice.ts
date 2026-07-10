@@ -16,4 +16,13 @@ input_per_million_minor: bigint,
 /**
  * USD minor units per 1M completion tokens.
  */
-output_per_million_minor: bigint, currency: string, source: LlmPriceSource, };
+output_per_million_minor: bigint,
+/**
+ * Exact USD nanos per 1M prompt tokens. Decimal string for safe
+ * JavaScript transport.
+ */
+input_per_million_usd_nanos: string,
+/**
+ * Exact USD nanos per 1M completion tokens.
+ */
+output_per_million_usd_nanos: string, currency: string, source: LlmPriceSource, };

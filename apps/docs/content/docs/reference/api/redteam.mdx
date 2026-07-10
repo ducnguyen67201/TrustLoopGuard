@@ -15,7 +15,18 @@ _openapi:
       title: >-
         `POST /v1/agents/{id}/redteam/static-policies` — synthesize
         **preventive**
-      url: '#post-v1agentsidredteamstatic-policies--synthesize-preventive'
+
+        guardrails from the workflow analyzer's `source → sink` paths and attach
+
+        them to the agent `enabled = false` (operator opts in via
+
+        `PATCH /v1/policies/{id}/enabled`). The static twin of `harden`:
+        coverage
+
+        without an attack. No exposure ⇒ an empty set, never a fabricated
+        policy.
+      url: >-
+        #post-v1agentsidredteamstatic-policies--synthesize-preventiveguardrails-from-the-workflow-analyzers-source--sink-paths-and-attachthem-to-the-agent-enabled--false-operator-opts-in-viapatch-v1policiesidenabled-the-static-twin-of-harden-coveragewithout-an-attack-no-exposure--an-empty-set-never-a-fabricated-policy
     - depth: 2
       title: >-
         `GET /v1/redteam/attacks` — every attack session in the workspace,
@@ -38,20 +49,33 @@ _openapi:
       title: Harden_job
       url: '#harden_job'
     - depth: 2
-      title: '`GET /v1/redteam/jobs/{id}/report` — presentation-ready vulnerability'
-      url: '#get-v1redteamjobsidreport--presentation-ready-vulnerability'
+      title: >-
+        `GET /v1/redteam/jobs/{id}/report` — presentation-ready vulnerability
+
+        report for a completed job, optionally compared against a second run of
+        the
+
+        same agent (`?compare={job_id}`).
+      url: >-
+        #get-v1redteamjobsidreport--presentation-ready-vulnerabilityreport-for-a-completed-job-optionally-compared-against-a-second-run-of-thesame-agent-comparejob_id
     - depth: 2
       title: Delete_plan
       url: '#delete_plan'
     - depth: 2
-      title: '`POST /v1/redteam/reports` — mint a shareable link for a completed job'
-      url: '#post-v1redteamreports--mint-a-shareable-link-for-a-completed-job'
+      title: |-
+        `POST /v1/redteam/reports` — mint a shareable link for a completed job
+        (optionally a same-agent comparison run).
+      url: >-
+        #post-v1redteamreports--mint-a-shareable-link-for-a-completed-joboptionally-a-same-agent-comparison-run
     - depth: 2
       title: '`GET /v1/redteam/reports/{token}` — public, token-authenticated report.'
       url: '#get-v1redteamreportstoken--public-token-authenticated-report'
     - depth: 2
-      title: '`POST /v1/redteam/reports/{token}/revoke` — revoke a shareable link'
-      url: '#post-v1redteamreportstokenrevoke--revoke-a-shareable-link'
+      title: |-
+        `POST /v1/redteam/reports/{token}/revoke` — revoke a shareable link
+        (matches the `/cancel` action convention; the public read then 404s).
+      url: >-
+        #post-v1redteamreportstokenrevoke--revoke-a-shareable-linkmatches-the-cancel-action-convention-the-public-read-then-404s
   structuredData:
     headings:
       - content: Plan_attack_vectors
@@ -61,7 +85,19 @@ _openapi:
       - content: >-
           `POST /v1/agents/{id}/redteam/static-policies` — synthesize
           **preventive**
-        id: post-v1agentsidredteamstatic-policies--synthesize-preventive
+
+          guardrails from the workflow analyzer's `source → sink` paths and
+          attach
+
+          them to the agent `enabled = false` (operator opts in via
+
+          `PATCH /v1/policies/{id}/enabled`). The static twin of `harden`:
+          coverage
+
+          without an attack. No exposure ⇒ an empty set, never a fabricated
+          policy.
+        id: >-
+          post-v1agentsidredteamstatic-policies--synthesize-preventiveguardrails-from-the-workflow-analyzers-source--sink-paths-and-attachthem-to-the-agent-enabled--false-operator-opts-in-viapatch-v1policiesidenabled-the-static-twin-of-harden-coveragewithout-an-attack-no-exposure--an-empty-set-never-a-fabricated-policy
       - content: >-
           `GET /v1/redteam/attacks` — every attack session in the workspace,
           newest first.
@@ -77,39 +113,32 @@ _openapi:
         id: post-v1redteamjobsidcancel--cooperatively-cancel-a-job
       - content: Harden_job
         id: harden_job
-      - content: '`GET /v1/redteam/jobs/{id}/report` — presentation-ready vulnerability'
-        id: get-v1redteamjobsidreport--presentation-ready-vulnerability
-      - content: Delete_plan
-        id: delete_plan
-      - content: '`POST /v1/redteam/reports` — mint a shareable link for a completed job'
-        id: post-v1redteamreports--mint-a-shareable-link-for-a-completed-job
       - content: >-
-          `GET /v1/redteam/reports/{token}` — public, token-authenticated
-          report.
-        id: get-v1redteamreportstoken--public-token-authenticated-report
-      - content: '`POST /v1/redteam/reports/{token}/revoke` — revoke a shareable link'
-        id: post-v1redteamreportstokenrevoke--revoke-a-shareable-link
-    contents:
-      - content: >-
-          guardrails from the workflow analyzer's `source → sink` paths and
-          attach
+          `GET /v1/redteam/jobs/{id}/report` — presentation-ready vulnerability
 
-          them to the agent `enabled = false` (operator opts in via
-
-          `PATCH /v1/policies/{id}/enabled`). The static twin of `harden`:
-          coverage
-
-          without an attack. No exposure ⇒ an empty set, never a fabricated
-          policy.
-        heading: post-v1agentsidredteamstatic-policies--synthesize-preventive
-      - content: >-
           report for a completed job, optionally compared against a second run
           of the
 
           same agent (`?compare={job_id}`).
-        heading: get-v1redteamjobsidreport--presentation-ready-vulnerability
-      - content: (optionally a same-agent comparison run).
-        heading: post-v1redteamreports--mint-a-shareable-link-for-a-completed-job
+        id: >-
+          get-v1redteamjobsidreport--presentation-ready-vulnerabilityreport-for-a-completed-job-optionally-compared-against-a-second-run-of-thesame-agent-comparejob_id
+      - content: Delete_plan
+        id: delete_plan
+      - content: |-
+          `POST /v1/redteam/reports` — mint a shareable link for a completed job
+          (optionally a same-agent comparison run).
+        id: >-
+          post-v1redteamreports--mint-a-shareable-link-for-a-completed-joboptionally-a-same-agent-comparison-run
+      - content: >-
+          `GET /v1/redteam/reports/{token}` — public, token-authenticated
+          report.
+        id: get-v1redteamreportstoken--public-token-authenticated-report
+      - content: |-
+          `POST /v1/redteam/reports/{token}/revoke` — revoke a shareable link
+          (matches the `/cancel` action convention; the public read then 404s).
+        id: >-
+          post-v1redteamreportstokenrevoke--revoke-a-shareable-linkmatches-the-cancel-action-convention-the-public-read-then-404s
+    contents:
       - content: >-
           Unauthenticated by design: the token is the bearer capability. The job
 
@@ -118,8 +147,6 @@ _openapi:
 
           token cannot reach another workspace's data.
         heading: get-v1redteamreportstoken--public-token-authenticated-report
-      - content: (matches the `/cancel` action convention; the public read then 404s).
-        heading: post-v1redteamreportstokenrevoke--revoke-a-shareable-link
 ---
 
 {/* This file was generated by Fumadocs. Do not edit this file directly. Any changes should be made by running the generation command again. */}

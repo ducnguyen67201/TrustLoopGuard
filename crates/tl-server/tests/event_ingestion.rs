@@ -422,9 +422,22 @@ severity: high
             "evidence": ["you are dumb"]
         }]
     })));
+    state
+        .llm_pricing_store
+        .upsert_price(
+            DEFAULT_WORKSPACE_ID,
+            "semantic",
+            10,
+            20,
+            100_000_000,
+            200_000_000,
+        )
+        .await
+        .unwrap();
     let app = router(state, None, [0u8; 32]);
 
     let resp = app
+        .clone()
         .oneshot(submit_request(
             &output_event_body("you are dumb"),
             Some(DEFAULT_WORKSPACE_ID),
@@ -440,6 +453,24 @@ severity: high
     assert!(decision.triggered_policies[0]
         .reason
         .contains("confidence=0.94"));
+
+    let usage = app
+        .oneshot(
+            json_request(
+                "GET",
+                "/v1/llm-usage?kind=guardrail",
+                Some(DEFAULT_WORKSPACE_ID),
+            )
+            .body(Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(usage.status(), StatusCode::OK);
+    let body = read_body(usage).await;
+    assert_eq!(body["events"][0]["kind"], "guardrail");
+    assert_eq!(body["events"][0]["prompt_tokens"], 8);
+    assert_eq!(body["events"][0]["completion_tokens"], 4);
 }
 
 #[tokio::test]

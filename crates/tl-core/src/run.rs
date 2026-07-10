@@ -201,8 +201,85 @@ pub struct RunEventListResponse {
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RunProviderUsage {
+    pub gateway_request_id: String,
+    pub route_id: String,
+    pub provider: String,
+    pub model: String,
+    pub provider_response_id: Option<String>,
+    pub status: String,
+    pub prompt_tokens: Option<i64>,
+    pub completion_tokens: Option<i64>,
+    pub total_tokens: Option<i64>,
+    pub latency_ms: u64,
+    pub estimated_cost_usd_nanos: Option<String>,
+    pub input_rate_usd_per_million_nanos: Option<String>,
+    pub output_rate_usd_per_million_nanos: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RunGuardrailUsage {
+    pub phase: String,
+    pub judge: String,
+    pub provider: Option<String>,
+    pub model: Option<String>,
+    pub status: String,
+    pub prompt_tokens: Option<i64>,
+    pub completion_tokens: Option<i64>,
+    pub estimated_cost_usd_nanos: Option<String>,
+    pub fallback_used: bool,
+    pub latency_ms: u64,
+    pub error_code: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RunBudgetWindowSnapshot {
+    pub window: String,
+    pub cap_usd_nanos: String,
+    pub committed_before_usd_nanos: String,
+    pub reserved_before_usd_nanos: String,
+    pub requested_usd_nanos: String,
+    pub remaining_after_usd_nanos: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RunLlmBudgetDecision {
+    pub principal_id: String,
+    pub status: String,
+    pub currency: String,
+    pub governing_window: Option<String>,
+    pub requested_usd_nanos: Option<String>,
+    pub actual_usd_nanos: Option<String>,
+    pub windows: Vec<RunBudgetWindowSnapshot>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
 pub struct RunDetail {
     pub run: RunSummary,
     pub events: Vec<RunEventSummary>,
     pub traces: Vec<TraceSummary>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub provider_usage: Option<RunProviderUsage>,
+    #[serde(default)]
+    pub guardrail_usage: Vec<RunGuardrailUsage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub budget_decision: Option<RunLlmBudgetDecision>,
 }

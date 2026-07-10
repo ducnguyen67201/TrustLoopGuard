@@ -1,58 +1,78 @@
 # Gateway
 
-The gateway is TrustLoopGuard's proxy integration path. It lets a customer route provider traffic through the Rust runtime instead of calling `Guard.check` from application code.
+Gateway is TrustLoopGuard's provider-proxy integration. It lets an application send OpenAI-compatible
+or Anthropic traffic through the Rust runtime instead of applying a returned `Decision` itself.
 
 ## Ownership
 
-Rust owns the gateway data plane and durable configuration:
+- `tl-server` owns the provider-compatible data plane and configuration APIs.
+- `tl-storage` persists provider connections and routes.
+- `tl-core` owns the public Gateway wire types.
+- `apps/web` proxies dashboard configuration requests and renders the setup UI.
 
-- `tl-server` exposes provider-compatible proxy endpoints and dashboard configuration APIs.
-- `tl-storage` persists provider connections, gateway routes, and enforcement profiles.
-- `tl-core` owns the public wire types for gateway configuration.
-- `apps/web` only proxies dashboard requests and renders configuration.
+The Next.js app never forwards model traffic or evaluates policies.
 
-The Next.js app must not forward model traffic or evaluate policies.
+## SDK and Gateway modes
 
-## SDK vs Gateway
-
-SDK mode returns a `Decision` to customer code:
+SDK mode returns a decision to customer code:
 
 ```text
-Customer app -> SDK -> /v1/events -> Decision -> customer handles action
+Customer app -> SDK -> POST /v1/events -> Decision -> customer applies verdict
 ```
 
-Gateway mode applies the action inside TrustLoopGuard:
+Gateway mode applies that same decision to provider traffic:
 
 ```text
-Customer app -> /v1/gateway/... -> run -> input check -> provider -> output check -> safe response
+Customer app
+  -> Gateway route
+  -> input GuardEvent
+  -> execute_event_submission
+  -> provider
+  -> output GuardEvent
+  -> execute_event_submission
+  -> guarded provider response
 ```
 
-Both modes use the same policy engine. The difference is who handles the verdict.
+Both paths use `execute_event_submission`, including built-in checkers, enabled policies, trace
+persistence, and escalation delivery. Gateway does not have a second rule or enforcement-profile
+layer. The canonical event pipeline is documented in [event-engine.md](event-engine.md).
 
 ## Configuration
 
-Provider connections store customer-owned provider credentials for OpenAI-compatible and Anthropic requests. The API never returns plaintext provider keys after creation.
+A provider connection stores the customer-owned provider credential, provider kind, base URL, and
+default model. Plaintext provider credentials are never returned after creation.
 
-Gateway routes bind a public route id to:
+Provider connections can be edited without replacing the stored credential; supplying a new key
+rotates it, while omitting the key preserves the existing encrypted value. Deletion is a permanent
+removal of the provider row and encrypted credential. A provider referenced by any Gateway route
+cannot be deleted; the route must be moved to another provider first. Provider kind and stable id
+do not change during edits.
 
-- a provider connection
-- an agent id
-- an enforcement profile
+A route binds a stable public route id to:
 
-Enforcement profiles define what the proxy does after a policy match: input action, output action, fail mode, retention mode, fallback message, and regeneration budget.
+- one provider connection
+- one agent id
 
-Dashboard/user credentials manage this configuration. Workspace runtime API keys (`tl_live_...`) may call the provider-compatible gateway data plane, but they cannot create or update provider connections, routes, enforcement profiles, or other runtime keys.
+Every enabled policy for the active workspace environment and route agent applies automatically.
+Routes do not select or override policies.
 
-Provider credentials are encrypted with `TL_GATEWAY_CREDENTIAL_KEY`. Development can fall back to `TL_API_KEY`; if neither secret is configured the server refuses to seal gateway credentials unless `TL_GATEWAY_ALLOW_INSECURE_DEV_KEY` is explicitly enabled for local-only use.
+Dashboard/user credentials manage provider connections and routes. Workspace runtime keys
+(`tl_live_...`) can call Gateway model endpoints but cannot manage Gateway configuration or other
+runtime keys.
 
-The dashboard setup flow mirrors this ownership model:
+Provider credentials are encrypted with `TL_GATEWAY_CREDENTIAL_KEY`. Development may fall back to
+`TL_API_KEY`; without either secret, credential sealing requires the explicit local-only
+`TL_GATEWAY_ALLOW_INSECURE_DEV_KEY` escape hatch.
 
-1. Create a provider connection.
-2. Create an enforcement profile.
-3. Create a route that binds provider, agent, and profile.
-4. Create a workspace runtime API key as a signed-in workspace owner/admin if the route will be called outside the dashboard.
+The dashboard setup flow is:
 
-Once the route is ready, OpenAI-compatible clients use:
+1. Connect a provider.
+2. Create or select an agent.
+3. Create a route binding the provider and agent.
+4. Create a workspace runtime API key.
+5. Copy the route-specific client configuration shown under Routes.
+
+OpenAI-compatible clients use:
 
 ```text
 baseURL = https://<server>/v1/gateway/<route_id>/openai
@@ -64,139 +84,129 @@ Anthropic clients use:
 baseURL = https://<server>/v1/gateway/<route_id>/anthropic
 ```
 
-OpenAI-compatible SDKs usually send the runtime key as `Authorization: Bearer ...` when configured with `apiKey`. Anthropic SDK examples must use bearer-token auth, such as `authToken`, because the gateway authenticates runtime calls through the Rust bearer middleware.
+## Policy verdicts
 
-## Budgets + Metering Quickstart
+Gateway applies the `Decision` from the shared event service directly:
 
-The OpenAI-compatible chat completions route meters every call and enforces per-principal spend caps. Azure AI Foundry and DigitalOcean inference both speak the OpenAI format, so the existing provider-connection mechanism covers them — no per-provider code.
+| Verdict | Input | Output |
+|---|---|---|
+| `allow` | Forward unchanged | Return unchanged |
+| `rewrite` | Replace the latest user message with `safe_output` | Replace provider content with `safe_output` |
+| `block` | Do not call the provider | Suppress provider content |
+| `escalate` | Do not call the provider; escalation is queued | Suppress provider content; escalation is queued |
 
-1. **Connect the provider** — point `base_url` at the OpenAI-compatible endpoint:
+A rewrite without `safe_output` fails closed. Blocked responses use the stable message
+`Blocked by TrustLoopGuard.` and the provider's normal content-filter shape. Gateway does not call
+the provider again to regenerate a response.
 
-```bash
-curl -X POST https://<server>/v1/gateway/provider-connections \
-  -H "Authorization: Bearer $TL_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id": "azure-foundry",
-    "display_name": "Azure AI Foundry",
-    "kind": "openai_compatible",
-    "base_url": "https://<resource>.services.ai.azure.com/models",
-    "default_model": "deepseek-chat",
-    "provider_api_key": "<azure-or-do-key>"
-  }'
-```
+Provider failures are availability failures, not policy decisions. They return a sanitized
+`502 Bad Gateway` and mark the Gateway run failed.
 
-For DigitalOcean, use `"base_url": "https://inference.do-ai.run"`. Then create an enforcement profile and a route as usual (see Configuration above).
+## Response signals
 
-1. **Issue a per-user runtime key** bound to a principal — every call made with the key is attributed to that principal for budgets and the audit trail:
+Blocked and escalated responses include:
 
-```bash
-curl -X POST https://<server>/v1/api-keys \
-  -H "Authorization: Bearer $TL_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{ "name": "Daniel agent key", "principal_id": "user:daniel" }'
-```
+- provider-native `content_filter` finish/stop reason
+- `X-TrustLoopGuard-Verdict`
+- `X-TrustLoopGuard-Phase`
+- `X-TrustLoopGuard-Trace-Id`
+- `X-TrustLoopGuard-Policy-Id` when a policy id is available
 
-Keys without a `principal_id` are budgeted per key: the key id itself acts as the principal.
+Rewrites include the verdict and correlation headers. Allowed responses carry no enforcement
+headers.
 
-1. **Set a spend cap** — a financial policy on the `llm_usage` spend meter (`"meter": "llm_usage"`; policies without a meter default to `actions` and gate `/v1/financial/actions` instead). Caps are USD minor units (cents); `daily_minor`, `weekly_minor`, and `monthly_minor` windows are all supported (day at 00:00 UTC, week from Monday 00:00 UTC, month from the 1st):
+## Budgets and metering
 
-```bash
-curl -X POST https://<server>/v1/financial/policies \
-  -H "Authorization: Bearer $TL_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id": "llm-weekly-budget",
-    "description": "Weekly LLM spend cap per user",
-    "meter": "llm_usage",
-    "weekly_minor": 5000
-  }'
-```
+OpenAI-compatible chat completions retain one Gateway-specific deterministic stage. Before any
+provider spend, Gateway evaluates enabled financial policies with `meter: llm_usage` for the
+runtime-key principal. It calculates a conservative input-token ceiling from the serialized request,
+uses `max_tokens` or `max_completion_tokens` as the output ceiling, and atomically reserves that
+maximum cost against the tightest daily, weekly, and monthly caps. Postgres serializes bounded
+reservations per workspace/principal, so concurrent replicas cannot spend the same remaining budget.
 
-A workspace-wide policy evaluates per principal — each user gets their own 50.00 USD week. Scope a cap to specific principals with `"when": { "agents": ["user:daniel"] }`.
+When neither output bound is present, Gateway uses soft admission: it allows the request while
+committed spend remains below every matching cap, settles the provider's reported actual usage,
+then denies later requests after the cap is reached. This preserves compatibility with clients that
+omit output bounds, but one unbounded request—or multiple concurrent unbounded requests—can
+overshoot a cap. Runs label this path `soft_admitted` and `soft_settled`; it is not a hard-cap
+guarantee.
 
-1. **Point the agent at the gateway**:
+After a successful provider response, the reservation is settled to the provider's actual usage.
+Unused reserved budget becomes available immediately. Provider failure releases the reservation;
+missing usage keeps a bounded request's maximum reservation active. An unbounded response without
+usage remains unknown and cannot provide a hard-cap guarantee. Usage events retain USD-nano
+precision and expose those exact values as decimal strings alongside legacy rounded minor-unit
+fields. Each recorded price snapshot therefore remains auditable even after a model's configured
+price changes.
 
-```python
-from openai import OpenAI
+This is still the unified policy registry, but it is not part of generic `/v1/events` evaluation:
+authoritative token usage and price are known only around the provider call. At or over a matching
+cap, Gateway returns HTTP 429 before calling the provider. A budgeted request fails closed when its
+model has no trusted price. Bounded requests receive a hard admission boundary assuming the
+upstream provider honors its token bound and reports authoritative usage; unbounded requests use
+the soft behavior above.
 
-client = OpenAI(
-    base_url="https://<server>/v1/gateway/<route_id>/openai",
-    api_key="tl_live_...",  # the per-user runtime key
-)
-```
+OpenAI-compatible providers such as DigitalOcean can use their normal base URL, for example
+`https://inference.do-ai.run`, with the desired model configured as the provider default.
 
-Every call is admitted only while the principal's spend is under every matching cap, then metered: `usage.prompt_tokens`/`completion_tokens` are priced through the model price table (integer USD-minor per 1M tokens) and recorded as an `llm_usage_events` row. Prices are workspace-editable via `/v1/llm-pricing`, with sensible built-in defaults for common models: `GET /v1/llm-pricing` lists the effective table (each row flagged `source: "workspace"` or `"default"`), and admins upsert or remove per-model workspace prices with `PUT`/`DELETE /v1/llm-pricing/{model}` — deleting a workspace price restores the built-in default. Unknown models are metered with cost 0 and a warning — metering never blocks or breaks a successful completion. Because admission checks spend-so-far, a cap can be overshot by at most one request's cost.
+## Streaming
 
-```bash
-curl -X PUT https://<server>/v1/llm-pricing/gpt-4o \
-  -H "Authorization: Bearer $TL_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{ "input_per_million_minor": 250, "output_per_million_minor": 1000 }'
-```
+`stream: true` needs no route-level setting. Gateway removes upstream streaming fields, buffers the
+complete provider response, evaluates output policies, then emits the guarded result as
+provider-native Server-Sent Events. This prevents unguarded tokens from reaching the caller. It is
+buffered emission, not token-by-token upstream streaming.
 
-At or over the cap, the gateway returns HTTP 429 with an OpenAI-style error the SDKs surface as a typed quota error, before the provider is ever called:
+## Data handling
 
-```json
-{
-  "error": {
-    "message": "budget exhausted for principal `user:daniel`: financial policy `llm-weekly-budget`: weekly spend would exceed cap 5000",
-    "type": "insufficient_quota",
-    "code": "budget_exceeded"
-  }
-}
-```
-
-Inspect usage with `GET /v1/llm-usage` (`principal_id`, `model`, `start`, `end` filters; `group_by=day|principal|model` rollups). Model rollups set `unpriced: true` when the selected bucket includes token-bearing calls recorded with zero cost, so dashboards can warn that spend for that historical window is undercounted even if a price is added later.
-
-## Enforcement Response Signal
-
-When the gateway blocks or escalates a request, it returns a response the agent framework can distinguish from a legitimate provider reply:
-
-- **`finish_reason: "content_filter"`** (OpenAI) / **`stop_reason: "content_filter"`** (Anthropic) — the industry-standard signal for policy-blocked content. Agent frameworks built on these SDKs already handle this case correctly and will not loop.
-- **`X-TrustLoopGuard-Verdict`** — `"blocked"` or `"escalated"`. Blocked means the response was suppressed; escalated means it was suppressed and a human review was triggered.
-- **`X-TrustLoopGuard-Phase`** — `"input"` or `"output"`, indicating which check fired.
-- **`X-TrustLoopGuard-Trace-Id`** — the trace UUID for correlation in the dashboard.
-- **`X-TrustLoopGuard-Policy-Id`** — the first triggered policy ID, if any.
-
-Clean responses (allow or successful rewrite) carry none of these headers, so the agent treats them as normal provider replies.
+Gateway-created `GuardEvent`s use the same workspace data-handling gate as `/v1/events`. Gateway
+does not own a route-level retention setting and must not claim to redact or omit raw event text
+independently of that shared workspace behavior.
 
 ## Observability
 
-Each accepted gateway model request creates a `chat_session` run before provider credentials are decrypted or policies are checked. The gateway attaches its input and output checks to that run by passing `run_id` into the same runtime check path used by SDK integrations. For each provider-compatible request inside a grouped session, the gateway also creates a `user_turn` run event with the latest user message as the input summary and links the input/output checks to that event.
+Each accepted Gateway request creates or reuses a `chat_session` run for the route agent. The
+checked input attaches to a `user_turn`; a successful provider response creates a separate
+`assistant_turn`, and the output check links to that assistant event. Gateway checks produce the
+same persisted traces as SDK events, using `gateway_input` and `gateway_output` domains so the run
+UI places them in the correct guard phase.
 
-By default, the run's `external_id` is the gateway request id. Callers may send `X-TLG-Run-External-Id` to correlate provider-compatible requests that belong to the same upstream session, such as a LiveKit room or customer chat id. When a matching run already exists for the route's agent and external id, the gateway reuses it so the dashboard groups all input/output checks under one run.
+Run metadata records integration mode, route id, Gateway request id, and provider kind. Callers may
+send `X-TLG-Run-External-Id` to group multiple provider calls into one upstream session. Policy-
+shaped responses complete the run; provider and internal check failures mark it failed.
 
-Run metadata records the integration mode, route id, gateway request id, provider kind, and enforcement profile id. Successful provider-shaped responses, including blocked or escalated policy responses, complete the run. Provider failures and internal check failures mark the run as failed.
+`GET /v1/runs/{run_id}` joins the run timeline with typed Gateway evidence:
 
-For OpenAI-compatible chat requests, the input check evaluates the latest `user` message only. Agent-owned `system` instructions are not treated as user input, so policies do not fire on the product's own safety prompt every turn, and earlier turns do not get concatenated into the current turn. Output checks still evaluate the provider's assistant reply.
+- provider/model, provider response id, status, latency, prompt/completion/total tokens, the price
+  snapshot, and estimated customer-inference cost;
+- the latest deterministic LLM budget decision, including every configured window's committed,
+  reserved, cap, and remaining amounts;
+- one guardrail-overhead record per semantic judge invocation, kept separate from customer spend.
 
-## Self-Healing with `max_regenerations`
+The durable usage ledger distinguishes `customer_inference` from `guardrail`. Only customer
+inference participates in `meter: llm_usage` hard-cap admission. Semantic policy candidates remain
+deterministically prefiltered and are judged in one batched call per event, so the number of enabled
+policies does not create an LLM-call loop. Failed or timed-out judge calls show unknown usage and
+cost when the provider did not report tokens; they are never displayed as zero-cost calls.
 
-When `output_action` is `rewrite` and the engine does not return a pre-computed `safe_output`, the gateway can attempt to self-correct by re-sending the request to the provider with corrective feedback injected into the message history.
+The dashboard's **Usage & budgets** page is the operator home for model prices, aggregate customer
+usage, guardrail overhead, `meter: llm_usage` policies, and LLM-scoped alerts. Gateway route setup
+only reports whether those spend controls are ready and links to that page. Provider invoices remain
+the final billing authority; TrustLoopGuard's per-request cost is a price-snapshot estimate.
 
-The enforcement profile's `max_regenerations` field caps the number of retry attempts (default 0 = no retries). On each attempt the gateway appends the failed assistant turn and a system-level correction message, then re-checks the new output. If any attempt passes, the clean response is returned to the caller with no enforcement headers. If all attempts are exhausted, the fallback message is returned with the standard enforcement headers.
+OpenAI-compatible input checks evaluate the latest user message. Anthropic input checks also include
+the top-level system prompt. Output checks evaluate the provider's assistant response.
 
-This allows many borderline policy violations to resolve transparently without the caller's agent knowing a block was attempted.
+## Supported endpoints
 
-## Retention
-
-Gateway checks always evaluate the real prompt and output so policy enforcement is not weakened by retention settings. Gateway traces include route, provider, phase, action, and retention metadata. Raw prompt/output storage is controlled by the enforcement profile:
-
-- `metadata_only` stores no raw body text in check payloads.
-- `redacted_body` stores a placeholder.
-- `full_body` stores bounded `checked_input_excerpt` and `checked_output_excerpt` fields on the persisted `Decision` payload so the run detail view can show what the policy evaluated.
-
-## Provider Support
-
-Supported surfaces:
-
+- `GET /v1/gateway/provider-connections`
+- `POST /v1/gateway/provider-connections`
+- `PATCH /v1/gateway/provider-connections/{id}`
+- `DELETE /v1/gateway/provider-connections/{id}`
+- `GET /v1/gateway/routes`
+- `POST /v1/gateway/routes`
+- `PATCH /v1/gateway/routes/{id}`
 - `POST /v1/gateway/{route_id}/openai/chat/completions`
 - `POST /v1/gateway/{route_id}/anthropic/v1/messages`
 
-Each enforcement profile carries a `response_mode` (`regular` | `streaming`). In `regular`
-mode (the default) a `stream: true` request is rejected with `400`. In `streaming` mode the
-gateway buffers the full upstream reply, runs the output guard, and then emits the guarded
-result as provider-native Server-Sent Events — it never forwards unguarded tokens. This is
-buffered emission, not token-by-token streaming; incremental mid-stream interruption is
-future work.
+Payment-provider forwarding is a separate financial path and is not configured through a Gateway
+route.

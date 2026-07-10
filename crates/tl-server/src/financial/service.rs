@@ -1095,12 +1095,15 @@ impl FinancialAuthorizationService {
         let principal_id = &action.action.principal_id;
         let currency = &action.action.amount.currency;
         crate::budget_alerts::evaluate_spend_alerts(
-            runtime,
-            policy_store.as_ref(),
-            workspace_id,
-            DEFAULT_ENVIRONMENT_ID,
-            principal_id,
-            currency,
+            crate::budget_alerts::SpendAlertEvaluation {
+                runtime,
+                policy_store: policy_store.as_ref(),
+                workspace_id,
+                environment_id: DEFAULT_ENVIRONMENT_ID,
+                principal_id,
+                currency,
+                meter: tl_core::SpendMeter::Actions,
+            },
             |financial| financial_matches(financial, &action.action),
             |window_start, now| async move {
                 self.store

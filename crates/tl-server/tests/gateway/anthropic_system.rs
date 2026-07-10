@@ -29,28 +29,6 @@ action: block
     assert_eq!(policy_resp.status(), StatusCode::CREATED);
 
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
-    let profile_resp = app
-        .clone()
-        .oneshot(json_request(
-            "POST",
-            "/v1/enforcement-profiles",
-            "sk-internal",
-            workspace,
-            json!({
-                "id": "profile",
-                "display_name": "Block Anthropic system",
-                "input_action": "block",
-                "output_action": "allow",
-                "fail_mode": "open",
-                "retention_mode": "full_body",
-                "fallback_message": "Blocked system instruction.",
-                "max_regenerations": 0
-            }),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(profile_resp.status(), StatusCode::CREATED);
-
     let provider_resp = app
         .clone()
         .oneshot(json_request(
@@ -82,8 +60,7 @@ action: block
                 "id": "route",
                 "display_name": "Gateway route",
                 "provider_connection_id": "provider",
-                "agent_id": "agent",
-                "enforcement_profile_id": "profile"
+                "agent_id": "agent"
             }),
         ))
         .await
@@ -107,6 +84,6 @@ action: block
 
     assert_eq!(resp.status(), StatusCode::OK);
     let body = read_body(resp).await;
-    assert_eq!(body["content"][0]["text"], "Blocked system instruction.");
+    assert_eq!(body["content"][0]["text"], "Blocked by TrustLoopGuard.");
     provider.verify().await;
 }

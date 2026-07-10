@@ -163,10 +163,17 @@ async fn gateway_reuses_run_for_external_correlation_header() {
     assert_eq!(detail.status(), StatusCode::OK);
     let detail_body = read_body(detail).await;
     let events = detail_body["events"].as_array().unwrap();
-    assert_eq!(events.len(), 2);
-    assert_eq!(events[0]["input_summary"], "hello");
-    assert_eq!(events[1]["input_summary"], "book an appointment");
-    assert_eq!(events[1]["output_summary"], Value::Null);
+    let input_events = events
+        .iter()
+        .filter(|event| event["input_summary"] != Value::Null)
+        .collect::<Vec<_>>();
+    assert_eq!(input_events.len(), 2);
+    assert_eq!(input_events[0]["input_summary"], "user: hello");
+    assert_eq!(
+        input_events[1]["input_summary"],
+        "user: book an appointment"
+    );
+    assert_eq!(input_events[1]["output_summary"], Value::Null);
 
     provider.verify().await;
 }

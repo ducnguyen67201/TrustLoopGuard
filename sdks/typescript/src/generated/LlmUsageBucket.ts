@@ -5,7 +5,11 @@
  * date (`YYYY-MM-DD`) for day buckets, otherwise the principal or
  * model value.
  */
-export type LlmUsageBucket = { key: string, prompt_tokens: bigint, completion_tokens: bigint, cost_minor: bigint, calls: bigint,
+export type LlmUsageBucket = { key: string, prompt_tokens: bigint, completion_tokens: bigint, cost_minor: bigint,
+/**
+ * Exact accumulated USD nanos as a decimal string.
+ */
+cost_usd_nanos: string, calls: bigint,
 /**
  * `true` when this model bucket includes token-bearing calls that
  * were recorded with zero cost, so `cost_minor` undercounts the

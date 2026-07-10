@@ -27,14 +27,14 @@ async fn upsert_get_list_and_delete_round_trip() {
     let repo = LlmPricingRepo::new(pool);
     let ws = "ws_llm_pricing";
 
-    repo.upsert_price(ws, "gpt-4o", 250, 1000)
+    repo.upsert_price(ws, "gpt-4o", 250, 1000, 2_500_000_000, 10_000_000_000)
         .await
         .expect("insert gpt-4o");
-    repo.upsert_price(ws, "mystery-1", 100, 300)
+    repo.upsert_price(ws, "mystery-1", 100, 300, 1_000_000_000, 3_000_000_000)
         .await
         .expect("insert mystery-1");
     // Same-key upsert updates in place, no duplicate row.
-    repo.upsert_price(ws, "gpt-4o", 500, 2000)
+    repo.upsert_price(ws, "gpt-4o", 500, 2000, 5_000_000_000, 20_000_000_000)
         .await
         .expect("update gpt-4o");
 
@@ -45,6 +45,7 @@ async fn upsert_get_list_and_delete_round_trip() {
         .expect("row exists");
     assert_eq!(price.input_per_million_minor, 500);
     assert_eq!(price.output_per_million_minor, 2000);
+    assert_eq!(price.input_per_million_nanos, 5_000_000_000);
     // The migration's column default applies.
     assert_eq!(price.currency, "USD");
 

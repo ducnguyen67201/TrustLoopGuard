@@ -6,11 +6,17 @@ _openapi:
     - ../../docs/openapi.yaml
   toc:
     - depth: 2
-      title: '`GET /v1/agents`. Returns all registered profiles. Bypasses the'
-      url: '#get-v1agents-returns-all-registered-profiles-bypasses-the'
+      title: |-
+        `GET /v1/agents`. Returns all registered profiles. Bypasses the
+        store's read cache because admin-list isn't on the hot path.
+      url: >-
+        #get-v1agents-returns-all-registered-profiles-bypasses-thestores-read-cache-because-admin-list-isnt-on-the-hot-path
     - depth: 2
-      title: '`POST /v1/agents` — upsert a profile. Body is YAML (when'
-      url: '#post-v1agents--upsert-a-profile-body-is-yaml-when'
+      title: |-
+        `POST /v1/agents` — upsert a profile. Body is YAML (when
+        `Content-Type` is `*yaml*`) or JSON.
+      url: >-
+        #post-v1agents--upsert-a-profile-body-is-yaml-whencontent-type-is-yaml-or-json
     - depth: 2
       title: '`GET /v1/agents/:id`.'
       url: '#get-v1agentsid'
@@ -18,47 +24,57 @@ _openapi:
       title: '`DELETE /v1/agents/:id`. Soft-delete via the store.'
       url: '#delete-v1agentsid-soft-delete-via-the-store'
     - depth: 2
-      title: '`GET /v1/agents/{id}/guardrails` — list active policies owned by an'
-      url: '#get-v1agentsidguardrails--list-active-policies-owned-by-an'
+      title: |-
+        `GET /v1/agents/{id}/guardrails` — list active policies owned by an
+        agent. Does not require the agent to exist; missing agent → empty list.
+      url: >-
+        #get-v1agentsidguardrails--list-active-policies-owned-by-anagent-does-not-require-the-agent-to-exist-missing-agent--empty-list
     - depth: 2
-      title: '`POST /v1/agents/{id}/guardrails/generate` — derive a set of'
-      url: '#post-v1agentsidguardrailsgenerate--derive-a-set-of'
+      title: |-
+        `POST /v1/agents/{id}/guardrails/generate` — derive a set of
+        guardrail policies tailored to an agent's stored `system_prompt`,
+        auto-persist them with `enabled=false`, and return what was saved.
+      url: >-
+        #post-v1agentsidguardrailsgenerate--derive-a-set-ofguardrail-policies-tailored-to-an-agents-stored-system_promptauto-persist-them-with-enabledfalse-and-return-what-was-saved
   structuredData:
     headings:
-      - content: '`GET /v1/agents`. Returns all registered profiles. Bypasses the'
-        id: get-v1agents-returns-all-registered-profiles-bypasses-the
-      - content: '`POST /v1/agents` — upsert a profile. Body is YAML (when'
-        id: post-v1agents--upsert-a-profile-body-is-yaml-when
+      - content: |-
+          `GET /v1/agents`. Returns all registered profiles. Bypasses the
+          store's read cache because admin-list isn't on the hot path.
+        id: >-
+          get-v1agents-returns-all-registered-profiles-bypasses-thestores-read-cache-because-admin-list-isnt-on-the-hot-path
+      - content: |-
+          `POST /v1/agents` — upsert a profile. Body is YAML (when
+          `Content-Type` is `*yaml*`) or JSON.
+        id: >-
+          post-v1agents--upsert-a-profile-body-is-yaml-whencontent-type-is-yaml-or-json
       - content: '`GET /v1/agents/:id`.'
         id: get-v1agentsid
       - content: '`DELETE /v1/agents/:id`. Soft-delete via the store.'
         id: delete-v1agentsid-soft-delete-via-the-store
-      - content: '`GET /v1/agents/{id}/guardrails` — list active policies owned by an'
-        id: get-v1agentsidguardrails--list-active-policies-owned-by-an
-      - content: '`POST /v1/agents/{id}/guardrails/generate` — derive a set of'
-        id: post-v1agentsidguardrailsgenerate--derive-a-set-of
-    contents:
-      - content: store's read cache because admin-list isn't on the hot path.
-        heading: get-v1agents-returns-all-registered-profiles-bypasses-the
-      - content: '`Content-Type` is `*yaml*`) or JSON.'
-        heading: post-v1agents--upsert-a-profile-body-is-yaml-when
       - content: >-
+          `GET /v1/agents/{id}/guardrails` — list active policies owned by an
+
           agent. Does not require the agent to exist; missing agent → empty
           list.
-        heading: get-v1agentsidguardrails--list-active-policies-owned-by-an
-      - content: >-
+        id: >-
+          get-v1agentsidguardrails--list-active-policies-owned-by-anagent-does-not-require-the-agent-to-exist-missing-agent--empty-list
+      - content: |-
+          `POST /v1/agents/{id}/guardrails/generate` — derive a set of
           guardrail policies tailored to an agent's stored `system_prompt`,
-
           auto-persist them with `enabled=false`, and return what was saved.
-
-
+        id: >-
+          post-v1agentsidguardrailsgenerate--derive-a-set-ofguardrail-policies-tailored-to-an-agents-stored-system_promptauto-persist-them-with-enabledfalse-and-return-what-was-saved
+    contents:
+      - content: >-
           Callers review the set and flip individual policies on via
 
           `PATCH /v1/policies/{id}/enabled`. Runtime checks never see these
 
           policies until that happens (because runtime event evaluation filters
           by enabled).
-        heading: post-v1agentsidguardrailsgenerate--derive-a-set-of
+        heading: >-
+          post-v1agentsidguardrailsgenerate--derive-a-set-ofguardrail-policies-tailored-to-an-agents-stored-system_promptauto-persist-them-with-enabledfalse-and-return-what-was-saved
 ---
 
 {/* This file was generated by Fumadocs. Do not edit this file directly. Any changes should be made by running the generation command again. */}

@@ -8,6 +8,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::SpendMeter;
+
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
 #[cfg(feature = "ts-export")]
@@ -55,6 +57,8 @@ pub struct BudgetAlertConfig {
     pub id: String,
     pub workspace_id: String,
     pub name: String,
+    #[serde(default)]
+    pub meter: SpendMeter,
     pub window: BudgetAlertWindow,
     /// `null` = any principal; the alert is evaluated per acting
     /// principal.
@@ -87,6 +91,8 @@ pub struct BudgetAlertConfigListResponse {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct CreateBudgetAlertConfigRequest {
     pub name: String,
+    #[serde(default)]
+    pub meter: SpendMeter,
     pub window: BudgetAlertWindow,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub principal_id: Option<String>,
@@ -110,6 +116,8 @@ pub struct CreateBudgetAlertConfigRequest {
 pub struct UpdateBudgetAlertConfigRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub meter: Option<SpendMeter>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub window: Option<BudgetAlertWindow>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -135,6 +143,8 @@ pub struct BudgetAlertFiring {
     pub id: String,
     pub workspace_id: String,
     pub config_id: String,
+    #[serde(default)]
+    pub meter: SpendMeter,
     pub principal_id: String,
     /// RFC 3339 window boundary the dedup key is anchored to.
     pub window_start: String,

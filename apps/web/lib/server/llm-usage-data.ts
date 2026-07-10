@@ -14,9 +14,10 @@ export type LlmUsageDashboardData = {
 export async function getLlmUsageDashboardData(
   workspaceId: string,
   period: UsagePeriod,
+  kind: 'customer_inference' | 'guardrail' = 'customer_inference',
 ): Promise<LlmUsageDashboardData> {
   const { start, end } = periodRange(period, new Date());
-  const window = `start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`;
+  const window = `start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}&kind=${kind}`;
   const load = (groupBy: 'day' | 'principal' | 'model') =>
     safeLoad(workspaceId, `/v1/llm-usage?group_by=${groupBy}&${window}`);
   const [byDay, byPrincipal, byModel] = await Promise.all([

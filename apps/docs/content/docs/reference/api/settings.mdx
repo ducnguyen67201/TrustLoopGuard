@@ -6,43 +6,58 @@ _openapi:
     - ../../docs/openapi.yaml
   toc:
     - depth: 2
-      title: '`GET /v1/environments/{environment_id}/checker-modes` - read'
-      url: '#get-v1environmentsenvironment_idchecker-modes---read'
+      title: |-
+        `GET /v1/environments/{environment_id}/checker-modes` - read
+        per-environment checker-mode overrides. Fields set to `null` (or an
+        all-empty body) inherit the workspace-level modes.
+      url: >-
+        #get-v1environmentsenvironment_idchecker-modes---readper-environment-checker-mode-overrides-fields-set-to-null-or-anall-empty-body-inherit-the-workspace-level-modes
     - depth: 2
-      title: '`PUT /v1/environments/{environment_id}/checker-modes` - replace'
-      url: '#put-v1environmentsenvironment_idchecker-modes---replace'
+      title: |-
+        `PUT /v1/environments/{environment_id}/checker-modes` - replace
+        per-environment checker-mode overrides. Omitted fields inherit the
+        workspace-level modes. Writes require an Owner/Admin user; workspace
+        runtime keys are rejected like `PATCH /v1/settings`.
+      url: >-
+        #put-v1environmentsenvironment_idchecker-modes---replaceper-environment-checker-mode-overrides-omitted-fields-inherit-theworkspace-level-modes-writes-require-an-owneradmin-user-workspaceruntime-keys-are-rejected-like-patch-v1settings
     - depth: 2
       title: '`GET /v1/settings` - read workspace runtime settings.'
       url: '#get-v1settings---read-workspace-runtime-settings'
     - depth: 2
-      title: '`PATCH /v1/settings` - partially update workspace runtime settings.'
-      url: '#patch-v1settings---partially-update-workspace-runtime-settings'
+      title: |-
+        `PATCH /v1/settings` - partially update workspace runtime settings.
+        Absent fields are left unchanged. Settings gate security enforcement
+        (checker modes), so writes require an Owner/Admin user; workspace
+        runtime keys are rejected — a running agent must never be able to
+        weaken the controls that govern it.
+      url: >-
+        #patch-v1settings---partially-update-workspace-runtime-settingsabsent-fields-are-left-unchanged-settings-gate-security-enforcementchecker-modes-so-writes-require-an-owneradmin-user-workspaceruntime-keys-are-rejected--a-running-agent-must-never-be-able-toweaken-the-controls-that-govern-it
   structuredData:
     headings:
-      - content: '`GET /v1/environments/{environment_id}/checker-modes` - read'
-        id: get-v1environmentsenvironment_idchecker-modes---read
-      - content: '`PUT /v1/environments/{environment_id}/checker-modes` - replace'
-        id: put-v1environmentsenvironment_idchecker-modes---replace
-      - content: '`GET /v1/settings` - read workspace runtime settings.'
-        id: get-v1settings---read-workspace-runtime-settings
-      - content: '`PATCH /v1/settings` - partially update workspace runtime settings.'
-        id: patch-v1settings---partially-update-workspace-runtime-settings
-    contents:
       - content: |-
+          `GET /v1/environments/{environment_id}/checker-modes` - read
           per-environment checker-mode overrides. Fields set to `null` (or an
           all-empty body) inherit the workspace-level modes.
-        heading: get-v1environmentsenvironment_idchecker-modes---read
+        id: >-
+          get-v1environmentsenvironment_idchecker-modes---readper-environment-checker-mode-overrides-fields-set-to-null-or-anall-empty-body-inherit-the-workspace-level-modes
       - content: |-
+          `PUT /v1/environments/{environment_id}/checker-modes` - replace
           per-environment checker-mode overrides. Omitted fields inherit the
           workspace-level modes. Writes require an Owner/Admin user; workspace
           runtime keys are rejected like `PATCH /v1/settings`.
-        heading: put-v1environmentsenvironment_idchecker-modes---replace
+        id: >-
+          put-v1environmentsenvironment_idchecker-modes---replaceper-environment-checker-mode-overrides-omitted-fields-inherit-theworkspace-level-modes-writes-require-an-owneradmin-user-workspaceruntime-keys-are-rejected-like-patch-v1settings
+      - content: '`GET /v1/settings` - read workspace runtime settings.'
+        id: get-v1settings---read-workspace-runtime-settings
       - content: |-
+          `PATCH /v1/settings` - partially update workspace runtime settings.
           Absent fields are left unchanged. Settings gate security enforcement
           (checker modes), so writes require an Owner/Admin user; workspace
           runtime keys are rejected — a running agent must never be able to
           weaken the controls that govern it.
-        heading: patch-v1settings---partially-update-workspace-runtime-settings
+        id: >-
+          patch-v1settings---partially-update-workspace-runtime-settingsabsent-fields-are-left-unchanged-settings-gate-security-enforcementchecker-modes-so-writes-require-an-owneradmin-user-workspaceruntime-keys-are-rejected--a-running-agent-must-never-be-able-toweaken-the-controls-that-govern-it
+    contents: []
 ---
 
 {/* This file was generated by Fumadocs. Do not edit this file directly. Any changes should be made by running the generation command again. */}

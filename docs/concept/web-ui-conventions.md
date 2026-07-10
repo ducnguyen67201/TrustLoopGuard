@@ -216,7 +216,7 @@ The guardrail verdict colors (`--color-allow`, `--color-rewrite`, `--color-block
 
 ## Plain-language help (glossary + InfoHint)
 
-The dashboard is full of domain words a non-technical teammate will not know on sight (verdict, policy, agent, gateway, enforcement profile, escalate, trace…). Two pieces keep those explained consistently:
+The dashboard is full of domain words a non-technical teammate will not know on sight (verdict, policy, agent, gateway, escalate, trace…). Two pieces keep those explained consistently:
 
 - `apps/web/lib/glossary.ts` — the **one** home for "what does this word mean?". Each entry is `{ label, short }` where `short` is a single jargon-free sentence. Add a term here once; never re-explain the same word with different wording at a call site.
 - `apps/web/components/ui/info-hint.tsx` — `<InfoHint term="policy" />` renders a small "?" affordance that reveals the glossary definition on hover/focus. It is a real, keyboard- and touch-accessible button. Pass `term` for a glossary word, or `children` for one-off help text.
@@ -224,12 +224,25 @@ The dashboard is full of domain words a non-technical teammate will not know on 
 ### When to use it
 
 - Beside a `PageHeader` title via the `help` prop, when the page's name is itself jargon.
-- Next to a table column header or form-field label whose meaning is not obvious (`Verdict`, `Severity`, `Scope`, `Enforcement profile`).
+- Next to a table column header or form-field label whose meaning is not obvious (`Verdict`, `Severity`, `Scope`).
 - Do **not** scatter it on every label — only where a first-time user would genuinely pause. Over-hinting is as noisy as no hints.
 
 ## VerdictLegend
 
 `apps/web/components/ui/verdict-legend.tsx` renders the allow / rewrite / escalate / block key with each verdict's plain-language meaning, pulled from the glossary. Drop `<VerdictLegend />` near any table or chart that shows verdict badges (dashboard recent-decisions, runs, analytics) so a first-time viewer can read the colors without hunting. Keep one legend per surface, not one per table.
+
+## Gateway setup surface
+
+Gateway exposes two configuration resources: Routes and Providers. A route binds a provider and an
+agent; it never asks the operator to choose a second rule set because enabled policies apply
+automatically. Route-specific client snippets live below the Routes table instead of in a peer
+navigation tab. Empty, loading, and error states must describe those real dependencies and must not
+turn authenticated API failures into empty resource counts.
+
+Provider rows expose edit and delete actions. Editing never displays an existing secret: the key
+field is optional and only rotates the credential when the operator enters a replacement. Deletion
+uses an explicit destructive confirmation that says the provider and stored key are permanently
+removed. The API blocks deletion while a route still references the provider.
 
 ## Type tokens
 

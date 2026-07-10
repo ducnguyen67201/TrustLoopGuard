@@ -18,6 +18,8 @@ pub struct StoredLlmModelPrice {
     pub model: String,
     pub input_per_million_minor: i64,
     pub output_per_million_minor: i64,
+    pub input_per_million_nanos: i64,
+    pub output_per_million_nanos: i64,
     pub currency: String,
 }
 
@@ -37,12 +39,16 @@ impl LlmPricingRepo {
         model: &str,
         input_per_million_minor: i64,
         output_per_million_minor: i64,
+        input_per_million_nanos: i64,
+        output_per_million_nanos: i64,
     ) -> Result<(), StorageError> {
         let row = NewLlmModelPrice {
             workspace_id: workspace_id.to_string(),
             model: model.to_string(),
             input_per_million_minor,
             output_per_million_minor,
+            input_per_million_nanos,
+            output_per_million_nanos,
         };
         let mut conn = self.connection().await?;
         diesel::insert_into(llm_model_prices::table)
@@ -52,6 +58,8 @@ impl LlmPricingRepo {
             .set((
                 llm_model_prices::input_per_million_minor.eq(input_per_million_minor),
                 llm_model_prices::output_per_million_minor.eq(output_per_million_minor),
+                llm_model_prices::input_per_million_nanos.eq(input_per_million_nanos),
+                llm_model_prices::output_per_million_nanos.eq(output_per_million_nanos),
                 llm_model_prices::updated_at.eq(diesel::dsl::now),
             ))
             .execute(&mut conn)
@@ -131,6 +139,8 @@ fn stored_price(row: LlmModelPriceRecord) -> StoredLlmModelPrice {
         model: row.model,
         input_per_million_minor: row.input_per_million_minor,
         output_per_million_minor: row.output_per_million_minor,
+        input_per_million_nanos: row.input_per_million_nanos,
+        output_per_million_nanos: row.output_per_million_nanos,
         currency: row.currency,
     }
 }

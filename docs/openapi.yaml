@@ -826,78 +826,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
-  /v1/enforcement-profiles:
-    get:
-      tags:
-      - gateway
-      operationId: list_enforcement_profiles
-      responses:
-        '200':
-          description: Enforcement profiles
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnforcementProfileListResponse'
-        '403':
-          description: Workspace runtime keys cannot manage gateway configuration
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-    post:
-      tags:
-      - gateway
-      operationId: create_enforcement_profile
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateEnforcementProfileRequest'
-        required: true
-      responses:
-        '201':
-          description: Enforcement profile created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnforcementProfile'
-        '403':
-          description: Workspace runtime keys cannot manage gateway configuration
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-  /v1/enforcement-profiles/{id}:
-    patch:
-      tags:
-      - gateway
-      operationId: patch_enforcement_profile
-      parameters:
-      - name: id
-        in: path
-        description: Enforcement profile id
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateEnforcementProfileRequest'
-        required: true
-      responses:
-        '200':
-          description: Enforcement profile updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnforcementProfile'
-        '403':
-          description: Workspace runtime keys cannot manage gateway configuration
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
   /v1/environments:
     get:
       tags:
@@ -2061,6 +1989,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
   /v1/gateway/provider-connections/{id}:
+    delete:
+      tags:
+      - gateway
+      operationId: delete_gateway_provider_connection
+      parameters:
+      - name: id
+        in: path
+        description: Provider connection id
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Gateway provider connection permanently deleted
+        '403':
+          description: Workspace runtime keys cannot manage gateway configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Provider connection not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Provider connection is used by a gateway route
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
     patch:
       tags:
       - gateway
@@ -2228,7 +2188,7 @@ paths:
         schema:
           type: string
       requestBody:
-        description: Raw provider request body, proxied through unchanged
+        description: OpenAI-compatible request. With an active LLM budget, bounded requests receive strict preflight admission; requests without max_tokens are soft-admitted while current spend remains below the cap.
         content:
           application/json:
             schema:
@@ -2249,12 +2209,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '429':
+          description: The request's reserved maximum would exceed the budget, or an unbounded request arrived after the cap was reached
         '502':
           description: Provider request failed
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '503':
+          description: No trusted price is configured for the requested model
   /v1/identity/oauth-session:
     post:
       tags:
@@ -2628,6 +2592,12 @@ paths:
       - name: model
         in: query
         description: Filter by raw model string
+        required: false
+        schema:
+          type: string
+      - name: kind
+        in: query
+        description: 'Usage owner: `customer_inference` or `guardrail`'
         required: false
         schema:
           type: string
@@ -4808,6 +4778,8 @@ components:
           type: boolean
         id:
           type: string
+        meter:
+          $ref: '#/components/schemas/SpendMeter'
         name:
           type: string
         principal_id:
@@ -4874,6 +4846,8 @@ components:
           description: RFC 3339 timestamp.
         id:
           type: string
+        meter:
+          $ref: '#/components/schemas/SpendMeter'
         payload:
           description: The exact JSON body delivered to the webhook.
         principal_id:
@@ -5092,6 +5066,8 @@ components:
           - boolean
           - 'null'
           description: Defaults to `true`.
+        meter:
+          $ref: '#/components/schemas/SpendMeter'
         name:
           type: string
         principal_id:
@@ -5109,38 +5085,6 @@ components:
           - 'null'
         window:
           $ref: '#/components/schemas/BudgetAlertWindow'
-    CreateEnforcementProfileRequest:
-      type: object
-      required:
-      - display_name
-      - input_action
-      - output_action
-      - fail_mode
-      - retention_mode
-      - fallback_message
-      properties:
-        display_name:
-          type: string
-        fail_mode:
-          $ref: '#/components/schemas/FailMode'
-        fallback_message:
-          type: string
-        id:
-          type:
-          - string
-          - 'null'
-        input_action:
-          $ref: '#/components/schemas/GatewayInputAction'
-        max_regenerations:
-          type: integer
-          format: int32
-          minimum: 0
-        output_action:
-          $ref: '#/components/schemas/GatewayOutputAction'
-        response_mode:
-          $ref: '#/components/schemas/ResponseMode'
-        retention_mode:
-          $ref: '#/components/schemas/RetentionMode'
     CreateFinancialActionRequest:
       type: object
       required:
@@ -5306,13 +5250,10 @@ components:
       - display_name
       - provider_connection_id
       - agent_id
-      - enforcement_profile_id
       properties:
         agent_id:
           type: string
         display_name:
-          type: string
-        enforcement_profile_id:
           type: string
         id:
           type:
@@ -5640,53 +5581,6 @@ components:
       - off
       - shadow
       - enforce
-    EnforcementProfile:
-      type: object
-      required:
-      - id
-      - display_name
-      - input_action
-      - output_action
-      - fail_mode
-      - retention_mode
-      - fallback_message
-      - max_regenerations
-      - created_at
-      - updated_at
-      properties:
-        created_at:
-          type: string
-        display_name:
-          type: string
-        fail_mode:
-          $ref: '#/components/schemas/FailMode'
-        fallback_message:
-          type: string
-        id:
-          type: string
-        input_action:
-          $ref: '#/components/schemas/GatewayInputAction'
-        max_regenerations:
-          type: integer
-          format: int32
-          minimum: 0
-        output_action:
-          $ref: '#/components/schemas/GatewayOutputAction'
-        response_mode:
-          $ref: '#/components/schemas/ResponseMode'
-        retention_mode:
-          $ref: '#/components/schemas/RetentionMode'
-        updated_at:
-          type: string
-    EnforcementProfileListResponse:
-      type: object
-      required:
-      - enforcement_profiles
-      properties:
-        enforcement_profiles:
-          type: array
-          items:
-            $ref: '#/components/schemas/EnforcementProfile'
     EnvironmentCheckerModes:
       type: object
       description: |-
@@ -5752,11 +5646,6 @@ components:
           type: string
         source_id:
           type: string
-    FailMode:
-      type: string
-      enum:
-      - open
-      - closed
     FinancialAction:
       type: object
       required:
@@ -6363,19 +6252,6 @@ components:
       enum:
       - configured
       - missing
-    GatewayInputAction:
-      type: string
-      enum:
-      - allow
-      - block
-      - redact
-    GatewayOutputAction:
-      type: string
-      enum:
-      - allow
-      - block
-      - rewrite
-      - escalate
     GatewayProviderConnection:
       type: object
       required:
@@ -6427,7 +6303,6 @@ components:
       - display_name
       - provider_connection_id
       - agent_id
-      - enforcement_profile_id
       - created_at
       - updated_at
       properties:
@@ -6436,8 +6311,6 @@ components:
         created_at:
           type: string
         display_name:
-          type: string
-        enforcement_profile_id:
           type: string
         id:
           type: string
@@ -7099,6 +6972,8 @@ components:
       - model
       - input_per_million_minor
       - output_per_million_minor
+      - input_per_million_usd_nanos
+      - output_per_million_usd_nanos
       - currency
       - source
       properties:
@@ -7108,6 +6983,11 @@ components:
           type: integer
           format: int64
           description: USD minor units per 1M prompt tokens.
+        input_per_million_usd_nanos:
+          type: string
+          description: |-
+            Exact USD nanos per 1M prompt tokens. Decimal string for safe
+            JavaScript transport.
         model:
           type: string
           description: Normalized model key (trimmed, lowercase).
@@ -7115,6 +6995,9 @@ components:
           type: integer
           format: int64
           description: USD minor units per 1M completion tokens.
+        output_per_million_usd_nanos:
+          type: string
+          description: Exact USD nanos per 1M completion tokens.
         source:
           $ref: '#/components/schemas/LlmPriceSource'
     LlmPriceSource:
@@ -7145,6 +7028,7 @@ components:
       - prompt_tokens
       - completion_tokens
       - cost_minor
+      - cost_usd_nanos
       - calls
       properties:
         calls:
@@ -7156,6 +7040,9 @@ components:
         cost_minor:
           type: integer
           format: int64
+        cost_usd_nanos:
+          type: string
+          description: Exact accumulated USD nanos as a decimal string.
         key:
           type: string
         prompt_tokens:
@@ -7191,6 +7078,7 @@ components:
       - prompt_tokens
       - completion_tokens
       - cost_minor
+      - cost_usd_nanos
       - currency
       - request_id
       - metadata
@@ -7207,6 +7095,11 @@ components:
           description: |-
             Priced cost in currency minor units. `0` when the model has no
             price table entry.
+        cost_usd_nanos:
+          type: string
+          description: |-
+            Exact USD nanos, serialized as a decimal string so JavaScript
+            consumers do not lose integer precision.
         currency:
           type: string
         effective_at:
@@ -7214,6 +7107,8 @@ components:
           description: RFC 3339 timestamp.
         id:
           type: string
+        kind:
+          $ref: '#/components/schemas/LlmUsageKind'
         metadata: {}
         model:
           type: string
@@ -7235,6 +7130,15 @@ components:
             metering writes idempotent.
         workspace_id:
           type: string
+    LlmUsageKind:
+      type: string
+      description: |-
+        Runtime that generated a priced LLM call. Customer inference is
+        the only kind counted by customer spending caps; guardrail calls are
+        TrustLoopGuard's semantic-policy overhead.
+      enum:
+      - customer_inference
+      - guardrail
     LlmUsageListResponse:
       type: object
       required:
@@ -8303,18 +8207,6 @@ components:
       - medium
       - low
       - info
-    ResponseMode:
-      type: string
-      description: How the gateway returns guarded responses for a route.
-      enum:
-      - regular
-      - streaming
-    RetentionMode:
-      type: string
-      enum:
-      - metadata_only
-      - redacted_body
-      - full_body
     ReversalCapability:
       type: string
       enum:
@@ -8325,6 +8217,28 @@ components:
       - compensating_charge
       - internal_balance_adjustment
       - manual_recovery
+    RunBudgetWindowSnapshot:
+      type: object
+      required:
+      - window
+      - cap_usd_nanos
+      - committed_before_usd_nanos
+      - reserved_before_usd_nanos
+      - requested_usd_nanos
+      - remaining_after_usd_nanos
+      properties:
+        cap_usd_nanos:
+          type: string
+        committed_before_usd_nanos:
+          type: string
+        remaining_after_usd_nanos:
+          type: string
+        requested_usd_nanos:
+          type: string
+        reserved_before_usd_nanos:
+          type: string
+        window:
+          type: string
     RunDetail:
       type: object
       required:
@@ -8332,10 +8246,22 @@ components:
       - events
       - traces
       properties:
+        budget_decision:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/RunLlmBudgetDecision'
         events:
           type: array
           items:
             $ref: '#/components/schemas/RunEventSummary'
+        guardrail_usage:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunGuardrailUsage'
+        provider_usage:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/RunProviderUsage'
         run:
           $ref: '#/components/schemas/RunSummary'
         traces:
@@ -8404,6 +8330,53 @@ components:
           format: int32
         workspace_id:
           type: string
+    RunGuardrailUsage:
+      type: object
+      required:
+      - phase
+      - judge
+      - status
+      - fallback_used
+      - latency_ms
+      properties:
+        completion_tokens:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        error_code:
+          type:
+          - string
+          - 'null'
+        estimated_cost_usd_nanos:
+          type:
+          - string
+          - 'null'
+        fallback_used:
+          type: boolean
+        judge:
+          type: string
+        latency_ms:
+          type: integer
+          format: int64
+          minimum: 0
+        model:
+          type:
+          - string
+          - 'null'
+        phase:
+          type: string
+        prompt_tokens:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        provider:
+          type:
+          - string
+          - 'null'
+        status:
+          type: string
     RunKind:
       type: string
       enum:
@@ -8421,6 +8394,91 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RunSummary'
+    RunLlmBudgetDecision:
+      type: object
+      required:
+      - principal_id
+      - status
+      - currency
+      - windows
+      properties:
+        actual_usd_nanos:
+          type:
+          - string
+          - 'null'
+        currency:
+          type: string
+        governing_window:
+          type:
+          - string
+          - 'null'
+        principal_id:
+          type: string
+        requested_usd_nanos:
+          type:
+          - string
+          - 'null'
+        status:
+          type: string
+        windows:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunBudgetWindowSnapshot'
+    RunProviderUsage:
+      type: object
+      required:
+      - gateway_request_id
+      - route_id
+      - provider
+      - model
+      - status
+      - latency_ms
+      properties:
+        completion_tokens:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        estimated_cost_usd_nanos:
+          type:
+          - string
+          - 'null'
+        gateway_request_id:
+          type: string
+        input_rate_usd_per_million_nanos:
+          type:
+          - string
+          - 'null'
+        latency_ms:
+          type: integer
+          format: int64
+          minimum: 0
+        model:
+          type: string
+        output_rate_usd_per_million_nanos:
+          type:
+          - string
+          - 'null'
+        prompt_tokens:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        provider:
+          type: string
+        provider_response_id:
+          type:
+          - string
+          - 'null'
+        route_id:
+          type: string
+        status:
+          type: string
+        total_tokens:
+          type:
+          - integer
+          - 'null'
+          format: int64
     RunStatus:
       type: string
       enum:
@@ -8855,6 +8913,10 @@ components:
           type:
           - boolean
           - 'null'
+        meter:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/SpendMeter'
         name:
           type:
           - string
@@ -8880,43 +8942,6 @@ components:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/BudgetAlertWindow'
-    UpdateEnforcementProfileRequest:
-      type: object
-      properties:
-        display_name:
-          type:
-          - string
-          - 'null'
-        fail_mode:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/FailMode'
-        fallback_message:
-          type:
-          - string
-          - 'null'
-        input_action:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/GatewayInputAction'
-        max_regenerations:
-          type:
-          - integer
-          - 'null'
-          format: int32
-          minimum: 0
-        output_action:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/GatewayOutputAction'
-        response_mode:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/ResponseMode'
-        retention_mode:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/RetentionMode'
     UpdateEnvironmentCheckerModesRequest:
       type: object
       description: |-
@@ -8975,10 +9000,6 @@ components:
           - string
           - 'null'
         display_name:
-          type:
-          - string
-          - 'null'
-        enforcement_profile_id:
           type:
           - string
           - 'null'
@@ -9083,10 +9104,22 @@ components:
           type: integer
           format: int64
           description: USD minor units per 1M prompt tokens.
+        input_per_million_usd_nanos:
+          type:
+          - string
+          - 'null'
+          description: |-
+            Optional exact USD nanos per 1M prompt tokens. When omitted the
+            legacy minor-unit value is converted exactly.
         output_per_million_minor:
           type: integer
           format: int64
           description: USD minor units per 1M completion tokens.
+        output_per_million_usd_nanos:
+          type:
+          - string
+          - 'null'
+          description: Optional exact USD nanos per 1M completion tokens.
     UpsertSourceLabelPolicyRequest:
       allOf:
       - $ref: '#/components/schemas/SourceLabelPolicy'

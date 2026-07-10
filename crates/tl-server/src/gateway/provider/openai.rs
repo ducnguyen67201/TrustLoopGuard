@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use serde_json::{json, Value};
-use tl_core::{EnforcementProfile, GatewayProviderConnection};
+use tl_core::GatewayProviderConnection;
 use uuid::Uuid;
 
-use super::{provider_json_response, provider_url, GatewayProvider};
+use super::{provider_json_response, provider_url, GatewayProvider, BLOCKED_MESSAGE};
 
 pub(in crate::gateway) struct OpenAiCompatibleGatewayProvider;
 
@@ -68,7 +68,7 @@ impl GatewayProvider for OpenAiCompatibleGatewayProvider {
         format!("data: {head}\n\ndata: {tail}\n\ndata: [DONE]\n\n")
     }
 
-    fn safe_response(&self, request: &Value, profile: &EnforcementProfile) -> Value {
+    fn blocked_response(&self, request: &Value) -> Value {
         json!({
             "id": format!("chatcmpl_tlg_{}", Uuid::now_v7()),
             "object": "chat.completion",
@@ -78,7 +78,7 @@ impl GatewayProvider for OpenAiCompatibleGatewayProvider {
                 "index": 0,
                 "message": {
                     "role": "assistant",
-                    "content": profile.fallback_message,
+                    "content": BLOCKED_MESSAGE,
                 },
                 "finish_reason": "content_filter",
             }],

@@ -27,6 +27,40 @@ const BASE_SNAPSHOT = parseRunDetailSnapshot({
   },
   events: [],
   traces: [],
+  provider_usage: {
+    gateway_request_id: 'gateway-1',
+    route_id: 'daniel-do',
+    provider: 'openai_compatible',
+    model: 'deepseek-4-flash',
+    provider_response_id: 'chatcmpl-1',
+    status: 'succeeded',
+    prompt_tokens: 14,
+    completion_tokens: 11,
+    total_tokens: 25,
+    latency_ms: 412,
+    estimated_cost_usd_nanos: '4032',
+    input_rate_usd_per_million_nanos: '112000000',
+    output_rate_usd_per_million_nanos: '224000000',
+  },
+  guardrail_usage: [],
+  budget_decision: {
+    principal_id: 'daniel-key',
+    status: 'settled',
+    currency: 'USD',
+    governing_window: null,
+    requested_usd_nanos: '1000000',
+    actual_usd_nanos: '4032',
+    windows: [
+      {
+        window: 'month',
+        cap_usd_nanos: '5000000000',
+        committed_before_usd_nanos: '0',
+        reserved_before_usd_nanos: '0',
+        requested_usd_nanos: '1000000',
+        remaining_after_usd_nanos: '4999995968',
+      },
+    ],
+  },
 });
 
 describe('RunDetailLiveView', () => {
@@ -56,6 +90,55 @@ describe('RunDetailLiveView', () => {
       expect(screen.getByRole('button', { name: /manual/i })).toBeInTheDocument(),
     );
     expect(screen.getByText('Sync failed')).toBeInTheDocument();
+  });
+
+  it('shows provider cost and deterministic budget evidence separately', () => {
+    render(
+      <RunDetailLiveView
+        initialData={BASE_SNAPSHOT}
+        runId="run-param-auth"
+        workspaceSlug="test-BJ-V"
+      />,
+    );
+
+    expect(screen.getByText('Provider call')).toBeInTheDocument();
+    expect(screen.getByText('openai_compatible · deepseek-4-flash')).toBeInTheDocument();
+    expect(screen.getByText('14 input · 11 output')).toBeInTheDocument();
+    expect(screen.getByText(/\$0\.112 input · \$0\.224 output per 1M/)).toBeInTheDocument();
+    expect(screen.getByText('Spending cap')).toBeInTheDocument();
+    expect(screen.getByText(/remaining of \$5\.00/)).toBeInTheDocument();
+    expect(screen.getByText(/\$0\.00 committed before/)).toBeInTheDocument();
+    expect(screen.getByText('Deterministic only — no guardrail LLM cost.')).toBeInTheDocument();
+  });
+
+  it('labels unbounded budget admission as soft and explains the overshoot risk', () => {
+    const softSnapshot = {
+      ...BASE_SNAPSHOT,
+      budgetDecision: BASE_SNAPSHOT.budgetDecision
+        ? {
+            ...BASE_SNAPSHOT.budgetDecision,
+            status: 'soft_settled',
+            requested_usd_nanos: null,
+            windows: BASE_SNAPSHOT.budgetDecision.windows.map((window) => ({
+              ...window,
+              requested_usd_nanos: '0',
+            })),
+          }
+        : null,
+    };
+
+    render(
+      <RunDetailLiveView
+        initialData={softSnapshot}
+        runId="run-param-auth"
+        workspaceSlug="test-BJ-V"
+      />,
+    );
+
+    expect(screen.getByText('Soft Settled')).toBeInTheDocument();
+    expect(screen.getByText(/actual usage applies and may overshoot once/i)).toBeInTheDocument();
+    expect(screen.getByText(/unbounded request settled to actual usage/i)).toBeInTheDocument();
+    expect(screen.queryByText(/maximum reserved/i)).not.toBeInTheDocument();
   });
 
   it('uses plain language for parameter authorization failures', async () => {
@@ -213,12 +296,16 @@ describe('RunDetailLiveView', () => {
     });
 
     render(
-      <RunDetailLiveView initialData={snapshot} runId="run-output-guard" workspaceSlug="test-BJ-V" />,
+      <RunDetailLiveView
+        initialData={snapshot}
+        runId="run-output-guard"
+        workspaceSlug="test-BJ-V"
+      />,
     );
 
     const replyRows = screen.getAllByRole('button', {
-        name: /I can assist you with a refund, but I'll need to verify details first/i,
-      });
+      name: /I can assist you with a refund, but I'll need to verify details first/i,
+    });
     expect(replyRows).toHaveLength(2);
 
     await user.click(replyRows[0]!);
@@ -329,7 +416,11 @@ describe('RunDetailLiveView', () => {
     );
 
     expect(screen.getByText('TrustLoopGuard rewrote this before delivery')).toBeInTheDocument();
-    expect(screen.getByText('That is a stupid question. Figure it out yourself.')).toBeInTheDocument();
-    expect(screen.getByText('I can help with scheduling or appointment questions.')).toBeInTheDocument();
+    expect(
+      screen.getByText('That is a stupid question. Figure it out yourself.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('I can help with scheduling or appointment questions.'),
+    ).toBeInTheDocument();
   });
 });

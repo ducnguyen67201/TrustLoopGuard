@@ -46,7 +46,7 @@ That boundary keeps one source of truth:
 ## Customer integration paths
 
 1. **HTTP SDK** — `POST /v1/events` to a hosted server (`tl-server`). The customer uses our SDK (`tl-sdk-rust`, or generated TS/Python) and handles the returned decision in code.
-2. **Gateway** — provider-compatible proxy endpoints under `/v1/gateway/*`. The customer routes AI traffic through TrustLoopGuard, and the Rust gateway applies dashboard-managed enforcement behavior before returning a provider-shaped response. See [gateway.md](gateway.md).
+2. **Gateway** — provider-compatible proxy endpoints under `/v1/gateway/*`. The customer routes AI traffic through TrustLoopGuard, and the Rust gateway applies the same composed `Decision` as `/v1/events` before returning a provider-shaped response. See [gateway.md](gateway.md).
 3. **Local MCP adapter** — stdio tools in `apps/mcp-server` for agent workbenches and coding assistants. The adapter uses the TypeScript SDK and calls the same Rust `/v1/*` API for guard events, setup, runs, traces, policies, agents, and tool metadata.
 4. **Embedded** — for users who want zero network hop, they pull `tl-engine` directly as a Rust dependency and call `Engine::check(&req)` in-process. Same types, no HTTP.
 
@@ -157,7 +157,16 @@ Some durable surfaces are dashboard-facing only — Rust still owns them, but th
 - **Workspace runtime settings + checker rollout** — `workspace_settings` (read via `GET /v1/settings`, partially updated via `PATCH /v1/settings`) carries per-workspace checker enforcement modes; `environment_checker_modes` (surfaced via `GET`/`PUT /v1/environments/{environment_id}/checker-modes`) carries per-environment overrides where `NULL` inherits the workspace mode. The event pipeline resolves effective modes per request from both. See [event-engine.md](event-engine.md).
 - **Workspace team, invites, and dashboard feature rollout** — `workspaces` carries default-off dashboard availability flags, while `workspace_members` and `workspace_invites` carry access. `GET /v1/team/my-workspaces` returns both membership and feature availability so the web dashboard can hide and reject unreleased workspace features. See [team-and-invites.md](team-and-invites.md).
 - **Workspace API keys** — `workspace_api_keys`, surfaced via `GET /v1/api-keys`, `POST /v1/api-keys`, and `PATCH /v1/api-keys/batch/revoke`. Runtime SDK and gateway model requests send these as `Authorization: Bearer tl_live_...`; the middleware resolves the workspace and environment from storage. See [authorization.md](authorization.md#workspace-api-keys).
-- **Gateway configuration** — provider connections, gateway routes, and enforcement profiles are Rust-owned through `/v1/gateway/*` and `/v1/enforcement-profiles`. Runtime keys may use gateway model endpoints but cannot manage this configuration. Gateway model traffic also terminates in Rust, not the web app. See [gateway.md](gateway.md).
+- **Gateway configuration, usage, and spend admission** — provider connections, gateway routes,
+  provider edit/permanent-delete lifecycle, precise customer/guardrail usage events, price
+  snapshots, meter-scoped budget alerts, and durable per-principal budget reservations are
+  Rust-owned through `/v1/*` and Rust storage. A provider referenced by a route cannot be deleted.
+  Routes bind a provider and agent; enabled environment/agent policies apply automatically.
+  `meter: llm_usage` policies remain the spending-cap source of truth, while run events provide
+  correlated audit evidence. Bounded calls receive hard preflight admission; unbounded calls use
+  the soft-cap behavior defined in [gateway.md](gateway.md).
+  Runtime keys may use gateway model endpoints but cannot manage this configuration. Gateway model
+  traffic terminates in Rust, not the web app. See [gateway.md](gateway.md).
 - **OAuth identity links** — `oauth_identities`, surfaced through `POST /v1/identity/oauth-session`. Google/GitHub authenticate the browser user; Rust maps the provider account to one local `users.id` before workspace membership checks run. See [authorization.md](authorization.md#oauth-users-google--github).
 - **User approval** — `users.is_approved` gates authenticated dashboard access in every environment. See [authorization.md](authorization.md#three-lanes-one-middleware).
 

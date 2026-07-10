@@ -1,8 +1,5 @@
 use async_trait::async_trait;
-use tl_core::{
-    EnforcementProfile, FailMode, GatewayInputAction, GatewayOutputAction,
-    GatewayProviderConnection, GatewayProviderKind, GatewayRoute, ResponseMode, RetentionMode,
-};
+use tl_core::{GatewayProviderConnection, GatewayProviderKind, GatewayRoute};
 
 mod memory;
 
@@ -12,6 +9,8 @@ pub use memory::MemoryGatewayStore;
 pub enum GatewayStoreError {
     #[error("not found")]
     NotFound,
+    #[error("conflict: {0}")]
+    Conflict(String),
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -42,39 +41,12 @@ pub struct ProviderConnectionSecret {
 }
 
 #[derive(Debug, Clone)]
-pub struct NewEnforcementProfile {
-    pub id: String,
-    pub workspace_id: String,
-    pub display_name: String,
-    pub input_action: GatewayInputAction,
-    pub output_action: GatewayOutputAction,
-    pub fail_mode: FailMode,
-    pub retention_mode: RetentionMode,
-    pub response_mode: ResponseMode,
-    pub fallback_message: String,
-    pub max_regenerations: u32,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct EnforcementProfilePatch {
-    pub display_name: Option<String>,
-    pub input_action: Option<GatewayInputAction>,
-    pub output_action: Option<GatewayOutputAction>,
-    pub fail_mode: Option<FailMode>,
-    pub retention_mode: Option<RetentionMode>,
-    pub response_mode: Option<ResponseMode>,
-    pub fallback_message: Option<String>,
-    pub max_regenerations: Option<u32>,
-}
-
-#[derive(Debug, Clone)]
 pub struct NewGatewayRoute {
     pub id: String,
     pub workspace_id: String,
     pub display_name: String,
     pub provider_connection_id: String,
     pub agent_id: String,
-    pub enforcement_profile_id: String,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -82,14 +54,12 @@ pub struct GatewayRoutePatch {
     pub display_name: Option<String>,
     pub provider_connection_id: Option<String>,
     pub agent_id: Option<String>,
-    pub enforcement_profile_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ResolvedGatewayRoute {
     pub route: GatewayRoute,
     pub provider_connection: GatewayProviderConnection,
-    pub enforcement_profile: EnforcementProfile,
     pub encrypted_api_key: String,
 }
 
@@ -114,21 +84,11 @@ pub trait GatewayStore: Send + Sync {
         workspace_id: &str,
         id: &str,
     ) -> Result<ProviderConnectionSecret, GatewayStoreError>;
-
-    async fn list_enforcement_profiles(
-        &self,
-        workspace_id: &str,
-    ) -> Result<Vec<EnforcementProfile>, GatewayStoreError>;
-    async fn create_enforcement_profile(
-        &self,
-        input: NewEnforcementProfile,
-    ) -> Result<EnforcementProfile, GatewayStoreError>;
-    async fn update_enforcement_profile(
+    async fn delete_provider_connection(
         &self,
         workspace_id: &str,
         id: &str,
-        patch: EnforcementProfilePatch,
-    ) -> Result<EnforcementProfile, GatewayStoreError>;
+    ) -> Result<(), GatewayStoreError>;
 
     async fn list_gateway_routes(
         &self,

@@ -4,14 +4,14 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::schema::{
-    agents, approval_requests, budget_alert_configs, budget_alert_firings, enforcement_profiles,
-    entity_versions, escalations, financial_action_events, financial_action_outcomes,
-    financial_actions, financial_ledger_entries, financial_payment_reservations,
-    financial_payment_sessions, financial_receipts, gateway_provider_connections, gateway_routes,
-    human_review_events, llm_model_prices, llm_usage_events, mandates, oauth_identities, policies,
-    policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
-    redteam_report_shares, redteam_session_events, run_events, runs, tool_metadata, traces, users,
-    workspace_environments,
+    agents, approval_requests, budget_alert_configs, budget_alert_firings, entity_versions,
+    escalations, financial_action_events, financial_action_outcomes, financial_actions,
+    financial_ledger_entries, financial_payment_reservations, financial_payment_sessions,
+    financial_receipts, gateway_provider_connections, gateway_routes, human_review_events,
+    llm_budget_principal_locks, llm_budget_reservations, llm_model_prices, llm_usage_events,
+    mandates, oauth_identities, policies, policy_environment_deployments, redteam_attack_sessions,
+    redteam_jobs, redteam_plans, redteam_report_shares, redteam_session_events, run_events, runs,
+    tool_metadata, traces, users, workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -349,6 +349,8 @@ pub struct NewLlmModelPrice {
     pub model: String,
     pub input_per_million_minor: i64,
     pub output_per_million_minor: i64,
+    pub input_per_million_nanos: i64,
+    pub output_per_million_nanos: i64,
 }
 
 #[derive(Debug, Clone, Queryable, Selectable)]
@@ -359,6 +361,8 @@ pub struct LlmModelPriceRecord {
     pub model: String,
     pub input_per_million_minor: i64,
     pub output_per_million_minor: i64,
+    pub input_per_million_nanos: i64,
+    pub output_per_million_nanos: i64,
     pub currency: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -370,6 +374,7 @@ pub struct NewBudgetAlertConfig {
     pub id: Uuid,
     pub workspace_id: String,
     pub name: String,
+    pub meter: String,
     pub window: String,
     pub principal_id: Option<String>,
     pub threshold_type: String,
@@ -385,6 +390,7 @@ pub struct BudgetAlertConfigRecord {
     pub id: Uuid,
     pub workspace_id: String,
     pub name: String,
+    pub meter: String,
     pub window: String,
     pub principal_id: Option<String>,
     pub threshold_type: String,
@@ -401,6 +407,7 @@ pub struct NewBudgetAlertFiring {
     pub id: Uuid,
     pub workspace_id: String,
     pub config_id: Uuid,
+    pub meter: String,
     pub principal_id: String,
     pub window_start: DateTime<Utc>,
     pub cap_minor: i64,
@@ -416,6 +423,7 @@ pub struct BudgetAlertFiringRecord {
     pub id: Uuid,
     pub workspace_id: String,
     pub config_id: Uuid,
+    pub meter: String,
     pub principal_id: String,
     pub window_start: DateTime<Utc>,
     pub cap_minor: i64,
@@ -432,10 +440,12 @@ pub struct NewLlmUsageEvent {
     pub id: Uuid,
     pub principal_id: String,
     pub api_key_id: String,
+    pub usage_kind: String,
     pub model: String,
     pub prompt_tokens: i64,
     pub completion_tokens: i64,
     pub cost_minor: i64,
+    pub cost_nanos: i64,
     pub currency: String,
     pub request_id: String,
     pub metadata: Value,
@@ -449,14 +459,36 @@ pub struct LlmUsageEventRecord {
     pub id: Uuid,
     pub principal_id: String,
     pub api_key_id: String,
+    pub usage_kind: String,
     pub model: String,
     pub prompt_tokens: i64,
     pub completion_tokens: i64,
     pub cost_minor: i64,
+    pub cost_nanos: i64,
     pub currency: String,
     pub request_id: String,
     pub metadata: Value,
     pub effective_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = llm_budget_principal_locks)]
+pub struct NewLlmBudgetPrincipalLock {
+    pub workspace_id: String,
+    pub principal_id: String,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = llm_budget_reservations)]
+pub struct NewLlmBudgetReservation {
+    pub workspace_id: String,
+    pub request_id: String,
+    pub principal_id: String,
+    pub api_key_id: String,
+    pub currency: String,
+    pub reserved_nanos: i64,
+    pub actual_nanos: Option<i64>,
+    pub status: String,
 }
 
 #[derive(Debug, Insertable)]
@@ -711,39 +743,6 @@ pub struct GatewayProviderConnectionRecord {
 }
 
 #[derive(Debug, Insertable)]
-#[diesel(table_name = enforcement_profiles)]
-pub struct NewEnforcementProfile {
-    pub workspace_id: String,
-    pub id: String,
-    pub display_name: String,
-    pub input_action: String,
-    pub output_action: String,
-    pub fail_mode: String,
-    pub retention_mode: String,
-    pub response_mode: String,
-    pub fallback_message: String,
-    pub max_regenerations: i32,
-}
-
-#[derive(Debug, Queryable, Selectable)]
-#[diesel(table_name = enforcement_profiles)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct EnforcementProfileRecord {
-    pub workspace_id: String,
-    pub id: String,
-    pub display_name: String,
-    pub input_action: String,
-    pub output_action: String,
-    pub fail_mode: String,
-    pub retention_mode: String,
-    pub response_mode: String,
-    pub fallback_message: String,
-    pub max_regenerations: i32,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Insertable)]
 #[diesel(table_name = entity_versions)]
 pub struct NewEntityVersion {
     pub workspace_id: String,
@@ -773,7 +772,6 @@ pub struct NewGatewayRoute {
     pub display_name: String,
     pub provider_connection_id: String,
     pub agent_id: String,
-    pub enforcement_profile_id: String,
 }
 
 #[derive(Debug, Queryable, Selectable)]
@@ -785,7 +783,6 @@ pub struct GatewayRouteRecord {
     pub display_name: String,
     pub provider_connection_id: String,
     pub agent_id: String,
-    pub enforcement_profile_id: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

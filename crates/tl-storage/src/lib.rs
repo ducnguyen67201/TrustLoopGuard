@@ -114,8 +114,7 @@ pub use financial_repo::{
 };
 #[cfg(feature = "postgres")]
 pub use gateway_repo::{
-    EnforcementProfilePatch, GatewayProviderConnectionSecret, GatewayRepo, GatewayRoutePatch,
-    ResolvedGatewayRoute,
+    GatewayProviderConnectionSecret, GatewayRepo, GatewayRoutePatch, ResolvedGatewayRoute,
 };
 #[cfg(feature = "postgres")]
 pub use human_review_repo::{HumanReviewAnalyticsFilter, HumanReviewRepo};
@@ -127,8 +126,9 @@ pub use knowledge_repo::{
 pub use llm_pricing_repo::{LlmPricingRepo, StoredLlmModelPrice};
 #[cfg(feature = "postgres")]
 pub use llm_usage_repo::{
-    LlmUsageBucketRow, LlmUsageEventFilter, LlmUsageGroupBy, LlmUsageRepo, NewLlmUsageEventParams,
-    StoredLlmUsageEvent,
+    LlmBudgetCapsNanos, LlmBudgetWindow, LlmBudgetWindowSnapshot, LlmUsageBucketRow,
+    LlmUsageEventFilter, LlmUsageGroupBy, LlmUsageRepo, NewLlmBudgetReservationParams,
+    NewLlmUsageEventParams, ReserveLlmBudgetResult, StoredLlmUsageEvent,
 };
 #[cfg(feature = "postgres")]
 pub use models::UserRecord;

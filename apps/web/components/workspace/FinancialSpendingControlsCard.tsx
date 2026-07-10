@@ -116,6 +116,7 @@ export function FinancialPolicyCreateDialog({
   initialPolicy,
   existingPolicyIds = [],
   onCreated,
+  meter,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -123,6 +124,7 @@ export function FinancialPolicyCreateDialog({
   initialPolicy?: FamilyPolicyRow | undefined;
   existingPolicyIds?: string[];
   onCreated?: (policy: FamilyPolicyRow) => void;
+  meter?: FinancialControlForm['meter'];
 }) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FinancialControlForm>(DEFAULT_FORM);
@@ -130,8 +132,11 @@ export function FinancialPolicyCreateDialog({
   const editing = initialPolicy !== undefined;
 
   useEffect(() => {
-    if (open) setForm(initialPolicy ? formFromPolicy(initialPolicy) : DEFAULT_FORM);
-  }, [initialPolicy, open]);
+    if (open) {
+      const initial = initialPolicy ? formFromPolicy(initialPolicy) : DEFAULT_FORM;
+      setForm(meter ? formForMeter(initial, meter) : initial);
+    }
+  }, [initialPolicy, meter, open]);
 
   async function createControl() {
     let payload: ReturnType<typeof formPayload>;
@@ -170,7 +175,7 @@ export function FinancialPolicyCreateDialog({
           <DialogTitle>{editing ? 'Edit financial policy' : 'Create financial policy'}</DialogTitle>
           <DialogDescription>
             {form.meter === 'llm_usage'
-              ? 'Cap gateway LLM spend per principal. A workspace-wide budget evaluates per principal — each principal gets its own cap.'
+              ? 'Cap gateway LLM spend per principal. Requests with max_tokens get strict preflight enforcement; unbounded requests are allowed below the cap, settled to actual usage, and may overshoot once before future calls stop. Trusted model pricing is required.'
               : 'Define the mandate requirement, caps, evidence checks, and approval behavior TrustLoopGuard evaluates before agent execution.'}
           </DialogDescription>
         </DialogHeader>
@@ -178,6 +183,7 @@ export function FinancialPolicyCreateDialog({
           <Field label="Applies to">
             <Select
               value={form.meter}
+              disabled={meter !== undefined}
               onValueChange={(value) =>
                 setForm((prev) => formForMeter(prev, value as FinancialControlForm['meter']))
               }

@@ -65,10 +65,9 @@ Open the web app, then go to **Gateway**.
 On the Gateway page:
 
 1. Create a **Provider** with your OpenAI-compatible or Anthropic API key.
-2. Create an **Enforcement profile**. For a first route, use
-   `input_action=block`, `output_action=rewrite`, `fail_mode=closed`, and
-   `retention_mode=metadata_only`.
-3. Create a **Route** that binds the provider, agent, and enforcement profile.
+2. Create or select the **Agent** whose traffic will use the route.
+3. Create a **Route** that binds the provider and agent. All enabled policies
+   for the environment and agent apply automatically.
 4. Create a workspace runtime key under **API Keys** if the Gateway page shows
    `No runtime API key`.
 
@@ -88,6 +87,7 @@ const openai = new OpenAI({
 const response = await openai.chat.completions.create({
   model: 'gpt-4o-mini',
   messages: [{ role: 'user', content: userMessage }],
+  max_tokens: 512,
 });
 ```
 

@@ -64,3 +64,21 @@ export async function patchRustResource(
     return handleRustError(err);
   }
 }
+
+export async function deleteRustResource(
+  req: Request,
+  params: Promise<{ id: string }>,
+  rustPathPrefix: string,
+): Promise<Response> {
+  try {
+    const { id } = await params;
+    await rustApiForAuthorizedWorkspace<JsonValue>(
+      req,
+      `${rustPathPrefix}/${encodeURIComponent(id)}`,
+      { method: 'DELETE' },
+    );
+    return new Response(null, { status: 204 });
+  } catch (err) {
+    return handleRustError(err);
+  }
+}

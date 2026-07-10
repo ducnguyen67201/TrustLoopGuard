@@ -4,15 +4,12 @@ use diesel_async::RunQueryDsl;
 use tl_core::GatewayRoute;
 
 use super::{
-    mapping::{profile_record_to_wire, provider_record_to_wire, route_record_to_wire},
+    mapping::{provider_record_to_wire, route_record_to_wire},
     GatewayRepo, GatewayRoutePatch, ResolvedGatewayRoute,
 };
 use crate::{
-    models::{
-        EnforcementProfileRecord, GatewayProviderConnectionRecord, GatewayRouteRecord,
-        NewGatewayRoute,
-    },
-    schema::{enforcement_profiles, gateway_provider_connections, gateway_routes},
+    models::{GatewayProviderConnectionRecord, GatewayRouteRecord, NewGatewayRoute},
+    schema::{gateway_provider_connections, gateway_routes},
     StorageError,
 };
 
@@ -69,10 +66,6 @@ impl GatewayRepo {
         if let Some(value) = patch.agent_id {
             current.agent_id = value;
         }
-        if let Some(value) = patch.enforcement_profile_id {
-            current.enforcement_profile_id = value;
-        }
-
         let row = diesel::update(
             gateway_routes::table
                 .filter(gateway_routes::workspace_id.eq(workspace_id))
@@ -83,7 +76,6 @@ impl GatewayRepo {
             gateway_routes::display_name.eq(current.display_name),
             gateway_routes::provider_connection_id.eq(current.provider_connection_id),
             gateway_routes::agent_id.eq(current.agent_id),
-            gateway_routes::enforcement_profile_id.eq(current.enforcement_profile_id),
             gateway_routes::updated_at.eq(now),
         ))
         .returning(GatewayRouteRecord::as_returning())
@@ -138,19 +130,10 @@ impl GatewayRepo {
             .first::<GatewayProviderConnectionRecord>(&mut conn)
             .await?;
 
-        let profile = enforcement_profiles::table
-            .filter(enforcement_profiles::workspace_id.eq(workspace_id))
-            .filter(enforcement_profiles::id.eq(&route.enforcement_profile_id))
-            .filter(enforcement_profiles::deleted_at.is_null())
-            .select(EnforcementProfileRecord::as_select())
-            .first::<EnforcementProfileRecord>(&mut conn)
-            .await?;
-
         Ok(ResolvedGatewayRoute {
             route: route_record_to_wire(route),
             encrypted_api_key: provider.encrypted_api_key.clone(),
             provider_connection: provider_record_to_wire(provider)?,
-            enforcement_profile: profile_record_to_wire(profile)?,
         })
     }
 }

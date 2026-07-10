@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { currentContextQuery, formatMinorUnits, safeError, titleLabel } from './financial-utils';
 import { formatTokens, USAGE_PERIODS, type UsagePeriod } from './usage-utils';
+import { formatUsdNanos } from '@/lib/run-detail-live';
 
 // Gateway pricing is USD minor units (crates/tl-server/src/llm_pricing.rs);
 // usage buckets carry no currency field.
@@ -35,14 +36,10 @@ const chartConfig = {
   cost: { label: 'Spend', color: 'var(--chart-1)' },
 };
 
-const priceMinorSchema = z
+const priceRateSchema = z
   .string()
   .trim()
-  .regex(/^\d+(\.\d{1,2})?$/, 'Prices must be non-negative dollars with up to two decimals')
-  .transform((value) => {
-    const [dollars, cents = ''] = value.split('.');
-    return Number(dollars) * 100 + Number(cents.padEnd(2, '0'));
-  });
+  .regex(/^\d+(\.\d{1,9})?$/, 'Prices must be non-negative dollars with up to nine decimals');
 
 type UsageContentProps = {
   workspaceSlug: string;
@@ -51,6 +48,7 @@ type UsageContentProps = {
   dayBuckets: LlmUsageBucket[];
   principalBuckets: LlmUsageBucket[];
   modelBuckets: LlmUsageBucket[];
+  guardrailBuckets?: LlmUsageBucket[];
 };
 
 export function UsageContent({
@@ -60,12 +58,24 @@ export function UsageContent({
   dayBuckets,
   principalBuckets,
   modelBuckets,
+  guardrailBuckets = [],
 }: UsageContentProps) {
   const contextQuery = currentContextQuery(workspaceSlug, environmentId);
   const [priceModel, setPriceModel] = useState<string | null>(null);
   const unpricedBuckets = modelBuckets.filter((bucket) => bucket.unpriced);
   const unpricedCalls = sum(unpricedBuckets, (bucket) => bucket.calls);
-  const totalSpendMinor = sum(principalBuckets, (bucket) => bucket.cost_minor);
+  const totalSpendNanos = sumNanos(principalBuckets);
+  const totalSpend =
+    unpricedBuckets.length === 0
+      ? formatUsdNanos(totalSpendNanos.toString())
+      : totalSpendNanos === 0n
+        ? 'Unknown'
+        : `${formatUsdNanos(totalSpendNanos.toString())} + unknown`;
+  const guardrailCostNanos = guardrailBuckets.reduce(
+    (total, bucket) => total + BigInt(bucket.cost_usd_nanos),
+    0n,
+  );
+  const hasUnpricedGuardrailUsage = guardrailBuckets.some((bucket) => bucket.unpriced);
   const totalTokens =
     sum(principalBuckets, (bucket) => bucket.prompt_tokens) +
     sum(principalBuckets, (bucket) => bucket.completion_tokens);
@@ -73,7 +83,7 @@ export function UsageContent({
 
   const chartData = dayBuckets.map((bucket) => ({
     day: bucket.key,
-    cost: Number(bucket.cost_minor) / 100,
+    cost: Number(BigInt(bucket.cost_usd_nanos)) / 1_000_000_000,
   }));
 
   const principalColumns: DataTableColumn<LlmUsageBucket>[] = [
@@ -116,7 +126,7 @@ export function UsageContent({
       align: 'right',
       cell: (row) => (
         <span className="font-mono text-sm tabular-nums">
-          {formatMinorUnits(row.cost_minor, USAGE_CURRENCY)}
+          {row.unpriced ? 'Unknown' : formatUsdNanos(row.cost_usd_nanos)}
         </span>
       ),
     },
@@ -168,7 +178,7 @@ export function UsageContent({
       align: 'right',
       cell: (row) => (
         <span className="font-mono text-sm tabular-nums">
-          {formatMinorUnits(row.cost_minor, USAGE_CURRENCY)}
+          {row.unpriced ? 'Unknown' : formatUsdNanos(row.cost_usd_nanos)}
         </span>
       ),
     },
@@ -188,12 +198,22 @@ export function UsageContent({
             Token consumption and spend by caller and model, metered at the LLM gateway.
           </p>
         </div>
-        <PeriodSelector period={period} contextQuery={contextQuery} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={() => setPriceModel('')}>
+            Set model price
+          </Button>
+          <PeriodSelector period={period} contextQuery={contextQuery} />
+        </div>
       </div>
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <SummaryTile label="Total spend" value={totalSpend} />
         <SummaryTile
-          label="Total spend"
-          value={formatMinorUnits(totalSpendMinor, USAGE_CURRENCY)}
+          label="Guardrail overhead"
+          value={
+            hasUnpricedGuardrailUsage
+              ? `${formatUsdNanos(guardrailCostNanos.toString())} + unknown`
+              : formatUsdNanos(guardrailCostNanos.toString())
+          }
         />
         <SummaryTile label="Total tokens" value={formatTokens(totalTokens)} />
         <SummaryTile
@@ -307,14 +327,29 @@ function SetPriceDialog({
   const [saving, setSaving] = useState(false);
   const [inputPrice, setInputPrice] = useState('');
   const [outputPrice, setOutputPrice] = useState('');
+  const [customModel, setCustomModel] = useState('');
 
   async function savePrice() {
-    if (!model) return;
-    let payload: { input_per_million_minor: number; output_per_million_minor: number };
+    if (model === null) return;
+    const resolvedModel = (model || customModel).trim();
+    if (!resolvedModel) {
+      toast.error('Model is required');
+      return;
+    }
+    let payload: {
+      input_per_million_minor: number;
+      output_per_million_minor: number;
+      input_per_million_usd_nanos: string;
+      output_per_million_usd_nanos: string;
+    };
     try {
+      const input = dollarsToRate(inputPrice);
+      const output = dollarsToRate(outputPrice);
       payload = {
-        input_per_million_minor: dollarsToMinor(inputPrice),
-        output_per_million_minor: dollarsToMinor(outputPrice),
+        input_per_million_minor: input.minor,
+        output_per_million_minor: output.minor,
+        input_per_million_usd_nanos: input.nanos,
+        output_per_million_usd_nanos: output.nanos,
       };
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Price is invalid');
@@ -322,19 +357,23 @@ function SetPriceDialog({
     }
     setSaving(true);
     try {
-      const response = await fetch(`/api/llm-pricing/${encodeURIComponent(model)}${contextQuery}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetch(
+        `/api/llm-pricing/${encodeURIComponent(resolvedModel)}${contextQuery}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
       const text = await response.text();
       if (!response.ok) {
         throw new Error(safeError(text) ?? 'Unable to set model price');
       }
-      toast.success(`Price set for ${model}`);
+      toast.success(`Price set for ${resolvedModel}`);
       onOpenChange(false);
       setInputPrice('');
       setOutputPrice('');
+      setCustomModel('');
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to set model price');
@@ -349,11 +388,28 @@ function SetPriceDialog({
         <DialogHeader>
           <DialogTitle>Set model price</DialogTitle>
           <DialogDescription>
-            USD per 1M tokens for <span className="font-mono">{model}</span>. New calls are metered
-            at this workspace price immediately.
+            USD per 1M tokens
+            {model ? (
+              <>
+                {' '}
+                for <span className="font-mono">{model}</span>
+              </>
+            ) : null}
+            . New calls are metered at this workspace price immediately.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 md:grid-cols-2">
+          {model === '' ? (
+            <div className="grid gap-1.5 md:col-span-2">
+              <Label htmlFor="set-price-model">Provider model</Label>
+              <Input
+                id="set-price-model"
+                value={customModel}
+                onChange={(event) => setCustomModel(event.target.value)}
+                placeholder="deepseek-4-flash"
+              />
+            </div>
+          ) : null}
           <div className="grid gap-1.5">
             <Label htmlFor="set-price-input">Input $ per 1M tokens</Label>
             <Input
@@ -386,21 +442,17 @@ function SetPriceDialog({
   );
 }
 
-function dollarsToMinor(value: string): number {
-  const parsed = priceMinorSchema.safeParse(value);
+function dollarsToRate(value: string): { minor: number; nanos: string } {
+  const parsed = priceRateSchema.safeParse(value);
   if (!parsed.success) {
-    throw new Error('Prices must be non-negative dollars with up to two decimals');
+    throw new Error('Prices must be non-negative dollars with up to nine decimals');
   }
-  return parsed.data;
+  const [dollars = '0', fraction = ''] = parsed.data.split('.');
+  const nanos = BigInt(dollars) * 1_000_000_000n + BigInt(fraction.padEnd(9, '0'));
+  return { minor: Number(nanos / 10_000_000n), nanos: nanos.toString() };
 }
 
-function PeriodSelector({
-  period,
-  contextQuery,
-}: {
-  period: UsagePeriod;
-  contextQuery: string;
-}) {
+function PeriodSelector({ period, contextQuery }: { period: UsagePeriod; contextQuery: string }) {
   return (
     <div
       className="flex items-center gap-1 rounded-lg border bg-card p-1"
@@ -410,7 +462,7 @@ function PeriodSelector({
       {USAGE_PERIODS.map((option) => (
         <Button key={option} asChild size="sm" variant={option === period ? 'secondary' : 'ghost'}>
           <Link
-            href={`/${contextQuery}&period=${option}#usage-overview-title`}
+            href={`/usage${contextQuery}&period=${option}#usage-overview-title`}
             aria-current={option === period ? 'page' : undefined}
           >
             {titleLabel(option)}
@@ -432,4 +484,8 @@ function SummaryTile({ label, value }: { label: string; value: string }) {
 
 function sum(buckets: LlmUsageBucket[], pick: (bucket: LlmUsageBucket) => number | bigint): number {
   return buckets.reduce((total, bucket) => total + Number(pick(bucket)), 0);
+}
+
+function sumNanos(buckets: LlmUsageBucket[]): bigint {
+  return buckets.reduce((total, bucket) => total + BigInt(bucket.cost_usd_nanos), 0n);
 }

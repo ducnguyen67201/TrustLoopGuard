@@ -7,7 +7,14 @@ import { auth } from '@/auth';
 import { getAppUrl } from '@/env';
 import { analyticsCatalogSchema, analyticsDashboardViewListSchema } from '@/lib/analytics-schemas';
 import { http } from '@/lib/http';
-import { runDetailSnapshot, type RunDetailSnapshot } from '@/lib/run-detail-live';
+import { parseRunDetailSnapshot, type RunDetailSnapshot } from '@/lib/run-detail-live';
+import type {
+  ApiKeyListResponse,
+  GatewayProviderConnection,
+  GatewayProviderConnectionListResponse,
+  GatewayRoute,
+  GatewayRouteListResponse,
+} from '@trustloopguard/sdk';
 import {
   isUserApprovalRequiredError,
   normalizeWorkspaceSlug,
@@ -108,6 +115,12 @@ export type ApiKeyRow = {
   lastUsed: string;
   createdBy: string;
   principal: string | null;
+};
+
+export type GatewayPageData = DashboardShellData & {
+  providerConnections: GatewayProviderConnection[];
+  gatewayRoutes: GatewayRoute[];
+  activeRuntimeKeyCount: number;
 };
 
 export type TeamMemberRow = {
@@ -686,6 +699,44 @@ export async function getApiKeysPageData(
   };
 }
 
+export async function getGatewayPageData(
+  workspaceSlug?: string | null,
+  environmentId?: string | null,
+): Promise<GatewayPageData> {
+  const user = await getCurrentUser();
+  const shell = await buildDashboardShell(user, workspaceSlug, environmentId);
+  const [providers, routes, apiKeys] = await Promise.all([
+    rustApiForUserWorkspace<GatewayProviderConnectionListResponse>(
+      user,
+      shell.activeWorkspace.id,
+      '/v1/gateway/provider-connections',
+      {},
+      shell.activeEnvironment.id,
+    ),
+    rustApiForUserWorkspace<GatewayRouteListResponse>(
+      user,
+      shell.activeWorkspace.id,
+      '/v1/gateway/routes',
+      {},
+      shell.activeEnvironment.id,
+    ),
+    rustApiForUserWorkspace<ApiKeyListResponse>(
+      user,
+      shell.activeWorkspace.id,
+      '/v1/api-keys',
+      {},
+      shell.activeEnvironment.id,
+    ),
+  ]);
+
+  return {
+    ...shell,
+    providerConnections: providers.provider_connections,
+    gatewayRoutes: routes.gateway_routes,
+    activeRuntimeKeyCount: apiKeys.api_keys.filter((key) => key.status === 'active').length,
+  };
+}
+
 interface RustMember {
   user_id: string;
   username: string;
@@ -929,7 +980,7 @@ export async function getRunDetailPageData(
     run: runRow(detail.run, shell.activeWorkspace.slug),
     events: detail.events.map(eventRow),
     traces: detail.traces.map(traceRow),
-    liveSnapshot: runDetailSnapshot(detail),
+    liveSnapshot: parseRunDetailSnapshot(detail),
   };
 }
 

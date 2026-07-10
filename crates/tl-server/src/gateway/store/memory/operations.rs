@@ -1,16 +1,10 @@
 use async_trait::async_trait;
-use tl_core::{
-    EnforcementProfile, GatewayCredentialStatus, GatewayProviderConnection, GatewayRoute,
-};
+use tl_core::{GatewayCredentialStatus, GatewayProviderConnection, GatewayRoute};
 
-use super::{
-    lock_error, MemoryEnforcementProfile, MemoryGatewayRoute, MemoryGatewayStore,
-    MemoryProviderConnection,
-};
+use super::{lock_error, MemoryGatewayRoute, MemoryGatewayStore, MemoryProviderConnection};
 use crate::gateway::store::{
-    EnforcementProfilePatch, GatewayRoutePatch, GatewayStore, GatewayStoreError,
-    NewEnforcementProfile, NewGatewayProviderConnection, NewGatewayRoute, ProviderConnectionPatch,
-    ProviderConnectionSecret, ResolvedGatewayRoute,
+    GatewayRoutePatch, GatewayStore, GatewayStoreError, NewGatewayProviderConnection,
+    NewGatewayRoute, ProviderConnectionPatch, ProviderConnectionSecret, ResolvedGatewayRoute,
 };
 
 #[async_trait]
@@ -98,83 +92,29 @@ impl GatewayStore for MemoryGatewayStore {
         })
     }
 
-    async fn list_enforcement_profiles(
-        &self,
-        workspace_id: &str,
-    ) -> Result<Vec<EnforcementProfile>, GatewayStoreError> {
-        let rows = self.enforcement_profiles.read().map_err(lock_error)?;
-        Ok(rows
-            .iter()
-            .filter(|row| row.workspace_id == workspace_id)
-            .map(|row| row.profile.clone())
-            .collect())
-    }
-
-    async fn create_enforcement_profile(
-        &self,
-        input: NewEnforcementProfile,
-    ) -> Result<EnforcementProfile, GatewayStoreError> {
-        let now = chrono::Utc::now().to_rfc3339();
-        let profile = EnforcementProfile {
-            id: input.id,
-            display_name: input.display_name,
-            input_action: input.input_action,
-            output_action: input.output_action,
-            fail_mode: input.fail_mode,
-            retention_mode: input.retention_mode,
-            response_mode: input.response_mode,
-            fallback_message: input.fallback_message,
-            max_regenerations: input.max_regenerations,
-            created_at: now.clone(),
-            updated_at: now,
-        };
-        let mut rows = self.enforcement_profiles.write().map_err(lock_error)?;
-        rows.push(MemoryEnforcementProfile {
-            workspace_id: input.workspace_id,
-            profile: profile.clone(),
-        });
-        Ok(profile)
-    }
-
-    async fn update_enforcement_profile(
+    async fn delete_provider_connection(
         &self,
         workspace_id: &str,
         id: &str,
-        patch: EnforcementProfilePatch,
-    ) -> Result<EnforcementProfile, GatewayStoreError> {
-        let mut rows = self.enforcement_profiles.write().map_err(lock_error)?;
-        let row = rows
-            .iter_mut()
-            .find(|row| row.workspace_id == workspace_id && row.profile.id == id)
+    ) -> Result<(), GatewayStoreError> {
+        let routes = self.gateway_routes.read().map_err(lock_error)?;
+        if routes
+            .iter()
+            .any(|row| row.workspace_id == workspace_id && row.route.provider_connection_id == id)
+        {
+            return Err(GatewayStoreError::Conflict(
+                "provider connection is used by a gateway route".into(),
+            ));
+        }
+        drop(routes);
+
+        let mut providers = self.provider_connections.write().map_err(lock_error)?;
+        let index = providers
+            .iter()
+            .position(|row| row.workspace_id == workspace_id && row.connection.id == id)
             .ok_or(GatewayStoreError::NotFound)?;
-
-        if let Some(value) = patch.display_name {
-            row.profile.display_name = value;
-        }
-        if let Some(value) = patch.input_action {
-            row.profile.input_action = value;
-        }
-        if let Some(value) = patch.output_action {
-            row.profile.output_action = value;
-        }
-        if let Some(value) = patch.fail_mode {
-            row.profile.fail_mode = value;
-        }
-        if let Some(value) = patch.retention_mode {
-            row.profile.retention_mode = value;
-        }
-        if let Some(value) = patch.response_mode {
-            row.profile.response_mode = value;
-        }
-        if let Some(value) = patch.fallback_message {
-            row.profile.fallback_message = value;
-        }
-        if let Some(value) = patch.max_regenerations {
-            row.profile.max_regenerations = value;
-        }
-
-        row.profile.updated_at = chrono::Utc::now().to_rfc3339();
-        Ok(row.profile.clone())
+        providers.remove(index);
+        Ok(())
     }
 
     async fn list_gateway_routes(
@@ -199,7 +139,6 @@ impl GatewayStore for MemoryGatewayStore {
             display_name: input.display_name,
             provider_connection_id: input.provider_connection_id,
             agent_id: input.agent_id,
-            enforcement_profile_id: input.enforcement_profile_id,
             created_at: now.clone(),
             updated_at: now,
         };
@@ -232,10 +171,6 @@ impl GatewayStore for MemoryGatewayStore {
         if let Some(value) = patch.agent_id {
             row.route.agent_id = value;
         }
-        if let Some(value) = patch.enforcement_profile_id {
-            row.route.enforcement_profile_id = value;
-        }
-
         row.route.updated_at = chrono::Utc::now().to_rfc3339();
         Ok(row.route.clone())
     }
@@ -255,21 +190,9 @@ impl GatewayStore for MemoryGatewayStore {
         let provider = self
             .get_provider_connection_secret(workspace_id, &route.provider_connection_id)
             .await?;
-        let profile = {
-            let rows = self.enforcement_profiles.read().map_err(lock_error)?;
-            rows.iter()
-                .find(|row| {
-                    row.workspace_id == workspace_id
-                        && row.profile.id == route.enforcement_profile_id
-                })
-                .map(|row| row.profile.clone())
-                .ok_or(GatewayStoreError::NotFound)?
-        };
-
         Ok(ResolvedGatewayRoute {
             route,
             provider_connection: provider.connection,
-            enforcement_profile: profile,
             encrypted_api_key: provider.encrypted_api_key,
         })
     }

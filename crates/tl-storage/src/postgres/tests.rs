@@ -3,6 +3,40 @@ use diesel::migration::MigrationSource;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 
+diesel::table! {
+    #[sql_name = "enforcement_profiles"]
+    legacy_enforcement_profiles (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Text,
+        display_name -> Text,
+        input_action -> Text,
+        output_action -> Text,
+        fail_mode -> Text,
+        retention_mode -> Text,
+        response_mode -> Text,
+        fallback_message -> Text,
+        max_regenerations -> Int4,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        deleted_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    #[sql_name = "gateway_routes"]
+    legacy_gateway_routes (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Text,
+        display_name -> Text,
+        provider_connection_id -> Text,
+        agent_id -> Text,
+        enforcement_profile_id -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        deleted_at -> Nullable<Timestamptz>,
+    }
+}
+
 async fn fresh_database_url() -> (String, testcontainers::ContainerAsync<PostgresImage>) {
     let container = PostgresImage::default()
         .start()
@@ -196,4 +230,88 @@ async fn migrate_repairs_recorded_human_review_schema_drift_and_is_idempotent() 
         .expect("startup migrate remains idempotent");
     let mut conn = establish(&database_url);
     assert_human_review_schema_exists(&mut conn);
+}
+
+#[tokio::test]
+async fn gateway_profile_removal_preserves_existing_routes() {
+    use crate::schema::{gateway_provider_connections, gateway_routes, organizations, workspaces};
+    use diesel::RunQueryDsl as SyncRunQueryDsl;
+
+    let (database_url, _container) = fresh_database_url().await;
+    let mut conn = establish(&database_url);
+    run_migrations_before(&mut conn, "00000000000044");
+    SyncRunQueryDsl::execute(
+        diesel::insert_into(organizations::table).values((
+            organizations::id.eq("org_gateway_migration"),
+            organizations::name.eq("Gateway migration"),
+            organizations::slug.eq("gateway-migration"),
+        )),
+        &mut conn,
+    )
+    .expect("insert migration organization");
+    SyncRunQueryDsl::execute(
+        diesel::insert_into(workspaces::table).values((
+            workspaces::id.eq("ws_gateway_migration"),
+            workspaces::organization_id.eq("org_gateway_migration"),
+            workspaces::name.eq("Gateway migration"),
+            workspaces::slug.eq("gateway-migration"),
+        )),
+        &mut conn,
+    )
+    .expect("insert migration workspace");
+    SyncRunQueryDsl::execute(
+        diesel::insert_into(gateway_provider_connections::table).values((
+            gateway_provider_connections::workspace_id.eq("ws_gateway_migration"),
+            gateway_provider_connections::id.eq("provider"),
+            gateway_provider_connections::display_name.eq("Provider"),
+            gateway_provider_connections::kind.eq("openai_compatible"),
+            gateway_provider_connections::default_model.eq("model"),
+            gateway_provider_connections::encrypted_api_key.eq("sealed"),
+        )),
+        &mut conn,
+    )
+    .expect("insert migration provider");
+    SyncRunQueryDsl::execute(
+        diesel::insert_into(legacy_enforcement_profiles::table).values((
+            legacy_enforcement_profiles::workspace_id.eq("ws_gateway_migration"),
+            legacy_enforcement_profiles::id.eq("profile"),
+            legacy_enforcement_profiles::display_name.eq("Profile"),
+            legacy_enforcement_profiles::input_action.eq("block"),
+            legacy_enforcement_profiles::output_action.eq("block"),
+            legacy_enforcement_profiles::fail_mode.eq("closed"),
+            legacy_enforcement_profiles::retention_mode.eq("metadata_only"),
+            legacy_enforcement_profiles::response_mode.eq("regular"),
+            legacy_enforcement_profiles::fallback_message.eq("Blocked"),
+            legacy_enforcement_profiles::max_regenerations.eq(0),
+        )),
+        &mut conn,
+    )
+    .expect("insert migration profile");
+    SyncRunQueryDsl::execute(
+        diesel::insert_into(legacy_gateway_routes::table).values((
+            legacy_gateway_routes::workspace_id.eq("ws_gateway_migration"),
+            legacy_gateway_routes::id.eq("route"),
+            legacy_gateway_routes::display_name.eq("Route"),
+            legacy_gateway_routes::provider_connection_id.eq("provider"),
+            legacy_gateway_routes::agent_id.eq("agent"),
+            legacy_gateway_routes::enforcement_profile_id.eq("profile"),
+        )),
+        &mut conn,
+    )
+    .expect("insert migration route");
+
+    conn.run_pending_migrations(MIGRATIONS)
+        .expect("run profile-removal migration");
+    let route = SyncRunQueryDsl::first::<(String, String)>(
+        gateway_routes::table
+            .filter(gateway_routes::workspace_id.eq("ws_gateway_migration"))
+            .filter(gateway_routes::id.eq("route"))
+            .select((
+                gateway_routes::provider_connection_id,
+                gateway_routes::agent_id,
+            )),
+        &mut conn,
+    )
+    .expect("load preserved route through the profile-free schema");
+    assert_eq!(route, ("provider".to_string(), "agent".to_string()));
 }

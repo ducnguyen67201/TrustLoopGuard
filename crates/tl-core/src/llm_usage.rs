@@ -13,6 +13,21 @@ use ts_rs::TS;
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
 
+/// Runtime that generated a priced LLM call. Customer inference is
+/// the only kind counted by customer spending caps; guardrail calls are
+/// TrustLoopGuard's semantic-policy overhead.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum LlmUsageKind {
+    #[default]
+    CustomerInference,
+    Guardrail,
+}
+
 /// One metered LLM gateway call.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -26,6 +41,8 @@ pub struct LlmUsageEvent {
     /// principal fall back to the API key id.
     pub principal_id: String,
     pub api_key_id: String,
+    #[serde(default)]
+    pub kind: LlmUsageKind,
     /// Raw model string from the provider response (deployment prefixes
     /// and all); pricing normalization never rewrites it.
     pub model: String,
@@ -34,6 +51,9 @@ pub struct LlmUsageEvent {
     /// Priced cost in currency minor units. `0` when the model has no
     /// price table entry.
     pub cost_minor: i64,
+    /// Exact USD nanos, serialized as a decimal string so JavaScript
+    /// consumers do not lose integer precision.
+    pub cost_usd_nanos: String,
     pub currency: String,
     /// Gateway request id — unique per workspace, makes retried
     /// metering writes idempotent.
@@ -66,6 +86,8 @@ pub struct LlmUsageBucket {
     pub prompt_tokens: i64,
     pub completion_tokens: i64,
     pub cost_minor: i64,
+    /// Exact accumulated USD nanos as a decimal string.
+    pub cost_usd_nanos: String,
     pub calls: i64,
     /// `true` when this model bucket includes token-bearing calls that
     /// were recorded with zero cost, so `cost_minor` undercounts the

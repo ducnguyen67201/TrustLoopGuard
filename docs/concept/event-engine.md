@@ -161,6 +161,14 @@ Checker evidence persists on the event as `checks`: one `CheckerRun` per evaluat
 
 The advisory signal path is **sheddable by contract**: the pipeline awaits the `SignalProvider` under a hard budget (`signal_budget`, default 250 ms) and continues without signals when the budget is exceeded, logging the shed. Deterministic checkers run before the signal call, so an over-budget provider costs trace evidence, never availability or safety — the deterministic core stays available under overload.
 
+Semantic policy evaluation follows the same bounded-cost rule. Deterministic matching first narrows
+the enabled policies, then the remaining candidates are sent in one batched judge invocation for the
+event. The invocation returns sanitized provider/model/status, latency, fallback, and optional token
+usage alongside the policy decisions. The event service records that invocation once in the shared
+LLM usage ledger as `kind: guardrail` and, for Gateway traffic, attaches it to the run. Guardrail
+usage never contributes to customer `meter: llm_usage` caps. If a timeout or provider failure has no
+token report, usage and estimated cost remain unknown rather than being treated as zero.
+
 An `escalate` verdict — from a checker or a policy — routes to the existing escalation worker with the event principal's agent and context domain.
 
 **Trust boundary.** Checkers evaluate resolved labels, and label resolution gives producer-declared values the highest precedence. Enforcement is therefore cooperative, not adversarial-resistant: a collector that declares its sources `trusted`/`public` neutralizes the flow and memory rules for its own events. This is the documented producer-reported-facts model — declarations are recorded as `basis: declared` in trace evidence, so they are auditable; the same applies to source origins, which the parameter-auth checker compares against the operator-owned registry. Enforcement against untrusted collectors requires the trusted-adapter path, where the SDK adapter — not the agent under guard — produces sources, origins, and labels.

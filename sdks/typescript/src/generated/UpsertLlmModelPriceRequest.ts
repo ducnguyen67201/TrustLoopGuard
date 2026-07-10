@@ -13,4 +13,13 @@ input_per_million_minor: bigint,
 /**
  * USD minor units per 1M completion tokens.
  */
-output_per_million_minor: bigint, };
+output_per_million_minor: bigint,
+/**
+ * Optional exact USD nanos per 1M prompt tokens. When omitted the
+ * legacy minor-unit value is converted exactly.
+ */
+input_per_million_usd_nanos?: string,
+/**
+ * Optional exact USD nanos per 1M completion tokens.
+ */
+output_per_million_usd_nanos?: string, };

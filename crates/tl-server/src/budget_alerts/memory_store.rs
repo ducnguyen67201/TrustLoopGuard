@@ -34,10 +34,11 @@ impl BudgetAlertStore for MemoryBudgetAlertStore {
         input: CreateBudgetAlertConfigRequest,
     ) -> Result<BudgetAlertConfig, BudgetAlertStoreError> {
         let mut configs = self.configs.write().await;
-        if configs
-            .iter()
-            .any(|config| config.workspace_id == workspace_id && config.name == input.name)
-        {
+        if configs.iter().any(|config| {
+            config.workspace_id == workspace_id
+                && config.meter == input.meter
+                && config.name == input.name
+        }) {
             return Err(BudgetAlertStoreError::Conflict(format!(
                 "a budget alert named `{}` already exists",
                 input.name
@@ -48,6 +49,7 @@ impl BudgetAlertStore for MemoryBudgetAlertStore {
             id: Uuid::now_v7().to_string(),
             workspace_id: workspace_id.to_string(),
             name: input.name,
+            meter: input.meter,
             window: input.window,
             principal_id: input.principal_id,
             threshold_type: input.threshold_type,
@@ -110,23 +112,32 @@ impl BudgetAlertStore for MemoryBudgetAlertStore {
         update: UpdateBudgetAlertConfigRequest,
     ) -> Result<BudgetAlertConfig, BudgetAlertStoreError> {
         let mut configs = self.configs.write().await;
-        if let Some(name) = &update.name {
-            if configs.iter().any(|config| {
-                config.workspace_id == workspace_id
-                    && config.id != config_id
-                    && &config.name == name
-            }) {
-                return Err(BudgetAlertStoreError::Conflict(format!(
-                    "a budget alert named `{name}` already exists"
-                )));
-            }
+        let current = configs
+            .iter()
+            .find(|config| config.workspace_id == workspace_id && config.id == config_id)
+            .cloned()
+            .ok_or(BudgetAlertStoreError::NotFound)?;
+        let target_name = update.name.as_deref().unwrap_or(&current.name);
+        let target_meter = update.meter.unwrap_or(current.meter);
+        if configs.iter().any(|config| {
+            config.workspace_id == workspace_id
+                && config.id != config_id
+                && config.meter == target_meter
+                && config.name == target_name
+        }) {
+            return Err(BudgetAlertStoreError::Conflict(format!(
+                "a budget alert named `{target_name}` already exists"
+            )));
         }
         let config = configs
             .iter_mut()
             .find(|config| config.workspace_id == workspace_id && config.id == config_id)
-            .ok_or(BudgetAlertStoreError::NotFound)?;
+            .expect("config was found before conflict validation");
         if let Some(name) = update.name {
             config.name = name;
+        }
+        if let Some(meter) = update.meter {
+            config.meter = meter;
         }
         if let Some(window) = update.window {
             config.window = window;
@@ -175,8 +186,9 @@ impl BudgetAlertStore for MemoryBudgetAlertStore {
         firing: RecordBudgetAlertFiring,
     ) -> Result<bool, BudgetAlertStoreError> {
         let key = format!(
-            "{}:{}:{}",
+            "{}:{:?}:{}:{}",
             firing.config_id,
+            firing.meter,
             firing.principal_id,
             firing.window_start.to_rfc3339()
         );
@@ -190,6 +202,7 @@ impl BudgetAlertStore for MemoryBudgetAlertStore {
             id: Uuid::now_v7().to_string(),
             workspace_id: workspace_id.to_string(),
             config_id: firing.config_id,
+            meter: firing.meter,
             principal_id: firing.principal_id,
             window_start: firing.window_start.to_rfc3339(),
             cap_minor: firing.cap_minor,
@@ -224,11 +237,12 @@ impl BudgetAlertStore for MemoryBudgetAlertStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tl_core::{BudgetAlertThresholdType, BudgetAlertWindow};
+    use tl_core::{BudgetAlertThresholdType, BudgetAlertWindow, SpendMeter};
 
     fn config(name: &str) -> CreateBudgetAlertConfigRequest {
         CreateBudgetAlertConfigRequest {
             name: name.into(),
+            meter: SpendMeter::Actions,
             window: BudgetAlertWindow::Week,
             principal_id: None,
             threshold_type: BudgetAlertThresholdType::Percent,
@@ -241,6 +255,7 @@ mod tests {
     fn firing(config_id: &str, principal: &str) -> RecordBudgetAlertFiring {
         RecordBudgetAlertFiring {
             config_id: config_id.into(),
+            meter: SpendMeter::Actions,
             principal_id: principal.into(),
             window_start: Utc::now(),
             cap_minor: 5000,
@@ -287,6 +302,34 @@ mod tests {
 
         store.delete_config("ws", &created.id).await.unwrap();
         assert!(store.list_configs("ws").await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn config_names_are_unique_within_each_spend_meter() {
+        let store = MemoryBudgetAlertStore::new();
+        store
+            .create_config("ws", config("weekly-80"))
+            .await
+            .unwrap();
+        store
+            .create_config(
+                "ws",
+                CreateBudgetAlertConfigRequest {
+                    meter: SpendMeter::LlmUsage,
+                    ..config("weekly-80")
+                },
+            )
+            .await
+            .unwrap();
+
+        let configs = store.list_configs("ws").await.unwrap();
+        assert_eq!(configs.len(), 2);
+        assert!(configs
+            .iter()
+            .any(|config| config.meter == SpendMeter::Actions));
+        assert!(configs
+            .iter()
+            .any(|config| config.meter == SpendMeter::LlmUsage));
     }
 
     #[tokio::test]

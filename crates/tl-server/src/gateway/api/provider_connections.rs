@@ -115,3 +115,35 @@ pub async fn patch_gateway_provider_connection(
         Err(error) => gateway_store_error_response(error),
     }
 }
+
+#[utoipa::path(
+    delete,
+    path = "/v1/gateway/provider-connections/{id}",
+    tag = "gateway",
+    params(("id" = String, Path, description = "Provider connection id")),
+    responses(
+        (status = 204, description = "Gateway provider connection permanently deleted"),
+        (status = 403, description = "Workspace runtime keys cannot manage gateway configuration", body = ApiError),
+        (status = 404, description = "Provider connection not found", body = ApiError),
+        (status = 409, description = "Provider connection is used by a gateway route", body = ApiError),
+    ),
+)]
+pub async fn delete_gateway_provider_connection(
+    State(state): State<GatewayState>,
+    runtime_key: Option<Extension<crate::auth::WorkspaceKeyContext>>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    if let Some(response) = reject_runtime_key_config_access(runtime_key) {
+        return response;
+    }
+    let workspace_id = workspace_id_from_headers(&headers);
+    match state
+        .store
+        .delete_provider_connection(&workspace_id, &id)
+        .await
+    {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(error) => gateway_store_error_response(error),
+    }
+}

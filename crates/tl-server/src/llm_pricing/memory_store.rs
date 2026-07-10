@@ -27,12 +27,16 @@ impl LlmPricingStore for MemoryLlmPricingStore {
         model: &str,
         input_per_million_minor: i64,
         output_per_million_minor: i64,
+        input_per_million_nanos: i64,
+        output_per_million_nanos: i64,
     ) -> Result<(), LlmPricingStoreError> {
         self.prices.write().await.insert(
             (workspace_id.to_string(), model.to_string()),
             ModelPrice {
                 input_per_million_minor,
                 output_per_million_minor,
+                input_per_million_nanos,
+                output_per_million_nanos,
             },
         );
         Ok(())

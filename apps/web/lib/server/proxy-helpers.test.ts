@@ -38,7 +38,7 @@ vi.mock('@/lib/server/tl-client', () => ({
   rustApiForAuthorizedWorkspace: mockTlClient.rustApiForAuthorizedWorkspace,
 }));
 
-import { patchRustResource, proxyRustCollection } from './proxy-helpers';
+import { deleteRustResource, patchRustResource, proxyRustCollection } from './proxy-helpers';
 
 describe('proxyRustCollection', () => {
   beforeEach(() => {
@@ -136,5 +136,33 @@ describe('patchRustResource', () => {
     );
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ id: 'route/a b' });
+  });
+});
+
+describe('deleteRustResource', () => {
+  beforeEach(() => {
+    mockTlClient.rustApiForAuthorizedWorkspace.mockReset();
+  });
+
+  it('proxies DELETE resource requests and returns no content', async () => {
+    mockTlClient.rustApiForAuthorizedWorkspace.mockResolvedValue(null);
+    const req = new Request(
+      'https://app.test/api/gateway/provider-connections/provider%2Fa?workspace=acme',
+      { method: 'DELETE' },
+    );
+
+    const res = await deleteRustResource(
+      req,
+      Promise.resolve({ id: 'provider/a' }),
+      '/v1/gateway/provider-connections',
+    );
+
+    expect(mockTlClient.rustApiForAuthorizedWorkspace).toHaveBeenCalledWith(
+      req,
+      '/v1/gateway/provider-connections/provider%2Fa',
+      { method: 'DELETE' },
+    );
+    expect(res.status).toBe(204);
+    await expect(res.text()).resolves.toBe('');
   });
 });

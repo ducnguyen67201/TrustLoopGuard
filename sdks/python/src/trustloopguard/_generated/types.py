@@ -169,27 +169,6 @@ class AuthResponse(BaseModel):
     username: str
 
 
-class BudgetAlertFiring(BaseModel):
-    cap_minor: int
-    config_id: str
-    currency: str
-    fired_at: str = Field(..., description='RFC 3339 timestamp.')
-    id: str
-    payload: Any = Field(
-        ..., description='The exact JSON body delivered to the webhook.'
-    )
-    principal_id: str
-    spent_minor: int
-    window_start: str = Field(
-        ..., description='RFC 3339 window boundary the dedup key is anchored to.'
-    )
-    workspace_id: str
-
-
-class BudgetAlertFiringListResponse(BaseModel):
-    firings: list[BudgetAlertFiring]
-
-
 class BudgetAlertThresholdType(Enum):
     percent = 'percent'
     absolute = 'absolute'
@@ -249,20 +228,9 @@ class CreateApiKeyRequest(BaseModel):
     )
 
 
-class CreateBudgetAlertConfigRequest(BaseModel):
-    enabled: bool | None = Field(None, description='Defaults to `true`.')
-    name: str
-    principal_id: str | None = None
-    threshold_type: BudgetAlertThresholdType
-    threshold_value: int
-    webhook_url: str | None = None
-    window: BudgetAlertWindow
-
-
 class CreateGatewayRouteRequest(BaseModel):
     agent_id: str
     display_name: str
-    enforcement_profile_id: str
     id: str | None = None
     provider_connection_id: str
 
@@ -360,11 +328,6 @@ class EvidenceRef(BaseModel):
     observed_at: str | None = None
     source: str
     source_id: str
-
-
-class FailMode(Enum):
-    open = 'open'
-    closed = 'closed'
 
 
 class FinancialActionDecision(Enum):
@@ -499,19 +462,6 @@ class GatewayCredentialStatus(Enum):
     missing = 'missing'
 
 
-class GatewayInputAction(Enum):
-    allow = 'allow'
-    block = 'block'
-    redact = 'redact'
-
-
-class GatewayOutputAction(Enum):
-    allow = 'allow'
-    block = 'block'
-    rewrite = 'rewrite'
-    escalate = 'escalate'
-
-
 class GatewayProviderKind(Enum):
     openai_compatible = 'openai_compatible'
     anthropic = 'anthropic'
@@ -522,7 +472,6 @@ class GatewayRoute(BaseModel):
     agent_id: str
     created_at: str
     display_name: str
-    enforcement_profile_id: str
     id: str
     provider_connection_id: str
     updated_at: str
@@ -693,6 +642,9 @@ class LlmUsageBucket(BaseModel):
     calls: int
     completion_tokens: int
     cost_minor: int
+    cost_usd_nanos: str = Field(
+        ..., description='Exact accumulated USD nanos as a decimal string.'
+    )
     key: str
     prompt_tokens: int
     unpriced: bool | None = Field(
@@ -705,42 +657,9 @@ class LlmUsageBucketsResponse(BaseModel):
     buckets: list[LlmUsageBucket]
 
 
-class LlmUsageEvent(BaseModel):
-    api_key_id: str
-    completion_tokens: int
-    cost_minor: int = Field(
-        ...,
-        description='Priced cost in currency minor units. `0` when the model has no\nprice table entry.',
-    )
-    currency: str
-    effective_at: str = Field(..., description='RFC 3339 timestamp.')
-    id: str
-    metadata: Any
-    model: str = Field(
-        ...,
-        description='Raw model string from the provider response (deployment prefixes\nand all); pricing normalization never rewrites it.',
-    )
-    principal_id: str = Field(
-        ...,
-        description='Principal the spend is attributed to. Keys without a bound\nprincipal fall back to the API key id.',
-    )
-    prompt_tokens: int
-    request_id: str = Field(
-        ...,
-        description='Gateway request id — unique per workspace, makes retried\nmetering writes idempotent.',
-    )
-    workspace_id: str
-
-
-class LlmUsageListResponse(BaseModel):
-    events: list[LlmUsageEvent]
-
-
-class LlmUsageResponse(RootModel[LlmUsageListResponse | LlmUsageBucketsResponse]):
-    root: LlmUsageListResponse | LlmUsageBucketsResponse = Field(
-        ...,
-        description='`GET /v1/llm-usage` 200 body: the raw event list, or grouped buckets\nwhen `group_by` is set. Untagged — the two shapes are distinguished\nby their sole field (`events` vs `buckets`).',
-    )
+class LlmUsageKind(Enum):
+    customer_inference = 'customer_inference'
+    guardrail = 'guardrail'
 
 
 class MandateRef(BaseModel):
@@ -993,17 +912,6 @@ class ReportSeverity(Enum):
     info = 'info'
 
 
-class ResponseMode(Enum):
-    regular = 'regular'
-    streaming = 'streaming'
-
-
-class RetentionMode(Enum):
-    metadata_only = 'metadata_only'
-    redacted_body = 'redacted_body'
-    full_body = 'full_body'
-
-
 class ReversalCapability(Enum):
     none = 'none'
     cancel_before_capture = 'cancel_before_capture'
@@ -1012,6 +920,15 @@ class ReversalCapability(Enum):
     compensating_charge = 'compensating_charge'
     internal_balance_adjustment = 'internal_balance_adjustment'
     manual_recovery = 'manual_recovery'
+
+
+class RunBudgetWindowSnapshot(BaseModel):
+    cap_usd_nanos: str
+    committed_before_usd_nanos: str
+    remaining_after_usd_nanos: str
+    requested_usd_nanos: str
+    reserved_before_usd_nanos: str
+    window: str
 
 
 class RunEventKind(Enum):
@@ -1039,12 +956,52 @@ class RunEventSummary(BaseModel):
     workspace_id: str
 
 
+class RunGuardrailUsage(BaseModel):
+    completion_tokens: int | None = None
+    error_code: str | None = None
+    estimated_cost_usd_nanos: str | None = None
+    fallback_used: bool
+    judge: str
+    latency_ms: conint(ge=0)
+    model: str | None = None
+    phase: str
+    prompt_tokens: int | None = None
+    provider: str | None = None
+    status: str
+
+
 class RunKind(Enum):
     chat_session = 'chat_session'
     live_call = 'live_call'
     workflow = 'workflow'
     job = 'job'
     other = 'other'
+
+
+class RunLlmBudgetDecision(BaseModel):
+    actual_usd_nanos: str | None = None
+    currency: str
+    governing_window: str | None = None
+    principal_id: str
+    requested_usd_nanos: str | None = None
+    status: str
+    windows: list[RunBudgetWindowSnapshot]
+
+
+class RunProviderUsage(BaseModel):
+    completion_tokens: int | None = None
+    estimated_cost_usd_nanos: str | None = None
+    gateway_request_id: str
+    input_rate_usd_per_million_nanos: str | None = None
+    latency_ms: conint(ge=0)
+    model: str
+    output_rate_usd_per_million_nanos: str | None = None
+    prompt_tokens: int | None = None
+    provider: str
+    provider_response_id: str | None = None
+    route_id: str
+    status: str
+    total_tokens: int | None = None
 
 
 class RunStatus(Enum):
@@ -1172,23 +1129,13 @@ class Trust(Enum):
 
 class UpdateBudgetAlertConfigRequest(BaseModel):
     enabled: bool | None = None
+    meter: SpendMeter | None = None
     name: str | None = None
     principal_id: str | None = None
     threshold_type: BudgetAlertThresholdType | None = None
     threshold_value: int | None = None
     webhook_url: str | None = None
     window: BudgetAlertWindow | None = None
-
-
-class UpdateEnforcementProfileRequest(BaseModel):
-    display_name: str | None = None
-    fail_mode: FailMode | None = None
-    fallback_message: str | None = None
-    input_action: GatewayInputAction | None = None
-    max_regenerations: conint(ge=0) | None = None
-    output_action: GatewayOutputAction | None = None
-    response_mode: ResponseMode | None = None
-    retention_mode: RetentionMode | None = None
 
 
 class UpdateEnvironmentCheckerModesRequest(BaseModel):
@@ -1208,7 +1155,6 @@ class UpdateGatewayProviderConnectionRequest(BaseModel):
 class UpdateGatewayRouteRequest(BaseModel):
     agent_id: str | None = None
     display_name: str | None = None
-    enforcement_profile_id: str | None = None
     provider_connection_id: str | None = None
 
 
@@ -1247,8 +1193,15 @@ class UpsertLlmModelPriceRequest(BaseModel):
     input_per_million_minor: int = Field(
         ..., description='USD minor units per 1M prompt tokens.'
     )
+    input_per_million_usd_nanos: str | None = Field(
+        None,
+        description='Optional exact USD nanos per 1M prompt tokens. When omitted the\nlegacy minor-unit value is converted exactly.',
+    )
     output_per_million_minor: int = Field(
         ..., description='USD minor units per 1M completion tokens.'
+    )
+    output_per_million_usd_nanos: str | None = Field(
+        None, description='Optional exact USD nanos per 1M completion tokens.'
     )
 
 
@@ -1530,6 +1483,7 @@ class BudgetAlertConfig(BaseModel):
     created_at: str = Field(..., description='RFC 3339 timestamps.')
     enabled: bool
     id: str
+    meter: SpendMeter | None = None
     name: str
     principal_id: str | None = Field(
         None,
@@ -1548,6 +1502,28 @@ class BudgetAlertConfig(BaseModel):
 
 class BudgetAlertConfigListResponse(BaseModel):
     configs: list[BudgetAlertConfig]
+
+
+class BudgetAlertFiring(BaseModel):
+    cap_minor: int
+    config_id: str
+    currency: str
+    fired_at: str = Field(..., description='RFC 3339 timestamp.')
+    id: str
+    meter: SpendMeter | None = None
+    payload: Any = Field(
+        ..., description='The exact JSON body delivered to the webhook.'
+    )
+    principal_id: str
+    spent_minor: int
+    window_start: str = Field(
+        ..., description='RFC 3339 window boundary the dedup key is anchored to.'
+    )
+    workspace_id: str
+
+
+class BudgetAlertFiringListResponse(BaseModel):
+    firings: list[BudgetAlertFiring]
 
 
 class CheckerFindingEvidence(BaseModel):
@@ -1575,16 +1551,15 @@ class CreateApiKeyResponse(BaseModel):
     )
 
 
-class CreateEnforcementProfileRequest(BaseModel):
-    display_name: str
-    fail_mode: FailMode
-    fallback_message: str
-    id: str | None = None
-    input_action: GatewayInputAction
-    max_regenerations: conint(ge=0) | None = None
-    output_action: GatewayOutputAction
-    response_mode: ResponseMode | None = None
-    retention_mode: RetentionMode
+class CreateBudgetAlertConfigRequest(BaseModel):
+    enabled: bool | None = Field(None, description='Defaults to `true`.')
+    meter: SpendMeter | None = None
+    name: str
+    principal_id: str | None = None
+    threshold_type: BudgetAlertThresholdType
+    threshold_value: int
+    webhook_url: str | None = None
+    window: BudgetAlertWindow
 
 
 class CreateFinancialMandateRequest(BaseModel):
@@ -1648,24 +1623,6 @@ class CreateRunRequest(BaseModel):
     kind: RunKind
     metadata: Any | None = None
     status: RunStatus | None = None
-
-
-class EnforcementProfile(BaseModel):
-    created_at: str
-    display_name: str
-    fail_mode: FailMode
-    fallback_message: str
-    id: str
-    input_action: GatewayInputAction
-    max_regenerations: conint(ge=0)
-    output_action: GatewayOutputAction
-    response_mode: ResponseMode | None = None
-    retention_mode: RetentionMode
-    updated_at: str
-
-
-class EnforcementProfileListResponse(BaseModel):
-    enforcement_profiles: list[EnforcementProfile]
 
 
 class FinancialAction(BaseModel):
@@ -1852,15 +1809,65 @@ class LlmModelPrice(BaseModel):
     input_per_million_minor: int = Field(
         ..., description='USD minor units per 1M prompt tokens.'
     )
+    input_per_million_usd_nanos: str = Field(
+        ...,
+        description='Exact USD nanos per 1M prompt tokens. Decimal string for safe\nJavaScript transport.',
+    )
     model: str = Field(..., description='Normalized model key (trimmed, lowercase).')
     output_per_million_minor: int = Field(
         ..., description='USD minor units per 1M completion tokens.'
+    )
+    output_per_million_usd_nanos: str = Field(
+        ..., description='Exact USD nanos per 1M completion tokens.'
     )
     source: LlmPriceSource
 
 
 class LlmPricingListResponse(BaseModel):
     prices: list[LlmModelPrice]
+
+
+class LlmUsageEvent(BaseModel):
+    api_key_id: str
+    completion_tokens: int
+    cost_minor: int = Field(
+        ...,
+        description='Priced cost in currency minor units. `0` when the model has no\nprice table entry.',
+    )
+    cost_usd_nanos: str = Field(
+        ...,
+        description='Exact USD nanos, serialized as a decimal string so JavaScript\nconsumers do not lose integer precision.',
+    )
+    currency: str
+    effective_at: str = Field(..., description='RFC 3339 timestamp.')
+    id: str
+    kind: LlmUsageKind | None = None
+    metadata: Any
+    model: str = Field(
+        ...,
+        description='Raw model string from the provider response (deployment prefixes\nand all); pricing normalization never rewrites it.',
+    )
+    principal_id: str = Field(
+        ...,
+        description='Principal the spend is attributed to. Keys without a bound\nprincipal fall back to the API key id.',
+    )
+    prompt_tokens: int
+    request_id: str = Field(
+        ...,
+        description='Gateway request id — unique per workspace, makes retried\nmetering writes idempotent.',
+    )
+    workspace_id: str
+
+
+class LlmUsageListResponse(BaseModel):
+    events: list[LlmUsageEvent]
+
+
+class LlmUsageResponse(RootModel[LlmUsageListResponse | LlmUsageBucketsResponse]):
+    root: LlmUsageListResponse | LlmUsageBucketsResponse = Field(
+        ...,
+        description='`GET /v1/llm-usage` 200 body: the raw event list, or grouped buckets\nwhen `group_by` is set. Untagged — the two shapes are distinguished\nby their sole field (`events` vs `buckets`).',
+    )
 
 
 class MyWorkspace(BaseModel):
@@ -2074,7 +2081,10 @@ class RedteamReportPayload(BaseModel):
 
 
 class RunDetail(BaseModel):
+    budget_decision: RunLlmBudgetDecision | None = None
     events: list[RunEventSummary]
+    guardrail_usage: list[RunGuardrailUsage] | None = None
+    provider_usage: RunProviderUsage | None = None
     run: RunSummary
     traces: list[TraceSummary]
 

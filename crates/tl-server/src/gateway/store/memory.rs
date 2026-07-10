@@ -2,14 +2,13 @@ mod operations;
 
 use std::sync::RwLock;
 
-use tl_core::{EnforcementProfile, GatewayProviderConnection, GatewayRoute};
+use tl_core::{GatewayProviderConnection, GatewayRoute};
 
 use super::GatewayStoreError;
 
 #[derive(Debug, Default)]
 pub struct MemoryGatewayStore {
     pub(super) provider_connections: RwLock<Vec<MemoryProviderConnection>>,
-    pub(super) enforcement_profiles: RwLock<Vec<MemoryEnforcementProfile>>,
     pub(super) gateway_routes: RwLock<Vec<MemoryGatewayRoute>>,
 }
 
@@ -18,12 +17,6 @@ pub(super) struct MemoryProviderConnection {
     pub(super) workspace_id: String,
     pub(super) connection: GatewayProviderConnection,
     pub(super) encrypted_api_key: String,
-}
-
-#[derive(Debug, Clone)]
-pub(super) struct MemoryEnforcementProfile {
-    pub(super) workspace_id: String,
-    pub(super) profile: EnforcementProfile,
 }
 
 #[derive(Debug, Clone)]
