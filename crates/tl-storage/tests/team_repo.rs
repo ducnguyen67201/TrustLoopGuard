@@ -60,6 +60,18 @@ async fn create_workspace_seeds_enabled_starter_policies() {
         .create_workspace(user_id, "Starter Policies")
         .await
         .expect("create workspace");
+    assert!(!workspace.is_knowledge_base_enabled);
+    assert!(!workspace.is_attacks_enabled);
+
+    let listed_workspace = team_repo
+        .list_workspaces_for_user(user_id)
+        .await
+        .expect("list workspaces")
+        .into_iter()
+        .next()
+        .expect("created workspace membership");
+    assert!(!listed_workspace.is_knowledge_base_enabled);
+    assert!(!listed_workspace.is_attacks_enabled);
 
     let rows = policy_repo
         .list_records_in_environment(&workspace.id, tl_core::DEFAULT_ENVIRONMENT_ID)

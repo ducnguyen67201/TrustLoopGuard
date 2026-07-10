@@ -47,6 +47,8 @@ function makeData(): WorkspaceDashboardData {
     sourceCount: 0,
     apiKeyCount: 1,
     role: 'owner',
+    isKnowledgeBaseEnabled: false,
+    isAttacksEnabled: false,
   };
   const environment = {
     id: 'env_prod',

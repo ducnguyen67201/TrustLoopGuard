@@ -8,7 +8,7 @@ How users join a workspace.
 
 Rust owns the durable state. Tables, repository, and HTTP endpoints all live in the Rust stack:
 
-- Tables: `workspace_members`, `workspace_invites` (migration `00000000000006_workspace_admin`).
+- Tables: `workspaces`, `workspace_members`, and `workspace_invites` (created by migration `00000000000006_workspace_admin`; workspace feature flags added by `00000000000044_workspace_feature_flags`).
 - Repository: `crates/tl-storage/src/team_repo.rs`.
 - HTTP handlers: `crates/tl-server/src/team.rs`.
 - Wire types: `crates/tl-core/src/team.rs`.
@@ -56,6 +56,8 @@ All team endpoints sit behind the existing shared-bearer middleware.
 Workspace context is always read from `X-TLG-Workspace-Id`. The optional `X-TLG-User-Id` header (UUID) is captured on `POST /v1/team/invites` and persisted to `invited_by_user_id` so the audit trail survives.
 
 `GET /v1/team/my-workspaces` is user-scoped instead: it reads `X-TLG-User-Id` (required, UUID) plus `X-TLG-User-Email`. When the email is present, the server bulk-accepts any pending invite addressed to it *before* querying memberships. This is the auto-bind mechanism: a user invited before or after signup sees the workspace on their next page load without clicking an accept link.
+
+Each returned `MyWorkspace` also includes `is_knowledge_base_enabled` and `is_attacks_enabled`. Both columns are `NOT NULL DEFAULT false` on `workspaces`, so those dashboard features remain unavailable until a workspace is explicitly enrolled. The dashboard maps them to camel-case shell fields, omits the corresponding navigation items, and returns not found for direct page requests when disabled. These are product-availability flags; they do not replace authorization on any Rust endpoint.
 
 ## Enforcement
 

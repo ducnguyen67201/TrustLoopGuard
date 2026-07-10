@@ -5,4 +5,4 @@ import type { WorkspaceRole } from "./WorkspaceRole";
  * A workspace the signed-in user belongs to. Drives the dashboard's
  * workspace switcher and the "no workspace yet" redirect.
  */
-export type MyWorkspace = { id: string, slug: string, name: string, role: WorkspaceRole, organization_id: string, };
+export type MyWorkspace = { id: string, slug: string, name: string, role: WorkspaceRole, organization_id: string, is_knowledge_base_enabled: boolean, is_attacks_enabled: boolean, };

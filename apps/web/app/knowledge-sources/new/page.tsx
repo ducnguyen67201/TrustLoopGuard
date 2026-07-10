@@ -1,4 +1,5 @@
 import { IconArrowLeft } from '@tabler/icons-react';
+import { notFound } from 'next/navigation';
 
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { KnowledgeSourceForm } from '@/components/workspace/KnowledgeSourceForm';
 import { readWorkspaceSlug } from '@/lib/search-params';
 import { getDashboardShell } from '@/lib/server/dashboard-data';
+import { isWorkspaceFeatureEnabled } from '@/lib/workspace-features';
 
 export default async function NewKnowledgeSourcePage({
   searchParams,
@@ -15,12 +17,14 @@ export default async function NewKnowledgeSourcePage({
 }) {
   const workspaceSlug = readWorkspaceSlug(await searchParams);
   const data = await getDashboardShell(workspaceSlug);
+  if (!isWorkspaceFeatureEnabled(data.activeWorkspace, 'knowledgeBase')) notFound();
   const knowledgeHref = `/knowledge-sources?workspace=${data.activeWorkspace.slug}`;
 
   return (
     <AppLayout
       title="Add source"
       workspaceSlug={workspaceSlug}
+      shell={data}
       breadcrumbs={[{ label: 'Knowledge', href: knowledgeHref }, { label: 'Add source' }]}
     >
       <div className="grid gap-6 px-4 lg:px-6">

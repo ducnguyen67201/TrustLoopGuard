@@ -103,6 +103,8 @@ impl TeamRepo {
                 name: name_owned,
                 organization_id,
                 role: WorkspaceRole::Owner,
+                is_knowledge_base_enabled: false,
+                is_attacks_enabled: false,
             })
         })
         .await
@@ -116,30 +118,43 @@ impl TeamRepo {
         user_id: Uuid,
     ) -> Result<Vec<MyWorkspace>, StorageError> {
         let mut conn = self.connection().await?;
-        let rows: Vec<(String, String, String, String, String)> = workspace_members::table
-            .inner_join(workspaces::table.on(workspaces::id.eq(workspace_members::workspace_id)))
-            .filter(workspace_members::user_id.eq(user_id))
-            .filter(workspaces::deleted_at.is_null())
-            .order(workspaces::name.asc())
-            .select((
-                workspaces::id,
-                workspaces::slug,
-                workspaces::name,
-                workspaces::organization_id,
-                workspace_members::role,
-            ))
-            .load::<(String, String, String, String, String)>(&mut conn)
-            .await
-            .map_err(|error| StorageError::Internal(format!("list user workspaces: {error}")))?;
+        let rows: Vec<(String, String, String, String, String, bool, bool)> =
+            workspace_members::table
+                .inner_join(
+                    workspaces::table.on(workspaces::id.eq(workspace_members::workspace_id)),
+                )
+                .filter(workspace_members::user_id.eq(user_id))
+                .filter(workspaces::deleted_at.is_null())
+                .order(workspaces::name.asc())
+                .select((
+                    workspaces::id,
+                    workspaces::slug,
+                    workspaces::name,
+                    workspaces::organization_id,
+                    workspace_members::role,
+                    workspaces::is_knowledge_base_enabled,
+                    workspaces::is_attacks_enabled,
+                ))
+                .load::<(String, String, String, String, String, bool, bool)>(&mut conn)
+                .await
+                .map_err(|error| {
+                    StorageError::Internal(format!("list user workspaces: {error}"))
+                })?;
         Ok(rows
             .into_iter()
-            .map(|(id, slug, name, org_id, role)| MyWorkspace {
-                id,
-                slug,
-                name,
-                organization_id: org_id,
-                role: WorkspaceRole::parse(&role).unwrap_or(WorkspaceRole::Viewer),
-            })
+            .map(
+                |(id, slug, name, org_id, role, is_knowledge_base_enabled, is_attacks_enabled)| {
+                    MyWorkspace {
+                        id,
+                        slug,
+                        name,
+                        organization_id: org_id,
+                        role: WorkspaceRole::parse(&role).unwrap_or(WorkspaceRole::Viewer),
+                        is_knowledge_base_enabled,
+                        is_attacks_enabled,
+                    }
+                },
+            )
             .collect())
     }
 }

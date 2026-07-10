@@ -40,12 +40,14 @@ Runtime/product pages carry the selected environment in the URL as `environment=
 
 The primary sidebar groups runtime monitoring separately from configuration:
 
-- **Monitor** — `/`, `/runs`, `/review-queue`, `/analytics`, and `/attacks`.
-- **Configure** — `/policies`, `/agents`, and `/knowledge-sources`.
+- **Monitor** — `/`, `/runs`, `/review-queue`, `/financial`, `/analytics`, and `/attacks`.
+- **Configure** — `/policies`, `/agents`, `/knowledge-sources`, and `/gateway`.
 
 `/review-queue` lists the traces the guard escalated or blocked (read from `GET /v1/traces`, filtered to those verdicts client-side) so a person can record a human-review decision via `POST /v1/traces/{trace_id}/review-events`. Recording an outcome is audit-only — it does **not** resume or re-run the stopped action (the agent owns re-issuing the call), matching the product's authorization-layer scope. The submit body is built with `lib/review-outcomes.ts` `buildReviewEventPayload`, the shared home for the review-event contract.
 
 Keep workspace/admin surfaces in the secondary section below the separator. Do not add new primary items as a flat list; choose the existing group that matches the workflow.
+
+Workspace rollout flags returned by `GET /v1/team/my-workspaces` control unavailable product areas. A gated navigation item declares its workspace feature in `components/app-sidebar.tsx`; `lib/workspace-features.ts` is the canonical evaluator. The page entry point must apply the same evaluator and call `notFound()` when disabled, so hiding a link never becomes the only gate. `/attacks` uses `isAttacksEnabled`; `/knowledge-sources` uses `isKnowledgeBaseEnabled`. Both default to disabled for new and existing workspaces. When enabled during rollout, their sidebar labels remain `Attacks (Beta)` and `Knowledge sources (Beta)` until the product marks them generally available.
 
 The sidebar owns the workspace switcher and environment switcher. Runtime/product pages should preserve both URL parameters when linking within the dashboard so policy deployment toggles, runs, traces, and analytics stay scoped to the selected environment.
 

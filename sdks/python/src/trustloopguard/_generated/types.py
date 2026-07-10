@@ -1865,6 +1865,8 @@ class LlmPricingListResponse(BaseModel):
 
 class MyWorkspace(BaseModel):
     id: str
+    is_attacks_enabled: bool
+    is_knowledge_base_enabled: bool
     name: str
     organization_id: str
     role: WorkspaceRole

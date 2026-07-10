@@ -26,7 +26,8 @@ import { NavMain, NavSecondary } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { CreateEnvironmentDialog } from '@/components/workspace/CreateEnvironmentDialog';
-import type { DashboardShellData } from '@/lib/server/dashboard-data';
+import type { DashboardShellData, WorkspaceSummary } from '@/lib/server/dashboard-data';
+import { isWorkspaceFeatureEnabled } from '@/lib/workspace-features';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,10 +83,11 @@ const data = {
           description: 'Trends in decisions, speed, and policy activity',
         },
         {
-          title: 'Attacks',
+          title: 'Attacks (Beta)',
           url: '/attacks',
           icon: IconSwords,
           description: 'Safely test how well your guardrails hold up',
+          feature: 'attacks' as const,
         },
       ],
     },
@@ -105,10 +107,11 @@ const data = {
           description: 'The AI apps you protect',
         },
         {
-          title: 'Knowledge sources',
+          title: 'Knowledge sources (Beta)',
           url: '/knowledge-sources',
           icon: IconBook2,
           description: 'Approved content the guardrail can trust',
+          feature: 'knowledgeBase' as const,
         },
         {
           title: 'Gateway',
@@ -149,6 +152,21 @@ const data = {
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & DashboardShellData;
 
+export function getVisibleNavGroups(
+  workspace: Pick<WorkspaceSummary, 'isAttacksEnabled' | 'isKnowledgeBaseEnabled'>,
+  withContext: (url: string) => string,
+) {
+  return data.navMain.map((group) => ({
+    ...group,
+    items: group.items
+      .filter((item) => {
+        const feature = 'feature' in item ? item.feature : undefined;
+        return feature === undefined || isWorkspaceFeatureEnabled(workspace, feature);
+      })
+      .map((item) => ({ ...item, url: withContext(item.url) })),
+  }));
+}
+
 export function AppSidebar({
   user,
   organization,
@@ -170,10 +188,7 @@ export function AppSidebar({
     if (activeAgent) params.set('agent', activeAgent);
     return `${url}?${params.toString()}`;
   };
-  const navGroups = data.navMain.map((group) => ({
-    ...group,
-    items: group.items.map((item) => ({ ...item, url: withContext(item.url) })),
-  }));
+  const navGroups = getVisibleNavGroups(activeWorkspace, withContext);
   const navSecondaryItems = data.navSecondary.map((item) => ({
     ...item,
     url: withContext(item.url),

@@ -77,6 +77,8 @@ function shellData(): DashboardShellData {
       sourceCount: 0,
       apiKeyCount: 0,
       role: 'owner',
+      isKnowledgeBaseEnabled: false,
+      isAttacksEnabled: false,
     },
     workspaces: [],
     activeEnvironment: {
