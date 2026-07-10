@@ -79,10 +79,62 @@ const traceSummarySchema = z.object({
   created_at: z.string(),
 });
 
+const providerUsageSchema = z.object({
+  gateway_request_id: z.string(),
+  route_id: z.string(),
+  provider: z.string(),
+  model: z.string(),
+  provider_response_id: z.string().nullable(),
+  status: z.string(),
+  prompt_tokens: z.number().nullable(),
+  completion_tokens: z.number().nullable(),
+  total_tokens: z.number().nullable(),
+  latency_ms: z.number(),
+  estimated_cost_usd_nanos: z.string().nullable(),
+  input_rate_usd_per_million_nanos: z.string().nullable(),
+  output_rate_usd_per_million_nanos: z.string().nullable(),
+});
+
+const guardrailUsageSchema = z.object({
+  phase: z.string(),
+  judge: z.string(),
+  provider: z.string().nullable(),
+  model: z.string().nullable(),
+  status: z.string(),
+  prompt_tokens: z.number().nullable(),
+  completion_tokens: z.number().nullable(),
+  estimated_cost_usd_nanos: z.string().nullable(),
+  fallback_used: z.boolean(),
+  latency_ms: z.number(),
+  error_code: z.string().nullable(),
+});
+
+const budgetWindowSchema = z.object({
+  window: z.string(),
+  cap_usd_nanos: z.string(),
+  committed_before_usd_nanos: z.string(),
+  reserved_before_usd_nanos: z.string(),
+  requested_usd_nanos: z.string(),
+  remaining_after_usd_nanos: z.string(),
+});
+
+const budgetDecisionSchema = z.object({
+  principal_id: z.string(),
+  status: z.string(),
+  currency: z.string(),
+  governing_window: z.string().nullable(),
+  requested_usd_nanos: z.string().nullable(),
+  actual_usd_nanos: z.string().nullable(),
+  windows: z.array(budgetWindowSchema),
+});
+
 const runDetailWireSchema = z.object({
   run: runSummarySchema,
   events: z.array(runEventSummarySchema),
   traces: z.array(traceSummarySchema),
+  provider_usage: providerUsageSchema.nullable().optional(),
+  guardrail_usage: z.array(guardrailUsageSchema).default([]),
+  budget_decision: budgetDecisionSchema.nullable().optional(),
 });
 
 type RuntimeDecisionPayloadWire = z.infer<typeof runtimeDecisionPayloadSchema>;
@@ -137,6 +189,9 @@ export type RunDetailSnapshot = {
     clock: string;
     timestamp: number;
   }>;
+  providerUsage: z.infer<typeof providerUsageSchema> | null;
+  guardrailUsage: Array<z.infer<typeof guardrailUsageSchema>>;
+  budgetDecision: z.infer<typeof budgetDecisionSchema> | null;
 };
 
 export type TraceSide = 'input' | 'output' | 'other';
@@ -161,7 +216,22 @@ export function runDetailSnapshot(detail: RunDetailWire): RunDetailSnapshot {
     run: runSnapshot(detail.run),
     events,
     traces,
+    providerUsage: detail.provider_usage ?? null,
+    guardrailUsage: detail.guardrail_usage,
+    budgetDecision: detail.budget_decision ?? null,
   };
+}
+
+export function formatUsdNanos(value: string | null | undefined): string {
+  if (value === null || value === undefined) return 'Unknown';
+  try {
+    const nanos = BigInt(value);
+    const whole = nanos / 1_000_000_000n;
+    const fractional = (nanos % 1_000_000_000n).toString().padStart(9, '0').replace(/0+$/, '');
+    return `$${whole.toString()}${fractional ? `.${fractional}` : '.00'}`;
+  } catch {
+    return 'Unknown';
+  }
 }
 
 function runSnapshot(run: RunDetailWire['run']): RunDetailSnapshot['run'] {
@@ -184,7 +254,9 @@ function runSnapshot(run: RunDetailWire['run']): RunDetailSnapshot['run'] {
   };
 }
 
-function eventSnapshot(event: RunDetailWire['events'][number]): RunDetailSnapshot['events'][number] {
+function eventSnapshot(
+  event: RunDetailWire['events'][number],
+): RunDetailSnapshot['events'][number] {
   const occurredAt = new Date(event.occurred_at);
   return {
     id: event.id,
@@ -200,7 +272,9 @@ function eventSnapshot(event: RunDetailWire['events'][number]): RunDetailSnapsho
   };
 }
 
-function traceSnapshot(trace: RunDetailWire['traces'][number]): RunDetailSnapshot['traces'][number] {
+function traceSnapshot(
+  trace: RunDetailWire['traces'][number],
+): RunDetailSnapshot['traces'][number] {
   const topPolicy = trace.payload.triggered_policies?.[0];
   const createdAt = new Date(trace.created_at);
   return {

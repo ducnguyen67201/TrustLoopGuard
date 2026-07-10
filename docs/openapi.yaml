@@ -2188,7 +2188,7 @@ paths:
         schema:
           type: string
       requestBody:
-        description: OpenAI-compatible request. When an LLM budget is active, model pricing and a positive max_tokens or max_completion_tokens bound are required.
+        description: OpenAI-compatible request. With an active LLM budget, bounded requests receive strict preflight admission; requests without max_tokens are soft-admitted while current spend remains below the cap.
         content:
           application/json:
             schema:
@@ -2210,7 +2210,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
         '429':
-          description: The request's reserved maximum cost would exceed an active principal budget
+          description: The request's reserved maximum would exceed the budget, or an unbounded request arrived after the cap was reached
         '502':
           description: Provider request failed
           content:
@@ -2592,6 +2592,12 @@ paths:
       - name: model
         in: query
         description: Filter by raw model string
+        required: false
+        schema:
+          type: string
+      - name: kind
+        in: query
+        description: 'Usage owner: `customer_inference` or `guardrail`'
         required: false
         schema:
           type: string
@@ -4772,6 +4778,8 @@ components:
           type: boolean
         id:
           type: string
+        meter:
+          $ref: '#/components/schemas/SpendMeter'
         name:
           type: string
         principal_id:
@@ -4838,6 +4846,8 @@ components:
           description: RFC 3339 timestamp.
         id:
           type: string
+        meter:
+          $ref: '#/components/schemas/SpendMeter'
         payload:
           description: The exact JSON body delivered to the webhook.
         principal_id:
@@ -5056,6 +5066,8 @@ components:
           - boolean
           - 'null'
           description: Defaults to `true`.
+        meter:
+          $ref: '#/components/schemas/SpendMeter'
         name:
           type: string
         principal_id:
@@ -6960,6 +6972,8 @@ components:
       - model
       - input_per_million_minor
       - output_per_million_minor
+      - input_per_million_usd_nanos
+      - output_per_million_usd_nanos
       - currency
       - source
       properties:
@@ -6969,6 +6983,11 @@ components:
           type: integer
           format: int64
           description: USD minor units per 1M prompt tokens.
+        input_per_million_usd_nanos:
+          type: string
+          description: |-
+            Exact USD nanos per 1M prompt tokens. Decimal string for safe
+            JavaScript transport.
         model:
           type: string
           description: Normalized model key (trimmed, lowercase).
@@ -6976,6 +6995,9 @@ components:
           type: integer
           format: int64
           description: USD minor units per 1M completion tokens.
+        output_per_million_usd_nanos:
+          type: string
+          description: Exact USD nanos per 1M completion tokens.
         source:
           $ref: '#/components/schemas/LlmPriceSource'
     LlmPriceSource:
@@ -7006,6 +7028,7 @@ components:
       - prompt_tokens
       - completion_tokens
       - cost_minor
+      - cost_usd_nanos
       - calls
       properties:
         calls:
@@ -7017,6 +7040,9 @@ components:
         cost_minor:
           type: integer
           format: int64
+        cost_usd_nanos:
+          type: string
+          description: Exact accumulated USD nanos as a decimal string.
         key:
           type: string
         prompt_tokens:
@@ -7052,6 +7078,7 @@ components:
       - prompt_tokens
       - completion_tokens
       - cost_minor
+      - cost_usd_nanos
       - currency
       - request_id
       - metadata
@@ -7068,6 +7095,11 @@ components:
           description: |-
             Priced cost in currency minor units. `0` when the model has no
             price table entry.
+        cost_usd_nanos:
+          type: string
+          description: |-
+            Exact USD nanos, serialized as a decimal string so JavaScript
+            consumers do not lose integer precision.
         currency:
           type: string
         effective_at:
@@ -7075,6 +7107,8 @@ components:
           description: RFC 3339 timestamp.
         id:
           type: string
+        kind:
+          $ref: '#/components/schemas/LlmUsageKind'
         metadata: {}
         model:
           type: string
@@ -7096,6 +7130,15 @@ components:
             metering writes idempotent.
         workspace_id:
           type: string
+    LlmUsageKind:
+      type: string
+      description: |-
+        Runtime that generated a priced LLM call. Customer inference is
+        the only kind counted by customer spending caps; guardrail calls are
+        TrustLoopGuard's semantic-policy overhead.
+      enum:
+      - customer_inference
+      - guardrail
     LlmUsageListResponse:
       type: object
       required:
@@ -8168,6 +8211,28 @@ components:
       - compensating_charge
       - internal_balance_adjustment
       - manual_recovery
+    RunBudgetWindowSnapshot:
+      type: object
+      required:
+      - window
+      - cap_usd_nanos
+      - committed_before_usd_nanos
+      - reserved_before_usd_nanos
+      - requested_usd_nanos
+      - remaining_after_usd_nanos
+      properties:
+        cap_usd_nanos:
+          type: string
+        committed_before_usd_nanos:
+          type: string
+        remaining_after_usd_nanos:
+          type: string
+        requested_usd_nanos:
+          type: string
+        reserved_before_usd_nanos:
+          type: string
+        window:
+          type: string
     RunDetail:
       type: object
       required:
@@ -8175,10 +8240,22 @@ components:
       - events
       - traces
       properties:
+        budget_decision:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/RunLlmBudgetDecision'
         events:
           type: array
           items:
             $ref: '#/components/schemas/RunEventSummary'
+        guardrail_usage:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunGuardrailUsage'
+        provider_usage:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/RunProviderUsage'
         run:
           $ref: '#/components/schemas/RunSummary'
         traces:
@@ -8247,6 +8324,53 @@ components:
           format: int32
         workspace_id:
           type: string
+    RunGuardrailUsage:
+      type: object
+      required:
+      - phase
+      - judge
+      - status
+      - fallback_used
+      - latency_ms
+      properties:
+        completion_tokens:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        error_code:
+          type:
+          - string
+          - 'null'
+        estimated_cost_usd_nanos:
+          type:
+          - string
+          - 'null'
+        fallback_used:
+          type: boolean
+        judge:
+          type: string
+        latency_ms:
+          type: integer
+          format: int64
+          minimum: 0
+        model:
+          type:
+          - string
+          - 'null'
+        phase:
+          type: string
+        prompt_tokens:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        provider:
+          type:
+          - string
+          - 'null'
+        status:
+          type: string
     RunKind:
       type: string
       enum:
@@ -8264,6 +8388,91 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RunSummary'
+    RunLlmBudgetDecision:
+      type: object
+      required:
+      - principal_id
+      - status
+      - currency
+      - windows
+      properties:
+        actual_usd_nanos:
+          type:
+          - string
+          - 'null'
+        currency:
+          type: string
+        governing_window:
+          type:
+          - string
+          - 'null'
+        principal_id:
+          type: string
+        requested_usd_nanos:
+          type:
+          - string
+          - 'null'
+        status:
+          type: string
+        windows:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunBudgetWindowSnapshot'
+    RunProviderUsage:
+      type: object
+      required:
+      - gateway_request_id
+      - route_id
+      - provider
+      - model
+      - status
+      - latency_ms
+      properties:
+        completion_tokens:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        estimated_cost_usd_nanos:
+          type:
+          - string
+          - 'null'
+        gateway_request_id:
+          type: string
+        input_rate_usd_per_million_nanos:
+          type:
+          - string
+          - 'null'
+        latency_ms:
+          type: integer
+          format: int64
+          minimum: 0
+        model:
+          type: string
+        output_rate_usd_per_million_nanos:
+          type:
+          - string
+          - 'null'
+        prompt_tokens:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        provider:
+          type: string
+        provider_response_id:
+          type:
+          - string
+          - 'null'
+        route_id:
+          type: string
+        status:
+          type: string
+        total_tokens:
+          type:
+          - integer
+          - 'null'
+          format: int64
     RunStatus:
       type: string
       enum:
@@ -8698,6 +8907,10 @@ components:
           type:
           - boolean
           - 'null'
+        meter:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/SpendMeter'
         name:
           type:
           - string
@@ -8885,10 +9098,22 @@ components:
           type: integer
           format: int64
           description: USD minor units per 1M prompt tokens.
+        input_per_million_usd_nanos:
+          type:
+          - string
+          - 'null'
+          description: |-
+            Optional exact USD nanos per 1M prompt tokens. When omitted the
+            legacy minor-unit value is converted exactly.
         output_per_million_minor:
           type: integer
           format: int64
           description: USD minor units per 1M completion tokens.
+        output_per_million_usd_nanos:
+          type:
+          - string
+          - 'null'
+          description: Optional exact USD nanos per 1M completion tokens.
     UpsertSourceLabelPolicyRequest:
       allOf:
       - $ref: '#/components/schemas/SourceLabelPolicy'

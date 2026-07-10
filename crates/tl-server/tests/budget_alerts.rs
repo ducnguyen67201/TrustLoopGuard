@@ -13,7 +13,9 @@ use axum::{
 use chrono::Utc;
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
-use tl_core::{BudgetAlertThresholdType, BudgetAlertWindow, CreateBudgetAlertConfigRequest};
+use tl_core::{
+    BudgetAlertThresholdType, BudgetAlertWindow, CreateBudgetAlertConfigRequest, SpendMeter,
+};
 use tl_engine::Engine;
 use tl_server::budget_alerts::{process_spend, BudgetAlertRuntime, BudgetAlertStore, WindowSpend};
 use tl_server::{
@@ -389,6 +391,7 @@ async fn new_window_fires_again_through_the_delivery_pipeline() {
             "ws",
             CreateBudgetAlertConfigRequest {
                 name: "weekly-80".into(),
+                meter: SpendMeter::Actions,
                 window: BudgetAlertWindow::Week,
                 principal_id: None,
                 threshold_type: BudgetAlertThresholdType::Percent,

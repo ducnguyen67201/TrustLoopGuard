@@ -64,6 +64,12 @@ const data = {
           description: 'A live feed of every request the guardrail checked',
         },
         {
+          title: 'Usage & budgets',
+          url: '/usage',
+          icon: IconChartBar,
+          description: 'Provider usage, model pricing, spending caps, and alerts',
+        },
+        {
           title: 'Review queue',
           url: '/review-queue',
           icon: IconInbox,

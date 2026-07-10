@@ -53,6 +53,7 @@ fn event(principal: &str, model: &str, cost: i64, request_id: &str) -> NewLlmUsa
     NewLlmUsageEventParams {
         principal_id: principal.into(),
         api_key_id: "key_1".into(),
+        usage_kind: "customer_inference".into(),
         model: model.into(),
         prompt_tokens: 1_000,
         completion_tokens: 200,
@@ -181,7 +182,7 @@ async fn concurrent_reservations_are_atomic_and_settlement_releases_unused_budge
     assert_eq!(
         outcomes
             .iter()
-            .filter(|outcome| matches!(outcome, ReserveLlmBudgetResult::Reserved))
+            .filter(|outcome| matches!(outcome, ReserveLlmBudgetResult::Reserved { .. }))
             .count(),
         1
     );
@@ -193,7 +194,7 @@ async fn concurrent_reservations_are_atomic_and_settlement_releases_unused_budge
         1
     );
 
-    let reserved_request = if matches!(outcomes[0], ReserveLlmBudgetResult::Reserved) {
+    let reserved_request = if matches!(outcomes[0], ReserveLlmBudgetResult::Reserved { .. }) {
         "req-a"
     } else {
         "req-b"
@@ -208,5 +209,5 @@ async fn concurrent_reservations_are_atomic_and_settlement_releases_unused_budge
         .reserve_budget(workspace, reservation("req-c", 60, 100))
         .await
         .expect("reserve after settlement");
-    assert_eq!(third, ReserveLlmBudgetResult::Reserved);
+    assert!(matches!(third, ReserveLlmBudgetResult::Reserved { .. }));
 }

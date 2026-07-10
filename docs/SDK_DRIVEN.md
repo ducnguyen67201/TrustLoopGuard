@@ -178,10 +178,14 @@ Gateway configuration types are generated from `tl-core` alongside the SDK event
 enforcement-profile reference. Gateway input and output are adapted to `GuardEvent`s and use the
 same server-side event service as direct SDK submission. The difference is ownership of the last
 step: SDK callers apply the returned `Decision`, while Gateway applies it to provider traffic.
-When an enabled `meter: llm_usage` policy applies, OpenAI-compatible callers must provide a
-positive `max_tokens` or `max_completion_tokens` bound and the workspace must have a trusted price
-for the requested model. Gateway reserves the maximum cost atomically before forwarding and settles
-the reservation to reported usage afterward.
+When an enabled `meter: llm_usage` policy applies, the workspace must have a trusted price for the
+requested model. Calls with a positive `max_tokens` or `max_completion_tokens` bound reserve their
+maximum cost atomically before forwarding. Calls without a bound are soft-admitted while current
+spend is below the cap, settle to reported actual usage, and may overshoot once before later calls
+are denied. A Gateway run records separate user and assistant
+turns plus typed provider usage, budget-decision, and semantic-judge evidence. `GET /v1/runs/{id}`
+returns that correlated detail. Customer provider calls are `customer_inference` usage and count
+toward the cap; TrustLoopGuard judge calls are `guardrail` usage and do not.
 
 ## Typed financial authorization
 

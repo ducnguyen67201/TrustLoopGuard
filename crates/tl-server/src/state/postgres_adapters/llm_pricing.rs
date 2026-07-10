@@ -20,6 +20,8 @@ impl LlmPricingStore for PostgresLlmPricingAdapter {
         model: &str,
         input_per_million_minor: i64,
         output_per_million_minor: i64,
+        input_per_million_nanos: i64,
+        output_per_million_nanos: i64,
     ) -> Result<(), LlmPricingStoreError> {
         self.0
             .upsert_price(
@@ -27,6 +29,8 @@ impl LlmPricingStore for PostgresLlmPricingAdapter {
                 model,
                 input_per_million_minor,
                 output_per_million_minor,
+                input_per_million_nanos,
+                output_per_million_nanos,
             )
             .await
             .map_err(store_error)
@@ -58,6 +62,8 @@ impl LlmPricingStore for PostgresLlmPricingAdapter {
                 price: ModelPrice {
                     input_per_million_minor: row.input_per_million_minor,
                     output_per_million_minor: row.output_per_million_minor,
+                    input_per_million_nanos: row.input_per_million_nanos,
+                    output_per_million_nanos: row.output_per_million_nanos,
                 },
             })
             .collect())
@@ -76,6 +82,8 @@ impl LlmPricingStore for PostgresLlmPricingAdapter {
             .map(|row| ModelPrice {
                 input_per_million_minor: row.input_per_million_minor,
                 output_per_million_minor: row.output_per_million_minor,
+                input_per_million_nanos: row.input_per_million_nanos,
+                output_per_million_nanos: row.output_per_million_nanos,
             }))
     }
 }

@@ -14,6 +14,7 @@ mod tests;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::Instant;
 
 use tracing::Span;
 
@@ -52,6 +53,31 @@ pub struct LlmRouter {
     providers: HashMap<String, Arc<dyn LlmClient>>,
     routes: HashMap<JudgeKind, ResolvedRoute>,
     budget: Arc<TokenBudget>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LlmCallAudit {
+    pub judge: String,
+    pub provider: Option<String>,
+    pub model: Option<String>,
+    pub status: String,
+    pub prompt_tokens: Option<u32>,
+    pub completion_tokens: Option<u32>,
+    pub fallback_used: bool,
+    pub latency_ms: u64,
+    pub error_code: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AuditedLlmOutput {
+    pub output: LlmOutput,
+    pub audit: LlmCallAudit,
+}
+
+#[derive(Debug)]
+pub struct AuditedLlmError {
+    pub error: LlmError,
+    pub audit: LlmCallAudit,
 }
 
 impl std::fmt::Debug for LlmRouter {
@@ -112,6 +138,20 @@ impl LlmRouter {
         prompt: &str,
         schema: &JsonSchema,
     ) -> Result<LlmOutput, LlmError> {
+        self.judge_with_audit(kind, tenant, prompt, schema)
+            .await
+            .map(|result| result.output)
+            .map_err(|error| error.error)
+    }
+
+    pub async fn judge_with_audit(
+        &self,
+        kind: JudgeKind,
+        tenant: &str,
+        prompt: &str,
+        schema: &JsonSchema,
+    ) -> Result<AuditedLlmOutput, AuditedLlmError> {
+        let started = Instant::now();
         if let Err(b) = self.budget.check(tenant) {
             tracing::warn!(
                 tenant = tenant,
@@ -119,18 +159,25 @@ impl LlmRouter {
                 limit = b.limit,
                 "tenant token budget exceeded"
             );
-            return Err(LlmError::BudgetExceeded);
+            return Err(AuditedLlmError {
+                error: LlmError::BudgetExceeded,
+                audit: failed_audit(kind, None, false, started.elapsed(), "budget_exceeded"),
+            });
         }
 
-        let route = self.routes.get(&kind).ok_or_else(|| {
-            LlmError::Http(format!("no route configured for judge `{}`", kind.as_str()))
+        let route = self.routes.get(&kind).ok_or_else(|| AuditedLlmError {
+            error: LlmError::Http(format!("no route configured for judge `{}`", kind.as_str())),
+            audit: failed_audit(kind, None, false, started.elapsed(), "route_missing"),
         })?;
 
         // Try primary.
         match self.call_target(&route.primary, prompt, schema).await {
             Ok(out) => {
                 self.record(tenant, kind, &route.primary, &out, false);
-                Ok(out)
+                Ok(AuditedLlmOutput {
+                    audit: successful_audit(kind, &route.primary, &out, false, started.elapsed()),
+                    output: out,
+                })
             }
             Err(primary_err) => {
                 if let Some(fallback) = &route.fallback {
@@ -143,7 +190,16 @@ impl LlmRouter {
                     match self.call_target(fallback, prompt, schema).await {
                         Ok(out) => {
                             self.record(tenant, kind, fallback, &out, true);
-                            Ok(out)
+                            Ok(AuditedLlmOutput {
+                                audit: successful_audit(
+                                    kind,
+                                    fallback,
+                                    &out,
+                                    true,
+                                    started.elapsed(),
+                                ),
+                                output: out,
+                            })
                         }
                         Err(fallback_err) => {
                             tracing::error!(
@@ -152,11 +208,31 @@ impl LlmRouter {
                                 fallback_error = %fallback_err,
                                 "both primary and fallback failed"
                             );
-                            Err(fallback_err)
+                            let code = error_code(&fallback_err);
+                            Err(AuditedLlmError {
+                                error: fallback_err,
+                                audit: failed_audit(
+                                    kind,
+                                    Some(fallback),
+                                    true,
+                                    started.elapsed(),
+                                    code,
+                                ),
+                            })
                         }
                     }
                 } else {
-                    Err(primary_err)
+                    let code = error_code(&primary_err);
+                    Err(AuditedLlmError {
+                        error: primary_err,
+                        audit: failed_audit(
+                            kind,
+                            Some(&route.primary),
+                            false,
+                            started.elapsed(),
+                            code,
+                        ),
+                    })
                 }
             }
         }
@@ -206,6 +282,57 @@ impl LlmRouter {
             fallback_used,
             "llm judge completed"
         );
+    }
+}
+
+fn successful_audit(
+    kind: JudgeKind,
+    target: &ProviderTarget,
+    output: &LlmOutput,
+    fallback_used: bool,
+    elapsed: Duration,
+) -> LlmCallAudit {
+    LlmCallAudit {
+        judge: kind.as_str().to_string(),
+        provider: Some(target.provider.clone()),
+        model: Some(target.model.clone()),
+        status: "succeeded".to_string(),
+        prompt_tokens: Some(output.prompt_tokens),
+        completion_tokens: Some(output.completion_tokens),
+        fallback_used,
+        latency_ms: elapsed.as_millis() as u64,
+        error_code: None,
+    }
+}
+
+fn failed_audit(
+    kind: JudgeKind,
+    target: Option<&ProviderTarget>,
+    fallback_used: bool,
+    elapsed: Duration,
+    error_code: &str,
+) -> LlmCallAudit {
+    LlmCallAudit {
+        judge: kind.as_str().to_string(),
+        provider: target.map(|target| target.provider.clone()),
+        model: target.map(|target| target.model.clone()),
+        status: "failed".to_string(),
+        prompt_tokens: None,
+        completion_tokens: None,
+        fallback_used,
+        latency_ms: elapsed.as_millis() as u64,
+        error_code: Some(error_code.to_string()),
+    }
+}
+
+fn error_code(error: &LlmError) -> &'static str {
+    match error {
+        LlmError::Http(_) => "http",
+        LlmError::Status(_, _) => "provider_status",
+        LlmError::Parse(_) => "parse",
+        LlmError::MissingField(_) => "missing_field",
+        LlmError::Timeout(_) => "timeout",
+        LlmError::BudgetExceeded => "budget_exceeded",
     }
 }
 

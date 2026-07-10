@@ -100,6 +100,29 @@ describe('GatewayPageContent', () => {
     expect(screen.getByText(/you need an api key first/i)).toBeInTheDocument();
   });
 
+  it('links route setup to LLM budget readiness', () => {
+    render(
+      <GatewayPageContent
+        apiBaseUrl="http://localhost:3001"
+        data={{
+          ...shell,
+          providerConnections: [],
+          gatewayRoutes: [],
+          activeRuntimeKeyCount: 1,
+        }}
+        budgetReadiness={{ hasPrice: true, hasCap: true, hasAlert: false }}
+      />,
+    );
+
+    expect(screen.getByText('Model price ready')).toBeInTheDocument();
+    expect(screen.getByText('Hard cap ready')).toBeInTheDocument();
+    expect(screen.getByText('80% alert not configured')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /configure usage & budgets/i })).toHaveAttribute(
+      'href',
+      '/usage?workspace=proxy-demo&environment=production#budgets',
+    );
+  });
+
   it('edits a provider without requiring the existing secret', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 200 }));

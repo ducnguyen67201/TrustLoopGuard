@@ -70,9 +70,11 @@ type RouteReadiness = {
 export function GatewayPageContent({
   data,
   apiBaseUrl,
+  budgetReadiness = { hasPrice: false, hasCap: false, hasAlert: false },
 }: {
   data: GatewayPageData;
   apiBaseUrl: string;
+  budgetReadiness?: { hasPrice: boolean; hasCap: boolean; hasAlert: boolean };
 }) {
   const router = useRouter();
   const [selectedRouteId, setSelectedRouteId] = useState(data.gatewayRoutes[0]?.id ?? '');
@@ -296,6 +298,27 @@ export function GatewayPageContent({
           </AlertDescription>
         </Alert>
       ) : null}
+
+      <Alert>
+        {budgetReadiness.hasPrice && budgetReadiness.hasCap ? (
+          <IconCircleCheck />
+        ) : (
+          <IconAlertTriangle />
+        )}
+        <AlertTitle>Provider spending controls</AlertTitle>
+        <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span>{budgetReadiness.hasPrice ? 'Model price ready' : 'Model price needed'}</span>
+          <span>{budgetReadiness.hasCap ? 'Hard cap ready' : 'Hard cap not configured'}</span>
+          <span>{budgetReadiness.hasAlert ? 'Alert ready' : '80% alert not configured'}</span>
+          <Button asChild variant="link" className="h-auto px-0 py-0">
+            <Link
+              href={`/usage?workspace=${encodeURIComponent(data.activeWorkspace.slug)}&environment=${encodeURIComponent(data.activeEnvironment.id)}#budgets`}
+            >
+              Configure Usage &amp; budgets
+            </Link>
+          </Button>
+        </AlertDescription>
+      </Alert>
 
       <Tabs defaultValue={defaultTab} className="gap-4">
         <TabsList>

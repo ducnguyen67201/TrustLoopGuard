@@ -57,7 +57,7 @@ describe('FinancialPolicyCreateDialog', () => {
     await userEvent.click(meterSelect);
     await userEvent.click(await screen.findByText('LLM usage (gateway)'));
     expect(
-      screen.getByText(/reserves each request’s maximum cost before the provider call/i),
+      screen.getByText(/requests with max_tokens get strict preflight enforcement/i),
     ).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Create financial policy' }));
 

@@ -26,6 +26,7 @@ pub struct StoredBudgetAlertConfig {
     pub id: String,
     pub workspace_id: String,
     pub name: String,
+    pub meter: String,
     pub window: String,
     pub principal_id: Option<String>,
     pub threshold_type: String,
@@ -39,6 +40,7 @@ pub struct StoredBudgetAlertConfig {
 #[derive(Debug, Clone, PartialEq)]
 pub struct NewBudgetAlertConfigParams {
     pub name: String,
+    pub meter: String,
     pub window: String,
     pub principal_id: Option<String>,
     pub threshold_type: String,
@@ -54,6 +56,7 @@ pub struct NewBudgetAlertConfigParams {
 #[diesel(table_name = budget_alert_configs)]
 pub struct UpdateBudgetAlertConfigParams {
     pub name: Option<String>,
+    pub meter: Option<String>,
     pub window: Option<String>,
     pub principal_id: Option<String>,
     pub threshold_type: Option<String>,
@@ -65,6 +68,7 @@ pub struct UpdateBudgetAlertConfigParams {
 #[derive(Debug, Clone, PartialEq)]
 pub struct NewBudgetAlertFiringParams {
     pub config_id: String,
+    pub meter: String,
     pub principal_id: String,
     pub window_start: DateTime<Utc>,
     pub cap_minor: i64,
@@ -78,6 +82,7 @@ pub struct StoredBudgetAlertFiring {
     pub id: String,
     pub workspace_id: String,
     pub config_id: String,
+    pub meter: String,
     pub principal_id: String,
     pub window_start: DateTime<Utc>,
     pub cap_minor: i64,
@@ -105,6 +110,7 @@ impl BudgetAlertRepo {
             id: Uuid::now_v7(),
             workspace_id: workspace_id.to_string(),
             name: params.name,
+            meter: params.meter,
             window: params.window,
             principal_id: params.principal_id,
             threshold_type: params.threshold_type,
@@ -230,6 +236,7 @@ impl BudgetAlertRepo {
             id: Uuid::now_v7(),
             workspace_id: workspace_id.to_string(),
             config_id,
+            meter: params.meter,
             principal_id: params.principal_id,
             window_start: params.window_start,
             cap_minor: params.cap_minor,
@@ -294,6 +301,7 @@ fn stored_config(record: BudgetAlertConfigRecord) -> StoredBudgetAlertConfig {
         id: record.id.to_string(),
         workspace_id: record.workspace_id,
         name: record.name,
+        meter: record.meter,
         window: record.window,
         principal_id: record.principal_id,
         threshold_type: record.threshold_type,
@@ -310,6 +318,7 @@ fn stored_firing(record: BudgetAlertFiringRecord) -> StoredBudgetAlertFiring {
         id: record.id.to_string(),
         workspace_id: record.workspace_id,
         config_id: record.config_id.to_string(),
+        meter: record.meter,
         principal_id: record.principal_id,
         window_start: record.window_start,
         cap_minor: record.cap_minor,

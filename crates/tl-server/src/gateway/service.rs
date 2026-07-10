@@ -9,7 +9,8 @@ use axum::{
     response::Response,
 };
 use bytes::Bytes;
-use tl_core::{GatewayProviderKind, RunStatus, Verdict};
+use std::time::Instant;
+use tl_core::{GatewayProviderKind, RunProviderUsage, RunStatus, Verdict};
 use uuid::Uuid;
 
 use crate::policies::workspace_id_from_headers;
@@ -28,7 +29,8 @@ use output::{handle_output_enforcement, OutputEnforcement};
 use request::{parse_provider_request, prepare_streaming_request};
 use response::{finalize_gateway_response, handle_provider_failure, EnforcementHeaders};
 use runs::{
-    create_gateway_run, create_gateway_turn_event, finish_gateway_run, gateway_run_external_id,
+    create_gateway_assistant_event, create_gateway_provider_failure_event, create_gateway_run,
+    create_gateway_turn_event, finish_gateway_run, gateway_run_external_id,
 };
 
 pub(super) async fn proxy_provider_request<P: GatewayProvider>(
@@ -118,7 +120,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
         &environment_id,
         &resolved,
         &gateway_request_id,
-        &request,
+        &input,
         run_id.as_deref(),
     )
     .await;
@@ -133,6 +135,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
             proposed_output: &input,
             run_id: run_id.as_deref(),
             run_event_id: run_event_id.as_deref(),
+            gateway_request_id: &gateway_request_id,
         },
     )
     .await
@@ -212,9 +215,10 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
         }
     }
 
-    // Reserve the maximum possible provider cost after input policy
-    // rewrites but before provider traffic. OpenAI-compatible requests
-    // without a matching budget continue to meter after the response.
+    // Apply strict maximum-cost reservation when the request provides
+    // an output bound, otherwise soft-admit while current spend remains
+    // below the cap. Requests without a matching budget still meter
+    // after the response.
     if metered && request.get("model").is_none() {
         request["model"] = serde_json::json!(resolved.provider_connection.default_model);
     }
@@ -226,6 +230,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
             runtime_key.as_ref(),
             &gateway_request_id,
             &request,
+            run_id.as_deref(),
         )
         .await
         {
@@ -246,6 +251,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
         None
     };
 
+    let provider_started = Instant::now();
     let provider_response = match provider
         .forward(
             &state.http,
@@ -257,8 +263,43 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
     {
         Ok(response) => response,
         Err(error) => {
-            budget::release_llm_budget(&state.app, &workspace_id, budget_reservation.as_ref())
-                .await;
+            let provider_latency_ms = provider_started.elapsed().as_millis() as u64;
+            budget::release_llm_budget(
+                &state.app,
+                &workspace_id,
+                &environment_id,
+                run_id.as_deref(),
+                budget_reservation.as_ref(),
+            )
+            .await;
+            let failure_usage = RunProviderUsage {
+                gateway_request_id: gateway_request_id.clone(),
+                route_id: route_id.clone(),
+                provider: super::normalization::provider_kind_text(expected_kind).to_string(),
+                model: request
+                    .get("model")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("unknown")
+                    .to_string(),
+                provider_response_id: None,
+                status: "failed".to_string(),
+                prompt_tokens: None,
+                completion_tokens: None,
+                total_tokens: None,
+                latency_ms: provider_latency_ms,
+                estimated_cost_usd_nanos: None,
+                input_rate_usd_per_million_nanos: None,
+                output_rate_usd_per_million_nanos: None,
+            };
+            create_gateway_provider_failure_event(
+                &state.app,
+                &workspace_id,
+                &environment_id,
+                &gateway_request_id,
+                &failure_usage,
+                run_id.as_deref(),
+            )
+            .await;
             finish_gateway_run(
                 &state.app,
                 &workspace_id,
@@ -270,8 +311,10 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
             return handle_provider_failure(error);
         }
     };
+    let provider_latency_ms = provider_started.elapsed().as_millis() as u64;
 
-    if metered {
+    let provider_name = super::normalization::provider_kind_text(expected_kind);
+    let provider_usage = if metered {
         // Meter the buffered upstream response (usage is always
         // present; SSE is synthesized from it). Never fails the
         // response.
@@ -286,12 +329,34 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
                 reservation: budget_reservation.as_ref(),
                 request: &request,
                 provider_response: &provider_response,
+                provider: provider_name,
+                latency_ms: provider_latency_ms,
+                run_id: run_id.as_deref(),
             },
         )
-        .await;
-    }
+        .await
+    } else {
+        generic_provider_usage(
+            &gateway_request_id,
+            &route_id,
+            provider_name,
+            provider_latency_ms,
+            &request,
+            &provider_response,
+        )
+    };
 
     let output = provider.extract_output(&provider_response);
+    let assistant_event_id = create_gateway_assistant_event(
+        &state.app,
+        &workspace_id,
+        &environment_id,
+        &gateway_request_id,
+        &output,
+        &provider_usage,
+        run_id.as_deref(),
+    )
+    .await;
     let output_decision = match check_gateway_content(
         &state.app,
         GatewayContentCheck {
@@ -302,7 +367,8 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
             text_source_id: GATEWAY_OUTPUT_SOURCE_ID,
             proposed_output: &output,
             run_id: run_id.as_deref(),
-            run_event_id: run_event_id.as_deref(),
+            run_event_id: assistant_event_id.as_deref(),
+            gateway_request_id: &gateway_request_id,
         },
     )
     .await
@@ -343,6 +409,54 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
         wants_stream,
     })
     .await
+}
+
+fn generic_provider_usage(
+    gateway_request_id: &str,
+    route_id: &str,
+    provider: &str,
+    latency_ms: u64,
+    request: &serde_json::Value,
+    response: &serde_json::Value,
+) -> RunProviderUsage {
+    let usage = response.get("usage");
+    let prompt_tokens = usage.and_then(|value| {
+        value
+            .get("prompt_tokens")
+            .or_else(|| value.get("input_tokens"))
+            .and_then(serde_json::Value::as_i64)
+    });
+    let completion_tokens = usage.and_then(|value| {
+        value
+            .get("completion_tokens")
+            .or_else(|| value.get("output_tokens"))
+            .and_then(serde_json::Value::as_i64)
+    });
+    RunProviderUsage {
+        gateway_request_id: gateway_request_id.to_string(),
+        route_id: route_id.to_string(),
+        provider: provider.to_string(),
+        model: response
+            .get("model")
+            .or_else(|| request.get("model"))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown")
+            .to_string(),
+        provider_response_id: response
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string),
+        status: "succeeded".to_string(),
+        prompt_tokens,
+        completion_tokens,
+        total_tokens: prompt_tokens
+            .zip(completion_tokens)
+            .map(|(input, output)| input.saturating_add(output)),
+        latency_ms,
+        estimated_cost_usd_nanos: None,
+        input_rate_usd_per_million_nanos: None,
+        output_rate_usd_per_million_nanos: None,
+    }
 }
 
 fn blocked_response<P: GatewayProvider>(

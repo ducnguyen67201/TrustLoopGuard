@@ -7,7 +7,7 @@ import { auth } from '@/auth';
 import { getAppUrl } from '@/env';
 import { analyticsCatalogSchema, analyticsDashboardViewListSchema } from '@/lib/analytics-schemas';
 import { http } from '@/lib/http';
-import { runDetailSnapshot, type RunDetailSnapshot } from '@/lib/run-detail-live';
+import { parseRunDetailSnapshot, type RunDetailSnapshot } from '@/lib/run-detail-live';
 import type {
   ApiKeyListResponse,
   GatewayProviderConnection,
@@ -978,7 +978,7 @@ export async function getRunDetailPageData(
     run: runRow(detail.run, shell.activeWorkspace.slug),
     events: detail.events.map(eventRow),
     traces: detail.traces.map(traceRow),
-    liveSnapshot: runDetailSnapshot(detail),
+    liveSnapshot: parseRunDetailSnapshot(detail),
   };
 }
 

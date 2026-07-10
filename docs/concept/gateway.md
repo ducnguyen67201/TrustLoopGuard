@@ -121,19 +121,30 @@ OpenAI-compatible chat completions retain one Gateway-specific deterministic sta
 provider spend, Gateway evaluates enabled financial policies with `meter: llm_usage` for the
 runtime-key principal. It calculates a conservative input-token ceiling from the serialized request,
 uses `max_tokens` or `max_completion_tokens` as the output ceiling, and atomically reserves that
-maximum cost against the tightest daily, weekly, and monthly caps. Postgres serializes reservations
-per workspace/principal, so concurrent replicas cannot spend the same remaining budget.
+maximum cost against the tightest daily, weekly, and monthly caps. Postgres serializes bounded
+reservations per workspace/principal, so concurrent replicas cannot spend the same remaining budget.
+
+When neither output bound is present, Gateway uses soft admission: it allows the request while
+committed spend remains below every matching cap, settles the provider's reported actual usage,
+then denies later requests after the cap is reached. This preserves compatibility with clients that
+omit output bounds, but one unbounded request—or multiple concurrent unbounded requests—can
+overshoot a cap. Runs label this path `soft_admitted` and `soft_settled`; it is not a hard-cap
+guarantee.
 
 After a successful provider response, the reservation is settled to the provider's actual usage.
 Unused reserved budget becomes available immediately. Provider failure releases the reservation;
-missing usage keeps it active so unmeasured spend cannot reopen the cap. Usage events retain
-USD-nano precision internally while public totals remain denominated in USD minor units.
+missing usage keeps a bounded request's maximum reservation active. An unbounded response without
+usage remains unknown and cannot provide a hard-cap guarantee. Usage events retain USD-nano
+precision and expose those exact values as decimal strings alongside legacy rounded minor-unit
+fields. Each recorded price snapshot therefore remains auditable even after a model's configured
+price changes.
 
 This is still the unified policy registry, but it is not part of generic `/v1/events` evaluation:
 authoritative token usage and price are known only around the provider call. At or over a matching
 cap, Gateway returns HTTP 429 before calling the provider. A budgeted request fails closed when its
-model has no trusted price or has no positive output-token bound. This is a hard admission boundary
-assuming the upstream provider honors its token bound and reports authoritative usage.
+model has no trusted price. Bounded requests receive a hard admission boundary assuming the
+upstream provider honors its token bound and reports authoritative usage; unbounded requests use
+the soft behavior above.
 
 OpenAI-compatible providers such as DigitalOcean can use their normal base URL, for example
 `https://inference.do-ai.run`, with the desired model configured as the provider default.
@@ -153,12 +164,34 @@ independently of that shared workspace behavior.
 
 ## Observability
 
-Each accepted Gateway request creates or reuses a `chat_session` run for the route agent. Input and
-output checks attach to a `user_turn` event and produce the same persisted traces as SDK events.
+Each accepted Gateway request creates or reuses a `chat_session` run for the route agent. The
+checked input attaches to a `user_turn`; a successful provider response creates a separate
+`assistant_turn`, and the output check links to that assistant event. Gateway checks produce the
+same persisted traces as SDK events, using `gateway_input` and `gateway_output` domains so the run
+UI places them in the correct guard phase.
 
 Run metadata records integration mode, route id, Gateway request id, and provider kind. Callers may
 send `X-TLG-Run-External-Id` to group multiple provider calls into one upstream session. Policy-
 shaped responses complete the run; provider and internal check failures mark it failed.
+
+`GET /v1/runs/{run_id}` joins the run timeline with typed Gateway evidence:
+
+- provider/model, provider response id, status, latency, prompt/completion/total tokens, the price
+  snapshot, and estimated customer-inference cost;
+- the latest deterministic LLM budget decision, including every configured window's committed,
+  reserved, cap, and remaining amounts;
+- one guardrail-overhead record per semantic judge invocation, kept separate from customer spend.
+
+The durable usage ledger distinguishes `customer_inference` from `guardrail`. Only customer
+inference participates in `meter: llm_usage` hard-cap admission. Semantic policy candidates remain
+deterministically prefiltered and are judged in one batched call per event, so the number of enabled
+policies does not create an LLM-call loop. Failed or timed-out judge calls show unknown usage and
+cost when the provider did not report tokens; they are never displayed as zero-cost calls.
+
+The dashboard's **Usage & budgets** page is the operator home for model prices, aggregate customer
+usage, guardrail overhead, `meter: llm_usage` policies, and LLM-scoped alerts. Gateway route setup
+only reports whether those spend controls are ready and links to that page. Provider invoices remain
+the final billing authority; TrustLoopGuard's per-request cost is a price-snapshot estimate.
 
 OpenAI-compatible input checks evaluate the latest user message. Anthropic input checks also include
 the top-level system prompt. Output checks evaluate the provider's assistant response.

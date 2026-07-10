@@ -1,8 +1,8 @@
 //! Model → price resolution for LLM gateway metering, plus the
 //! `/v1/llm-pricing` CRUD surface.
 //!
-//! Prices are integers in USD minor units (cents) per **1M tokens**,
-//! input and output separately. Workspace-edited rows in
+//! Prices use exact USD nanos per **1M tokens**, input and output
+//! separately, with legacy cent projections on the wire. Workspace-edited rows in
 //! `llm_model_prices` win; the built-in default table below is the
 //! day-one seed/fallback for models with no workspace row.
 //!
@@ -27,6 +27,21 @@ pub struct ModelPrice {
     pub input_per_million_minor: i64,
     /// USD minor units per 1M completion tokens.
     pub output_per_million_minor: i64,
+    /// Exact USD nanos per 1M prompt tokens.
+    pub input_per_million_nanos: i64,
+    /// Exact USD nanos per 1M completion tokens.
+    pub output_per_million_nanos: i64,
+}
+
+impl ModelPrice {
+    pub const fn from_minor(input_per_million_minor: i64, output_per_million_minor: i64) -> Self {
+        Self {
+            input_per_million_minor,
+            output_per_million_minor,
+            input_per_million_nanos: input_per_million_minor * NANOS_PER_MINOR,
+            output_per_million_nanos: output_per_million_minor * NANOS_PER_MINOR,
+        }
+    }
 }
 
 /// One workspace price row: normalized model key + price.
@@ -55,6 +70,8 @@ pub trait LlmPricingStore: Send + Sync {
         model: &str,
         input_per_million_minor: i64,
         output_per_million_minor: i64,
+        input_per_million_nanos: i64,
+        output_per_million_nanos: i64,
     ) -> Result<(), LlmPricingStoreError>;
 
     /// Delete one workspace model price. Returns whether a row existed.
@@ -79,81 +96,21 @@ pub trait LlmPricingStore: Send + Sync {
     ) -> Result<Option<ModelPrice>, LlmPricingStoreError>;
 }
 
-/// Built-in defaults, USD cents per 1M tokens. Placeholders for the
+/// Built-in defaults, currently declared from USD cents per 1M tokens. Placeholders for the
 /// design-partner model families — workspaces override per model via
 /// `PUT /v1/llm-pricing/{model}` when the real contract prices differ.
 /// `// ponytail: prices go stale; workspace rows are the real source of truth`
 const DEFAULT_PRICES: &[(&str, ModelPrice)] = &[
-    (
-        "deepseek-chat",
-        ModelPrice {
-            input_per_million_minor: 27,
-            output_per_million_minor: 110,
-        },
-    ),
-    (
-        "deepseek-reasoner",
-        ModelPrice {
-            input_per_million_minor: 55,
-            output_per_million_minor: 219,
-        },
-    ),
-    (
-        "qwen-max",
-        ModelPrice {
-            input_per_million_minor: 160,
-            output_per_million_minor: 640,
-        },
-    ),
-    (
-        "qwen-plus",
-        ModelPrice {
-            input_per_million_minor: 40,
-            output_per_million_minor: 120,
-        },
-    ),
-    (
-        "qwen-turbo",
-        ModelPrice {
-            input_per_million_minor: 5,
-            output_per_million_minor: 20,
-        },
-    ),
-    (
-        "qwen2.5-72b-instruct",
-        ModelPrice {
-            input_per_million_minor: 40,
-            output_per_million_minor: 120,
-        },
-    ),
-    (
-        "gemma-2-27b-it",
-        ModelPrice {
-            input_per_million_minor: 20,
-            output_per_million_minor: 20,
-        },
-    ),
-    (
-        "gemma-3-27b-it",
-        ModelPrice {
-            input_per_million_minor: 20,
-            output_per_million_minor: 20,
-        },
-    ),
-    (
-        "gpt-4o",
-        ModelPrice {
-            input_per_million_minor: 250,
-            output_per_million_minor: 1000,
-        },
-    ),
-    (
-        "gpt-4o-mini",
-        ModelPrice {
-            input_per_million_minor: 15,
-            output_per_million_minor: 60,
-        },
-    ),
+    ("deepseek-chat", ModelPrice::from_minor(27, 110)),
+    ("deepseek-reasoner", ModelPrice::from_minor(55, 219)),
+    ("qwen-max", ModelPrice::from_minor(160, 640)),
+    ("qwen-plus", ModelPrice::from_minor(40, 120)),
+    ("qwen-turbo", ModelPrice::from_minor(5, 20)),
+    ("qwen2.5-72b-instruct", ModelPrice::from_minor(40, 120)),
+    ("gemma-2-27b-it", ModelPrice::from_minor(20, 20)),
+    ("gemma-3-27b-it", ModelPrice::from_minor(20, 20)),
+    ("gpt-4o", ModelPrice::from_minor(250, 1000)),
+    ("gpt-4o-mini", ModelPrice::from_minor(15, 60)),
 ];
 
 const TOKENS_PER_PRICE_UNIT: i64 = 1_000_000;
@@ -248,18 +205,15 @@ pub(crate) async fn model_price(
         .or_else(|| default_table().resolve(model))
 }
 
-/// Exact USD-nano cost for integer-cent per-million prices. One token
-/// at one cent / 1M costs ten USD nanos, so this avoids per-call cent
-/// rounding while remaining integer-only.
+/// Exact USD-nano cost for workspace/provider rates. Rates are stored
+/// in nanos per million so sub-cent provider prices remain exact.
 pub(crate) fn cost_nanos(price: ModelPrice, prompt_tokens: i64, completion_tokens: i64) -> i64 {
-    let component = |tokens: i64, price_minor: i64| {
-        i128::from(tokens.max(0))
-            .saturating_mul(i128::from(price_minor.max(0)))
-            .saturating_mul(i128::from(NANOS_PER_MINOR))
+    let component = |tokens: i64, price_nanos: i64| {
+        i128::from(tokens.max(0)).saturating_mul(i128::from(price_nanos.max(0)))
             / i128::from(TOKENS_PER_PRICE_UNIT)
     };
-    component(prompt_tokens, price.input_per_million_minor)
-        .saturating_add(component(completion_tokens, price.output_per_million_minor))
+    component(prompt_tokens, price.input_per_million_nanos)
+        .saturating_add(component(completion_tokens, price.output_per_million_nanos))
         .min(i128::from(i64::MAX)) as i64
 }
 
@@ -353,10 +307,7 @@ mod tests {
 
     #[test]
     fn nano_pricing_preserves_sub_cent_calls() {
-        let price = ModelPrice {
-            input_per_million_minor: 5,
-            output_per_million_minor: 45,
-        };
+        let price = ModelPrice::from_minor(5, 45);
         assert_eq!(cost_nanos(price, 1, 1), 500);
         assert_eq!(cost_nanos(price, 1, 1) / NANOS_PER_MINOR, 0);
     }
@@ -379,14 +330,7 @@ mod tests {
         let cost = table.cost_minor("gpt-4o", i64::MAX, i64::MAX);
         assert_eq!(cost, Some(i64::MAX / NANOS_PER_MINOR));
         assert_eq!(
-            cost_nanos(
-                ModelPrice {
-                    input_per_million_minor: 250,
-                    output_per_million_minor: 1_000,
-                },
-                i64::MAX,
-                i64::MAX,
-            ),
+            cost_nanos(ModelPrice::from_minor(250, 1_000), i64::MAX, i64::MAX,),
             i64::MAX
         );
     }
@@ -400,7 +344,10 @@ mod tests {
     #[tokio::test]
     async fn workspace_price_overrides_built_in() {
         let store = MemoryLlmPricingStore::new();
-        store.upsert_price("ws", "gpt-4o", 500, 2000).await.unwrap();
+        store
+            .upsert_price("ws", "gpt-4o", 500, 2000, 5_000_000_000, 20_000_000_000)
+            .await
+            .unwrap();
         // Workspace row wins over the built-in 250/1000.
         assert_eq!(
             cost_minor(&store, "ws", "gpt-4o", 1_000_000, 1_000_000).await,
@@ -417,7 +364,7 @@ mod tests {
     async fn workspace_price_covers_model_unknown_to_builtins() {
         let store = MemoryLlmPricingStore::new();
         store
-            .upsert_price("ws", "mystery-1", 100, 300)
+            .upsert_price("ws", "mystery-1", 100, 300, 1_000_000_000, 3_000_000_000)
             .await
             .unwrap();
         assert_eq!(
@@ -434,7 +381,10 @@ mod tests {
     #[tokio::test]
     async fn delete_restores_built_in_fallback() {
         let store = MemoryLlmPricingStore::new();
-        store.upsert_price("ws", "gpt-4o", 500, 2000).await.unwrap();
+        store
+            .upsert_price("ws", "gpt-4o", 500, 2000, 5_000_000_000, 20_000_000_000)
+            .await
+            .unwrap();
         assert!(store.delete_price("ws", "gpt-4o").await.unwrap());
         assert_eq!(
             cost_minor(&store, "ws", "gpt-4o", 1_000_000, 1_000_000).await,
@@ -442,6 +392,17 @@ mod tests {
         );
         // Deleting a row that never existed reports false.
         assert!(!store.delete_price("ws", "gpt-4o").await.unwrap());
+    }
+
+    #[test]
+    fn precise_sub_cent_rate_is_not_rounded_to_cents() {
+        let price = ModelPrice {
+            input_per_million_minor: 11,
+            output_per_million_minor: 22,
+            input_per_million_nanos: 112_000_000,
+            output_per_million_nanos: 224_000_000,
+        };
+        assert_eq!(cost_nanos(price, 14, 11), 4_032);
     }
 
     #[tokio::test]

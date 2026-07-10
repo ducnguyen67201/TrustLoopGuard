@@ -32,6 +32,7 @@ impl BudgetAlertStore for PostgresBudgetAlertAdapter {
                 workspace_id,
                 tl_storage::NewBudgetAlertConfigParams {
                     name: input.name,
+                    meter: crate::budget_alerts::meter_label(input.meter).to_string(),
                     window: crate::budget_alerts::window_label(input.window).to_string(),
                     principal_id: input.principal_id,
                     threshold_type: crate::budget_alerts::threshold_type_label(
@@ -99,6 +100,9 @@ impl BudgetAlertStore for PostgresBudgetAlertAdapter {
                 config_id,
                 tl_storage::UpdateBudgetAlertConfigParams {
                     name: update.name,
+                    meter: update
+                        .meter
+                        .map(|meter| crate::budget_alerts::meter_label(meter).to_string()),
                     window: update
                         .window
                         .map(|window| crate::budget_alerts::window_label(window).to_string()),
@@ -137,6 +141,7 @@ impl BudgetAlertStore for PostgresBudgetAlertAdapter {
                 workspace_id,
                 tl_storage::NewBudgetAlertFiringParams {
                     config_id: firing.config_id,
+                    meter: crate::budget_alerts::meter_label(firing.meter).to_string(),
                     principal_id: firing.principal_id,
                     window_start: firing.window_start,
                     cap_minor: firing.cap_minor,
@@ -169,6 +174,9 @@ fn config_from_stored(
     stored: tl_storage::StoredBudgetAlertConfig,
 ) -> Result<BudgetAlertConfig, BudgetAlertStoreError> {
     Ok(BudgetAlertConfig {
+        meter: crate::budget_alerts::meter_from_str(&stored.meter).ok_or_else(|| {
+            BudgetAlertStoreError::Internal(format!("unknown spend meter `{}`", stored.meter))
+        })?,
         window: window_from_str(&stored.window).ok_or_else(|| {
             BudgetAlertStoreError::Internal(format!("unknown alert window `{}`", stored.window))
         })?,
@@ -195,6 +203,8 @@ fn firing_from_stored(stored: tl_storage::StoredBudgetAlertFiring) -> BudgetAler
         id: stored.id,
         workspace_id: stored.workspace_id,
         config_id: stored.config_id,
+        meter: crate::budget_alerts::meter_from_str(&stored.meter)
+            .unwrap_or(tl_core::SpendMeter::Actions),
         principal_id: stored.principal_id,
         window_start: stored.window_start.to_rfc3339(),
         cap_minor: stored.cap_minor,
@@ -205,7 +215,7 @@ fn firing_from_stored(stored: tl_storage::StoredBudgetAlertFiring) -> BudgetAler
     }
 }
 
-/// The `(workspace_id, name)` UNIQUE key is the only conflict source
+/// The `(workspace_id, meter, name)` UNIQUE key is the only conflict source
 /// on config writes, so map it to a named error.
 fn conflict_aware_error(error: tl_storage::StorageError, name: &str) -> BudgetAlertStoreError {
     match error {

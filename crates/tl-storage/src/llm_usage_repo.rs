@@ -31,6 +31,7 @@ pub struct StoredLlmUsageEvent {
     pub id: String,
     pub principal_id: String,
     pub api_key_id: String,
+    pub usage_kind: String,
     pub model: String,
     pub prompt_tokens: i64,
     pub completion_tokens: i64,
@@ -46,6 +47,7 @@ pub struct StoredLlmUsageEvent {
 pub struct NewLlmUsageEventParams {
     pub principal_id: String,
     pub api_key_id: String,
+    pub usage_kind: String,
     pub model: String,
     pub prompt_tokens: i64,
     pub completion_tokens: i64,
@@ -60,6 +62,7 @@ pub struct NewLlmUsageEventParams {
 pub struct LlmUsageEventFilter {
     pub principal_id: Option<String>,
     pub model: Option<String>,
+    pub usage_kind: Option<String>,
     pub start: Option<DateTime<Utc>>,
     pub end: Option<DateTime<Utc>>,
 }
@@ -100,13 +103,26 @@ pub enum LlmBudgetWindow {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LlmBudgetWindowSnapshot {
+    pub window: LlmBudgetWindow,
+    pub cap_nanos: i64,
+    pub spent_nanos: i64,
+    pub active_reserved_nanos: i64,
+    pub committed_nanos: i64,
+    pub requested_nanos: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReserveLlmBudgetResult {
-    Reserved,
+    Reserved {
+        snapshots: Vec<LlmBudgetWindowSnapshot>,
+    },
     Exceeded {
         window: LlmBudgetWindow,
         cap_nanos: i64,
         committed_nanos: i64,
         requested_nanos: i64,
+        snapshots: Vec<LlmBudgetWindowSnapshot>,
     },
 }
 
@@ -145,6 +161,7 @@ impl LlmUsageRepo {
             id: Uuid::now_v7(),
             principal_id: params.principal_id,
             api_key_id: params.api_key_id,
+            usage_kind: params.usage_kind,
             model: params.model,
             prompt_tokens: params.prompt_tokens,
             completion_tokens: params.completion_tokens,
@@ -206,6 +223,8 @@ impl LlmUsageRepo {
                     StorageError::Internal(format!("llm budget principal lock: {error}"))
                 })?;
 
+            let mut snapshots = Vec::new();
+            let mut exceeded = None;
             for (window, start, cap) in [
                 (LlmBudgetWindow::Day, params.day_start, params.caps.daily),
                 (LlmBudgetWindow::Week, params.week_start, params.caps.weekly),
@@ -235,14 +254,29 @@ impl LlmUsageRepo {
                 )
                 .await?;
                 let committed_nanos = spent.saturating_add(active);
-                if committed_nanos.saturating_add(params.reserved_nanos) > cap_nanos {
-                    return Ok(ReserveLlmBudgetResult::Exceeded {
-                        window,
-                        cap_nanos,
-                        committed_nanos,
-                        requested_nanos: params.reserved_nanos,
-                    });
+                snapshots.push(LlmBudgetWindowSnapshot {
+                    window,
+                    cap_nanos,
+                    spent_nanos: spent,
+                    active_reserved_nanos: active,
+                    committed_nanos,
+                    requested_nanos: params.reserved_nanos,
+                });
+                if exceeded.is_none()
+                    && committed_nanos.saturating_add(params.reserved_nanos) > cap_nanos
+                {
+                    exceeded = Some((window, cap_nanos, committed_nanos));
                 }
+            }
+
+            if let Some((window, cap_nanos, committed_nanos)) = exceeded {
+                return Ok(ReserveLlmBudgetResult::Exceeded {
+                    window,
+                    cap_nanos,
+                    committed_nanos,
+                    requested_nanos: params.reserved_nanos,
+                    snapshots,
+                });
             }
 
             diesel::insert_into(llm_budget_reservations::table)
@@ -261,7 +295,7 @@ impl LlmUsageRepo {
                 .map_err(|error| {
                     StorageError::Internal(format!("llm budget reservation insert: {error}"))
                 })?;
-            Ok(ReserveLlmBudgetResult::Reserved)
+            Ok(ReserveLlmBudgetResult::Reserved { snapshots })
         })
         .await
     }
@@ -331,6 +365,7 @@ impl LlmUsageRepo {
         let mut conn = self.connection().await?;
         let costs = llm_usage_events::table
             .filter(llm_usage_events::workspace_id.eq(workspace_id))
+            .filter(llm_usage_events::usage_kind.eq("customer_inference"))
             .filter(llm_usage_events::principal_id.eq(principal_id))
             .filter(llm_usage_events::currency.eq(currency.to_uppercase()))
             .filter(llm_usage_events::effective_at.ge(start))
@@ -361,6 +396,9 @@ impl LlmUsageRepo {
         }
         if let Some(model) = &filter.model {
             query = query.filter(llm_usage_events::model.eq(model.clone()));
+        }
+        if let Some(usage_kind) = &filter.usage_kind {
+            query = query.filter(llm_usage_events::usage_kind.eq(usage_kind.clone()));
         }
         if let Some(start) = filter.start {
             query = query.filter(llm_usage_events::effective_at.ge(start));
@@ -400,6 +438,9 @@ impl LlmUsageRepo {
         }
         if let Some(model) = &filter.model {
             query = query.filter(llm_usage_events::model.eq(model.clone()));
+        }
+        if let Some(usage_kind) = &filter.usage_kind {
+            query = query.filter(llm_usage_events::usage_kind.eq(usage_kind.clone()));
         }
         if let Some(start) = filter.start {
             query = query.filter(llm_usage_events::effective_at.ge(start));
@@ -482,6 +523,7 @@ async fn usage_nanos_in_window(
 ) -> Result<i64, StorageError> {
     let costs = llm_usage_events::table
         .filter(llm_usage_events::workspace_id.eq(workspace_id))
+        .filter(llm_usage_events::usage_kind.eq("customer_inference"))
         .filter(llm_usage_events::principal_id.eq(principal_id))
         .filter(llm_usage_events::currency.eq(currency.to_uppercase()))
         .filter(llm_usage_events::effective_at.ge(start))
@@ -531,6 +573,7 @@ fn stored_event(row: LlmUsageEventRecord) -> StoredLlmUsageEvent {
         id: row.id.to_string(),
         principal_id: row.principal_id,
         api_key_id: row.api_key_id,
+        usage_kind: row.usage_kind,
         model: row.model,
         prompt_tokens: row.prompt_tokens,
         completion_tokens: row.completion_tokens,

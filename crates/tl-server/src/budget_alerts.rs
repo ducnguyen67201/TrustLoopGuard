@@ -18,7 +18,7 @@ use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
 use serde_json::json;
 use tl_core::{
     BudgetAlertConfig, BudgetAlertFiring, BudgetAlertThresholdType, BudgetAlertWindow,
-    CreateBudgetAlertConfigRequest, UpdateBudgetAlertConfigRequest,
+    CreateBudgetAlertConfigRequest, SpendMeter, UpdateBudgetAlertConfigRequest,
 };
 use tl_policy::{FamilyPolicy, FinancialPolicy};
 use tokio::sync::mpsc;
@@ -54,6 +54,7 @@ pub enum BudgetAlertStoreError {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RecordBudgetAlertFiring {
     pub config_id: String,
+    pub meter: SpendMeter,
     pub principal_id: String,
     pub window_start: DateTime<Utc>,
     pub cap_minor: i64,
@@ -155,6 +156,7 @@ pub async fn evaluate_spend_alerts<M, S, Fut>(
     environment_id: &str,
     principal_id: &str,
     currency: &str,
+    meter: SpendMeter,
     policy_matches: M,
     spend_minor: S,
 ) where
@@ -164,7 +166,10 @@ pub async fn evaluate_spend_alerts<M, S, Fut>(
 {
     // One indexed lookup; almost always zero rows → early return.
     let configs = match runtime.store.list_enabled_configs(workspace_id).await {
-        Ok(configs) => configs,
+        Ok(configs) => configs
+            .into_iter()
+            .filter(|config| config.meter == meter)
+            .collect::<Vec<_>>(),
         Err(error) => {
             tracing::error!(workspace_id, error = %error, "budget alert config lookup failed");
             return;
@@ -272,6 +277,7 @@ pub async fn process_spend(
                 workspace_id,
                 RecordBudgetAlertFiring {
                     config_id: config.id.clone(),
+                    meter: config.meter,
                     principal_id: principal_id.to_string(),
                     window_start: window.window_start,
                     cap_minor: window.cap_minor,
@@ -382,6 +388,7 @@ fn firing_payload(
         "workspace_id": workspace_id,
         "config_id": config.id,
         "config_name": config.name,
+        "meter": meter_label(config.meter),
         "principal_id": principal_id,
         "window": window_label(config.window),
         "window_start": window.window_start.to_rfc3339(),
@@ -394,6 +401,21 @@ fn firing_payload(
         "currency": currency,
         "fired_at": Utc::now().to_rfc3339(),
     })
+}
+
+pub(crate) fn meter_label(meter: SpendMeter) -> &'static str {
+    match meter {
+        SpendMeter::Actions => "actions",
+        SpendMeter::LlmUsage => "llm_usage",
+    }
+}
+
+pub(crate) fn meter_from_str(value: &str) -> Option<SpendMeter> {
+    match value {
+        "actions" => Some(SpendMeter::Actions),
+        "llm_usage" => Some(SpendMeter::LlmUsage),
+        _ => None,
+    }
 }
 
 /// Window boundaries shared with the hard caps: day at 00:00 UTC, week

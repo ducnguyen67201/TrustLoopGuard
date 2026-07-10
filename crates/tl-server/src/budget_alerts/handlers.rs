@@ -84,6 +84,7 @@ pub async fn create_budget_alert(
         &state,
         &headers,
         &workspace_id,
+        input.meter,
         input.window,
         input.principal_id.as_deref(),
     )
@@ -175,11 +176,13 @@ pub async fn update_budget_alert(
         return api_error_response(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, message);
     }
     let merged_window = update.window.unwrap_or(current.window);
+    let merged_meter = update.meter.unwrap_or(current.meter);
     let merged_principal = update.principal_id.clone().or(current.principal_id.clone());
     if let Err(response) = require_capped_scope(
         &state,
         &headers,
         &workspace_id,
+        merged_meter,
         merged_window,
         merged_principal.as_deref(),
     )
@@ -284,6 +287,7 @@ fn validated_new_config(
     let webhook_url = validated_webhook_url(req.webhook_url.as_deref())?;
     Ok(CreateBudgetAlertConfigRequest {
         name: name.to_string(),
+        meter: req.meter,
         window: req.window,
         principal_id: clean_optional(req.principal_id.as_deref()),
         threshold_type: req.threshold_type,
@@ -312,6 +316,7 @@ fn validated_update(
     };
     Ok(UpdateBudgetAlertConfigRequest {
         name,
+        meter: req.meter,
         window: req.window,
         principal_id: clean_optional(req.principal_id.as_deref()),
         threshold_type: req.threshold_type,
@@ -360,6 +365,7 @@ async fn require_capped_scope(
     state: &BudgetAlertApiState,
     headers: &HeaderMap,
     workspace_id: &str,
+    meter: SpendMeter,
     window: BudgetAlertWindow,
     principal_id: Option<&str>,
 ) -> Result<(), Response> {
@@ -381,6 +387,9 @@ async fn require_capped_scope(
         let FamilyPolicy::Financial(financial) = family.as_ref() else {
             return false;
         };
+        if financial.meter != meter {
+            return false;
+        }
         let cap = match window {
             BudgetAlertWindow::Day => financial.daily_minor,
             BudgetAlertWindow::Week => financial.weekly_minor,

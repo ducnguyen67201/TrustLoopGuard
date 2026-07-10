@@ -6,7 +6,10 @@
 //! mode checkers and enabled policies can upgrade it.
 
 use axum::{http::StatusCode, response::Response};
-use tl_core::{ApiErrorCode, DataHandlingMode, Decision, GuardEvent, Verdict};
+use tl_core::{
+    ApiErrorCode, CreateRunEventRequest, DataHandlingMode, Decision, GuardEvent, LlmUsageKind,
+    RunEventKind, RunGuardrailUsage, Verdict, USD,
+};
 use tl_engine::{evaluate_event_policies, EventPolicyEvalCtx};
 
 use crate::{app::error::api_error_response, AppState};
@@ -16,7 +19,9 @@ use crate::{app::error::api_error_response, AppState};
 pub(crate) const DEFAULT_EVENT_ALLOW_REASON: &str =
     "event allowed: no enforced checker or enabled policy matched";
 
-/// Trace `domain` for ingested events.
+/// Default trace domain for SDK/direct events. Gateway phases use
+/// trusted server-authored domains so run detail can classify input and
+/// output checks without trusting arbitrary client context.
 const EVENT_TRACE_DOMAIN: &str = "event";
 
 const MAX_SOURCES: usize = 64;
@@ -184,6 +189,7 @@ pub(crate) async fn execute_event_submission(
         },
     )
     .await;
+    let semantic_invocations = policy_outcome.semantic_invocations.clone();
     decision.triggered_policies.extend(policy_outcome.triggered);
     if let Some(policy_verdict) = policy_outcome.verdict {
         if verdict_rank(policy_verdict) > verdict_rank(decision.verdict) {
@@ -199,6 +205,16 @@ pub(crate) async fn execute_event_submission(
     }
 
     decision.latency_ms = start.elapsed().as_millis() as u64;
+
+    record_semantic_usage(
+        state,
+        workspace_id,
+        environment_id,
+        &event,
+        &decision.trace_id,
+        semantic_invocations,
+    )
+    .await;
 
     tracing::info!(
         workspace_id,
@@ -230,6 +246,7 @@ pub(crate) async fn execute_event_submission(
     }
 
     let agent_id = event.principal.agent_id.clone();
+    let trace_domain = trace_domain(&event);
 
     // One trace seam for every path (postgres batches, memory accumulates); a
     // failed write is logged but never fails the decision.
@@ -241,7 +258,7 @@ pub(crate) async fn execute_event_submission(
         event: Some(event),
         workspace_id: workspace_id.to_string(),
         environment_id: environment_id.to_string(),
-        domain: EVENT_TRACE_DOMAIN.to_string(),
+        domain: trace_domain.to_string(),
     };
     if let Err(e) = state.trace_store.record(trace).await {
         tracing::warn!(error = %e, "trace record failed; dropped");
@@ -254,7 +271,7 @@ pub(crate) async fn execute_event_submission(
             let payload = crate::escalation::EscalationPayload {
                 trace_id: decision.trace_id.clone(),
                 agent_id,
-                domain: EVENT_TRACE_DOMAIN.to_string(),
+                domain: trace_domain.to_string(),
                 decision: decision.clone(),
             };
             if let Err(e) = tx.try_send(payload) {
@@ -264,6 +281,153 @@ pub(crate) async fn execute_event_submission(
     }
 
     Ok(decision)
+}
+
+fn trace_domain(event: &GuardEvent) -> &'static str {
+    let is_gateway = event
+        .context
+        .get("integration_mode")
+        .and_then(serde_json::Value::as_str)
+        == Some("gateway");
+    if !is_gateway {
+        return EVENT_TRACE_DOMAIN;
+    }
+    match event
+        .context
+        .get("gateway_phase")
+        .and_then(serde_json::Value::as_str)
+    {
+        Some("gateway_input_check") => "gateway_input",
+        Some("gateway_output_check") => "gateway_output",
+        _ => EVENT_TRACE_DOMAIN,
+    }
+}
+
+async fn record_semantic_usage(
+    state: &AppState,
+    workspace_id: &str,
+    environment_id: &str,
+    event: &GuardEvent,
+    trace_id: &str,
+    invocations: Vec<tl_llm::LlmCallAudit>,
+) {
+    if invocations.is_empty() {
+        return;
+    }
+    let phase = event
+        .context
+        .get("gateway_phase")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("event_policy");
+    let gateway_request_id = event
+        .context
+        .get("gateway_request_id")
+        .and_then(serde_json::Value::as_str);
+
+    for (index, invocation) in invocations.into_iter().enumerate() {
+        let price = match invocation.model.as_deref() {
+            Some(model) => {
+                crate::llm_pricing::model_price(
+                    state.llm_pricing_store.as_ref(),
+                    workspace_id,
+                    model,
+                )
+                .await
+            }
+            None => None,
+        };
+        let cost_nanos =
+            match (
+                price,
+                invocation.prompt_tokens,
+                invocation.completion_tokens,
+            ) {
+                (Some(price), Some(prompt), Some(completion)) => Some(
+                    crate::llm_pricing::cost_nanos(price, i64::from(prompt), i64::from(completion)),
+                ),
+                _ => None,
+            };
+        let evidence = RunGuardrailUsage {
+            phase: phase.to_string(),
+            judge: invocation.judge.clone(),
+            provider: invocation.provider.clone(),
+            model: invocation.model.clone(),
+            status: invocation.status.clone(),
+            prompt_tokens: invocation.prompt_tokens.map(i64::from),
+            completion_tokens: invocation.completion_tokens.map(i64::from),
+            estimated_cost_usd_nanos: cost_nanos.map(|cost| cost.to_string()),
+            fallback_used: invocation.fallback_used,
+            latency_ms: invocation.latency_ms,
+            error_code: invocation.error_code.clone(),
+        };
+
+        if let (Some(model), Some(prompt_tokens), Some(completion_tokens)) = (
+            invocation.model,
+            invocation.prompt_tokens,
+            invocation.completion_tokens,
+        ) {
+            let recorded_cost_nanos = cost_nanos.unwrap_or(0);
+            let request_id = format!("guardrail:{trace_id}:{index}");
+            if let Err(error) = state
+                .llm_usage_store
+                .insert_event(
+                    workspace_id,
+                    crate::llm_usage::RecordLlmUsageEvent {
+                        principal_id: "trustloopguard:guardrail".to_string(),
+                        api_key_id: "trustloopguard".to_string(),
+                        kind: LlmUsageKind::Guardrail,
+                        model,
+                        prompt_tokens: i64::from(prompt_tokens),
+                        completion_tokens: i64::from(completion_tokens),
+                        cost_minor: recorded_cost_nanos / crate::llm_pricing::NANOS_PER_MINOR,
+                        cost_nanos: recorded_cost_nanos,
+                        currency: USD.to_string(),
+                        request_id,
+                        metadata: serde_json::json!({
+                            "trace_id": trace_id,
+                            "run_id": event.principal.run_id,
+                            "run_event_id": event.principal.run_event_id,
+                            "gateway_request_id": gateway_request_id,
+                            "phase": phase,
+                            "judge": evidence.judge,
+                            "provider": evidence.provider,
+                            "fallback_used": evidence.fallback_used,
+                            "latency_ms": evidence.latency_ms,
+                            "priced": cost_nanos.is_some(),
+                        }),
+                    },
+                )
+                .await
+            {
+                tracing::warn!(workspace_id, trace_id, error = %error, "guardrail usage record failed");
+            }
+        }
+
+        let Some(run_id) = event.principal.run_id.as_deref() else {
+            continue;
+        };
+        let run_event = CreateRunEventRequest {
+            kind: RunEventKind::SystemEvent,
+            sequence: None,
+            label: Some("Guardrail LLM usage".to_string()),
+            input_summary: None,
+            output_summary: None,
+            metadata: serde_json::json!({
+                "integration_mode": event.context.get("integration_mode"),
+                "gateway_request_id": gateway_request_id,
+                "evidence_kind": "guardrail_usage",
+                "guardrail_usage": evidence,
+            }),
+            occurred_at: None,
+        };
+        if let Err(error) = state
+            .run_store
+            .create_event(workspace_id, environment_id, run_id, run_event)
+            .await
+        {
+            tracing::warn!(workspace_id, run_id, error = %error, "guardrail run evidence record failed");
+        }
+    }
 }
 
 fn verdict_rank(verdict: Verdict) -> u8 {

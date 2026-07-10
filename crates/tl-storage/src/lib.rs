@@ -126,9 +126,9 @@ pub use knowledge_repo::{
 pub use llm_pricing_repo::{LlmPricingRepo, StoredLlmModelPrice};
 #[cfg(feature = "postgres")]
 pub use llm_usage_repo::{
-    LlmBudgetCapsNanos, LlmBudgetWindow, LlmUsageBucketRow, LlmUsageEventFilter, LlmUsageGroupBy,
-    LlmUsageRepo, NewLlmBudgetReservationParams, NewLlmUsageEventParams, ReserveLlmBudgetResult,
-    StoredLlmUsageEvent,
+    LlmBudgetCapsNanos, LlmBudgetWindow, LlmBudgetWindowSnapshot, LlmUsageBucketRow,
+    LlmUsageEventFilter, LlmUsageGroupBy, LlmUsageRepo, NewLlmBudgetReservationParams,
+    NewLlmUsageEventParams, ReserveLlmBudgetResult, StoredLlmUsageEvent,
 };
 #[cfg(feature = "postgres")]
 pub use models::UserRecord;

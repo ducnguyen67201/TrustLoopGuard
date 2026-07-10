@@ -1,9 +1,10 @@
 //! LLM budget gate + token metering for the gateway proxy.
 //!
-//! Reserve-before / settle-after around the forward step: a request is
-//! admitted only when its maximum possible cost fits under every
-//! matching cap. Durable per-principal serialization prevents
-//! concurrent requests from spending the same remaining budget.
+//! Reserve-before / settle-after around the forward step. Bounded
+//! requests are admitted only when their maximum possible cost fits
+//! under every matching cap. Requests without a caller-supplied output
+//! bound are soft-admitted while spend remains below the cap, then
+//! settled to actual provider usage; one such request can overshoot.
 //!
 //! Budgets are financial family policies with
 //! [`tl_core::SpendMeter::LlmUsage`] — same registry, same window math,
@@ -17,7 +18,10 @@ use axum::{
 };
 use chrono::Utc;
 use serde_json::{json, Value};
-use tl_core::{SpendMeter, USD};
+use tl_core::{
+    CreateRunEventRequest, LlmUsageKind, RunBudgetWindowSnapshot, RunEventKind,
+    RunLlmBudgetDecision, RunProviderUsage, SpendMeter, USD,
+};
 use tl_policy::{FamilyPolicy, FinancialPolicy};
 
 use crate::auth::WorkspaceKeyContext;
@@ -35,11 +39,18 @@ pub(super) struct LlmBudgetReservation {
     request_id: String,
     reserved_nanos: i64,
     price: crate::llm_pricing::ModelPrice,
+    soft_admission: bool,
+    decision: RunLlmBudgetDecision,
 }
 
-/// Reserve the request's maximum possible provider cost before any
-/// provider traffic. `Ok(None)` means no matching budget (or no runtime
-/// principal); errors fail closed with a provider-compatible envelope.
+/// A one-nano marker makes an unbounded request fail once committed
+/// spend has reached the cap without fabricating a maximum cost.
+const SOFT_ADMISSION_MARKER_NANOS: i64 = 1;
+
+/// Reserve provider cost before any provider traffic. Bounded requests
+/// reserve their maximum; unbounded requests use a one-nano admission
+/// marker and may overshoot once before future requests are denied.
+/// `Ok(None)` means no matching budget (or no runtime principal).
 #[allow(clippy::result_large_err)]
 pub(super) async fn reserve_llm_budget(
     app: &AppState,
@@ -48,6 +59,7 @@ pub(super) async fn reserve_llm_budget(
     key: Option<&WorkspaceKeyContext>,
     gateway_request_id: &str,
     request: &Value,
+    run_id: Option<&str>,
 ) -> Result<Option<LlmBudgetReservation>, Response> {
     let Some(key) = key else {
         tracing::debug!(
@@ -84,6 +96,23 @@ pub(super) async fn reserve_llm_budget(
         })
         .collect::<Vec<_>>();
     if budgets.is_empty() {
+        record_budget_decision(
+            app,
+            workspace_id,
+            environment_id,
+            run_id,
+            gateway_request_id,
+            &RunLlmBudgetDecision {
+                principal_id: principal,
+                status: "not_configured".to_string(),
+                currency: USD.to_string(),
+                governing_window: None,
+                requested_usd_nanos: None,
+                actual_usd_nanos: None,
+                windows: vec![],
+            },
+        )
+        .await;
         return Ok(None);
     }
 
@@ -98,12 +127,8 @@ pub(super) async fn reserve_llm_budget(
         .get("model")
         .and_then(Value::as_str)
         .filter(|model| !model.trim().is_empty())
-        .ok_or_else(|| bounded_request_error("model is required when an LLM budget is active"))?;
-    let max_tokens = bounded_output_tokens(request).ok_or_else(|| {
-        bounded_request_error(
-            "max_tokens or max_completion_tokens must be a positive integer when an LLM budget is active",
-        )
-    })?;
+        .ok_or_else(|| budget_request_error("model is required when an LLM budget is active"))?;
+    let max_tokens = bounded_output_tokens(request);
     let price =
         crate::llm_pricing::model_price(app.llm_pricing_store.as_ref(), workspace_id, model)
             .await
@@ -114,8 +139,11 @@ pub(super) async fn reserve_llm_budget(
                 .unwrap_or(i64::MAX)
                 .saturating_add(64)
         })
-        .map_err(|_| bounded_request_error("provider request could not be priced"))?;
-    let reserved_nanos = crate::llm_pricing::cost_nanos(price, input_token_upper_bound, max_tokens);
+        .map_err(|_| budget_request_error("provider request could not be priced"))?;
+    let soft_admission = max_tokens.is_none();
+    let reserved_nanos = max_tokens.map_or(SOFT_ADMISSION_MARKER_NANOS, |max_tokens| {
+        crate::llm_pricing::cost_nanos(price, input_token_upper_bound, max_tokens)
+    });
     let caps = tightest_caps_nanos(&budgets);
     let outcome = app
         .llm_usage_store
@@ -143,23 +171,74 @@ pub(super) async fn reserve_llm_budget(
             )
         })?;
     match outcome {
-        ReserveLlmBudgetOutcome::Reserved => Ok(Some(LlmBudgetReservation {
-            request_id: gateway_request_id.to_string(),
-            reserved_nanos,
-            price,
-        })),
+        ReserveLlmBudgetOutcome::Reserved { snapshots } => {
+            let decision = RunLlmBudgetDecision {
+                principal_id: principal,
+                status: if soft_admission {
+                    "soft_admitted".to_string()
+                } else {
+                    "reserved".to_string()
+                },
+                currency: USD.to_string(),
+                governing_window: None,
+                requested_usd_nanos: (!soft_admission).then(|| reserved_nanos.to_string()),
+                actual_usd_nanos: None,
+                windows: run_budget_snapshots(snapshots, soft_admission),
+            };
+            record_budget_decision(
+                app,
+                workspace_id,
+                environment_id,
+                run_id,
+                gateway_request_id,
+                &decision,
+            )
+            .await;
+            Ok(Some(LlmBudgetReservation {
+                request_id: gateway_request_id.to_string(),
+                reserved_nanos,
+                price,
+                soft_admission,
+                decision,
+            }))
+        }
         ReserveLlmBudgetOutcome::Exceeded {
             window,
             cap_nanos,
             committed_nanos,
             requested_nanos,
-        } => Err(budget_exceeded_response(
-            &principal,
-            window,
-            cap_nanos,
-            committed_nanos,
-            requested_nanos,
-        )),
+            snapshots,
+        } => {
+            let decision = RunLlmBudgetDecision {
+                principal_id: principal.clone(),
+                status: "denied".to_string(),
+                currency: USD.to_string(),
+                governing_window: Some(window_label(window).to_string()),
+                requested_usd_nanos: (!soft_admission).then(|| requested_nanos.to_string()),
+                actual_usd_nanos: None,
+                windows: run_budget_snapshots(snapshots, soft_admission),
+            };
+            record_budget_decision(
+                app,
+                workspace_id,
+                environment_id,
+                run_id,
+                gateway_request_id,
+                &decision,
+            )
+            .await;
+            Err(if soft_admission {
+                soft_budget_exceeded_response(&principal, window, cap_nanos, committed_nanos)
+            } else {
+                budget_exceeded_response(
+                    &principal,
+                    window,
+                    cap_nanos,
+                    committed_nanos,
+                    requested_nanos,
+                )
+            })
+        }
     }
 }
 
@@ -180,9 +259,15 @@ pub(super) struct MeterLlmUsage<'a> {
     pub reservation: Option<&'a LlmBudgetReservation>,
     pub request: &'a Value,
     pub provider_response: &'a Value,
+    pub provider: &'a str,
+    pub latency_ms: u64,
+    pub run_id: Option<&'a str>,
 }
 
-pub(super) async fn meter_llm_usage(app: &AppState, metering: MeterLlmUsage<'_>) {
+pub(super) async fn meter_llm_usage(
+    app: &AppState,
+    metering: MeterLlmUsage<'_>,
+) -> RunProviderUsage {
     let MeterLlmUsage {
         workspace_id,
         environment_id,
@@ -192,15 +277,10 @@ pub(super) async fn meter_llm_usage(app: &AppState, metering: MeterLlmUsage<'_>)
         reservation,
         request,
         provider_response,
+        provider,
+        latency_ms,
+        run_id,
     } = metering;
-    let Some(key) = key else {
-        tracing::debug!(
-            workspace_id,
-            "gateway metering skipped: no workspace key context (internal key or JWT)"
-        );
-        return;
-    };
-    let principal = principal_for(key);
 
     let model = provider_response
         .get("model")
@@ -208,8 +288,9 @@ pub(super) async fn meter_llm_usage(app: &AppState, metering: MeterLlmUsage<'_>)
         .or_else(|| request.get("model").and_then(Value::as_str))
         .unwrap_or("unknown")
         .to_string();
-    let (prompt_tokens, completion_tokens) = match provider_response.get("usage") {
-        Some(usage) => (
+    let usage = provider_response.get("usage");
+    let token_counts = usage.map(|usage| {
+        (
             usage
                 .get("prompt_tokens")
                 .and_then(Value::as_i64)
@@ -218,19 +299,19 @@ pub(super) async fn meter_llm_usage(app: &AppState, metering: MeterLlmUsage<'_>)
                 .get("completion_tokens")
                 .and_then(Value::as_i64)
                 .unwrap_or(0),
-        ),
-        None => {
-            tracing::warn!(
-                workspace_id,
-                route_id,
-                model,
-                "provider response has no usage field; metering zeros"
-            );
-            // Keep a hard-cap reservation active when actual usage is
-            // unknowable. Releasing it could admit unrecorded spend.
-            return;
-        }
-    };
+        )
+    });
+    if usage.is_none() {
+        tracing::warn!(
+            workspace_id,
+            route_id,
+            model,
+            "provider response has no usage field; metering zeros"
+        );
+        // Keep a hard-cap reservation active when actual usage is
+        // unknowable. Releasing it could admit unrecorded spend.
+    }
+    let (prompt_tokens, completion_tokens) = token_counts.unwrap_or((0, 0));
     // Workspace prices first, built-in defaults as fallback; a store
     // read failure inside falls back to defaults — never fails the
     // response.
@@ -259,11 +340,11 @@ pub(super) async fn meter_llm_usage(app: &AppState, metering: MeterLlmUsage<'_>)
                 model,
                 "reserved model price unavailable at settlement"
             );
-            return;
+            0
         }
     };
     if let Some(reservation) = reservation {
-        if cost_nanos > reservation.reserved_nanos {
+        if !reservation.soft_admission && cost_nanos > reservation.reserved_nanos {
             tracing::error!(
                 workspace_id,
                 route_id,
@@ -276,9 +357,56 @@ pub(super) async fn meter_llm_usage(app: &AppState, metering: MeterLlmUsage<'_>)
     }
     let cost_minor = cost_nanos / crate::llm_pricing::NANOS_PER_MINOR;
 
+    let evidence = RunProviderUsage {
+        gateway_request_id: gateway_request_id.to_string(),
+        route_id: route_id.to_string(),
+        provider: provider.to_string(),
+        model: model.clone(),
+        provider_response_id: provider_response
+            .get("id")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        status: "succeeded".to_string(),
+        prompt_tokens: usage.map(|_| prompt_tokens),
+        completion_tokens: usage.map(|_| completion_tokens),
+        total_tokens: usage.map(|_| prompt_tokens.saturating_add(completion_tokens)),
+        latency_ms,
+        estimated_cost_usd_nanos: price.map(|_| cost_nanos.to_string()),
+        input_rate_usd_per_million_nanos: price
+            .map(|price| price.input_per_million_nanos.to_string()),
+        output_rate_usd_per_million_nanos: price
+            .map(|price| price.output_per_million_nanos.to_string()),
+    };
+
+    let Some(key) = key else {
+        tracing::debug!(
+            workspace_id,
+            "gateway metering skipped: no workspace key context (internal key or JWT)"
+        );
+        return evidence;
+    };
+    if usage.is_none() {
+        if let Some(reservation) = reservation {
+            let mut decision = reservation.decision.clone();
+            decision.status = "usage_unknown".to_string();
+            record_budget_decision(
+                app,
+                workspace_id,
+                environment_id,
+                run_id,
+                gateway_request_id,
+                &decision,
+            )
+            .await;
+        }
+        return evidence;
+    }
+    let principal = principal_for(key);
+
     let event = RecordLlmUsageEvent {
         principal_id: principal.clone(),
         api_key_id: key.api_key_id.clone(),
+        kind: LlmUsageKind::CustomerInference,
         // Raw model string preserved — pricing normalization is
         // lookup-only.
         model,
@@ -288,7 +416,14 @@ pub(super) async fn meter_llm_usage(app: &AppState, metering: MeterLlmUsage<'_>)
         cost_nanos,
         currency: USD.to_string(),
         request_id: gateway_request_id.to_string(),
-        metadata: json!({ "route_id": route_id }),
+        metadata: json!({
+            "route_id": route_id,
+            "provider": provider,
+            "provider_response_id": evidence.provider_response_id,
+            "latency_ms": latency_ms,
+            "input_rate_usd_per_million_nanos": evidence.input_rate_usd_per_million_nanos,
+            "output_rate_usd_per_million_nanos": evidence.output_rate_usd_per_million_nanos,
+        }),
     };
     let result = match reservation {
         Some(reservation) => {
@@ -306,17 +441,52 @@ pub(super) async fn meter_llm_usage(app: &AppState, metering: MeterLlmUsage<'_>)
             error = %error,
             "failed to record llm usage event; response returned anyway"
         );
-        return;
+        return evidence;
+    }
+
+    if let Some(reservation) = reservation {
+        let mut decision = reservation.decision.clone();
+        decision.status = if reservation.soft_admission {
+            "soft_settled".to_string()
+        } else {
+            "settled".to_string()
+        };
+        decision.actual_usd_nanos = Some(cost_nanos.to_string());
+        decision.windows.iter_mut().for_each(|window| {
+            let cap = window.cap_usd_nanos.parse::<i64>().unwrap_or(0);
+            let committed = window
+                .committed_before_usd_nanos
+                .parse::<i64>()
+                .unwrap_or(0)
+                .saturating_add(window.reserved_before_usd_nanos.parse::<i64>().unwrap_or(0));
+            window.remaining_after_usd_nanos = cap
+                .saturating_sub(committed)
+                .saturating_sub(cost_nanos)
+                .max(0)
+                .to_string();
+        });
+        record_budget_decision(
+            app,
+            workspace_id,
+            environment_id,
+            run_id,
+            gateway_request_id,
+            &decision,
+        )
+        .await;
     }
 
     // Budget alert thresholds are checked right after the usage event
     // lands. Same non-failing contract as the metering itself.
     evaluate_llm_budget_alerts(app, workspace_id, environment_id, &principal).await;
+    evidence
 }
 
 pub(super) async fn release_llm_budget(
     app: &AppState,
     workspace_id: &str,
+    environment_id: &str,
+    run_id: Option<&str>,
     reservation: Option<&LlmBudgetReservation>,
 ) {
     let Some(reservation) = reservation else {
@@ -334,6 +504,17 @@ pub(super) async fn release_llm_budget(
             "failed to release unused LLM budget reservation"
         );
     }
+    let mut decision = reservation.decision.clone();
+    decision.status = "released".to_string();
+    record_budget_decision(
+        app,
+        workspace_id,
+        environment_id,
+        run_id,
+        &reservation.request_id,
+        &decision,
+    )
+    .await;
 }
 
 /// Spend-time budget alert hook for the LLM metering path: the shared
@@ -357,6 +538,7 @@ async fn evaluate_llm_budget_alerts(
         environment_id,
         principal,
         USD,
+        SpendMeter::LlmUsage,
         |financial| llm_budget_policy_matches(financial, principal),
         |window_start, now| async move {
             app.llm_usage_store
@@ -366,6 +548,76 @@ async fn evaluate_llm_budget_alerts(
         },
     )
     .await;
+}
+
+fn run_budget_snapshots(
+    snapshots: Vec<crate::llm_usage::LlmBudgetWindowSnapshot>,
+    soft_admission: bool,
+) -> Vec<RunBudgetWindowSnapshot> {
+    snapshots
+        .into_iter()
+        .map(|snapshot| RunBudgetWindowSnapshot {
+            window: window_label(snapshot.window).to_string(),
+            cap_usd_nanos: snapshot.cap_nanos.to_string(),
+            committed_before_usd_nanos: snapshot.spent_nanos.to_string(),
+            reserved_before_usd_nanos: snapshot.active_reserved_nanos.to_string(),
+            requested_usd_nanos: if soft_admission {
+                "0".to_string()
+            } else {
+                snapshot.requested_nanos.to_string()
+            },
+            remaining_after_usd_nanos: snapshot
+                .cap_nanos
+                .saturating_sub(snapshot.committed_nanos)
+                .saturating_sub(if soft_admission {
+                    0
+                } else {
+                    snapshot.requested_nanos
+                })
+                .max(0)
+                .to_string(),
+        })
+        .collect()
+}
+
+fn window_label(window: LlmBudgetWindow) -> &'static str {
+    match window {
+        LlmBudgetWindow::Day => "day",
+        LlmBudgetWindow::Week => "week",
+        LlmBudgetWindow::Month => "month",
+    }
+}
+
+async fn record_budget_decision(
+    app: &AppState,
+    workspace_id: &str,
+    environment_id: &str,
+    run_id: Option<&str>,
+    gateway_request_id: &str,
+    decision: &RunLlmBudgetDecision,
+) {
+    let Some(run_id) = run_id else { return };
+    let event = CreateRunEventRequest {
+        kind: RunEventKind::SystemEvent,
+        sequence: None,
+        label: Some("LLM spending cap".to_string()),
+        input_summary: None,
+        output_summary: None,
+        metadata: json!({
+            "integration_mode": "gateway",
+            "gateway_request_id": gateway_request_id,
+            "evidence_kind": "llm_budget_decision",
+            "budget_decision": decision,
+        }),
+        occurred_at: None,
+    };
+    if let Err(error) = app
+        .run_store
+        .create_event(workspace_id, environment_id, run_id, event)
+        .await
+    {
+        tracing::warn!(workspace_id, environment_id, run_id, error = %error, "could not record gateway budget evidence");
+    }
 }
 
 /// Key without a bound principal → the key id itself is the principal,
@@ -432,12 +684,12 @@ fn bounded_output_tokens(request: &Value) -> Option<i64> {
         .filter(|tokens| *tokens > 0)
 }
 
-fn bounded_request_error(message: &str) -> Response {
+fn budget_request_error(message: &str) -> Response {
     openai_error_response(
         StatusCode::BAD_REQUEST,
         message,
         "invalid_request_error",
-        "budget_max_tokens_required",
+        "budget_request_invalid",
     )
 }
 
@@ -501,6 +753,40 @@ fn budget_exceeded_response(
                     "committed_nanos": committed_nanos,
                     "requested_nanos": requested_nanos,
                     "remaining_nanos": remaining_nanos,
+                }
+            }
+        })),
+    )
+        .into_response()
+}
+
+fn soft_budget_exceeded_response(
+    principal: &str,
+    window: LlmBudgetWindow,
+    cap_nanos: i64,
+    committed_nanos: i64,
+) -> Response {
+    let window = match window {
+        LlmBudgetWindow::Day => "daily",
+        LlmBudgetWindow::Week => "weekly",
+        LlmBudgetWindow::Month => "monthly",
+    };
+    (
+        StatusCode::TOO_MANY_REQUESTS,
+        Json(json!({
+            "error": {
+                "message": format!(
+                    "{window} budget already reached for principal `{principal}`; the unbounded request was not sent"
+                ),
+                "type": "insufficient_quota",
+                "code": "budget_exceeded",
+                "details": {
+                    "window": window,
+                    "cap_nanos": cap_nanos,
+                    "committed_nanos": committed_nanos,
+                    "requested_nanos": Value::Null,
+                    "remaining_nanos": cap_nanos.saturating_sub(committed_nanos).max(0),
+                    "admission_mode": "soft"
                 }
             }
         })),

@@ -302,14 +302,55 @@ async fn under_cap_forwards_and_meters_with_exact_cost() {
     assert_eq!(events[0]["prompt_tokens"], 1_000_000);
     assert_eq!(events[0]["completion_tokens"], 1_000_000);
     assert_eq!(events[0]["cost_minor"], 137);
+    assert_eq!(events[0]["cost_usd_nanos"], "1370000000");
+    assert_eq!(events[0]["kind"], "customer_inference");
     assert_eq!(events[0]["currency"], "USD");
 
-    let grouped = list_usage(app, workspace, "?group_by=principal").await;
+    let grouped = list_usage(app.clone(), workspace, "?group_by=principal").await;
     let buckets = grouped["buckets"].as_array().unwrap();
     assert_eq!(buckets.len(), 1);
     assert_eq!(buckets[0]["key"], "user:daniel");
     assert_eq!(buckets[0]["cost_minor"], 137);
     assert_eq!(buckets[0]["calls"], 1);
+
+    let runs_resp = app
+        .clone()
+        .oneshot(json_request(
+            "GET",
+            "/v1/runs",
+            "sk-internal",
+            workspace,
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(runs_resp.status(), StatusCode::OK);
+    let runs = read_body(runs_resp).await;
+    let run_id = runs["runs"][0]["id"].as_str().unwrap();
+    let detail_resp = app
+        .clone()
+        .oneshot(json_request(
+            "GET",
+            &format!("/v1/runs/{run_id}"),
+            "sk-internal",
+            workspace,
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    let detail = read_body(detail_resp).await;
+    assert_eq!(detail["events"][0]["kind"], "user_turn");
+    assert!(detail["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|event| event["kind"] == "assistant_turn"));
+    assert_eq!(detail["provider_usage"]["prompt_tokens"], 1_000_000);
+    assert_eq!(
+        detail["provider_usage"]["provider_response_id"],
+        "chatcmpl_mock"
+    );
+    assert_eq!(detail["budget_decision"]["status"], "settled");
 
     provider.verify().await;
 }
@@ -446,36 +487,68 @@ async fn unknown_model_fails_closed_when_a_budget_is_active() {
 }
 
 #[tokio::test]
-async fn active_budget_requires_a_bounded_output_token_count() {
+async fn unbounded_request_is_soft_admitted_then_future_requests_block_after_overspend() {
     let provider = MockServer::start().await;
-    mount_chat_completion("deepseek-chat", 10, 10)
-        .expect(0)
+    // One unbounded call costs more than the one-cent cap. Soft
+    // admission allows that call, records its actual usage, then the
+    // next call must stop before provider traffic.
+    mount_chat_completion("deepseek-chat", 10, 20_000)
+        .expect(1)
         .mount(&provider)
         .await;
 
     let app = build_app().await;
-    let workspace = "ws_budget_requires_max_tokens";
+    let workspace = "ws_budget_soft_unbounded";
     let runtime_key = create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
     create_common_gateway_config(app.clone(), workspace, &provider.uri()).await;
-    create_weekly_llm_budget(app.clone(), workspace, 500).await;
+    create_weekly_llm_budget(app.clone(), workspace, 1).await;
 
-    let resp = app
+    let request_body = json!({
+        "model": "deepseek-chat",
+        "messages": [{ "role": "user", "content": "hello" }]
+    });
+    let first = app
         .clone()
         .oneshot(json_request(
             "POST",
             "/v1/gateway/route/openai/chat/completions",
             &runtime_key,
             workspace,
-            json!({
-                "model": "deepseek-chat",
-                "messages": [{ "role": "user", "content": "hello" }]
-            }),
+            request_body.clone(),
         ))
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
-    let body = read_body(resp).await;
-    assert_eq!(body["error"]["code"], "budget_max_tokens_required");
+    assert_eq!(first.status(), StatusCode::OK);
+
+    let usage = list_usage(app.clone(), workspace, "").await;
+    assert_eq!(usage["events"].as_array().unwrap().len(), 1);
+    assert!(
+        usage["events"][0]["cost_usd_nanos"]
+            .as_str()
+            .unwrap()
+            .parse::<i64>()
+            .unwrap()
+            > 10_000_000
+    );
+
+    let second = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/gateway/route/openai/chat/completions",
+            &runtime_key,
+            workspace,
+            request_body,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(second.status(), StatusCode::TOO_MANY_REQUESTS);
+    let body = read_body(second).await;
+    assert_eq!(body["error"]["code"], "budget_exceeded");
+    assert!(body["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("already reached"));
 
     provider.verify().await;
 }
@@ -1039,6 +1112,7 @@ async fn metered_llm_spend_crossing_threshold_fires_budget_alert() {
         workspace,
         json!({
             "name": "llm-weekly-80",
+            "meter": "llm_usage",
             "window": "week",
             "threshold_type": "percent",
             "threshold_value": 80,

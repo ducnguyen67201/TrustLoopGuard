@@ -8,11 +8,11 @@ the base URL and API key so requests pass through TrustLoopGuard first.
 
 ## What you configure
 
-| Resource | Purpose |
-|---|---|
-| Provider | Stores the provider endpoint, model, and encrypted provider credential. |
-| Route | Gives one provider and agent a stable Gateway address. |
-| Runtime API key | Authenticates your application to the Gateway route. |
+| Resource        | Purpose                                                                 |
+| --------------- | ----------------------------------------------------------------------- |
+| Provider        | Stores the provider endpoint, model, and encrypted provider credential. |
+| Route           | Gives one provider and agent a stable Gateway address.                  |
+| Runtime API key | Authenticates your application to the Gateway route.                    |
 
 Routes do not have a separate rule set. Every policy enabled for the selected environment and route
 agent applies automatically, using the same event service as `POST /v1/events`.
@@ -84,12 +84,12 @@ TrustLoopGuard bearer key.
 Gateway creates an input event before the provider call and an output event after it. Both go
 through the same `execute_event_submission` service as direct event submissions.
 
-| Policy verdict | Gateway behavior |
-|---|---|
-| Allow | Forwards or returns content unchanged. |
-| Rewrite | Uses the policy's safe replacement. |
-| Block | Suppresses content; input blocks never call the provider. |
-| Escalate | Suppresses content and queues the configured escalation. |
+| Policy verdict | Gateway behavior                                          |
+| -------------- | --------------------------------------------------------- |
+| Allow          | Forwards or returns content unchanged.                    |
+| Rewrite        | Uses the policy's safe replacement.                       |
+| Block          | Suppresses content; input blocks never call the provider. |
+| Escalate       | Suppresses content and queues the configured escalation.  |
 
 A rewrite without safe replacement text fails closed. Gateway does not issue an extra model call to
 regenerate output.
@@ -106,13 +106,26 @@ decision is complete.
 
 ## Spend controls
 
-OpenAI-compatible calls also support hard per-principal budgets. Create a financial policy with
-`meter: llm_usage`, configure the exact model's input/output price, and send a positive `max_tokens`
-or `max_completion_tokens` value. Gateway atomically reserves the request's maximum cost before the
-provider call, then settles the reservation to actual reported usage. If the maximum would exceed
-the remaining daily, weekly, or monthly budget, Gateway returns HTTP 429 without contacting the
-provider. Unknown pricing returns 503 and an unbounded budgeted request returns 400; both fail
-before provider spend.
+OpenAI-compatible calls support per-principal budgets. Create a financial policy with
+`meter: llm_usage` and configure the exact model's input/output price. Calls with a positive
+`max_tokens` or `max_completion_tokens` value atomically reserve their maximum cost before the
+provider call, then settle to actual reported usage. If that maximum would exceed the remaining
+daily, weekly, or monthly budget, Gateway returns HTTP 429 without contacting the provider. Calls
+without either bound are soft-admitted below the cap and settled afterward; one unbounded request
+can overshoot before later calls are stopped. Unknown pricing returns 503 before provider spend.
+
+Configure these controls from **Usage & budgets** in the dashboard:
+
+1. Add the model's exact input and output USD-per-million-token prices.
+2. Create an LLM spending cap. This writes a normal unified financial policy with
+   `meter: llm_usage`.
+3. Add a percent alert such as 80%. Alerts are meter-scoped, so an action-spend alert cannot fire
+   from model usage.
+
+Each Gateway request appears under Runs with the exact checked user and assistant turns, provider
+response id, model, token usage, latency, estimated cost, deterministic budget snapshot, and
+separate TrustLoopGuard guardrail overhead. Estimated costs use the price snapshot recorded with the
+request; reconcile invoices in the provider dashboard.
 
 ## Troubleshooting
 
@@ -122,10 +135,8 @@ before provider spend.
   key's workspace.
 - **400 provider kind mismatch** — use the `/openai` address for OpenAI-compatible providers and the
   `/anthropic` address for Anthropic providers.
-- **400 budget_max_tokens_required** — a matching LLM budget requires a positive `max_tokens` or
-  `max_completion_tokens` value.
-- **429 budget_exceeded** — the next request's reserved maximum cost is larger than the principal's
-  remaining budget.
+- **429 budget_exceeded** — a bounded request's reserved maximum is larger than the remaining
+  budget, or an unbounded request arrived after the cap was reached.
 - **503 pricing_unavailable** — add a trusted workspace price for the exact model before using a
   hard LLM budget.
 - **502 Bad Gateway** — the upstream provider failed, timed out, or returned malformed JSON. This is

@@ -24,6 +24,7 @@ pub(super) struct GatewayContentCheck<'a> {
     pub proposed_output: &'a str,
     pub run_id: Option<&'a str>,
     pub run_event_id: Option<&'a str>,
+    pub gateway_request_id: &'a str,
 }
 
 pub(super) async fn check_gateway_content(
@@ -35,6 +36,7 @@ pub(super) async fn check_gateway_content(
         "gateway_phase": check.phase,
         "provider": provider_kind_text(check.resolved.provider_connection.kind),
         "route_id": check.resolved.route.id,
+        "gateway_request_id": check.gateway_request_id,
         "channel": "chat",
         "domain": check.phase,
     });

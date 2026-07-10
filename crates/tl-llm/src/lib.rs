@@ -26,4 +26,7 @@ pub use config::{
 };
 pub use openai::OpenAiClient;
 pub use openrouter::OpenRouterClient;
-pub use router::{JudgeKind, LlmRouter, ResolvedRoute, RouterBuildError};
+pub use router::{
+    AuditedLlmError, AuditedLlmOutput, JudgeKind, LlmCallAudit, LlmRouter, ResolvedRoute,
+    RouterBuildError,
+};

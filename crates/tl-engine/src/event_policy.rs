@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use tl_core::{GuardEvent, Severity, TriggeredPolicy, Verdict};
-use tl_llm::{prompts::semantic_policy, JudgeKind, LlmRouter};
+use tl_llm::{prompts::semantic_policy, JudgeKind, LlmCallAudit, LlmRouter};
 use tl_policy::{Action, MatchClause, Matcher, Policy};
 
 const SEMANTIC_MATCH_CONFIDENCE: f64 = 0.85;
@@ -12,6 +12,7 @@ pub struct EventPolicyOutcome {
     pub verdict: Option<Verdict>,
     pub reason: Option<String>,
     pub safe_output: Option<String>,
+    pub semantic_invocations: Vec<LlmCallAudit>,
 }
 
 impl EventPolicyOutcome {
@@ -21,6 +22,7 @@ impl EventPolicyOutcome {
             verdict: None,
             reason: None,
             safe_output: None,
+            semantic_invocations: Vec::new(),
         }
     }
 }
@@ -74,6 +76,12 @@ pub enum SemanticPolicyJudgeResult {
     Error(String),
 }
 
+#[derive(Debug, Clone)]
+pub struct SemanticPolicyJudgeBatchOutcome {
+    pub results: Vec<(String, SemanticPolicyJudgeResult)>,
+    pub invocation: Option<LlmCallAudit>,
+}
+
 #[async_trait]
 pub trait SemanticPolicyJudge: Send + Sync {
     fn is_enabled(&self) -> bool;
@@ -102,6 +110,16 @@ pub trait SemanticPolicyJudge: Send + Sync {
             results.push((policy_id, result));
         }
         results
+    }
+
+    async fn judge_policies_with_audit(
+        &self,
+        input: SemanticPolicyJudgeBatchInput,
+    ) -> SemanticPolicyJudgeBatchOutcome {
+        SemanticPolicyJudgeBatchOutcome {
+            results: self.judge_policies(input).await,
+            invocation: None,
+        }
     }
 }
 
@@ -140,8 +158,18 @@ impl SemanticPolicyJudge for LlmRouter {
         &self,
         input: SemanticPolicyJudgeBatchInput,
     ) -> Vec<(String, SemanticPolicyJudgeResult)> {
+        self.judge_policies_with_audit(input).await.results
+    }
+
+    async fn judge_policies_with_audit(
+        &self,
+        input: SemanticPolicyJudgeBatchInput,
+    ) -> SemanticPolicyJudgeBatchOutcome {
         if input.policies.is_empty() {
-            return vec![];
+            return SemanticPolicyJudgeBatchOutcome {
+                results: vec![],
+                invocation: None,
+            };
         }
 
         let policies_json = serde_json::Value::Array(
@@ -166,7 +194,7 @@ impl SemanticPolicyJudge for LlmRouter {
         );
 
         match self
-            .judge(
+            .judge_with_audit(
                 JudgeKind::SemanticPolicy,
                 &input.tenant,
                 &prompt,
@@ -174,17 +202,23 @@ impl SemanticPolicyJudge for LlmRouter {
             )
             .await
         {
-            Ok(output) => semantic_batch_result_from_json(output.json, &input.policies),
-            Err(error) => input
-                .policies
-                .into_iter()
-                .map(|policy| {
-                    (
-                        policy.policy_id,
-                        SemanticPolicyJudgeResult::Error(error.to_string()),
-                    )
-                })
-                .collect(),
+            Ok(output) => SemanticPolicyJudgeBatchOutcome {
+                results: semantic_batch_result_from_json(output.output.json, &input.policies),
+                invocation: Some(output.audit),
+            },
+            Err(error) => SemanticPolicyJudgeBatchOutcome {
+                results: input
+                    .policies
+                    .into_iter()
+                    .map(|policy| {
+                        (
+                            policy.policy_id,
+                            SemanticPolicyJudgeResult::Error(error.error.to_string()),
+                        )
+                    })
+                    .collect(),
+                invocation: Some(error.audit),
+            },
         }
     }
 }
@@ -254,8 +288,11 @@ async fn evaluate_semantic_policies(
     }
 
     let input = semantic_judge_batch_input(ctx.tenant, event, text, policies);
-    let results = judge.judge_policies(input).await;
-    for (policy_id, result) in results {
+    let result = judge.judge_policies_with_audit(input).await;
+    if let Some(invocation) = result.invocation {
+        outcome.semantic_invocations.push(invocation);
+    }
+    for (policy_id, result) in result.results {
         let Some(policy) = policies
             .iter()
             .copied()

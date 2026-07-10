@@ -16,7 +16,7 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use tl_core::ApiError;
-use tl_core::{ApiErrorCode, LlmUsageBucketsResponse, LlmUsageListResponse};
+use tl_core::{ApiErrorCode, LlmUsageBucketsResponse, LlmUsageKind, LlmUsageListResponse};
 
 use crate::auth::WorkspaceKeyContext;
 
@@ -38,6 +38,7 @@ pub enum LlmUsageStoreError {
 pub struct RecordLlmUsageEvent {
     pub principal_id: String,
     pub api_key_id: String,
+    pub kind: LlmUsageKind,
     pub model: String,
     pub prompt_tokens: i64,
     pub completion_tokens: i64,
@@ -55,6 +56,7 @@ pub struct RecordLlmUsageEvent {
 pub struct LlmUsageFilter {
     pub principal_id: Option<String>,
     pub model: Option<String>,
+    pub kind: Option<LlmUsageKind>,
     pub start: Option<DateTime<Utc>>,
     pub end: Option<DateTime<Utc>>,
 }
@@ -95,13 +97,26 @@ pub enum LlmBudgetWindow {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LlmBudgetWindowSnapshot {
+    pub window: LlmBudgetWindow,
+    pub cap_nanos: i64,
+    pub spent_nanos: i64,
+    pub active_reserved_nanos: i64,
+    pub committed_nanos: i64,
+    pub requested_nanos: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReserveLlmBudgetOutcome {
-    Reserved,
+    Reserved {
+        snapshots: Vec<LlmBudgetWindowSnapshot>,
+    },
     Exceeded {
         window: LlmBudgetWindow,
         cap_nanos: i64,
         committed_nanos: i64,
         requested_nanos: i64,
+        snapshots: Vec<LlmBudgetWindowSnapshot>,
     },
 }
 
@@ -179,6 +194,7 @@ pub struct LlmUsageState {
     params(
         ("principal_id" = Option<String>, Query, description = "Filter by principal"),
         ("model" = Option<String>, Query, description = "Filter by raw model string"),
+        ("kind" = Option<String>, Query, description = "Usage owner: `customer_inference` or `guardrail`"),
         ("start" = Option<String>, Query, description = "RFC 3339 window start (inclusive)"),
         ("end" = Option<String>, Query, description = "RFC 3339 window end (exclusive)"),
         ("group_by" = Option<String>, Query, description = "Rollup: `day`, `principal`, or `model`. Omitted = raw event list"),
@@ -237,6 +253,17 @@ fn read_query(query: Option<&str>) -> Result<(LlmUsageFilter, Option<LlmUsageGro
         match key.as_str() {
             "principal_id" => filter.principal_id = Some(trimmed.to_string()),
             "model" => filter.model = Some(trimmed.to_string()),
+            "kind" => {
+                filter.kind = Some(match trimmed {
+                    "customer_inference" => LlmUsageKind::CustomerInference,
+                    "guardrail" => LlmUsageKind::Guardrail,
+                    other => {
+                        return Err(format!(
+                            "unknown kind `{other}`; expected customer_inference or guardrail"
+                        ))
+                    }
+                });
+            }
             "start" => filter.start = Some(parse_rfc3339("start", trimmed)?),
             "end" => filter.end = Some(parse_rfc3339("end", trimmed)?),
             "group_by" => {

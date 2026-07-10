@@ -179,6 +179,22 @@ A `family: financial` policy applying only to typed [Financial action](#financia
 
 The dashboard-facing authoring surface for a `family: financial` policy. A spending control is created from Financial -> Spending controls, posted as typed JSON to `POST /v1/financial/policies`, stored in the unified Rust policy registry, enabled per environment, and evaluated before financial action execution. It is a different policy family from content protection rules, not a separate policy system.
 
+### LLM spending cap
+
+A `family: financial` policy with `meter: llm_usage`. Before an OpenAI-compatible Gateway request
+reaches its provider, TrustLoopGuard prices the bounded maximum token usage and atomically reserves
+that amount against the applicable daily, weekly, and monthly caps for the runtime-key principal.
+The provider is not called when that reservation would exceed a cap. The cap counts only
+`customer_inference` usage; TrustLoopGuard's own semantic-judge overhead is accounted separately.
+
+### LLM usage event
+
+A durable, precisely priced model invocation in the Rust-owned usage ledger. Its `kind` is either
+`customer_inference` for the customer's Gateway provider call or `guardrail` for TrustLoopGuard's
+semantic judge. Exact nano-USD values are serialized as decimal strings to avoid JavaScript integer
+loss; legacy minor-unit fields remain compatibility projections. Provider invoices are still the
+authoritative billing record.
+
 ### Financial mandate
 
 A tenant-scoped authorization boundary for a specific financial task. A mandate answers what the user or customer app authorized this agent to do, such as paying up to $5 in USD for one x402 resource on a specific host, network, asset, and `pay_to` address. A mandate is not a standing policy: financial policies set general rules and spend limits; mandates prove task-specific intent. TrustLoopGuard-managed mandates are stored by Rust financial APIs and referenced by `MandateRef` during runtime authorization.

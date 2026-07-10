@@ -8,8 +8,9 @@ use axum::{
 use tl_core::RunEventSummary;
 #[allow(unused_imports)]
 use tl_core::{
-    ApiError, CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventListResponse, RunKind,
-    RunListResponse, RunStatus, RunSummary, TraceListResponse, UpdateRunRequest,
+    ApiError, CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventListResponse,
+    RunGuardrailUsage, RunKind, RunListResponse, RunLlmBudgetDecision, RunProviderUsage, RunStatus,
+    RunSummary, TraceListResponse, UpdateRunRequest,
 };
 
 use super::context::resolve_environment_id;
@@ -127,16 +128,50 @@ pub async fn get_run(
             .events(&workspace_id, &environment_id, &id, 200)
             .await
         {
-            Ok(events) => Json(RunDetail {
-                run,
-                events,
-                traces,
-            })
-            .into_response(),
+            Ok(events) => {
+                let provider_usage =
+                    latest_event_evidence::<RunProviderUsage>(&events, "provider_usage");
+                let budget_decision =
+                    latest_event_evidence::<RunLlmBudgetDecision>(&events, "budget_decision");
+                let guardrail_usage = events
+                    .iter()
+                    .filter_map(|event| {
+                        event
+                            .metadata
+                            .get("guardrail_usage")
+                            .cloned()
+                            .and_then(|value| {
+                                serde_json::from_value::<RunGuardrailUsage>(value).ok()
+                            })
+                    })
+                    .collect();
+                Json(RunDetail {
+                    run,
+                    events,
+                    traces,
+                    provider_usage,
+                    guardrail_usage,
+                    budget_decision,
+                })
+                .into_response()
+            }
             Err(e) => run_error_response(e),
         },
         Err(e) => run_error_response(e),
     }
+}
+
+fn latest_event_evidence<T: serde::de::DeserializeOwned>(
+    events: &[RunEventSummary],
+    key: &str,
+) -> Option<T> {
+    events.iter().rev().find_map(|event| {
+        event
+            .metadata
+            .get(key)
+            .cloned()
+            .and_then(|value| serde_json::from_value(value).ok())
+    })
 }
 
 /// `PATCH /v1/runs/:id` - update a run.

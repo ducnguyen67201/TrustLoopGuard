@@ -1,14 +1,14 @@
 use axum::http::HeaderMap;
-use serde_json::{json, Value};
+use serde_json::json;
 use tl_core::{
-    CreateRunEventRequest, CreateRunRequest, RunEventKind, RunKind, RunStatus, UpdateRunRequest,
+    CreateRunEventRequest, CreateRunRequest, RunEventKind, RunKind, RunProviderUsage, RunStatus,
+    UpdateRunRequest,
 };
 
 use crate::runs::RunListFilter;
 use crate::AppState;
 
 use super::super::normalization::provider_kind_text;
-use super::super::provider::latest_user_message_content;
 use super::super::store::ResolvedGatewayRoute;
 
 const GATEWAY_RUN_EXTERNAL_ID_HEADER: &str = "x-tlg-run-external-id";
@@ -92,7 +92,7 @@ pub(super) async fn create_gateway_turn_event(
     environment_id: &str,
     resolved: &ResolvedGatewayRoute,
     gateway_request_id: &str,
-    request: &Value,
+    checked_input: &str,
     run_id: Option<&str>,
 ) -> Option<String> {
     let run_id = run_id?;
@@ -101,7 +101,7 @@ pub(super) async fn create_gateway_turn_event(
         kind: RunEventKind::UserTurn,
         sequence: None,
         label: Some("Gateway turn".to_string()),
-        input_summary: latest_user_message_content(request),
+        input_summary: Some(checked_input.to_string()),
         output_summary: None,
         metadata: json!({
             "integration_mode": "gateway",
@@ -126,6 +126,90 @@ pub(super) async fn create_gateway_turn_event(
                 error = %error,
                 "could not create gateway run event"
             );
+            None
+        }
+    }
+}
+
+pub(super) async fn create_gateway_assistant_event(
+    state: &AppState,
+    workspace_id: &str,
+    environment_id: &str,
+    gateway_request_id: &str,
+    output: &str,
+    usage: &RunProviderUsage,
+    run_id: Option<&str>,
+) -> Option<String> {
+    create_gateway_evidence_event(
+        state,
+        workspace_id,
+        environment_id,
+        run_id,
+        CreateRunEventRequest {
+            kind: RunEventKind::AssistantTurn,
+            sequence: None,
+            label: Some("Provider response".to_string()),
+            input_summary: None,
+            output_summary: Some(output.to_string()),
+            metadata: json!({
+                "integration_mode": "gateway",
+                "gateway_request_id": gateway_request_id,
+                "evidence_kind": "provider_usage",
+                "provider_usage": usage,
+            }),
+            occurred_at: None,
+        },
+    )
+    .await
+}
+
+pub(super) async fn create_gateway_provider_failure_event(
+    state: &AppState,
+    workspace_id: &str,
+    environment_id: &str,
+    gateway_request_id: &str,
+    usage: &RunProviderUsage,
+    run_id: Option<&str>,
+) -> Option<String> {
+    create_gateway_evidence_event(
+        state,
+        workspace_id,
+        environment_id,
+        run_id,
+        CreateRunEventRequest {
+            kind: RunEventKind::SystemEvent,
+            sequence: None,
+            label: Some("Provider call failed".to_string()),
+            input_summary: None,
+            output_summary: None,
+            metadata: json!({
+                "integration_mode": "gateway",
+                "gateway_request_id": gateway_request_id,
+                "evidence_kind": "provider_usage",
+                "provider_usage": usage,
+            }),
+            occurred_at: None,
+        },
+    )
+    .await
+}
+
+async fn create_gateway_evidence_event(
+    state: &AppState,
+    workspace_id: &str,
+    environment_id: &str,
+    run_id: Option<&str>,
+    event: CreateRunEventRequest,
+) -> Option<String> {
+    let run_id = run_id?;
+    match state
+        .run_store
+        .create_event(workspace_id, environment_id, run_id, event)
+        .await
+    {
+        Ok(event) => Some(event.id),
+        Err(error) => {
+            tracing::warn!(workspace_id, environment_id, run_id, error = %error, "could not create gateway evidence event");
             None
         }
     }

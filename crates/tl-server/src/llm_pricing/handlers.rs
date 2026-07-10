@@ -25,6 +25,7 @@ use crate::dashboard_admin::authorize_workspace_admin;
 use crate::jwt::UserContext;
 use crate::team::TeamStore;
 
+use super::NANOS_PER_MINOR;
 use super::{normalize_model, LlmPricingStore, DEFAULT_PRICES};
 
 /// Cap on the model key accepted at upsert/delete.
@@ -125,6 +126,26 @@ pub async fn put_llm_price(
             "prices must be non-negative".to_string(),
         );
     }
+    let input_per_million_nanos = match precise_rate(
+        "input_per_million_usd_nanos",
+        req.input_per_million_minor,
+        req.input_per_million_usd_nanos.as_deref(),
+    ) {
+        Ok(value) => value,
+        Err(message) => {
+            return api_error_response(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, message)
+        }
+    };
+    let output_per_million_nanos = match precise_rate(
+        "output_per_million_usd_nanos",
+        req.output_per_million_minor,
+        req.output_per_million_usd_nanos.as_deref(),
+    ) {
+        Ok(value) => value,
+        Err(message) => {
+            return api_error_response(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, message)
+        }
+    };
     let (workspace_id, _) = match authorize_workspace_admin(
         &state.team_store,
         &headers,
@@ -145,6 +166,8 @@ pub async fn put_llm_price(
             &model,
             req.input_per_million_minor,
             req.output_per_million_minor,
+            input_per_million_nanos,
+            output_per_million_nanos,
         )
         .await
     {
@@ -152,6 +175,8 @@ pub async fn put_llm_price(
             model,
             input_per_million_minor: req.input_per_million_minor,
             output_per_million_minor: req.output_per_million_minor,
+            input_per_million_usd_nanos: input_per_million_nanos.to_string(),
+            output_per_million_usd_nanos: output_per_million_nanos.to_string(),
             currency: USD.to_string(),
             source: LlmPriceSource::Workspace,
         })
@@ -247,9 +272,31 @@ fn price_row(model: String, price: &super::ModelPrice, source: LlmPriceSource) -
         model,
         input_per_million_minor: price.input_per_million_minor,
         output_per_million_minor: price.output_per_million_minor,
+        input_per_million_usd_nanos: price.input_per_million_nanos.to_string(),
+        output_per_million_usd_nanos: price.output_per_million_nanos.to_string(),
         currency: USD.to_string(),
         source,
     }
+}
+
+fn precise_rate(name: &str, legacy_minor: i64, exact: Option<&str>) -> Result<i64, String> {
+    let Some(exact) = exact else {
+        return legacy_minor
+            .checked_mul(NANOS_PER_MINOR)
+            .ok_or_else(|| format!("{name} is too large"));
+    };
+    let nanos = exact
+        .parse::<i64>()
+        .map_err(|_| format!("{name} must be a non-negative decimal integer string"))?;
+    if nanos < 0 {
+        return Err(format!("{name} must be non-negative"));
+    }
+    if nanos / NANOS_PER_MINOR != legacy_minor {
+        return Err(format!(
+            "{name} must project to the supplied legacy minor-unit rate"
+        ));
+    }
+    Ok(nanos)
 }
 
 fn api_error_response(status: StatusCode, code: ApiErrorCode, message: String) -> Response {

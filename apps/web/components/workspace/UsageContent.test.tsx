@@ -88,10 +88,30 @@ describe('UsageContent', () => {
     );
 
     expect(screen.getByText('No usage yet')).toBeInTheDocument();
-    expect(screen.getByText('$0.00')).toBeInTheDocument();
+    expect(screen.getAllByText('$0.00')).toHaveLength(2);
     expect(screen.getAllByText('0').length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByText('Spend over time')).not.toBeInTheDocument();
     expect(screen.queryByText('By caller')).not.toBeInTheDocument();
+  });
+
+  it('renders sub-cent customer spend and separates unknown guardrail overhead', () => {
+    render(
+      <UsageContent
+        workspaceSlug="demo"
+        environmentId="production"
+        period="day"
+        dayBuckets={[bucket('2026-07-10', { costNanos: 4032n })]}
+        principalBuckets={[bucket('daniel-key', { costNanos: 4032n })]}
+        modelBuckets={[bucket('deepseek-4-flash', { costNanos: 4032n })]}
+        guardrailBuckets={[
+          bucket('gpt-4o-mini', { costNanos: 1250n }),
+          bucket('unpriced-judge', { costNanos: 0n, unpriced: true }),
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByText('$0.000004032').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('$0.00000125 + unknown')).toBeInTheDocument();
   });
 
   it('flags unpriced models with a banner and badge', () => {
@@ -111,6 +131,8 @@ describe('UsageContent', () => {
 
     expect(screen.getByText(/812 calls across 1 model have no price set/i)).toBeInTheDocument();
     expect(screen.getByText('No price')).toBeInTheDocument();
+    expect(screen.getAllByText('Unknown').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('button', { name: 'Set model price' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Set price' })).toBeInTheDocument();
   });
 
@@ -128,6 +150,7 @@ describe('UsageContent', () => {
 
     expect(screen.queryByText(/have no price set/i)).not.toBeInTheDocument();
     expect(screen.queryByText('No price')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Set model price' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Set price' })).not.toBeInTheDocument();
   });
 
@@ -166,11 +189,46 @@ describe('UsageContent', () => {
     expect(JSON.parse(String(init?.body))).toEqual({
       input_per_million_minor: 27,
       output_per_million_minor: 110,
+      input_per_million_usd_nanos: '270000000',
+      output_per_million_usd_nanos: '1100000000',
     });
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(toast.success).toHaveBeenCalledWith('Price set for my-deploy/deepseek-v4-flash');
     expect(refreshMock).toHaveBeenCalledTimes(1);
+
+    vi.unstubAllGlobals();
+  });
+
+  it('can price an arbitrary model before its first request', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <UsageContent
+        workspaceSlug="demo"
+        environmentId="production"
+        period="week"
+        dayBuckets={[]}
+        principalBuckets={[]}
+        modelBuckets={[]}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Set model price' }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Provider model'), 'deepseek-4-flash');
+    await userEvent.type(within(dialog).getByLabelText('Input $ per 1M tokens'), '0.112');
+    await userEvent.type(within(dialog).getByLabelText('Output $ per 1M tokens'), '0.224');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Set price' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      input_per_million_minor: 11,
+      output_per_million_minor: 22,
+      input_per_million_usd_nanos: '112000000',
+      output_per_million_usd_nanos: '224000000',
+    });
 
     vi.unstubAllGlobals();
   });
@@ -191,7 +249,7 @@ describe('UsageContent', () => {
       const link = screen.getByRole('link', { name: new RegExp(`^${period}$`, 'i') });
       expect(link).toHaveAttribute(
         'href',
-        `/?workspace=demo&environment=production&period=${period}#usage-overview-title`,
+        `/usage?workspace=demo&environment=production&period=${period}#usage-overview-title`,
       );
     }
     expect(screen.getByRole('link', { name: /week/i })).toHaveAttribute('aria-current', 'page');
@@ -257,6 +315,7 @@ function bucket(
     prompt?: bigint;
     completion?: bigint;
     cost?: bigint;
+    costNanos?: bigint;
     calls?: bigint;
     unpriced?: boolean;
   } = {},
@@ -266,6 +325,7 @@ function bucket(
     prompt_tokens: totals.prompt ?? 100n,
     completion_tokens: totals.completion ?? 50n,
     cost_minor: totals.cost ?? 25n,
+    cost_usd_nanos: (totals.costNanos ?? (totals.cost ?? 25n) * 10_000_000n).toString(),
     calls: totals.calls ?? 3n,
     ...(totals.unpriced !== undefined ? { unpriced: totals.unpriced } : {}),
   };

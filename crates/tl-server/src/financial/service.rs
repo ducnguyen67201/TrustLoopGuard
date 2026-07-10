@@ -1101,6 +1101,7 @@ impl FinancialAuthorizationService {
             DEFAULT_ENVIRONMENT_ID,
             principal_id,
             currency,
+            tl_core::SpendMeter::Actions,
             |financial| financial_matches(financial, &action.action),
             |window_start, now| async move {
                 self.store

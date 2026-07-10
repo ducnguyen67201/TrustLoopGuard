@@ -28,6 +28,7 @@ async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>)
 fn config(name: &str) -> NewBudgetAlertConfigParams {
     NewBudgetAlertConfigParams {
         name: name.into(),
+        meter: "actions".into(),
         window: "week".into(),
         principal_id: None,
         threshold_type: "percent".into(),
@@ -40,6 +41,7 @@ fn config(name: &str) -> NewBudgetAlertConfigParams {
 fn firing(config_id: &str, principal: &str) -> NewBudgetAlertFiringParams {
     NewBudgetAlertFiringParams {
         config_id: config_id.into(),
+        meter: "actions".into(),
         principal_id: principal.into(),
         window_start: Utc::now(),
         cap_minor: 5_000,

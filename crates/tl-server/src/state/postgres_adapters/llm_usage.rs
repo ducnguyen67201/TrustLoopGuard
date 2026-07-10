@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use tl_core::{LlmUsageBucket, LlmUsageBucketsResponse, LlmUsageEvent, LlmUsageListResponse};
 
 use crate::llm_usage::{
-    LlmBudgetWindow, LlmUsageFilter, LlmUsageGroupBy, LlmUsageStore, LlmUsageStoreError,
-    RecordLlmUsageEvent, ReserveLlmBudget, ReserveLlmBudgetOutcome,
+    LlmBudgetWindow, LlmBudgetWindowSnapshot, LlmUsageFilter, LlmUsageGroupBy, LlmUsageStore,
+    LlmUsageStoreError, RecordLlmUsageEvent, ReserveLlmBudget, ReserveLlmBudgetOutcome,
 };
 
 pub struct PostgresLlmUsageAdapter(pub Arc<tl_storage::LlmUsageRepo>);
@@ -29,6 +29,7 @@ impl LlmUsageStore for PostgresLlmUsageAdapter {
                 tl_storage::NewLlmUsageEventParams {
                     principal_id: event.principal_id,
                     api_key_id: event.api_key_id,
+                    usage_kind: usage_kind_text(event.kind).to_string(),
                     model: event.model,
                     prompt_tokens: event.prompt_tokens,
                     completion_tokens: event.completion_tokens,
@@ -72,12 +73,17 @@ impl LlmUsageStore for PostgresLlmUsageAdapter {
             .await
             .map_err(llm_usage_store_error)?;
         Ok(match outcome {
-            tl_storage::ReserveLlmBudgetResult::Reserved => ReserveLlmBudgetOutcome::Reserved,
+            tl_storage::ReserveLlmBudgetResult::Reserved { snapshots } => {
+                ReserveLlmBudgetOutcome::Reserved {
+                    snapshots: snapshots.into_iter().map(budget_snapshot).collect(),
+                }
+            }
             tl_storage::ReserveLlmBudgetResult::Exceeded {
                 window,
                 cap_nanos,
                 committed_nanos,
                 requested_nanos,
+                snapshots,
             } => ReserveLlmBudgetOutcome::Exceeded {
                 window: match window {
                     tl_storage::LlmBudgetWindow::Day => LlmBudgetWindow::Day,
@@ -87,6 +93,7 @@ impl LlmUsageStore for PostgresLlmUsageAdapter {
                 cap_nanos,
                 committed_nanos,
                 requested_nanos,
+                snapshots: snapshots.into_iter().map(budget_snapshot).collect(),
             },
         })
     }
@@ -104,6 +111,7 @@ impl LlmUsageStore for PostgresLlmUsageAdapter {
                 tl_storage::NewLlmUsageEventParams {
                     principal_id: event.principal_id,
                     api_key_id: event.api_key_id,
+                    usage_kind: usage_kind_text(event.kind).to_string(),
                     model: event.model,
                     prompt_tokens: event.prompt_tokens,
                     completion_tokens: event.completion_tokens,
@@ -181,6 +189,7 @@ impl LlmUsageStore for PostgresLlmUsageAdapter {
                 prompt_tokens: row.prompt_tokens,
                 completion_tokens: row.completion_tokens,
                 cost_minor: row.cost_minor,
+                cost_usd_nanos: row.cost_nanos.to_string(),
                 calls: row.calls,
                 unpriced: row.unpriced,
             })
@@ -189,10 +198,26 @@ impl LlmUsageStore for PostgresLlmUsageAdapter {
     }
 }
 
+fn budget_snapshot(snapshot: tl_storage::LlmBudgetWindowSnapshot) -> LlmBudgetWindowSnapshot {
+    LlmBudgetWindowSnapshot {
+        window: match snapshot.window {
+            tl_storage::LlmBudgetWindow::Day => LlmBudgetWindow::Day,
+            tl_storage::LlmBudgetWindow::Week => LlmBudgetWindow::Week,
+            tl_storage::LlmBudgetWindow::Month => LlmBudgetWindow::Month,
+        },
+        cap_nanos: snapshot.cap_nanos,
+        spent_nanos: snapshot.spent_nanos,
+        active_reserved_nanos: snapshot.active_reserved_nanos,
+        committed_nanos: snapshot.committed_nanos,
+        requested_nanos: snapshot.requested_nanos,
+    }
+}
+
 fn storage_filter(filter: &LlmUsageFilter) -> tl_storage::LlmUsageEventFilter {
     tl_storage::LlmUsageEventFilter {
         principal_id: filter.principal_id.clone(),
         model: filter.model.clone(),
+        usage_kind: filter.kind.map(usage_kind_text).map(str::to_string),
         start: filter.start,
         end: filter.end,
     }
@@ -204,14 +229,30 @@ fn usage_event(row: tl_storage::StoredLlmUsageEvent) -> LlmUsageEvent {
         workspace_id: row.workspace_id,
         principal_id: row.principal_id,
         api_key_id: row.api_key_id,
+        kind: usage_kind_from_text(&row.usage_kind),
         model: row.model,
         prompt_tokens: row.prompt_tokens,
         completion_tokens: row.completion_tokens,
         cost_minor: row.cost_minor,
+        cost_usd_nanos: row.cost_nanos.to_string(),
         currency: row.currency,
         request_id: row.request_id,
         metadata: row.metadata,
         effective_at: row.effective_at.to_rfc3339(),
+    }
+}
+
+fn usage_kind_text(kind: tl_core::LlmUsageKind) -> &'static str {
+    match kind {
+        tl_core::LlmUsageKind::CustomerInference => "customer_inference",
+        tl_core::LlmUsageKind::Guardrail => "guardrail",
+    }
+}
+
+fn usage_kind_from_text(value: &str) -> tl_core::LlmUsageKind {
+    match value {
+        "guardrail" => tl_core::LlmUsageKind::Guardrail,
+        _ => tl_core::LlmUsageKind::CustomerInference,
     }
 }
 

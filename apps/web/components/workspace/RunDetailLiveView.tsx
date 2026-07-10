@@ -5,13 +5,7 @@ import { Check, ChevronRight, Copy, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InfoHint } from '@/components/ui/info-hint';
 import { Separator } from '@/components/ui/separator';
 import { VerdictLegend } from '@/components/ui/verdict-legend';
@@ -21,6 +15,7 @@ import {
   type RefreshMode,
 } from '@/components/workspace/RefreshControls';
 import {
+  formatUsdNanos,
   parseRunDetailSnapshot,
   type RunDetailSnapshot,
 } from '@/lib/run-detail-live';
@@ -80,10 +75,9 @@ export function RunDetailLiveView({
     setIsRefreshing(true);
 
     try {
-      const response = await fetch(
-        `/api/runs/${encodeURIComponent(runId)}?${params.toString()}`,
-        { cache: 'no-store' },
-      );
+      const response = await fetch(`/api/runs/${encodeURIComponent(runId)}?${params.toString()}`, {
+        cache: 'no-store',
+      });
       if (!response.ok) {
         throw new Error(`run refresh failed with ${response.status}`);
       }
@@ -197,7 +191,9 @@ export function RunDetailLiveView({
       <Card className="gap-4 py-4">
         <CardHeader>
           <CardTitle className="text-sm">About this request</CardTitle>
-          <CardDescription>When it ran and the references you can use to look it up.</CardDescription>
+          <CardDescription>
+            When it ran and the references you can use to look it up.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -217,6 +213,12 @@ export function RunDetailLiveView({
           </dl>
         </CardContent>
       </Card>
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        <ProviderUsageCard usage={snapshot.providerUsage} />
+        <BudgetDecisionCard decision={snapshot.budgetDecision} />
+        <GuardrailUsageCard usage={snapshot.guardrailUsage} />
+      </div>
 
       <Card className="gap-4 py-4">
         <CardHeader className="gap-1">
@@ -286,8 +288,8 @@ export function RunDetailLiveView({
                 <span className="inline-flex items-center justify-end gap-1 text-right">
                   Decision
                   <InfoHint label="What does “Decision” mean?" side="left">
-                    What the guardrail decided: allowed, rewritten, escalated, or blocked. Colors are
-                    explained in the key above.
+                    What the guardrail decided: allowed, rewritten, escalated, or blocked. Colors
+                    are explained in the key above.
                   </InfoHint>
                 </span>
               </div>
@@ -485,13 +487,7 @@ function TraceRow({
   );
 }
 
-function TraceDetail({
-  trace,
-  turn,
-}: {
-  trace: RunTrace;
-  turn: TraceTurn | null;
-}) {
+function TraceDetail({ trace, turn }: { trace: RunTrace; turn: TraceTurn | null }) {
   if (isDeliveryIntervention(trace)) {
     return <DeliveryInterventionDetail trace={trace} turn={turn} />;
   }
@@ -543,13 +539,7 @@ function TraceDetail({
   );
 }
 
-function DeliveryInterventionDetail({
-  trace,
-  turn,
-}: {
-  trace: RunTrace;
-  turn: TraceTurn | null;
-}) {
+function DeliveryInterventionDetail({ trace, turn }: { trace: RunTrace; turn: TraceTurn | null }) {
   const outcome = normalizeOutcome(trace.outcome);
   const tone = OUTCOME_TONE[outcome];
   const stopped = outcome === 'block';
@@ -579,9 +569,7 @@ function DeliveryInterventionDetail({
               {displayPolicy(trace)}
             </span>
             {trace.severity ? <span> · {trace.severity} severity</span> : null}
-            {displayReason(trace) ? (
-              <span> · {displayReason(trace)}</span>
-            ) : null}
+            {displayReason(trace) ? <span> · {displayReason(trace)}</span> : null}
           </div>
         </div>
       </div>
@@ -652,8 +640,7 @@ function EventRow({
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
               {event.metadata.map((item) => (
                 <span key={item.label}>
-                  {item.label}:{' '}
-                  <span className="font-mono text-foreground">{item.value}</span>
+                  {item.label}: <span className="font-mono text-foreground">{item.value}</span>
                 </span>
               ))}
             </div>
@@ -687,8 +674,8 @@ function TraceFooter({
       <span className="inline-flex items-center gap-1">
         Stage: <span className="text-foreground/80">{stageLabel(side)}</span>
         <InfoHint label="What does “Stage” mean?">
-          When in the request this check ran — before the AI replied (checking what came in) or after
-          (checking what the AI was about to say).
+          When in the request this check ran — before the AI replied (checking what came in) or
+          after (checking what the AI was about to say).
         </InfoHint>
       </span>
       <Separator orientation="vertical" className="data-[orientation=vertical]:h-3" />
@@ -791,6 +778,173 @@ function Excerpt({ label, value, tone }: { label: string; value: string; tone?: 
   );
 }
 
+function ProviderUsageCard({ usage }: { usage: RunDetailSnapshot['providerUsage'] }) {
+  return (
+    <Card className="gap-3 py-4">
+      <CardHeader className="gap-1">
+        <CardTitle className="text-sm">Provider call</CardTitle>
+        <CardDescription>Customer inference usage and estimated provider cost.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {usage ? (
+          <dl className="grid gap-2 text-xs">
+            <DetailItem label="Model" value={`${usage.provider} · ${usage.model}`} mono />
+            <DetailItem label="Status" value={titleCase(usage.status)} />
+            <DetailItem
+              label="Tokens"
+              value={
+                usage.prompt_tokens === null || usage.completion_tokens === null
+                  ? 'Unknown'
+                  : `${usage.prompt_tokens.toLocaleString()} input · ${usage.completion_tokens.toLocaleString()} output`
+              }
+            />
+            <DetailItem
+              label="Estimated cost"
+              value={formatUsdNanos(usage.estimated_cost_usd_nanos)}
+            />
+            <DetailItem
+              label="Price snapshot"
+              value={
+                usage.input_rate_usd_per_million_nanos === null ||
+                usage.output_rate_usd_per_million_nanos === null
+                  ? 'Unknown'
+                  : `${formatUsdNanos(usage.input_rate_usd_per_million_nanos)} input · ${formatUsdNanos(usage.output_rate_usd_per_million_nanos)} output per 1M`
+              }
+            />
+            <DetailItem label="Provider latency" value={`${usage.latency_ms}ms`} />
+            {usage.provider_response_id ? (
+              <DetailItem label="Provider response" value={usage.provider_response_id} mono />
+            ) : null}
+          </dl>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Provider usage was not recorded for this historical run.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function BudgetDecisionCard({ decision }: { decision: RunDetailSnapshot['budgetDecision'] }) {
+  const governing = decision?.governing_window ? ` · ${decision.governing_window}` : '';
+  const softAdmission = decision?.status.startsWith('soft_') ?? false;
+  return (
+    <Card className="gap-3 py-4">
+      <CardHeader className="gap-1">
+        <CardTitle className="text-sm">Spending cap</CardTitle>
+        <CardDescription>
+          {softAdmission
+            ? 'No output bound was provided; actual usage applies and may overshoot once.'
+            : 'Deterministic admission before provider traffic.'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {decision ? (
+          <div className="grid gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={decision.status === 'denied' ? 'destructive' : 'secondary'}>
+                {titleCase(decision.status)}
+                {governing}
+              </Badge>
+              <span className="font-mono text-muted-foreground">{decision.principal_id}</span>
+            </div>
+            {decision.windows.length > 0 ? (
+              <dl className="grid gap-2">
+                {decision.windows.map((window) => (
+                  <div key={window.window} className="rounded-lg border p-2">
+                    <dt className="font-medium capitalize">{window.window}</dt>
+                    <dd className="mt-1 text-muted-foreground">
+                      {formatUsdNanos(window.remaining_after_usd_nanos)} remaining of{' '}
+                      {formatUsdNanos(window.cap_usd_nanos)}
+                    </dd>
+                    <dd className="mt-1 text-muted-foreground">
+                      {softAdmission ? (
+                        <>
+                          {formatUsdNanos(window.committed_before_usd_nanos)} committed before ·{' '}
+                          unbounded request settled to actual usage
+                        </>
+                      ) : (
+                        <>
+                          {formatUsdNanos(window.committed_before_usd_nanos)} committed before ·{' '}
+                          {formatUsdNanos(window.reserved_before_usd_nanos)} already reserved ·{' '}
+                          {formatUsdNanos(window.requested_usd_nanos)} maximum reserved
+                        </>
+                      )}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="text-muted-foreground">No LLM spending cap was configured.</p>
+            )}
+            {decision.actual_usd_nanos ? (
+              <p>Actual charge: {formatUsdNanos(decision.actual_usd_nanos)}</p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Budget evidence was not recorded for this historical run.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function GuardrailUsageCard({ usage }: { usage: RunDetailSnapshot['guardrailUsage'] }) {
+  const known = usage
+    .map((item) => item.estimated_cost_usd_nanos)
+    .filter((value): value is string => value !== null);
+  const total = known.reduce((sum, value) => sum + BigInt(value), 0n).toString();
+  return (
+    <Card className="gap-3 py-4">
+      <CardHeader className="gap-1">
+        <CardTitle className="text-sm">Guardrail overhead</CardTitle>
+        <CardDescription>
+          TrustLoopGuard semantic checks, separate from customer spend.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {usage.length > 0 ? (
+          <div className="grid gap-2 text-xs">
+            <p className="font-medium">
+              {known.length === usage.length ? formatUsdNanos(total) : 'Partially unknown'}{' '}
+              estimated
+            </p>
+            {usage.map((item, index) => (
+              <div key={`${item.phase}-${item.judge}-${index}`} className="rounded-lg border p-2">
+                <div className="font-medium">
+                  {titleCase(item.phase)} · {item.judge}
+                </div>
+                <div className="mt-1 text-muted-foreground">
+                  {item.model ?? 'No model'} · {formatUsdNanos(item.estimated_cost_usd_nanos)} ·{' '}
+                  {item.latency_ms}ms
+                </div>
+                <div className="mt-1 text-muted-foreground">
+                  {titleCase(item.status)} ·{' '}
+                  {item.prompt_tokens === null || item.completion_tokens === null
+                    ? 'tokens unknown'
+                    : `${item.prompt_tokens.toLocaleString()} input · ${item.completion_tokens.toLocaleString()} output`}
+                  {item.fallback_used ? ' · fallback used' : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Deterministic only — no guardrail LLM cost.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function titleCase(value: string): string {
+  return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function buildRows(snapshot: RunDetailSnapshot): TimelineRow[] {
   const eventById = new Map(snapshot.events.map((event) => [event.id, event]));
   const rows: TimelineRow[] = [];
@@ -847,7 +1001,9 @@ function buildGuardFlow(snapshot: RunDetailSnapshot): GuardFlowStep[] {
   });
   const actionChecks = snapshot.traces.filter((trace) => {
     const event = trace.runEventId ? eventById.get(trace.runEventId) : undefined;
-    return event?.kind === 'Tool Call' || (trace.side === 'other' && event?.kind !== 'Assistant Turn');
+    return (
+      event?.kind === 'Tool Call' || (trace.side === 'other' && event?.kind !== 'Assistant Turn')
+    );
   });
 
   return [
@@ -950,8 +1106,8 @@ function traceSummary(trace: RunTrace, tone: Tone, turn: TraceTurn | null): stri
   }
   const text =
     trace.side === 'output'
-      ? trace.checkedOutput ?? trace.safeOutput
-      : trace.checkedInput ?? trace.checkedOutput ?? linkedEventOutput(turn);
+      ? (trace.checkedOutput ?? trace.safeOutput)
+      : (trace.checkedInput ?? trace.checkedOutput ?? linkedEventOutput(turn));
   const summary = oneLine(text ?? '');
   if (summary) return summary;
   return displayReason(trace) ?? 'No policy triggered';
@@ -993,9 +1149,7 @@ function isParameterAccountSourceFailure(trace: RunTrace): boolean {
 function isDeliveryIntervention(trace: RunTrace): boolean {
   const outcome = normalizeOutcome(trace.outcome);
   return (
-    trace.side === 'output' &&
-    trace.triggered &&
-    (outcome === 'block' || outcome === 'rewrite')
+    trace.side === 'output' && trace.triggered && (outcome === 'block' || outcome === 'rewrite')
   );
 }
 

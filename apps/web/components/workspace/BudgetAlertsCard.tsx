@@ -67,12 +67,15 @@ export function BudgetAlertsCard({
   contextQuery,
   configs,
   firings,
+  meter = 'actions',
 }: {
   contextQuery: string;
   configs: BudgetAlertConfig[];
   firings: BudgetAlertFiring[];
+  meter?: 'actions' | 'llm_usage';
 }) {
-  const [rows, setRows] = useState(configs);
+  const [rows, setRows] = useState(configs.filter((config) => config.meter === meter));
+  const visibleFirings = firings.filter((firing) => firing.meter === meter);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [busyIds, setBusyIds] = useState<string[]>([]);
   const busySet = useMemo(() => new Set(busyIds), [busyIds]);
@@ -242,7 +245,7 @@ export function BudgetAlertsCard({
             <p className="text-sm font-medium">Recent firings</p>
             <DataTable
               columns={firingColumns}
-              rows={firings}
+              rows={visibleFirings}
               getRowKey={(row) => row.id}
               empty={
                 <EmptyState
@@ -260,6 +263,7 @@ export function BudgetAlertsCard({
         onOpenChange={setDialogOpen}
         contextQuery={contextQuery}
         onCreated={(config) => setRows((prev) => [...prev, config])}
+        meter={meter}
       />
     </>
   );
@@ -270,11 +274,13 @@ function BudgetAlertCreateDialog({
   onOpenChange,
   contextQuery,
   onCreated,
+  meter,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contextQuery: string;
   onCreated: (config: BudgetAlertConfig) => void;
+  meter: 'actions' | 'llm_usage';
 }) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<BudgetAlertForm>(DEFAULT_FORM);
@@ -282,7 +288,7 @@ function BudgetAlertCreateDialog({
   async function createAlert() {
     let payload: ReturnType<typeof formPayload>;
     try {
-      payload = formPayload(form);
+      payload = formPayload(form, meter);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Alert is invalid');
       return;
@@ -315,8 +321,8 @@ function BudgetAlertCreateDialog({
         <DialogHeader>
           <DialogTitle>Create budget alert</DialogTitle>
           <DialogDescription>
-            Get a webhook when spend crosses a threshold of a capped budget window — before the
-            hard limit blocks.
+            Get a webhook when spend crosses a threshold of a capped budget window — before the hard
+            limit blocks.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
@@ -425,7 +431,7 @@ function formatMinor(minor: number | bigint, currency: string): string {
   return `${(Number(minor) / 100).toFixed(2)} ${currency}`;
 }
 
-function formPayload(form: BudgetAlertForm) {
+function formPayload(form: BudgetAlertForm, meter: 'actions' | 'llm_usage') {
   const name = form.name.trim();
   if (name === '') throw new Error('Name is required');
   const rawValue = form.thresholdValue.trim();
@@ -445,6 +451,7 @@ function formPayload(form: BudgetAlertForm) {
   const webhookUrl = form.webhookUrl.trim();
   return {
     name,
+    meter,
     window: form.window,
     principal_id: principalId === '' ? undefined : principalId,
     threshold_type: form.thresholdType,
