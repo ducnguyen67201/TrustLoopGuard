@@ -1,11 +1,12 @@
 #[tokio::test]
-async fn workspace_runtime_key_cannot_create_gateway_configuration() {
+async fn workspace_runtime_key_cannot_manage_gateway_configuration() {
     let provider = MockServer::start().await;
     let app = build_app().await;
     let workspace = "ws_gateway_runtime_key_admin";
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
 
     let resp = app
+        .clone()
         .oneshot(json_request(
             "POST",
             "/v1/gateway/provider-connections",
@@ -24,6 +25,38 @@ async fn workspace_runtime_key_cannot_create_gateway_configuration() {
         .unwrap();
 
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
+    let created = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/gateway/provider-connections",
+            "sk-internal",
+            workspace,
+            json!({
+                "id": "provider",
+                "display_name": "Admin-created provider",
+                "kind": "openai_compatible",
+                "base_url": provider.uri(),
+                "default_model": "mock-model",
+                "provider_api_key": "provider-secret"
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::CREATED);
+
+    let deleted = app
+        .oneshot(json_request(
+            "DELETE",
+            "/v1/gateway/provider-connections/provider",
+            &runtime_key,
+            "ws_wrong",
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(deleted.status(), StatusCode::FORBIDDEN);
 }
 
 #[tokio::test]

@@ -113,6 +113,7 @@ use crate::{
         environments::update_environment,
         environments::delete_environment,
         gateway::create_gateway_provider_connection,
+        gateway::delete_gateway_provider_connection,
         gateway::create_gateway_route,
         gateway::list_gateway_provider_connections,
         gateway::list_gateway_routes,

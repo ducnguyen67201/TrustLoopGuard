@@ -9,6 +9,8 @@ pub use memory::MemoryGatewayStore;
 pub enum GatewayStoreError {
     #[error("not found")]
     NotFound,
+    #[error("conflict: {0}")]
+    Conflict(String),
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -82,6 +84,11 @@ pub trait GatewayStore: Send + Sync {
         workspace_id: &str,
         id: &str,
     ) -> Result<ProviderConnectionSecret, GatewayStoreError>;
+    async fn delete_provider_connection(
+        &self,
+        workspace_id: &str,
+        id: &str,
+    ) -> Result<(), GatewayStoreError>;
 
     async fn list_gateway_routes(
         &self,

@@ -16,12 +16,13 @@ mod store;
 
 pub use api::{
     __path_create_gateway_provider_connection, __path_create_gateway_route,
-    __path_list_gateway_provider_connections, __path_list_gateway_routes,
-    __path_patch_gateway_provider_connection, __path_patch_gateway_route,
-    __path_proxy_anthropic_messages, __path_proxy_openai_chat_completions,
-    create_gateway_provider_connection, create_gateway_route, list_gateway_provider_connections,
-    list_gateway_routes, patch_gateway_provider_connection, patch_gateway_route,
-    proxy_anthropic_messages, proxy_openai_chat_completions, GatewayState,
+    __path_delete_gateway_provider_connection, __path_list_gateway_provider_connections,
+    __path_list_gateway_routes, __path_patch_gateway_provider_connection,
+    __path_patch_gateway_route, __path_proxy_anthropic_messages,
+    __path_proxy_openai_chat_completions, create_gateway_provider_connection, create_gateway_route,
+    delete_gateway_provider_connection, list_gateway_provider_connections, list_gateway_routes,
+    patch_gateway_provider_connection, patch_gateway_route, proxy_anthropic_messages,
+    proxy_openai_chat_completions, GatewayState,
 };
 pub use crypto::build_seal_key;
 pub(crate) use crypto::unseal_provider_key;

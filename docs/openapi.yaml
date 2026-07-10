@@ -1989,6 +1989,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
   /v1/gateway/provider-connections/{id}:
+    delete:
+      tags:
+      - gateway
+      operationId: delete_gateway_provider_connection
+      parameters:
+      - name: id
+        in: path
+        description: Provider connection id
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Gateway provider connection permanently deleted
+        '403':
+          description: Workspace runtime keys cannot manage gateway configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Provider connection not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Provider connection is used by a gateway route
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
     patch:
       tags:
       - gateway
