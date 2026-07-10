@@ -1,9 +1,9 @@
 //! LLM budget gate + token metering for the gateway proxy.
 //!
-//! Check-before / record-after around the forward step: a request is
-//! admitted iff the principal's spend-so-far is under every matching
-//! cap at admission time; its own cost lands after the response.
-//! `// ponytail: admission check races under concurrency; per-principal serialization if a customer needs exact caps`
+//! Reserve-before / settle-after around the forward step: a request is
+//! admitted only when its maximum possible cost fits under every
+//! matching cap. Durable per-principal serialization prevents
+//! concurrent requests from spending the same remaining budget.
 //!
 //! Budgets are financial family policies with
 //! [`tl_core::SpendMeter::LlmUsage`] — same registry, same window math,
@@ -18,34 +18,43 @@ use axum::{
 use chrono::Utc;
 use serde_json::{json, Value};
 use tl_core::{SpendMeter, USD};
-use tl_engine::financial_windowed_verdict;
 use tl_policy::{FamilyPolicy, FinancialPolicy};
 
 use crate::auth::WorkspaceKeyContext;
 use crate::budget_alerts::{window_starts, BudgetAlertRuntime};
-use crate::llm_usage::RecordLlmUsageEvent;
+use crate::llm_usage::{
+    LlmBudgetCapsNanos, LlmBudgetWindow, RecordLlmUsageEvent, ReserveLlmBudget,
+    ReserveLlmBudgetOutcome,
+};
 use crate::AppState;
 
 use super::errors::api_error_response;
 
-/// Pre-flight budget gate. `Some(response)` = deny (429, or 500 when
-/// policy/spend state is unreadable — fail closed, mirroring content
-/// enforcement). `None` = admitted.
-///
-/// Requests without a workspace-key principal (internal key, JWT) skip
-/// the budget entirely: there is nobody to bill.
-pub(super) async fn admit_llm_budget(
+#[derive(Debug, Clone)]
+pub(super) struct LlmBudgetReservation {
+    request_id: String,
+    reserved_nanos: i64,
+    price: crate::llm_pricing::ModelPrice,
+}
+
+/// Reserve the request's maximum possible provider cost before any
+/// provider traffic. `Ok(None)` means no matching budget (or no runtime
+/// principal); errors fail closed with a provider-compatible envelope.
+#[allow(clippy::result_large_err)]
+pub(super) async fn reserve_llm_budget(
     app: &AppState,
     workspace_id: &str,
     environment_id: &str,
     key: Option<&WorkspaceKeyContext>,
-) -> Option<Response> {
+    gateway_request_id: &str,
+    request: &Value,
+) -> Result<Option<LlmBudgetReservation>, Response> {
     let Some(key) = key else {
         tracing::debug!(
             workspace_id,
             "gateway budget skipped: no workspace key context (internal key or JWT)"
         );
-        return None;
+        return Ok(None);
     };
     let principal = principal_for(key);
 
@@ -57,7 +66,7 @@ pub(super) async fn admit_llm_budget(
         Ok(families) => families,
         Err(error) => {
             tracing::error!(workspace_id, error = %error, "gateway budget policy load failed");
-            return Some(api_error_response(
+            return Err(api_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "failed to load budget policies".into(),
             ));
@@ -75,73 +84,115 @@ pub(super) async fn admit_llm_budget(
         })
         .collect::<Vec<_>>();
     if budgets.is_empty() {
-        return None;
+        return Ok(None);
     }
 
     let now = Utc::now();
-    let (day_start, week_start, month_start) = window_starts(now)?;
-    // Three independent reads on the hot path — run them concurrently.
-    // Budgets and metering are USD-denominated for v1 (`tl_core::USD`);
-    // policies in other currencies never match.
-    let spend = |start| {
-        app.llm_usage_store
-            .net_llm_spend_minor(workspace_id, &principal, USD, start, now)
+    let Some((day_start, week_start, month_start)) = window_starts(now) else {
+        return Err(api_error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "failed to compute budget windows".into(),
+        ));
     };
-    let (spent_today, spent_week, spent_month) = match tokio::try_join!(
-        spend(day_start),
-        spend(week_start),
-        spend(month_start)
-    ) {
-        Ok(sums) => sums,
-        Err(error) => {
-            tracing::error!(workspace_id, principal, error = %error, "gateway budget spend sum failed");
-            return Some(api_error_response(
+    let model = request
+        .get("model")
+        .and_then(Value::as_str)
+        .filter(|model| !model.trim().is_empty())
+        .ok_or_else(|| bounded_request_error("model is required when an LLM budget is active"))?;
+    let max_tokens = bounded_output_tokens(request).ok_or_else(|| {
+        bounded_request_error(
+            "max_tokens or max_completion_tokens must be a positive integer when an LLM budget is active",
+        )
+    })?;
+    let price =
+        crate::llm_pricing::model_price(app.llm_pricing_store.as_ref(), workspace_id, model)
+            .await
+            .ok_or_else(|| pricing_unavailable_response(model))?;
+    let input_token_upper_bound = serde_json::to_vec(request)
+        .map(|bytes| {
+            i64::try_from(bytes.len())
+                .unwrap_or(i64::MAX)
+                .saturating_add(64)
+        })
+        .map_err(|_| bounded_request_error("provider request could not be priced"))?;
+    let reserved_nanos = crate::llm_pricing::cost_nanos(price, input_token_upper_bound, max_tokens);
+    let caps = tightest_caps_nanos(&budgets);
+    let outcome = app
+        .llm_usage_store
+        .reserve_budget(
+            workspace_id,
+            ReserveLlmBudget {
+                request_id: gateway_request_id.to_string(),
+                principal_id: principal.clone(),
+                api_key_id: key.api_key_id.clone(),
+                currency: USD.to_string(),
+                reserved_nanos,
+                caps,
+                day_start,
+                week_start,
+                month_start,
+                now,
+            },
+        )
+        .await
+        .map_err(|error| {
+            tracing::error!(workspace_id, principal, error = %error, "gateway budget reservation failed");
+            api_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "failed to compute budget spend".into(),
-            ));
-        }
-    };
-
-    for financial in budgets {
-        // Amount 1 = the smallest possible next spend, so the pure
-        // verdict (`spent + amount > cap`) reads "admit iff spent <
-        // cap": at-cap principals are denied, under-cap admitted. Any
-        // breach verdict (block or escalate) denies at the gateway.
-        if let Some((_, reason)) =
-            financial_windowed_verdict(financial, spent_today, spent_week, spent_month, 1)
-        {
-            tracing::info!(
-                workspace_id,
-                principal,
-                policy_id = %financial.id,
-                spent_today,
-                spent_week,
-                spent_month,
-                "gateway request denied: llm budget exhausted"
-            );
-            return Some(budget_exceeded_response(&principal, &reason));
-        }
+                "failed to reserve LLM budget".into(),
+            )
+        })?;
+    match outcome {
+        ReserveLlmBudgetOutcome::Reserved => Ok(Some(LlmBudgetReservation {
+            request_id: gateway_request_id.to_string(),
+            reserved_nanos,
+            price,
+        })),
+        ReserveLlmBudgetOutcome::Exceeded {
+            window,
+            cap_nanos,
+            committed_nanos,
+            requested_nanos,
+        } => Err(budget_exceeded_response(
+            &principal,
+            window,
+            cap_nanos,
+            committed_nanos,
+            requested_nanos,
+        )),
     }
-    None
 }
 
-/// Post-response metering. Never fails the response — the upstream
-/// call already happened, so every error path logs and returns.
+/// Post-response metering and reservation settlement. Never fails the
+/// response — the upstream call already happened, so every error path
+/// logs and leaves the conservative reservation in place.
 ///
 /// The gateway buffers the upstream response (SSE is synthesized), so
 /// `usage` is present even for `stream: true` requests. If true
 /// passthrough streaming is ever added, this must move to the stream
 /// tail.
-pub(super) async fn meter_llm_usage(
-    app: &AppState,
-    workspace_id: &str,
-    environment_id: &str,
-    key: Option<&WorkspaceKeyContext>,
-    route_id: &str,
-    gateway_request_id: &str,
-    request: &Value,
-    provider_response: &Value,
-) {
+pub(super) struct MeterLlmUsage<'a> {
+    pub workspace_id: &'a str,
+    pub environment_id: &'a str,
+    pub key: Option<&'a WorkspaceKeyContext>,
+    pub route_id: &'a str,
+    pub gateway_request_id: &'a str,
+    pub reservation: Option<&'a LlmBudgetReservation>,
+    pub request: &'a Value,
+    pub provider_response: &'a Value,
+}
+
+pub(super) async fn meter_llm_usage(app: &AppState, metering: MeterLlmUsage<'_>) {
+    let MeterLlmUsage {
+        workspace_id,
+        environment_id,
+        key,
+        route_id,
+        gateway_request_id,
+        reservation,
+        request,
+        provider_response,
+    } = metering;
     let Some(key) = key else {
         tracing::debug!(
             workspace_id,
@@ -175,29 +226,55 @@ pub(super) async fn meter_llm_usage(
                 model,
                 "provider response has no usage field; metering zeros"
             );
-            (0, 0)
+            // Keep a hard-cap reservation active when actual usage is
+            // unknowable. Releasing it could admit unrecorded spend.
+            return;
         }
     };
     // Workspace prices first, built-in defaults as fallback; a store
     // read failure inside falls back to defaults — never fails the
     // response.
-    let cost_minor = crate::llm_pricing::cost_minor(
-        app.llm_pricing_store.as_ref(),
-        workspace_id,
-        &model,
-        prompt_tokens,
-        completion_tokens,
-    )
-    .await
-    .unwrap_or_else(|| {
-        tracing::warn!(
-            workspace_id,
-            route_id,
-            model,
-            "no price for model; metering tokens with cost 0"
-        );
-        0
-    });
+    let price = match reservation {
+        Some(reservation) => Some(reservation.price),
+        None => {
+            crate::llm_pricing::model_price(app.llm_pricing_store.as_ref(), workspace_id, &model)
+                .await
+        }
+    };
+    let cost_nanos = match price {
+        Some(price) => crate::llm_pricing::cost_nanos(price, prompt_tokens, completion_tokens),
+        None if reservation.is_none() => {
+            tracing::warn!(
+                workspace_id,
+                route_id,
+                model,
+                "no price for model; metering tokens with cost 0"
+            );
+            0
+        }
+        None => {
+            tracing::error!(
+                workspace_id,
+                route_id,
+                model,
+                "reserved model price unavailable at settlement"
+            );
+            return;
+        }
+    };
+    if let Some(reservation) = reservation {
+        if cost_nanos > reservation.reserved_nanos {
+            tracing::error!(
+                workspace_id,
+                route_id,
+                gateway_request_id,
+                reserved_nanos = reservation.reserved_nanos,
+                actual_nanos = cost_nanos,
+                "provider usage exceeded the preflight maximum reservation"
+            );
+        }
+    }
+    let cost_minor = cost_nanos / crate::llm_pricing::NANOS_PER_MINOR;
 
     let event = RecordLlmUsageEvent {
         principal_id: principal.clone(),
@@ -208,11 +285,20 @@ pub(super) async fn meter_llm_usage(
         prompt_tokens,
         completion_tokens,
         cost_minor,
+        cost_nanos,
         currency: USD.to_string(),
         request_id: gateway_request_id.to_string(),
         metadata: json!({ "route_id": route_id }),
     };
-    if let Err(error) = app.llm_usage_store.insert_event(workspace_id, event).await {
+    let result = match reservation {
+        Some(reservation) => {
+            app.llm_usage_store
+                .settle_budget(workspace_id, &reservation.request_id, event)
+                .await
+        }
+        None => app.llm_usage_store.insert_event(workspace_id, event).await,
+    };
+    if let Err(error) = result {
         tracing::error!(
             workspace_id,
             route_id,
@@ -226,6 +312,28 @@ pub(super) async fn meter_llm_usage(
     // Budget alert thresholds are checked right after the usage event
     // lands. Same non-failing contract as the metering itself.
     evaluate_llm_budget_alerts(app, workspace_id, environment_id, &principal).await;
+}
+
+pub(super) async fn release_llm_budget(
+    app: &AppState,
+    workspace_id: &str,
+    reservation: Option<&LlmBudgetReservation>,
+) {
+    let Some(reservation) = reservation else {
+        return;
+    };
+    if let Err(error) = app
+        .llm_usage_store
+        .release_budget(workspace_id, &reservation.request_id)
+        .await
+    {
+        tracing::error!(
+            workspace_id,
+            request_id = %reservation.request_id,
+            error = %error,
+            "failed to release unused LLM budget reservation"
+        );
+    }
 }
 
 /// Spend-time budget alert hook for the LLM metering path: the shared
@@ -296,20 +404,112 @@ fn llm_budget_policy_matches(financial: &FinancialPolicy, principal: &str) -> bo
         || financial.monthly_minor.is_some()
 }
 
-/// OpenAI-style error envelope with HTTP 429 so openai-sdk clients
-/// raise a typed `insufficient_quota` error instead of a parse failure.
-fn budget_exceeded_response(principal: &str, reason: &str) -> Response {
+fn tightest_caps_nanos(budgets: &[&FinancialPolicy]) -> LlmBudgetCapsNanos {
+    let nanos = |minor: i64| minor.saturating_mul(crate::llm_pricing::NANOS_PER_MINOR);
+    let mut caps = LlmBudgetCapsNanos::default();
+    for budget in budgets {
+        caps.daily = min_cap(caps.daily, budget.daily_minor.map(nanos));
+        caps.weekly = min_cap(caps.weekly, budget.weekly_minor.map(nanos));
+        caps.monthly = min_cap(caps.monthly, budget.monthly_minor.map(nanos));
+    }
+    caps
+}
+
+fn min_cap(current: Option<i64>, candidate: Option<i64>) -> Option<i64> {
+    match (current, candidate) {
+        (Some(current), Some(candidate)) => Some(current.min(candidate)),
+        (Some(current), None) => Some(current),
+        (None, Some(candidate)) => Some(candidate),
+        (None, None) => None,
+    }
+}
+
+fn bounded_output_tokens(request: &Value) -> Option<i64> {
+    request
+        .get("max_completion_tokens")
+        .or_else(|| request.get("max_tokens"))
+        .and_then(Value::as_i64)
+        .filter(|tokens| *tokens > 0)
+}
+
+fn bounded_request_error(message: &str) -> Response {
+    openai_error_response(
+        StatusCode::BAD_REQUEST,
+        message,
+        "invalid_request_error",
+        "budget_max_tokens_required",
+    )
+}
+
+fn pricing_unavailable_response(model: &str) -> Response {
+    openai_error_response(
+        StatusCode::SERVICE_UNAVAILABLE,
+        &format!("no trusted price is configured for model `{model}`; the provider was not called"),
+        "configuration_error",
+        "pricing_unavailable",
+    )
+}
+
+fn openai_error_response(
+    status: StatusCode,
+    message: &str,
+    error_type: &str,
+    code: &str,
+) -> Response {
     (
-        StatusCode::TOO_MANY_REQUESTS,
+        status,
         Json(json!({
             "error": {
-                "message": format!("budget exhausted for principal `{principal}`: {reason}"),
-                "type": "insufficient_quota",
-                "code": "budget_exceeded",
+                "message": message,
+                "type": error_type,
+                "code": code,
             }
         })),
     )
         .into_response()
+}
+
+/// OpenAI-style error envelope with HTTP 429 so openai-sdk clients
+/// raise a typed `insufficient_quota` error instead of a parse failure.
+fn budget_exceeded_response(
+    principal: &str,
+    window: LlmBudgetWindow,
+    cap_nanos: i64,
+    committed_nanos: i64,
+    requested_nanos: i64,
+) -> Response {
+    let remaining_nanos = cap_nanos.saturating_sub(committed_nanos).max(0);
+    let window = match window {
+        LlmBudgetWindow::Day => "daily",
+        LlmBudgetWindow::Week => "weekly",
+        LlmBudgetWindow::Month => "monthly",
+    };
+    (
+        StatusCode::TOO_MANY_REQUESTS,
+        Json(json!({
+            "error": {
+                "message": format!(
+                    "{window} budget would be exceeded for principal `{principal}`: next request maximum ${:.6}, remaining ${:.6}",
+                    nanos_to_dollars(requested_nanos),
+                    nanos_to_dollars(remaining_nanos),
+                ),
+                "type": "insufficient_quota",
+                "code": "budget_exceeded",
+                "details": {
+                    "window": window,
+                    "cap_nanos": cap_nanos,
+                    "committed_nanos": committed_nanos,
+                    "requested_nanos": requested_nanos,
+                    "remaining_nanos": remaining_nanos,
+                }
+            }
+        })),
+    )
+        .into_response()
+}
+
+fn nanos_to_dollars(nanos: i64) -> f64 {
+    nanos as f64 / 1_000_000_000_f64
 }
 
 #[cfg(test)]

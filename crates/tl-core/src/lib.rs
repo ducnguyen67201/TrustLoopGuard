@@ -92,12 +92,10 @@ pub use financial::{
     X402NormalizedPaymentRequirement, X402PaymentRequirement, X402SettlementProof, USD,
 };
 pub use gateway::{
-    CreateEnforcementProfileRequest, CreateGatewayProviderConnectionRequest,
-    CreateGatewayRouteRequest, EnforcementProfile, EnforcementProfileListResponse, FailMode,
-    GatewayCredentialStatus, GatewayInputAction, GatewayOutputAction, GatewayProviderConnection,
-    GatewayProviderConnectionListResponse, GatewayProviderKind, GatewayRoute,
-    GatewayRouteListResponse, ResponseMode, RetentionMode, UpdateEnforcementProfileRequest,
-    UpdateGatewayProviderConnectionRequest, UpdateGatewayRouteRequest,
+    CreateGatewayProviderConnectionRequest, CreateGatewayRouteRequest, GatewayCredentialStatus,
+    GatewayProviderConnection, GatewayProviderConnectionListResponse, GatewayProviderKind,
+    GatewayRoute, GatewayRouteListResponse, UpdateGatewayProviderConnectionRequest,
+    UpdateGatewayRouteRequest,
 };
 pub use guard::{
     Channel, CheckRequest, Decision, RedactedEntity, RedactionInfo, RedactionMode, RedactionStatus,

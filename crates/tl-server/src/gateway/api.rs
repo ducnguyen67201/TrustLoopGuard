@@ -4,16 +4,10 @@ use axum::{http::StatusCode, response::Response, Extension};
 
 use crate::AppState;
 
-pub(crate) mod enforcement_profiles;
 pub(crate) mod provider_connections;
 pub(crate) mod proxy;
 pub(crate) mod routes;
 
-pub use enforcement_profiles::{
-    __path_create_enforcement_profile, __path_list_enforcement_profiles,
-    __path_patch_enforcement_profile, create_enforcement_profile, list_enforcement_profiles,
-    patch_enforcement_profile,
-};
 pub use provider_connections::{
     __path_create_gateway_provider_connection, __path_list_gateway_provider_connections,
     __path_patch_gateway_provider_connection, create_gateway_provider_connection,

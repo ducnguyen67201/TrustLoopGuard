@@ -1,9 +1,8 @@
-mod enforcement_profiles;
 mod mapping;
 mod provider_connections;
 mod routes;
 
-use tl_core::{EnforcementProfile, GatewayProviderConnection, GatewayRoute};
+use tl_core::{GatewayProviderConnection, GatewayRoute};
 
 use crate::postgres::{DbConnection, DbPool};
 use crate::StorageError;
@@ -23,7 +22,6 @@ pub struct GatewayProviderConnectionSecret {
 pub struct ResolvedGatewayRoute {
     pub route: GatewayRoute,
     pub provider_connection: GatewayProviderConnection,
-    pub enforcement_profile: EnforcementProfile,
     pub encrypted_api_key: String,
 }
 
@@ -41,21 +39,8 @@ impl GatewayRepo {
 }
 
 #[derive(Default)]
-pub struct EnforcementProfilePatch {
-    pub display_name: Option<String>,
-    pub input_action: Option<String>,
-    pub output_action: Option<String>,
-    pub fail_mode: Option<String>,
-    pub retention_mode: Option<String>,
-    pub response_mode: Option<String>,
-    pub fallback_message: Option<String>,
-    pub max_regenerations: Option<i32>,
-}
-
-#[derive(Default)]
 pub struct GatewayRoutePatch {
     pub display_name: Option<String>,
     pub provider_connection_id: Option<String>,
     pub agent_id: Option<String>,
-    pub enforcement_profile_id: Option<String>,
 }

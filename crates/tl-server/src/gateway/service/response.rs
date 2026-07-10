@@ -4,8 +4,6 @@ use axum::{
     Json,
 };
 use serde_json::Value;
-use tl_core::{EnforcementProfile, FailMode};
-use uuid::Uuid;
 
 use super::super::errors::api_error_response;
 use super::super::provider::GatewayProvider;
@@ -45,36 +43,12 @@ pub(super) fn finalize_gateway_response<P: GatewayProvider>(
     response
 }
 
-pub(super) fn handle_provider_failure<P: GatewayProvider>(
-    provider: &P,
-    wants_stream: bool,
-    request: &Value,
-    profile: &EnforcementProfile,
-    error: String,
-) -> Response {
-    match profile.fail_mode {
-        FailMode::Open => {
-            tracing::warn!(error = %error, "upstream provider request failed");
-            api_error_response(
-                StatusCode::BAD_GATEWAY,
-                "upstream provider request failed".into(),
-            )
-        }
-        FailMode::Closed => {
-            tracing::warn!(error = %error, "provider failure suppressed by fail_mode=closed; returning safe response");
-            finalize_gateway_response(
-                provider,
-                wants_stream,
-                provider.safe_response(request, profile),
-                Some(EnforcementHeaders {
-                    verdict: "blocked",
-                    trace_id: &Uuid::now_v7().to_string(),
-                    phase: "output",
-                    policy_id: None,
-                }),
-            )
-        }
-    }
+pub(super) fn handle_provider_failure(error: String) -> Response {
+    tracing::warn!(error = %error, "upstream provider request failed");
+    api_error_response(
+        StatusCode::BAD_GATEWAY,
+        "upstream provider request failed".into(),
+    )
 }
 
 fn apply_enforcement_headers(response: &mut Response, headers: &EnforcementHeaders<'_>) {

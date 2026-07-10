@@ -16,15 +16,15 @@ fn default_storage_exports_remain_available() {
 fn postgres_storage_exports_remain_available() {
     use tl_storage::{
         connect_postgres, migrate_postgres, schema, spawn_writer, AddMemberOutcome, AgentRepo,
-        AnalyticsRepo, DashboardAdminRepo, EnforcementProfilePatch, EscalationRepo, EscalationRow,
-        FinancialLedgerEntryKind, FinancialRepo, GatewayProviderConnectionSecret, GatewayRepo,
-        GatewayRoutePatch, HumanReviewAnalyticsFilter, HumanReviewRepo, KnowledgeFileRow,
-        KnowledgeRepo, KnowledgeSourceRow, LlmPricingRepo, NewKnowledgeFile, NewKnowledgeSource,
-        PolicyRepo, PolicyRow, PostgresStore, ResolvedGatewayRoute, RunFilter, RunRepo,
-        StoredFinancialAction, StoredFinancialActionEvent, StoredFinancialActionOutcome,
-        StoredFinancialApprovalRequest, StoredFinancialMandate, StoredFinancialReceipt,
-        StoredLlmModelPrice, StoredToolMetadata, TeamRepo, ToolMetadataRepo, TraceRepo, TraceRow,
-        TraceWrite, UserRecord, UserRepo, WriterConfig,
+        AnalyticsRepo, DashboardAdminRepo, EscalationRepo, EscalationRow, FinancialLedgerEntryKind,
+        FinancialRepo, GatewayProviderConnectionSecret, GatewayRepo, GatewayRoutePatch,
+        HumanReviewAnalyticsFilter, HumanReviewRepo, KnowledgeFileRow, KnowledgeRepo,
+        KnowledgeSourceRow, LlmPricingRepo, NewKnowledgeFile, NewKnowledgeSource, PolicyRepo,
+        PolicyRow, PostgresStore, ResolvedGatewayRoute, RunFilter, RunRepo, StoredFinancialAction,
+        StoredFinancialActionEvent, StoredFinancialActionOutcome, StoredFinancialApprovalRequest,
+        StoredFinancialMandate, StoredFinancialReceipt, StoredLlmModelPrice, StoredToolMetadata,
+        TeamRepo, ToolMetadataRepo, TraceRepo, TraceRow, TraceWrite, UserRecord, UserRepo,
+        WriterConfig,
     };
 
     fn assert_type<T>() {}
@@ -32,7 +32,6 @@ fn postgres_storage_exports_remain_available() {
     assert_type::<AgentRepo>();
     assert_type::<AnalyticsRepo>();
     assert_type::<DashboardAdminRepo>();
-    assert_type::<EnforcementProfilePatch>();
     assert_type::<EscalationRepo>();
     assert_type::<EscalationRow>();
     assert_type::<FinancialLedgerEntryKind>();

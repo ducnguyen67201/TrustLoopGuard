@@ -57,10 +57,6 @@ async fn gateway_patch_non_existent_resource_returns_404() {
             "/v1/gateway/provider-connections/no-such",
             json!({"display_name": "x"}),
         ),
-        (
-            "/v1/enforcement-profiles/no-such",
-            json!({"display_name": "x"}),
-        ),
         ("/v1/gateway/routes/no-such", json!({"display_name": "x"})),
     ] {
         let resp = app
@@ -124,25 +120,15 @@ async fn gateway_create_rejects_empty_required_fields() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 
-    // Empty fallback_message on enforcement profile.
     let resp = app
-        .clone()
         .oneshot(json_request(
-            "POST",
+            "GET",
             "/v1/enforcement-profiles",
             "sk-internal",
             "ws_validation",
-            json!({
-                "display_name": "Test",
-                "input_action": "block",
-                "output_action": "block",
-                "fail_mode": "open",
-                "retention_mode": "full_body",
-                "fallback_message": "",
-                "max_regenerations": 0
-            }),
+            json!({}),
         ))
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }

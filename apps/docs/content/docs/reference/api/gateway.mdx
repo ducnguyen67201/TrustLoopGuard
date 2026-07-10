@@ -6,15 +6,6 @@ _openapi:
     - ../../docs/openapi.yaml
   toc:
     - depth: 2
-      title: List_enforcement_profiles
-      url: '#list_enforcement_profiles'
-    - depth: 2
-      title: Create_enforcement_profile
-      url: '#create_enforcement_profile'
-    - depth: 2
-      title: Patch_enforcement_profile
-      url: '#patch_enforcement_profile'
-    - depth: 2
       title: List_gateway_provider_connections
       url: '#list_gateway_provider_connections'
     - depth: 2
@@ -40,12 +31,6 @@ _openapi:
       url: '#proxy_openai_chat_completions'
   structuredData:
     headings:
-      - content: List_enforcement_profiles
-        id: list_enforcement_profiles
-      - content: Create_enforcement_profile
-        id: create_enforcement_profile
-      - content: Patch_enforcement_profile
-        id: patch_enforcement_profile
       - content: List_gateway_provider_connections
         id: list_gateway_provider_connections
       - content: Create_gateway_provider_connection
@@ -74,7 +59,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <Comp document="../../docs/openapi.yaml" webhooks={[]} operations={[{"path":"/v1/enforcement-profiles","method":"get"},{"path":"/v1/enforcement-profiles","method":"post"},{"path":"/v1/enforcement-profiles/{id}","method":"patch"},{"path":"/v1/gateway/provider-connections","method":"get"},{"path":"/v1/gateway/provider-connections","method":"post"},{"path":"/v1/gateway/provider-connections/{id}","method":"patch"},{"path":"/v1/gateway/routes","method":"get"},{"path":"/v1/gateway/routes","method":"post"},{"path":"/v1/gateway/routes/{id}","method":"patch"},{"path":"/v1/gateway/{route_id}/anthropic/v1/messages","method":"post"},{"path":"/v1/gateway/{route_id}/openai/chat/completions","method":"post"}]} showTitle showDescription />
+      <Comp document="../../docs/openapi.yaml" webhooks={[]} operations={[{"path":"/v1/gateway/provider-connections","method":"get"},{"path":"/v1/gateway/provider-connections","method":"post"},{"path":"/v1/gateway/provider-connections/{id}","method":"patch"},{"path":"/v1/gateway/routes","method":"get"},{"path":"/v1/gateway/routes","method":"post"},{"path":"/v1/gateway/routes/{id}","method":"patch"},{"path":"/v1/gateway/{route_id}/anthropic/v1/messages","method":"post"},{"path":"/v1/gateway/{route_id}/openai/chat/completions","method":"post"}]} showTitle showDescription />
     </>
   );
 }

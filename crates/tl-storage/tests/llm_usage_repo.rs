@@ -8,8 +8,9 @@ use chrono::{Duration, Utc};
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_storage::{
-    connect_postgres, migrate_postgres, DbPool, LlmUsageEventFilter, LlmUsageGroupBy, LlmUsageRepo,
-    NewLlmUsageEventParams,
+    connect_postgres, migrate_postgres, DbPool, LlmBudgetCapsNanos, LlmUsageEventFilter,
+    LlmUsageGroupBy, LlmUsageRepo, NewLlmBudgetReservationParams, NewLlmUsageEventParams,
+    ReserveLlmBudgetResult,
 };
 
 async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>) {
@@ -25,6 +26,29 @@ async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>)
     (pool, container)
 }
 
+fn reservation(
+    request_id: &str,
+    reserved_nanos: i64,
+    cap_nanos: i64,
+) -> NewLlmBudgetReservationParams {
+    let now = Utc::now();
+    NewLlmBudgetReservationParams {
+        request_id: request_id.into(),
+        principal_id: "user:daniel".into(),
+        api_key_id: "key_1".into(),
+        currency: "USD".into(),
+        reserved_nanos,
+        caps: LlmBudgetCapsNanos {
+            weekly: Some(cap_nanos),
+            ..Default::default()
+        },
+        day_start: now - Duration::days(1),
+        week_start: now - Duration::days(7),
+        month_start: now - Duration::days(31),
+        now: now + Duration::seconds(1),
+    }
+}
+
 fn event(principal: &str, model: &str, cost: i64, request_id: &str) -> NewLlmUsageEventParams {
     NewLlmUsageEventParams {
         principal_id: principal.into(),
@@ -33,6 +57,7 @@ fn event(principal: &str, model: &str, cost: i64, request_id: &str) -> NewLlmUsa
         prompt_tokens: 1_000,
         completion_tokens: 200,
         cost_minor: cost,
+        cost_nanos: cost.saturating_mul(10_000_000),
         currency: "USD".into(),
         request_id: request_id.into(),
         metadata: serde_json::json!({ "route_id": "route" }),
@@ -141,4 +166,47 @@ async fn insert_window_sum_and_grouping_round_trip() {
         .await
         .expect("other workspace list");
     assert!(other_ws.is_empty());
+}
+
+#[tokio::test]
+async fn concurrent_reservations_are_atomic_and_settlement_releases_unused_budget() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = LlmUsageRepo::new(pool);
+    let workspace = "ws_llm_reservations";
+
+    let first = repo.reserve_budget(workspace, reservation("req-a", 60, 100));
+    let second = repo.reserve_budget(workspace, reservation("req-b", 60, 100));
+    let (first, second) = tokio::join!(first, second);
+    let outcomes = [first.unwrap(), second.unwrap()];
+    assert_eq!(
+        outcomes
+            .iter()
+            .filter(|outcome| matches!(outcome, ReserveLlmBudgetResult::Reserved))
+            .count(),
+        1
+    );
+    assert_eq!(
+        outcomes
+            .iter()
+            .filter(|outcome| matches!(outcome, ReserveLlmBudgetResult::Exceeded { .. }))
+            .count(),
+        1
+    );
+
+    let reserved_request = if matches!(outcomes[0], ReserveLlmBudgetResult::Reserved) {
+        "req-a"
+    } else {
+        "req-b"
+    };
+    let mut actual = event("user:daniel", "deepseek-chat", 0, reserved_request);
+    actual.cost_nanos = 20;
+    repo.settle_budget(workspace, reserved_request, actual)
+        .await
+        .expect("settle reservation");
+
+    let third = repo
+        .reserve_budget(workspace, reservation("req-c", 60, 100))
+        .await
+        .expect("reserve after settlement");
+    assert_eq!(third, ReserveLlmBudgetResult::Reserved);
 }

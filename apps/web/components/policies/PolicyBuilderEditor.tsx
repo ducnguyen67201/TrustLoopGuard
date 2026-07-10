@@ -277,8 +277,9 @@ export function PolicyBuilderEditor({
           <p className="mt-3 flex gap-2 text-xs leading-relaxed text-muted-foreground">
             <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
             <span>
-              This rule decides whether to act and how serious it is. The message a visitor sees
-              after a block is set separately, on the route&apos;s enforcement profile.
+              This policy action is applied directly by both SDK checks and Gateway routes.
+              Rewrites use the safe replacement in this policy; blocks use the standard safe
+              response.
             </span>
           </p>
         </div>

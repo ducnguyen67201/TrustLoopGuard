@@ -4,7 +4,8 @@ use async_trait::async_trait;
 use tl_core::{LlmUsageBucket, LlmUsageBucketsResponse, LlmUsageEvent, LlmUsageListResponse};
 
 use crate::llm_usage::{
-    LlmUsageFilter, LlmUsageGroupBy, LlmUsageStore, LlmUsageStoreError, RecordLlmUsageEvent,
+    LlmBudgetWindow, LlmUsageFilter, LlmUsageGroupBy, LlmUsageStore, LlmUsageStoreError,
+    RecordLlmUsageEvent, ReserveLlmBudget, ReserveLlmBudgetOutcome,
 };
 
 pub struct PostgresLlmUsageAdapter(pub Arc<tl_storage::LlmUsageRepo>);
@@ -32,11 +33,98 @@ impl LlmUsageStore for PostgresLlmUsageAdapter {
                     prompt_tokens: event.prompt_tokens,
                     completion_tokens: event.completion_tokens,
                     cost_minor: event.cost_minor,
+                    cost_nanos: event.cost_nanos,
                     currency: event.currency,
                     request_id: event.request_id,
                     metadata: event.metadata,
                 },
             )
+            .await
+            .map_err(llm_usage_store_error)
+    }
+
+    async fn reserve_budget(
+        &self,
+        workspace_id: &str,
+        reservation: ReserveLlmBudget,
+    ) -> Result<ReserveLlmBudgetOutcome, LlmUsageStoreError> {
+        let outcome = self
+            .0
+            .reserve_budget(
+                workspace_id,
+                tl_storage::NewLlmBudgetReservationParams {
+                    request_id: reservation.request_id,
+                    principal_id: reservation.principal_id,
+                    api_key_id: reservation.api_key_id,
+                    currency: reservation.currency,
+                    reserved_nanos: reservation.reserved_nanos,
+                    caps: tl_storage::LlmBudgetCapsNanos {
+                        daily: reservation.caps.daily,
+                        weekly: reservation.caps.weekly,
+                        monthly: reservation.caps.monthly,
+                    },
+                    day_start: reservation.day_start,
+                    week_start: reservation.week_start,
+                    month_start: reservation.month_start,
+                    now: reservation.now,
+                },
+            )
+            .await
+            .map_err(llm_usage_store_error)?;
+        Ok(match outcome {
+            tl_storage::ReserveLlmBudgetResult::Reserved => ReserveLlmBudgetOutcome::Reserved,
+            tl_storage::ReserveLlmBudgetResult::Exceeded {
+                window,
+                cap_nanos,
+                committed_nanos,
+                requested_nanos,
+            } => ReserveLlmBudgetOutcome::Exceeded {
+                window: match window {
+                    tl_storage::LlmBudgetWindow::Day => LlmBudgetWindow::Day,
+                    tl_storage::LlmBudgetWindow::Week => LlmBudgetWindow::Week,
+                    tl_storage::LlmBudgetWindow::Month => LlmBudgetWindow::Month,
+                },
+                cap_nanos,
+                committed_nanos,
+                requested_nanos,
+            },
+        })
+    }
+
+    async fn settle_budget(
+        &self,
+        workspace_id: &str,
+        request_id: &str,
+        event: RecordLlmUsageEvent,
+    ) -> Result<(), LlmUsageStoreError> {
+        self.0
+            .settle_budget(
+                workspace_id,
+                request_id,
+                tl_storage::NewLlmUsageEventParams {
+                    principal_id: event.principal_id,
+                    api_key_id: event.api_key_id,
+                    model: event.model,
+                    prompt_tokens: event.prompt_tokens,
+                    completion_tokens: event.completion_tokens,
+                    cost_minor: event.cost_minor,
+                    cost_nanos: event.cost_nanos,
+                    currency: event.currency,
+                    request_id: event.request_id,
+                    metadata: event.metadata,
+                },
+            )
+            .await
+            .map_err(llm_usage_store_error)
+    }
+
+    async fn release_budget(
+        &self,
+        workspace_id: &str,
+        request_id: &str,
+    ) -> Result<(), LlmUsageStoreError> {
+        self.0
+            .release_budget(workspace_id, request_id)
             .await
             .map_err(llm_usage_store_error)
     }

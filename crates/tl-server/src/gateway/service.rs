@@ -1,6 +1,5 @@
 mod checks;
 mod output;
-mod regeneration;
 mod request;
 mod response;
 mod runs;
@@ -10,7 +9,7 @@ use axum::{
     response::Response,
 };
 use bytes::Bytes;
-use tl_core::{GatewayInputAction, GatewayProviderKind, RunStatus, Verdict};
+use tl_core::{GatewayProviderKind, RunStatus, Verdict};
 use uuid::Uuid;
 
 use crate::policies::workspace_id_from_headers;
@@ -76,27 +75,9 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
         Ok(request) => request,
         Err(response) => return response,
     };
-    let wants_stream =
-        match prepare_streaming_request(&provider, &resolved.enforcement_profile, &mut request) {
-            Ok(wants_stream) => wants_stream,
-            Err(response) => return response,
-        };
+    let wants_stream = prepare_streaming_request(&provider, &mut request);
 
-    // Budget gate before any spend: chat completions only until other
-    // routes are metered.
     let metered = expected_kind == GatewayProviderKind::OpenaiCompatible;
-    if metered {
-        if let Some(denied) = budget::admit_llm_budget(
-            &state.app,
-            &workspace_id,
-            &environment_id,
-            runtime_key.as_ref(),
-        )
-        .await
-        {
-            return denied;
-        }
-    }
 
     let run_external_id = gateway_run_external_id(&headers, &gateway_request_id);
     let run_id = create_gateway_run(
@@ -180,31 +161,19 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
         wants_stream,
     });
 
-    if input_decision.verdict != Verdict::Allow {
-        match resolved.enforcement_profile.input_action {
-            GatewayInputAction::Allow => {
-                tracing::info!(
-                    workspace_id = %workspace_id,
-                    route_id = %route_id,
-                    verdict = ?input_decision.verdict,
-                    "input verdict is non-allow but enforcement profile input_action=allow; request proceeds"
-                );
-            }
-            GatewayInputAction::Block => {
-                let pid = input_decision
-                    .triggered_policies
-                    .first()
-                    .map(|p| p.id.as_str());
-                let response = finalize_gateway_response(
+    match input_decision.verdict {
+        Verdict::Allow => {}
+        Verdict::Rewrite => {
+            if let Some(safe_input) = input_decision.safe_output.as_deref() {
+                provider.apply_input_rewrite(&mut request, safe_input);
+            } else {
+                let response = blocked_response(
                     &provider,
                     wants_stream,
-                    provider.safe_response(&request, &resolved.enforcement_profile),
-                    Some(EnforcementHeaders {
-                        verdict: "blocked",
-                        trace_id: &input_decision.trace_id,
-                        phase: "input",
-                        policy_id: pid,
-                    }),
+                    &request,
+                    &input_decision,
+                    "blocked",
+                    "input",
                 );
                 finish_gateway_run(
                     &state.app,
@@ -216,15 +185,66 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
                 .await;
                 return response;
             }
-            GatewayInputAction::Redact => {
-                let safe_input = input_decision
-                    .safe_output
-                    .clone()
-                    .unwrap_or_else(|| "[redacted]".to_string());
-                provider.apply_input_rewrite(&mut request, &safe_input);
-            }
+        }
+        Verdict::Block | Verdict::Escalate => {
+            let verdict = if input_decision.verdict == Verdict::Escalate {
+                "escalated"
+            } else {
+                "blocked"
+            };
+            let response = blocked_response(
+                &provider,
+                wants_stream,
+                &request,
+                &input_decision,
+                verdict,
+                "input",
+            );
+            finish_gateway_run(
+                &state.app,
+                &workspace_id,
+                &environment_id,
+                run_id.as_deref(),
+                RunStatus::Completed,
+            )
+            .await;
+            return response;
         }
     }
+
+    // Reserve the maximum possible provider cost after input policy
+    // rewrites but before provider traffic. OpenAI-compatible requests
+    // without a matching budget continue to meter after the response.
+    if metered && request.get("model").is_none() {
+        request["model"] = serde_json::json!(resolved.provider_connection.default_model);
+    }
+    let budget_reservation = if metered {
+        match budget::reserve_llm_budget(
+            &state.app,
+            &workspace_id,
+            &environment_id,
+            runtime_key.as_ref(),
+            &gateway_request_id,
+            &request,
+        )
+        .await
+        {
+            Ok(reservation) => reservation,
+            Err(response) => {
+                finish_gateway_run(
+                    &state.app,
+                    &workspace_id,
+                    &environment_id,
+                    run_id.as_deref(),
+                    RunStatus::Completed,
+                )
+                .await;
+                return response;
+            }
+        }
+    } else {
+        None
+    };
 
     let provider_response = match provider
         .forward(
@@ -237,6 +257,8 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
     {
         Ok(response) => response,
         Err(error) => {
+            budget::release_llm_budget(&state.app, &workspace_id, budget_reservation.as_ref())
+                .await;
             finish_gateway_run(
                 &state.app,
                 &workspace_id,
@@ -245,13 +267,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
                 RunStatus::Failed,
             )
             .await;
-            return handle_provider_failure(
-                &provider,
-                wants_stream,
-                &request,
-                &resolved.enforcement_profile,
-                error,
-            );
+            return handle_provider_failure(error);
         }
     };
 
@@ -261,13 +277,16 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
         // response.
         budget::meter_llm_usage(
             &state.app,
-            &workspace_id,
-            &environment_id,
-            runtime_key.as_ref(),
-            &route_id,
-            &gateway_request_id,
-            &request,
-            &provider_response,
+            budget::MeterLlmUsage {
+                workspace_id: &workspace_id,
+                environment_id: &environment_id,
+                key: runtime_key.as_ref(),
+                route_id: &route_id,
+                gateway_request_id: &gateway_request_id,
+                reservation: budget_reservation.as_ref(),
+                request: &request,
+                provider_response: &provider_response,
+            },
         )
         .await;
     }
@@ -315,17 +334,38 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
     handle_output_enforcement(OutputEnforcement {
         state: &state,
         provider: &provider,
-        resolved: &resolved,
-        provider_api_key: &provider_api_key,
         workspace_id: &workspace_id,
         environment_id: &environment_id,
         request,
         provider_response,
         output_decision,
-        gateway_request_id: &gateway_request_id,
         run_id: run_id.as_deref(),
-        run_event_id: run_event_id.as_deref(),
         wants_stream,
     })
     .await
+}
+
+fn blocked_response<P: GatewayProvider>(
+    provider: &P,
+    wants_stream: bool,
+    request: &serde_json::Value,
+    decision: &tl_core::Decision,
+    verdict: &'static str,
+    phase: &'static str,
+) -> Response {
+    let policy_id = decision
+        .triggered_policies
+        .first()
+        .map(|policy| policy.id.as_str());
+    finalize_gateway_response(
+        provider,
+        wants_stream,
+        provider.blocked_response(request),
+        Some(EnforcementHeaders {
+            verdict,
+            trace_id: &decision.trace_id,
+            phase,
+            policy_id,
+        }),
+    )
 }

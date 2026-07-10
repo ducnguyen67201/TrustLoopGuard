@@ -79,7 +79,7 @@ pub struct AppState {
     pub workspace_self_service_enabled: bool,
     /// Backing store for workspace team membership + invites.
     pub team_store: Arc<dyn TeamStore>,
-    /// Gateway provider connections, enforcement profiles, and proxy routes.
+    /// Gateway provider connections and proxy routes.
     pub gateway_store: Arc<dyn GatewayStore>,
     /// HS256 signer used to mint user-session JWTs on signup/login
     /// and verify them on protected `/v1/*` routes. `None` when

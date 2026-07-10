@@ -52,31 +52,12 @@ diesel::table! {
 }
 
 diesel::table! {
-    enforcement_profiles (workspace_id, id) {
-        workspace_id -> Text,
-        id -> Text,
-        display_name -> Text,
-        input_action -> Text,
-        output_action -> Text,
-        fail_mode -> Text,
-        retention_mode -> Text,
-        response_mode -> Text,
-        fallback_message -> Text,
-        max_regenerations -> Int4,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-        deleted_at -> Nullable<Timestamptz>,
-    }
-}
-
-diesel::table! {
     gateway_routes (workspace_id, id) {
         workspace_id -> Text,
         id -> Text,
         display_name -> Text,
         provider_connection_id -> Text,
         agent_id -> Text,
-        enforcement_profile_id -> Text,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         deleted_at -> Nullable<Timestamptz>,
@@ -556,6 +537,29 @@ diesel::table! {
 }
 
 diesel::table! {
+    llm_budget_principal_locks (workspace_id, principal_id) {
+        workspace_id -> Text,
+        principal_id -> Text,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    llm_budget_reservations (workspace_id, request_id) {
+        workspace_id -> Text,
+        request_id -> Text,
+        principal_id -> Text,
+        api_key_id -> Text,
+        currency -> Text,
+        reserved_nanos -> Int8,
+        actual_nanos -> Nullable<Int8>,
+        status -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     llm_model_prices (workspace_id, model) {
         workspace_id -> Text,
         model -> Text,
@@ -577,6 +581,7 @@ diesel::table! {
         prompt_tokens -> Int8,
         completion_tokens -> Int8,
         cost_minor -> Int8,
+        cost_nanos -> Int8,
         currency -> Text,
         request_id -> Text,
         metadata -> Jsonb,
@@ -686,7 +691,6 @@ diesel::joinable!(workspace_api_keys -> workspaces (workspace_id));
 diesel::joinable!(workspace_environments -> workspaces (workspace_id));
 diesel::joinable!(knowledge_source_files -> knowledge_sources (knowledge_source_id));
 diesel::joinable!(gateway_provider_connections -> workspaces (workspace_id));
-diesel::joinable!(enforcement_profiles -> workspaces (workspace_id));
 diesel::joinable!(gateway_routes -> workspaces (workspace_id));
 diesel::joinable!(analytics_dashboard_views -> workspaces (workspace_id));
 diesel::joinable!(financial_actions -> workspaces (workspace_id));
@@ -717,7 +721,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     knowledge_sources,
     knowledge_source_files,
     gateway_provider_connections,
-    enforcement_profiles,
     gateway_routes,
     human_review_events,
     run_events,
@@ -734,6 +737,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     financial_payment_reservations,
     budget_alert_configs,
     budget_alert_firings,
+    llm_budget_principal_locks,
+    llm_budget_reservations,
     llm_model_prices,
     llm_usage_events,
     mandates,

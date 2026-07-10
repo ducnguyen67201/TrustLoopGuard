@@ -67,7 +67,6 @@ pub(super) async fn create_gateway_run(
                     "route_id": resolved.route.id,
                     "gateway_request_id": gateway_request_id,
                     "provider": provider_kind_text(resolved.provider_connection.kind),
-                    "enforcement_profile_id": resolved.enforcement_profile.id,
                 }),
             },
         )

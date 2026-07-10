@@ -1,6 +1,5 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { EnforcementProfile } from '@trustloopguard/sdk';
 
 import { GatewayPageContent } from './GatewayPageContent';
 
@@ -55,43 +54,24 @@ const shell: Pick<
 };
 
 describe('GatewayPageContent', () => {
-  it('renders partial gateway profile data without crashing', () => {
-    const profile = {
-      id: 'profile_1',
-      display_name: 'Default profile',
-      output_action: 'allow',
-      fail_mode: 'closed',
-      retention_mode: 'metadata_only',
-      response_mode: 'regular',
-      fallback_message: 'Blocked',
-      max_regenerations: 1,
-      created_at: '2026-05-30T00:00:00Z',
-      updated_at: '2026-05-30T00:00:00Z',
-    } as EnforcementProfile;
-
+  it('shows the policy-authoritative two-resource setup', () => {
     render(
       <GatewayPageContent
         apiBaseUrl="http://localhost:3001"
         data={{
           ...shell,
           providerConnections: [],
-          enforcementProfiles: [profile],
           gatewayRoutes: [],
           activeRuntimeKeyCount: 1,
         }}
       />,
     );
-
-    // The row shows friendly, non-technical wording: a missing input action reads
-    // "Unknown", `allow` reads "Allow", and `closed` becomes "Block when unsure".
-    expect(
-      screen.getByRole('row', { name: /default profile unknown allow block when unsure/i }),
-    ).toBeInTheDocument();
-
-    // The page header carries the plain-language gateway explanation.
-    expect(
-      screen.getByRole('heading', { level: 1, name: /gateway/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /gateway/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /routes/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /providers/i })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /rule sets/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /connect your app/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/enabled policies apply automatically/i)).toBeInTheDocument();
   });
 
   it('guides a non-technical user with plain-language empty and warning states', () => {
@@ -101,7 +81,6 @@ describe('GatewayPageContent', () => {
         data={{
           ...shell,
           providerConnections: [],
-          enforcementProfiles: [],
           gatewayRoutes: [],
           activeRuntimeKeyCount: 0,
         }}
@@ -109,7 +88,7 @@ describe('GatewayPageContent', () => {
     );
 
     // With nothing set up, the default Routes tab explains the next step in plain words.
-    expect(screen.getByText(/no routes set up yet/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/no routes set up yet/i).length).toBeGreaterThan(0);
 
     // Missing API key warning is phrased for a non-technical reader.
     expect(screen.getByText(/you need an api key first/i)).toBeInTheDocument();

@@ -1,18 +1,13 @@
 use tl_core::{
-    CreateEnforcementProfileRequest, CreateGatewayProviderConnectionRequest,
-    CreateGatewayRouteRequest, GatewayProviderKind, ResponseMode, RetentionMode,
-    UpdateEnforcementProfileRequest, UpdateGatewayProviderConnectionRequest,
-    UpdateGatewayRouteRequest,
+    CreateGatewayProviderConnectionRequest, CreateGatewayRouteRequest, GatewayProviderKind,
+    UpdateGatewayProviderConnectionRequest, UpdateGatewayRouteRequest,
 };
-#[cfg(feature = "postgres")]
-use tl_core::{FailMode, GatewayInputAction, GatewayOutputAction};
 use url::Url;
 use uuid::Uuid;
 
 use super::crypto::seal_provider_key;
 use super::store::{
-    EnforcementProfilePatch, GatewayRoutePatch, NewEnforcementProfile,
-    NewGatewayProviderConnection, NewGatewayRoute, ProviderConnectionPatch,
+    GatewayRoutePatch, NewGatewayProviderConnection, NewGatewayRoute, ProviderConnectionPatch,
 };
 
 pub(super) fn normalize_provider_connection(
@@ -65,39 +60,6 @@ pub(super) fn normalize_provider_connection_patch(
     })
 }
 
-pub(super) fn normalize_enforcement_profile(
-    workspace_id: &str,
-    req: CreateEnforcementProfileRequest,
-) -> Result<NewEnforcementProfile, String> {
-    Ok(NewEnforcementProfile {
-        id: req.id.unwrap_or_else(|| format!("ep_{}", Uuid::now_v7())),
-        workspace_id: workspace_id.to_string(),
-        display_name: required_trimmed(req.display_name, "display_name")?,
-        input_action: req.input_action,
-        output_action: req.output_action,
-        fail_mode: req.fail_mode,
-        retention_mode: req.retention_mode,
-        response_mode: req.response_mode,
-        fallback_message: required_trimmed(req.fallback_message, "fallback_message")?,
-        max_regenerations: req.max_regenerations,
-    })
-}
-
-pub(super) fn normalize_enforcement_profile_patch(
-    req: UpdateEnforcementProfileRequest,
-) -> Result<EnforcementProfilePatch, String> {
-    Ok(EnforcementProfilePatch {
-        display_name: normalize_optional_text(req.display_name, "display_name")?,
-        input_action: req.input_action,
-        output_action: req.output_action,
-        fail_mode: req.fail_mode,
-        retention_mode: req.retention_mode,
-        response_mode: req.response_mode,
-        fallback_message: normalize_optional_text(req.fallback_message, "fallback_message")?,
-        max_regenerations: req.max_regenerations,
-    })
-}
-
 pub(super) fn normalize_gateway_route(
     workspace_id: &str,
     req: CreateGatewayRouteRequest,
@@ -111,10 +73,6 @@ pub(super) fn normalize_gateway_route(
             "provider_connection_id",
         )?,
         agent_id: required_trimmed(req.agent_id, "agent_id")?,
-        enforcement_profile_id: required_trimmed(
-            req.enforcement_profile_id,
-            "enforcement_profile_id",
-        )?,
     })
 }
 
@@ -128,10 +86,6 @@ pub(super) fn normalize_gateway_route_patch(
             "provider_connection_id",
         )?,
         agent_id: normalize_optional_text(req.agent_id, "agent_id")?,
-        enforcement_profile_id: normalize_optional_text(
-            req.enforcement_profile_id,
-            "enforcement_profile_id",
-        )?,
     })
 }
 
@@ -226,55 +180,7 @@ pub(super) fn provider_kind_text(kind: GatewayProviderKind) -> &'static str {
     }
 }
 
-pub(super) fn retention_mode_text(mode: RetentionMode) -> &'static str {
-    match mode {
-        RetentionMode::MetadataOnly => "metadata_only",
-        RetentionMode::RedactedBody => "redacted_body",
-        RetentionMode::FullBody => "full_body",
-    }
-}
-
 #[cfg(feature = "postgres")]
 pub(crate) fn provider_kind_storage_text(kind: GatewayProviderKind) -> &'static str {
     provider_kind_text(kind)
-}
-
-#[cfg(feature = "postgres")]
-pub(crate) fn input_action_storage_text(action: GatewayInputAction) -> &'static str {
-    match action {
-        GatewayInputAction::Allow => "allow",
-        GatewayInputAction::Block => "block",
-        GatewayInputAction::Redact => "redact",
-    }
-}
-
-#[cfg(feature = "postgres")]
-pub(crate) fn output_action_storage_text(action: GatewayOutputAction) -> &'static str {
-    match action {
-        GatewayOutputAction::Allow => "allow",
-        GatewayOutputAction::Block => "block",
-        GatewayOutputAction::Rewrite => "rewrite",
-        GatewayOutputAction::Escalate => "escalate",
-    }
-}
-
-#[cfg(feature = "postgres")]
-pub(crate) fn fail_mode_storage_text(mode: FailMode) -> &'static str {
-    match mode {
-        FailMode::Open => "open",
-        FailMode::Closed => "closed",
-    }
-}
-
-#[cfg(feature = "postgres")]
-pub(crate) fn retention_mode_storage_text(mode: RetentionMode) -> &'static str {
-    retention_mode_text(mode)
-}
-
-#[cfg(feature = "postgres")]
-pub(crate) fn response_mode_storage_text(mode: ResponseMode) -> &'static str {
-    match mode {
-        ResponseMode::Regular => "regular",
-        ResponseMode::Streaming => "streaming",
-    }
 }

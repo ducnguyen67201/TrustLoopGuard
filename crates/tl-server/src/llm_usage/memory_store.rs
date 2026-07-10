@@ -1,47 +1,57 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use tl_core::{LlmUsageBucket, LlmUsageBucketsResponse, LlmUsageEvent, LlmUsageListResponse};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
 use super::{
-    LlmUsageFilter, LlmUsageGroupBy, LlmUsageStore, LlmUsageStoreError, RecordLlmUsageEvent,
+    LlmBudgetWindow, LlmUsageFilter, LlmUsageGroupBy, LlmUsageStore, LlmUsageStoreError,
+    RecordLlmUsageEvent, ReserveLlmBudget, ReserveLlmBudgetOutcome,
 };
 
 /// Raw-listing cap, mirroring the postgres repo's `LIST_EVENTS_LIMIT`
 /// so both `LlmUsageStore` backends truncate identically.
 const LIST_EVENTS_LIMIT: usize = 1000;
+const NANOS_PER_MINOR: i64 = 10_000_000;
+
+#[derive(Debug, Clone)]
+struct MemoryBudgetReservation {
+    workspace_id: String,
+    request_id: String,
+    principal_id: String,
+    currency: String,
+    reserved_nanos: i64,
+    status: &'static str,
+    created_at: DateTime<Utc>,
+}
 
 #[derive(Debug, Default)]
 pub struct MemoryLlmUsageStore {
+    /// Serializes usage writes and budget reservations so component
+    /// tests exercise the same per-principal atomicity as Postgres.
+    mutation: Mutex<()>,
     /// Stored events plus the parsed `effective_at` used for window
     /// filtering (the API struct carries it as an RFC 3339 string).
     events: RwLock<Vec<(DateTime<Utc>, LlmUsageEvent)>>,
     /// Seen `(workspace_id, request_id)` pairs — a tuple, not a joined
     /// string, so ids containing the separator can't collide.
     request_ids: RwLock<HashSet<(String, String)>>,
+    event_cost_nanos: RwLock<HashMap<(String, String), i64>>,
+    reservations: RwLock<Vec<MemoryBudgetReservation>>,
 }
 
 impl MemoryLlmUsageStore {
     pub fn new() -> Self {
         Self::default()
     }
-}
 
-#[async_trait]
-impl LlmUsageStore for MemoryLlmUsageStore {
-    async fn insert_event(
-        &self,
-        workspace_id: &str,
-        event: RecordLlmUsageEvent,
-    ) -> Result<(), LlmUsageStoreError> {
+    async fn insert_event_locked(&self, workspace_id: &str, event: RecordLlmUsageEvent) {
         let scoped_request_id = (workspace_id.to_string(), event.request_id.clone());
+        let cost_nanos = event.cost_nanos;
         let mut request_ids = self.request_ids.write().await;
         if request_ids.contains(&scoped_request_id) {
-            // Retried metering write — first row wins, mirroring the
-            // postgres ON CONFLICT DO NOTHING.
-            return Ok(());
+            return;
         }
         let effective_at = Utc::now();
         self.events.write().await.push((
@@ -61,7 +71,155 @@ impl LlmUsageStore for MemoryLlmUsageStore {
                 effective_at: effective_at.to_rfc3339(),
             },
         ));
+        self.event_cost_nanos
+            .write()
+            .await
+            .insert(scoped_request_id.clone(), cost_nanos);
         request_ids.insert(scoped_request_id);
+    }
+}
+
+#[async_trait]
+impl LlmUsageStore for MemoryLlmUsageStore {
+    async fn insert_event(
+        &self,
+        workspace_id: &str,
+        event: RecordLlmUsageEvent,
+    ) -> Result<(), LlmUsageStoreError> {
+        let _mutation = self.mutation.lock().await;
+        self.insert_event_locked(workspace_id, event).await;
+        Ok(())
+    }
+
+    async fn reserve_budget(
+        &self,
+        workspace_id: &str,
+        reservation: ReserveLlmBudget,
+    ) -> Result<ReserveLlmBudgetOutcome, LlmUsageStoreError> {
+        let _mutation = self.mutation.lock().await;
+        let events = self.events.read().await;
+        let event_costs = self.event_cost_nanos.read().await;
+        let reservations = self.reservations.read().await;
+        for (window, start, cap) in [
+            (
+                LlmBudgetWindow::Day,
+                reservation.day_start,
+                reservation.caps.daily,
+            ),
+            (
+                LlmBudgetWindow::Week,
+                reservation.week_start,
+                reservation.caps.weekly,
+            ),
+            (
+                LlmBudgetWindow::Month,
+                reservation.month_start,
+                reservation.caps.monthly,
+            ),
+        ] {
+            let Some(cap_nanos) = cap else { continue };
+            let spent = events
+                .iter()
+                .filter(|(effective_at, event)| {
+                    event.workspace_id == workspace_id
+                        && event.principal_id == reservation.principal_id
+                        && event.currency.eq_ignore_ascii_case(&reservation.currency)
+                        && *effective_at >= start
+                        && *effective_at < reservation.now
+                })
+                .fold(0_i64, |total, (_, event)| {
+                    total.saturating_add(
+                        *event_costs
+                            .get(&(workspace_id.to_string(), event.request_id.clone()))
+                            .unwrap_or(&0),
+                    )
+                });
+            let active = reservations
+                .iter()
+                .filter(|existing| {
+                    existing.workspace_id == workspace_id
+                        && existing.principal_id == reservation.principal_id
+                        && existing
+                            .currency
+                            .eq_ignore_ascii_case(&reservation.currency)
+                        && existing.status == "active"
+                        && existing.created_at >= start
+                        && existing.created_at < reservation.now
+                })
+                .fold(0_i64, |total, existing| {
+                    total.saturating_add(existing.reserved_nanos)
+                });
+            let committed_nanos = spent.saturating_add(active);
+            if committed_nanos.saturating_add(reservation.reserved_nanos) > cap_nanos {
+                return Ok(ReserveLlmBudgetOutcome::Exceeded {
+                    window,
+                    cap_nanos,
+                    committed_nanos,
+                    requested_nanos: reservation.reserved_nanos,
+                });
+            }
+        }
+        drop(reservations);
+        drop(event_costs);
+        drop(events);
+        self.reservations
+            .write()
+            .await
+            .push(MemoryBudgetReservation {
+                workspace_id: workspace_id.to_string(),
+                request_id: reservation.request_id,
+                principal_id: reservation.principal_id,
+                currency: reservation.currency.to_uppercase(),
+                reserved_nanos: reservation.reserved_nanos,
+                status: "active",
+                created_at: reservation.now,
+            });
+        Ok(ReserveLlmBudgetOutcome::Reserved)
+    }
+
+    async fn settle_budget(
+        &self,
+        workspace_id: &str,
+        request_id: &str,
+        event: RecordLlmUsageEvent,
+    ) -> Result<(), LlmUsageStoreError> {
+        let _mutation = self.mutation.lock().await;
+        self.insert_event_locked(workspace_id, event).await;
+        if let Some(reservation) = self
+            .reservations
+            .write()
+            .await
+            .iter_mut()
+            .find(|reservation| {
+                reservation.workspace_id == workspace_id
+                    && reservation.request_id == request_id
+                    && reservation.status == "active"
+            })
+        {
+            reservation.status = "settled";
+        }
+        Ok(())
+    }
+
+    async fn release_budget(
+        &self,
+        workspace_id: &str,
+        request_id: &str,
+    ) -> Result<(), LlmUsageStoreError> {
+        let _mutation = self.mutation.lock().await;
+        if let Some(reservation) = self
+            .reservations
+            .write()
+            .await
+            .iter_mut()
+            .find(|reservation| {
+                reservation.workspace_id == workspace_id
+                    && reservation.request_id == request_id
+                    && reservation.status == "active"
+            })
+        {
+            reservation.status = "released";
+        }
         Ok(())
     }
 
@@ -73,8 +231,10 @@ impl LlmUsageStore for MemoryLlmUsageStore {
         start: DateTime<Utc>,
         end: DateTime<Utc>,
     ) -> Result<i64, LlmUsageStoreError> {
+        let _mutation = self.mutation.lock().await;
         let currency = currency.to_uppercase();
-        Ok(self
+        let event_costs = self.event_cost_nanos.read().await;
+        let total_nanos = self
             .events
             .read()
             .await
@@ -87,8 +247,13 @@ impl LlmUsageStore for MemoryLlmUsageStore {
                     && *effective_at < end
             })
             .fold(0_i64, |total, (_, event)| {
-                total.saturating_add(event.cost_minor)
-            }))
+                total.saturating_add(
+                    *event_costs
+                        .get(&(workspace_id.to_string(), event.request_id.clone()))
+                        .unwrap_or(&0),
+                )
+            });
+        Ok(total_nanos / NANOS_PER_MINOR)
     }
 
     async fn list_events(
@@ -119,9 +284,12 @@ impl LlmUsageStore for MemoryLlmUsageStore {
         group_by: LlmUsageGroupBy,
         filter: &LlmUsageFilter,
     ) -> Result<LlmUsageBucketsResponse, LlmUsageStoreError> {
+        let _mutation = self.mutation.lock().await;
+        let event_costs = self.event_cost_nanos.read().await;
         // BTreeMap keeps buckets ordered by key ascending, matching the
         // SQL `GROUP BY 1 ORDER BY 1`.
         let mut buckets: BTreeMap<String, LlmUsageBucket> = BTreeMap::new();
+        let mut bucket_nanos: HashMap<String, i64> = HashMap::new();
         for (effective_at, event) in
             self.events
                 .read()
@@ -139,7 +307,7 @@ impl LlmUsageStore for MemoryLlmUsageStore {
                 LlmUsageGroupBy::Model => event.model.clone(),
             };
             let bucket = buckets.entry(key.clone()).or_insert(LlmUsageBucket {
-                key,
+                key: key.clone(),
                 prompt_tokens: 0,
                 completion_tokens: 0,
                 cost_minor: 0,
@@ -150,10 +318,15 @@ impl LlmUsageStore for MemoryLlmUsageStore {
             bucket.completion_tokens = bucket
                 .completion_tokens
                 .saturating_add(event.completion_tokens);
-            bucket.cost_minor = bucket.cost_minor.saturating_add(event.cost_minor);
+            let cost_nanos = *event_costs
+                .get(&(workspace_id.to_string(), event.request_id.clone()))
+                .unwrap_or(&0);
+            let total_nanos = bucket_nanos.entry(key).or_default();
+            *total_nanos = total_nanos.saturating_add(cost_nanos);
+            bucket.cost_minor = *total_nanos / NANOS_PER_MINOR;
             bucket.calls += 1;
             if group_by == LlmUsageGroupBy::Model
-                && event.cost_minor == 0
+                && cost_nanos == 0
                 && event.prompt_tokens.saturating_add(event.completion_tokens) > 0
             {
                 bucket.unpriced = Some(true);
@@ -205,6 +378,7 @@ mod tests {
             prompt_tokens: 100,
             completion_tokens: 10,
             cost_minor,
+            cost_nanos: cost_minor.saturating_mul(NANOS_PER_MINOR),
             currency: "USD".into(),
             request_id: request_id.into(),
             metadata: serde_json::json!({}),
@@ -275,6 +449,24 @@ mod tests {
         assert_eq!(by_model[0].key, "unknown-model");
         assert_eq!(by_model[0].cost_minor, 10);
         assert_eq!(by_model[0].unpriced, Some(true));
+    }
+
+    #[tokio::test]
+    async fn grouped_usage_accumulates_sub_cent_precision_before_rounding() {
+        let store = MemoryLlmUsageStore::new();
+        for request_id in ["r1", "r2"] {
+            let mut usage = event_with_cost("user:a", "cheap-model", request_id, 0);
+            usage.cost_nanos = 6_000_000;
+            store.insert_event("ws", usage).await.unwrap();
+        }
+
+        let buckets = store
+            .grouped_usage("ws", LlmUsageGroupBy::Model, &LlmUsageFilter::default())
+            .await
+            .unwrap()
+            .buckets;
+        assert_eq!(buckets[0].cost_minor, 1);
+        assert!(buckets[0].unpriced.is_none());
     }
 
     #[tokio::test]

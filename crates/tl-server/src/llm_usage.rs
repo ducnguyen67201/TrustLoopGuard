@@ -42,6 +42,8 @@ pub struct RecordLlmUsageEvent {
     pub prompt_tokens: i64,
     pub completion_tokens: i64,
     pub cost_minor: i64,
+    /// USD nanos ($1 = 1,000,000,000) used for hard-cap accounting.
+    pub cost_nanos: i64,
     pub currency: String,
     /// Gateway request id; unique per workspace so retried writes are
     /// idempotent.
@@ -64,6 +66,45 @@ pub enum LlmUsageGroupBy {
     Model,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LlmBudgetCapsNanos {
+    pub daily: Option<i64>,
+    pub weekly: Option<i64>,
+    pub monthly: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReserveLlmBudget {
+    pub request_id: String,
+    pub principal_id: String,
+    pub api_key_id: String,
+    pub currency: String,
+    pub reserved_nanos: i64,
+    pub caps: LlmBudgetCapsNanos,
+    pub day_start: DateTime<Utc>,
+    pub week_start: DateTime<Utc>,
+    pub month_start: DateTime<Utc>,
+    pub now: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LlmBudgetWindow {
+    Day,
+    Week,
+    Month,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReserveLlmBudgetOutcome {
+    Reserved,
+    Exceeded {
+        window: LlmBudgetWindow,
+        cap_nanos: i64,
+        committed_nanos: i64,
+        requested_nanos: i64,
+    },
+}
+
 #[async_trait]
 pub trait LlmUsageStore: Send + Sync {
     /// Record one metered call. Idempotent on `(workspace_id,
@@ -72,6 +113,29 @@ pub trait LlmUsageStore: Send + Sync {
         &self,
         workspace_id: &str,
         event: RecordLlmUsageEvent,
+    ) -> Result<(), LlmUsageStoreError>;
+
+    /// Atomically reserve a request's maximum provider cost against all
+    /// active cap windows for its principal.
+    async fn reserve_budget(
+        &self,
+        workspace_id: &str,
+        reservation: ReserveLlmBudget,
+    ) -> Result<ReserveLlmBudgetOutcome, LlmUsageStoreError>;
+
+    /// Record actual usage and settle its active reservation.
+    async fn settle_budget(
+        &self,
+        workspace_id: &str,
+        request_id: &str,
+        event: RecordLlmUsageEvent,
+    ) -> Result<(), LlmUsageStoreError>;
+
+    /// Release an active reservation when no provider spend occurred.
+    async fn release_budget(
+        &self,
+        workspace_id: &str,
+        request_id: &str,
     ) -> Result<(), LlmUsageStoreError>;
 
     /// Priced spend for one principal in `[start, end)` — the budget

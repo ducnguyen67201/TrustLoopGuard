@@ -103,8 +103,8 @@ await client.guardToolCall({
 ## Gateway mode
 
 The SDK keeps full control in your code. Gateway mode is the proxy path:
-configure a provider connection, enforcement profile, and route in the
-dashboard, then point provider traffic at TrustLoopGuard.
+configure a provider connection and an agent route in the dashboard, then point
+provider traffic at TrustLoopGuard. Enabled policies apply automatically.
 
 OpenAI-compatible example:
 
@@ -119,6 +119,7 @@ const openai = new OpenAI({
 const response = await openai.chat.completions.create({
   model: 'gpt-4o-mini',
   messages: [{ role: 'user', content: userMessage }],
+  max_tokens: 512,
 });
 ```
 
@@ -133,14 +134,13 @@ const anthropic = new Anthropic({
 });
 ```
 
-SDK mode returns a decision for your code to handle. Gateway mode applies
-the dashboard enforcement profile before returning a provider-compatible
-response.
+SDK mode returns a decision for your code to handle. Gateway mode applies the
+same policy decision before returning a provider-compatible response.
 
-Gateway configuration types such as `GatewayRoute`, `EnforcementProfile`, and
+Gateway configuration types such as `GatewayRoute` and
 `GatewayProviderConnection` are exported from this package.
 
-Streaming gateway requests are not supported yet.
+Streaming requests are buffered, checked, and returned as provider-native SSE.
 
 ## Requirements
 

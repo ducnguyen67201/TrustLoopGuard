@@ -23,7 +23,6 @@ async fn openai_gateway_streams_guarded_response_as_sse() {
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
     create_common_gateway_config(app.clone(), workspace, &provider.uri(), "openai_compatible")
         .await;
-    enable_streaming_mode(app.clone(), workspace).await;
 
     let resp = app
         .clone()
@@ -87,7 +86,6 @@ async fn openai_gateway_streams_blocked_output_as_sse() {
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
     create_common_gateway_config(app.clone(), workspace, &provider.uri(), "openai_compatible")
         .await;
-    enable_streaming_mode(app.clone(), workspace).await;
 
     let resp = app
         .oneshot(json_request(
@@ -122,41 +120,6 @@ async fn openai_gateway_streams_blocked_output_as_sse() {
 }
 
 #[tokio::test]
-async fn gateway_rejects_streaming_when_profile_is_regular() {
-    let provider = MockServer::start().await;
-    let app = build_app().await;
-    let workspace = "ws_gateway_regular_no_stream";
-    let runtime_key = create_workspace_key(app.clone(), workspace).await;
-    // Default profile response_mode is "regular" — streaming must be refused.
-    create_common_gateway_config(app.clone(), workspace, &provider.uri(), "openai_compatible")
-        .await;
-
-    let resp = app
-        .oneshot(json_request(
-            "POST",
-            "/v1/gateway/route/openai/chat/completions",
-            &runtime_key,
-            workspace,
-            json!({
-                "model": "mock-model",
-                "stream": true,
-                "messages": [{ "role": "user", "content": "hello" }]
-            }),
-        ))
-        .await
-        .unwrap();
-
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
-    let body = read_body(resp).await;
-    assert!(body["message"]
-        .as_str()
-        .unwrap()
-        .contains("streaming is not enabled"));
-    // The provider must never be called when streaming is refused up front.
-    provider.verify().await;
-}
-
-#[tokio::test]
 async fn anthropic_gateway_streams_guarded_response_as_sse() {
     let provider = MockServer::start().await;
     Mock::given(method("POST"))
@@ -179,7 +142,6 @@ async fn anthropic_gateway_streams_guarded_response_as_sse() {
     let workspace = "ws_gateway_anthropic_stream";
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
     create_common_gateway_config(app.clone(), workspace, &provider.uri(), "anthropic").await;
-    enable_streaming_mode(app.clone(), workspace).await;
 
     let resp = app
         .clone()

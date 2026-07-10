@@ -19,14 +19,6 @@ pub(super) fn gateway_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> Ro
             patch(gateway::patch_gateway_provider_connection),
         )
         .route(
-            "/v1/enforcement-profiles",
-            get(gateway::list_enforcement_profiles).post(gateway::create_enforcement_profile),
-        )
-        .route(
-            "/v1/enforcement-profiles/:id",
-            patch(gateway::patch_enforcement_profile),
-        )
-        .route(
             "/v1/gateway/routes",
             get(gateway::list_gateway_routes).post(gateway::create_gateway_route),
         )

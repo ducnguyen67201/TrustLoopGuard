@@ -262,7 +262,6 @@ class CreateBudgetAlertConfigRequest(BaseModel):
 class CreateGatewayRouteRequest(BaseModel):
     agent_id: str
     display_name: str
-    enforcement_profile_id: str
     id: str | None = None
     provider_connection_id: str
 
@@ -360,11 +359,6 @@ class EvidenceRef(BaseModel):
     observed_at: str | None = None
     source: str
     source_id: str
-
-
-class FailMode(Enum):
-    open = 'open'
-    closed = 'closed'
 
 
 class FinancialActionDecision(Enum):
@@ -499,19 +493,6 @@ class GatewayCredentialStatus(Enum):
     missing = 'missing'
 
 
-class GatewayInputAction(Enum):
-    allow = 'allow'
-    block = 'block'
-    redact = 'redact'
-
-
-class GatewayOutputAction(Enum):
-    allow = 'allow'
-    block = 'block'
-    rewrite = 'rewrite'
-    escalate = 'escalate'
-
-
 class GatewayProviderKind(Enum):
     openai_compatible = 'openai_compatible'
     anthropic = 'anthropic'
@@ -522,7 +503,6 @@ class GatewayRoute(BaseModel):
     agent_id: str
     created_at: str
     display_name: str
-    enforcement_profile_id: str
     id: str
     provider_connection_id: str
     updated_at: str
@@ -993,17 +973,6 @@ class ReportSeverity(Enum):
     info = 'info'
 
 
-class ResponseMode(Enum):
-    regular = 'regular'
-    streaming = 'streaming'
-
-
-class RetentionMode(Enum):
-    metadata_only = 'metadata_only'
-    redacted_body = 'redacted_body'
-    full_body = 'full_body'
-
-
 class ReversalCapability(Enum):
     none = 'none'
     cancel_before_capture = 'cancel_before_capture'
@@ -1180,17 +1149,6 @@ class UpdateBudgetAlertConfigRequest(BaseModel):
     window: BudgetAlertWindow | None = None
 
 
-class UpdateEnforcementProfileRequest(BaseModel):
-    display_name: str | None = None
-    fail_mode: FailMode | None = None
-    fallback_message: str | None = None
-    input_action: GatewayInputAction | None = None
-    max_regenerations: conint(ge=0) | None = None
-    output_action: GatewayOutputAction | None = None
-    response_mode: ResponseMode | None = None
-    retention_mode: RetentionMode | None = None
-
-
 class UpdateEnvironmentCheckerModesRequest(BaseModel):
     approval_checker_mode: EnforcementMode | None = None
     flow_checker_mode: EnforcementMode | None = None
@@ -1208,7 +1166,6 @@ class UpdateGatewayProviderConnectionRequest(BaseModel):
 class UpdateGatewayRouteRequest(BaseModel):
     agent_id: str | None = None
     display_name: str | None = None
-    enforcement_profile_id: str | None = None
     provider_connection_id: str | None = None
 
 
@@ -1575,18 +1532,6 @@ class CreateApiKeyResponse(BaseModel):
     )
 
 
-class CreateEnforcementProfileRequest(BaseModel):
-    display_name: str
-    fail_mode: FailMode
-    fallback_message: str
-    id: str | None = None
-    input_action: GatewayInputAction
-    max_regenerations: conint(ge=0) | None = None
-    output_action: GatewayOutputAction
-    response_mode: ResponseMode | None = None
-    retention_mode: RetentionMode
-
-
 class CreateFinancialMandateRequest(BaseModel):
     expires_at: str | None = None
     id: str | None = None
@@ -1648,24 +1593,6 @@ class CreateRunRequest(BaseModel):
     kind: RunKind
     metadata: Any | None = None
     status: RunStatus | None = None
-
-
-class EnforcementProfile(BaseModel):
-    created_at: str
-    display_name: str
-    fail_mode: FailMode
-    fallback_message: str
-    id: str
-    input_action: GatewayInputAction
-    max_regenerations: conint(ge=0)
-    output_action: GatewayOutputAction
-    response_mode: ResponseMode | None = None
-    retention_mode: RetentionMode
-    updated_at: str
-
-
-class EnforcementProfileListResponse(BaseModel):
-    enforcement_profiles: list[EnforcementProfile]
 
 
 class FinancialAction(BaseModel):

@@ -64,17 +64,14 @@ export const GLOSSARY = {
     short:
       'A drop-in URL you send your AI service calls through, so every request is checked automatically — no code changes.',
   },
-  enforcementProfile: {
-    label: 'Enforcement profile',
-    short: 'A reusable bundle of policies you can apply to many routes at once.',
-  },
   provider: {
     label: 'Provider',
     short: 'An AI service you connect, like OpenAI or Anthropic, that the gateway forwards requests to.',
   },
   route: {
     label: 'Route',
-    short: 'A path through the gateway that forwards traffic to a provider and applies your rules.',
+    short:
+      'A gateway address that connects one provider and agent; enabled policies apply automatically.',
   },
   run: {
     label: 'Run',

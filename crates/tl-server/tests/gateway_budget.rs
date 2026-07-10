@@ -3,7 +3,13 @@
 //! `tests/gateway.rs` harness) and drives the real router: workspace
 //! key → budget policy → proxy → usage events.
 
-use std::sync::Arc;
+use std::{
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
 use axum::{
     body::Body,
@@ -131,28 +137,6 @@ async fn create_common_gateway_config(app: axum::Router, workspace: &str, base_u
         .unwrap();
     assert_eq!(provider_resp.status(), StatusCode::CREATED);
 
-    let profile_resp = app
-        .clone()
-        .oneshot(json_request(
-            "POST",
-            "/v1/enforcement-profiles",
-            "sk-internal",
-            workspace,
-            json!({
-                "id": "profile",
-                "display_name": "Pass-through",
-                "input_action": "allow",
-                "output_action": "allow",
-                "fail_mode": "open",
-                "retention_mode": "full_body",
-                "fallback_message": "Blocked by TrustLoopGuard.",
-                "max_regenerations": 0
-            }),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(profile_resp.status(), StatusCode::CREATED);
-
     let route_resp = app
         .oneshot(json_request(
             "POST",
@@ -163,8 +147,7 @@ async fn create_common_gateway_config(app: axum::Router, workspace: &str, base_u
                 "id": "route",
                 "display_name": "Gateway route",
                 "provider_connection_id": "provider",
-                "agent_id": "agent",
-                "enforcement_profile_id": "profile"
+                "agent_id": "agent"
             }),
         ))
         .await
@@ -220,7 +203,41 @@ fn mount_chat_completion(model: &str, prompt_tokens: i64, completion_tokens: i64
         })))
 }
 
-fn chat_request(runtime_key: &str, workspace: &str, body: Value) -> Request<Body> {
+fn mount_delayed_chat_completion(
+    model: &str,
+    prompt_tokens: i64,
+    completion_tokens: i64,
+    delay: Duration,
+) -> Mock {
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .and(wire_header("authorization", "Bearer provider-secret"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_delay(delay)
+                .set_body_json(json!({
+                    "id": "chatcmpl_delayed",
+                    "object": "chat.completion",
+                    "created": 1,
+                    "model": model,
+                    "choices": [{
+                        "index": 0,
+                        "message": { "role": "assistant", "content": "safe reply" },
+                        "finish_reason": "stop"
+                    }],
+                    "usage": {
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens,
+                        "total_tokens": prompt_tokens + completion_tokens
+                    }
+                })),
+        )
+}
+
+fn chat_request(runtime_key: &str, workspace: &str, mut body: Value) -> Request<Body> {
+    if body.get("max_tokens").is_none() && body.get("max_completion_tokens").is_none() {
+        body["max_tokens"] = json!(1_000_000);
+    }
     json_request(
         "POST",
         "/v1/gateway/route/openai/chat/completions",
@@ -340,11 +357,12 @@ async fn at_cap_denies_without_calling_upstream() {
 }
 
 #[tokio::test]
-async fn spend_reaching_cap_denies_the_next_request() {
+async fn next_request_is_denied_when_its_maximum_cost_exceeds_remaining_budget() {
     let provider = MockServer::start().await;
-    // First call lands exactly at the cap (137); the second must be
-    // denied — boundary check: spent == cap denies.
-    mount_chat_completion("deepseek-chat", 1_000_000, 1_000_000)
+    // First call costs just over 499 cents at the built-in output price
+    // (110 cents / 1M tokens). The second request can cost more than the
+    // remaining cent, so it must be denied before the provider sees it.
+    mount_chat_completion("deepseek-chat", 0, 4_536_364)
         .expect(1)
         .mount(&provider)
         .await;
@@ -353,36 +371,48 @@ async fn spend_reaching_cap_denies_the_next_request() {
     let workspace = "ws_budget_overshoot";
     let runtime_key = create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
     create_common_gateway_config(app.clone(), workspace, &provider.uri()).await;
-    create_weekly_llm_budget(app.clone(), workspace, 137).await;
+    create_weekly_llm_budget(app.clone(), workspace, 500).await;
 
-    let request_body = json!({
+    let first_body = json!({
         "model": "deepseek-chat",
-        "messages": [{ "role": "user", "content": "hello" }]
+        "messages": [{ "role": "user", "content": "hello" }],
+        "max_tokens": 4_536_364
     });
     let first = app
         .clone()
-        .oneshot(chat_request(&runtime_key, workspace, request_body.clone()))
+        .oneshot(chat_request(&runtime_key, workspace, first_body))
         .await
         .unwrap();
     assert_eq!(first.status(), StatusCode::OK);
 
     let second = app
         .clone()
-        .oneshot(chat_request(&runtime_key, workspace, request_body))
+        .oneshot(chat_request(
+            &runtime_key,
+            workspace,
+            json!({
+                "model": "deepseek-chat",
+                "messages": [{ "role": "user", "content": "next" }],
+                "max_tokens": 20_000
+            }),
+        ))
         .await
         .unwrap();
     assert_eq!(second.status(), StatusCode::TOO_MANY_REQUESTS);
     let body = read_body(second).await;
     assert_eq!(body["error"]["code"], "budget_exceeded");
+    let message = body["error"]["message"].as_str().unwrap();
+    assert!(message.contains("maximum"), "message: {message}");
+    assert!(message.contains("remaining"), "message: {message}");
 
     provider.verify().await;
 }
 
 #[tokio::test]
-async fn unknown_model_forwards_and_meters_cost_zero() {
+async fn unknown_model_fails_closed_when_a_budget_is_active() {
     let provider = MockServer::start().await;
     mount_chat_completion("mystery-1", 500, 100)
-        .expect(1)
+        .expect(0)
         .mount(&provider)
         .await;
 
@@ -399,21 +429,165 @@ async fn unknown_model_forwards_and_meters_cost_zero() {
             workspace,
             json!({
                 "model": "mystery-1",
+                "messages": [{ "role": "user", "content": "hello" }],
+                "max_tokens": 100
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let body = read_body(resp).await;
+    assert_eq!(body["error"]["code"], "pricing_unavailable");
+
+    let usage = list_usage(app, workspace, "").await;
+    assert_eq!(usage["events"].as_array().unwrap().len(), 0);
+
+    provider.verify().await;
+}
+
+#[tokio::test]
+async fn active_budget_requires_a_bounded_output_token_count() {
+    let provider = MockServer::start().await;
+    mount_chat_completion("deepseek-chat", 10, 10)
+        .expect(0)
+        .mount(&provider)
+        .await;
+
+    let app = build_app().await;
+    let workspace = "ws_budget_requires_max_tokens";
+    let runtime_key = create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
+    create_common_gateway_config(app.clone(), workspace, &provider.uri()).await;
+    create_weekly_llm_budget(app.clone(), workspace, 500).await;
+
+    let resp = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/gateway/route/openai/chat/completions",
+            &runtime_key,
+            workspace,
+            json!({
+                "model": "deepseek-chat",
                 "messages": [{ "role": "user", "content": "hello" }]
             }),
         ))
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body = read_body(resp).await;
+    assert_eq!(body["error"]["code"], "budget_max_tokens_required");
 
-    let usage = list_usage(app, workspace, "").await;
-    let events = usage["events"].as_array().unwrap();
-    assert_eq!(events.len(), 1);
-    assert_eq!(events[0]["model"], "mystery-1");
-    assert_eq!(events[0]["prompt_tokens"], 500);
-    assert_eq!(events[0]["completion_tokens"], 100);
-    // Unknown model → tokens metered honestly, cost 0.
-    assert_eq!(events[0]["cost_minor"], 0);
+    provider.verify().await;
+}
+
+#[tokio::test]
+async fn concurrent_requests_cannot_reserve_the_same_remaining_budget() {
+    let provider = MockServer::start().await;
+    mount_delayed_chat_completion("deepseek-chat", 0, 1_000, Duration::from_millis(150))
+        .expect(1)
+        .mount(&provider)
+        .await;
+
+    let app = build_app().await;
+    let workspace = "ws_budget_concurrent_reservation";
+    let runtime_key = create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
+    create_common_gateway_config(app.clone(), workspace, &provider.uri()).await;
+    // Each request reserves slightly more than 1.1 cents at the
+    // built-in output price. Two reservations cannot fit under 2 cents.
+    create_weekly_llm_budget(app.clone(), workspace, 2).await;
+
+    let body = json!({
+        "model": "deepseek-chat",
+        "messages": [{ "role": "user", "content": "hello" }],
+        "max_tokens": 10_000
+    });
+    let first = app
+        .clone()
+        .oneshot(chat_request(&runtime_key, workspace, body.clone()));
+    let second = app
+        .clone()
+        .oneshot(chat_request(&runtime_key, workspace, body));
+    let (first, second) = tokio::join!(first, second);
+    let statuses = [first.unwrap().status(), second.unwrap().status()];
+    assert_eq!(
+        statuses
+            .iter()
+            .filter(|status| **status == StatusCode::OK)
+            .count(),
+        1,
+        "statuses: {statuses:?}"
+    );
+    assert_eq!(
+        statuses
+            .iter()
+            .filter(|status| **status == StatusCode::TOO_MANY_REQUESTS)
+            .count(),
+        1,
+        "statuses: {statuses:?}"
+    );
+
+    provider.verify().await;
+}
+
+#[tokio::test]
+async fn provider_failure_releases_the_unused_reservation() {
+    let provider = MockServer::start().await;
+    let attempts = Arc::new(AtomicUsize::new(0));
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .respond_with({
+            let attempts = attempts.clone();
+            move |_request: &wiremock::Request| {
+                if attempts.fetch_add(1, Ordering::SeqCst) == 0 {
+                    ResponseTemplate::new(500)
+                } else {
+                    ResponseTemplate::new(200).set_body_json(json!({
+                        "id": "chatcmpl_retry",
+                        "object": "chat.completion",
+                        "created": 1,
+                        "model": "deepseek-chat",
+                        "choices": [{
+                            "index": 0,
+                            "message": { "role": "assistant", "content": "safe reply" },
+                            "finish_reason": "stop"
+                        }],
+                        "usage": {
+                            "prompt_tokens": 0,
+                            "completion_tokens": 1_000,
+                            "total_tokens": 1_000
+                        }
+                    }))
+                }
+            }
+        })
+        .expect(2)
+        .mount(&provider)
+        .await;
+
+    let app = build_app().await;
+    let workspace = "ws_budget_release_on_provider_failure";
+    let runtime_key = create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
+    create_common_gateway_config(app.clone(), workspace, &provider.uri()).await;
+    create_weekly_llm_budget(app.clone(), workspace, 2).await;
+    let request = json!({
+        "model": "deepseek-chat",
+        "messages": [{ "role": "user", "content": "hello" }],
+        "max_tokens": 10_000
+    });
+
+    let failed = app
+        .clone()
+        .oneshot(chat_request(&runtime_key, workspace, request.clone()))
+        .await
+        .unwrap();
+    assert_eq!(failed.status(), StatusCode::BAD_GATEWAY);
+
+    let retried = app
+        .clone()
+        .oneshot(chat_request(&runtime_key, workspace, request))
+        .await
+        .unwrap();
+    assert_eq!(retried.status(), StatusCode::OK);
 
     provider.verify().await;
 }
@@ -431,20 +605,6 @@ async fn streaming_request_gets_sse_and_is_metered() {
     let runtime_key = create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
     create_common_gateway_config(app.clone(), workspace, &provider.uri()).await;
     create_weekly_llm_budget(app.clone(), workspace, 1_000).await;
-
-    // Flip the profile into streaming mode so stream:true is accepted.
-    let patch = app
-        .clone()
-        .oneshot(json_request(
-            "PATCH",
-            "/v1/enforcement-profiles/profile",
-            "sk-internal",
-            workspace,
-            json!({ "response_mode": "streaming" }),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(patch.status(), StatusCode::OK);
 
     let resp = app
         .clone()

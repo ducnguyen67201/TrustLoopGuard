@@ -171,6 +171,18 @@ Rust: `client.submit_event(&event)`. Python: `client.submit_event(event)`
 runs the GuardEvent pipeline, loads enabled workspace policies, evaluates them
 against the event, and returns one composed `Decision`.
 
+## Gateway contract
+
+Gateway configuration types are generated from `tl-core` alongside the SDK event types. A
+`GatewayRoute` binds `provider_connection_id` and `agent_id`; it does not carry a second policy or
+enforcement-profile reference. Gateway input and output are adapted to `GuardEvent`s and use the
+same server-side event service as direct SDK submission. The difference is ownership of the last
+step: SDK callers apply the returned `Decision`, while Gateway applies it to provider traffic.
+When an enabled `meter: llm_usage` policy applies, OpenAI-compatible callers must provide a
+positive `max_tokens` or `max_completion_tokens` bound and the workspace must have a trusted price
+for the requested model. Gateway reserves the maximum cost atomically before forwarding and settles
+the reservation to reported usage afterward.
+
 ## Typed financial authorization
 
 SDKs submit money-bearing work as `FinancialAction` requests, not as generic

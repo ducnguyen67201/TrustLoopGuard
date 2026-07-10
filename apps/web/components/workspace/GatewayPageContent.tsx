@@ -7,22 +7,15 @@ import {
   IconPlugConnected,
   IconPlus,
   IconRoute,
-  IconShieldCheck,
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import type {
-  EnforcementProfile,
-  FailMode,
-  GatewayInputAction,
-  GatewayOutputAction,
   GatewayProviderConnection,
   GatewayProviderKind,
   GatewayRoute,
-  ResponseMode,
-  RetentionMode,
 } from '@trustloopguard/sdk';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -53,31 +46,14 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
-import type { DashboardShellData } from '@/lib/server/dashboard-data';
+import type { GatewayPageData } from '@/lib/server/dashboard-data';
 
 type ProviderConnection = GatewayProviderConnection;
-
-type GatewayPageData = DashboardShellData & {
-  providerConnections: ProviderConnection[];
-  enforcementProfiles: EnforcementProfile[];
-  gatewayRoutes: GatewayRoute[];
-  activeRuntimeKeyCount: number;
-};
 
 type RouteReadiness = {
   label: string;
   tone: 'ready' | 'warning';
 };
-
-const INPUT_ACTIONS: GatewayInputAction[] = ['allow', 'block', 'redact'];
-const OUTPUT_ACTIONS: GatewayOutputAction[] = ['block', 'rewrite', 'escalate', 'allow'];
-const FAIL_MODES: FailMode[] = ['closed', 'open'];
-const RETENTION_MODES: RetentionMode[] = ['metadata_only', 'redacted_body', 'full_body'];
-const RESPONSE_MODES: ResponseMode[] = ['regular', 'streaming'];
-
-const VERDICT_VARIANTS: ReadonlySet<string> = new Set(['allow', 'rewrite', 'block', 'escalate']);
-type VerdictVariant = 'allow' | 'rewrite' | 'block' | 'escalate';
 
 export function GatewayPageContent({
   data,
@@ -133,60 +109,6 @@ export function GatewayPageContent({
     },
   ];
 
-  const profileColumns: DataTableColumn<EnforcementProfile>[] = [
-    {
-      id: 'name',
-      header: 'Name',
-      cell: (row) => <span className="font-medium text-foreground">{row.display_name}</span>,
-    },
-    {
-      id: 'input',
-      header: (
-        <HeaderHint label="On the way in">
-          What to do when something risky is sent to the AI — let it through, block it, or hide the
-          sensitive parts.
-        </HeaderHint>
-      ),
-      cell: (row) => <ActionBadge action={row.input_action} />,
-    },
-    {
-      id: 'output',
-      header: (
-        <HeaderHint label="On the way back">
-          What to do when the AI&apos;s reply looks risky — let it through, block it, clean it up, or
-          send it for a person to review.
-        </HeaderHint>
-      ),
-      cell: (row) => <ActionBadge action={row.output_action} />,
-    },
-    {
-      id: 'failMode',
-      header: (
-        <HeaderHint label="If a check fails">
-          What happens if a safety check can&apos;t run — block the request to stay safe, or let it
-          through to avoid interruptions.
-        </HeaderHint>
-      ),
-      cell: (row) => <span className="text-sm">{friendlyLabel(row.fail_mode)}</span>,
-    },
-    {
-      id: 'retention',
-      header: (
-        <HeaderHint label="What we keep">
-          How much of each request and reply is stored for your records — just the summary, a
-          redacted copy, or the full text.
-        </HeaderHint>
-      ),
-      cell: (row) => <span className="text-sm">{friendlyLabel(row.retention_mode)}</span>,
-    },
-    {
-      id: 'responseMode',
-      header: 'Delivery',
-      align: 'right',
-      cell: (row) => <span className="text-sm">{friendlyLabel(row.response_mode)}</span>,
-    },
-  ];
-
   const routeColumns: DataTableColumn<GatewayRoute>[] = [
     {
       id: 'route',
@@ -227,17 +149,6 @@ export function GatewayPageContent({
       cell: (row) => <span className="text-sm">{nameForAgent(data.agents, row.agent_id)}</span>,
     },
     {
-      id: 'profile',
-      header: (
-        <HeaderHint label="Rule set">
-          The set of rules that decides what happens to risky requests on this route.
-        </HeaderHint>
-      ),
-      cell: (row) => (
-        <span className="text-sm">{nameFor(data.enforcementProfiles, row.enforcement_profile_id)}</span>
-      ),
-    },
-    {
       id: 'status',
       header: 'Status',
       align: 'right',
@@ -258,7 +169,6 @@ export function GatewayPageContent({
   ];
 
   const providerCount = data.providerConnections.length;
-  const profileCount = data.enforcementProfiles.length;
   const routeCount = data.gatewayRoutes.length;
   const hasRuntimeKey = data.activeRuntimeKeyCount > 0;
   const liveRoutes = data.gatewayRoutes.filter(
@@ -267,14 +177,7 @@ export function GatewayPageContent({
 
   // Open on the first section that already has something to act on, so the
   // operator never lands on an empty tab when other tabs are populated.
-  const defaultTab =
-    routeCount > 0
-      ? 'routes'
-      : providerCount > 0
-        ? 'providers'
-        : profileCount > 0
-          ? 'profiles'
-          : 'routes';
+  const defaultTab = routeCount > 0 ? 'routes' : providerCount > 0 ? 'providers' : 'routes';
 
   return (
     <div className="grid gap-6 px-4 lg:px-6">
@@ -282,18 +185,17 @@ export function GatewayPageContent({
         eyebrow={data.activeWorkspace.name}
         title="Gateway"
         help={<InfoHint term="gateway" />}
-        description="Route your AI provider calls through TrustLoopGuard so every request is checked automatically, with no code changes."
+        description="Route AI provider calls through TrustLoopGuard so every request uses the same enabled policies as your SDK and event traffic."
         actions={
           <GatewayRouteDialog
             workspaceSlug={data.activeWorkspace.slug}
             providers={data.providerConnections}
-            profiles={data.enforcementProfiles}
             agents={data.agents}
           />
         }
       />
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-3">
         <StatCard
           icon={<IconRoute />}
           label="Routes"
@@ -305,12 +207,6 @@ export function GatewayPageContent({
           label="Providers"
           value={providerCount}
           hint={providerCount > 0 ? 'AI services connected' : 'None connected yet'}
-        />
-        <StatCard
-          icon={<IconShieldCheck />}
-          label="Rule sets"
-          value={profileCount}
-          hint={profileCount > 0 ? 'Checking requests' : 'None defined yet'}
         />
         <StatCard
           icon={hasRuntimeKey ? <IconCircleCheck /> : <IconAlertTriangle />}
@@ -347,24 +243,18 @@ export function GatewayPageContent({
             Providers
             <CountChip value={providerCount} />
           </TabsTrigger>
-          <TabsTrigger value="profiles">
-            Rule sets
-            <CountChip value={profileCount} />
-          </TabsTrigger>
-          <TabsTrigger value="integration">Connect your app</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="routes">
+        <TabsContent value="routes" className="grid gap-4">
           <SectionCard
             title="Routes"
             help={<InfoHint term="route" />}
-            description="A route is the address your app sends traffic to. It ties together one provider, one agent, and one set of rules."
+            description="A route connects one provider and one agent. All enabled policies for this environment and agent apply automatically."
             action={
               routeCount > 0 ? (
                 <GatewayRouteDialog
                   workspaceSlug={data.activeWorkspace.slug}
                   providers={data.providerConnections}
-                  profiles={data.enforcementProfiles}
                   agents={data.agents}
                 />
               ) : null
@@ -382,18 +272,30 @@ export function GatewayPageContent({
               <EmptyState
                 icon={<IconRoute />}
                 title="No routes set up yet"
-                description="A route is the address your app points at. Connect a provider and pick a rule set first, then create a route to start sending traffic through the checks."
+                description="Connect a provider and choose the agent whose traffic this route represents. Enabled policies apply automatically."
                 action={
                   <GatewayRouteDialog
                     workspaceSlug={data.activeWorkspace.slug}
                     providers={data.providerConnections}
-                    profiles={data.enforcementProfiles}
                     agents={data.agents}
                   />
                 }
               />
             )}
           </SectionCard>
+          {routeCount > 0 ? (
+            <IntegrationCard
+              routes={data.gatewayRoutes}
+              selectedRouteId={selectedRouteId}
+              onSelectedRouteIdChange={setSelectedRouteId}
+              openAiBaseUrl={openAiBaseUrl}
+              anthropicBaseUrl={anthropicBaseUrl}
+              hasRuntimeKey={hasRuntimeKey}
+              workspaceSlug={data.activeWorkspace.slug}
+              providers={data.providerConnections}
+              agents={data.agents}
+            />
+          ) : null}
         </TabsContent>
 
         <TabsContent value="providers">
@@ -426,50 +328,6 @@ export function GatewayPageContent({
           </SectionCard>
         </TabsContent>
 
-        <TabsContent value="profiles">
-          <SectionCard
-            title="Rule sets"
-            help={<InfoHint term="enforcementProfile" />}
-            description="A reusable set of rules that decides what happens when a request looks risky — on the way in and on the way back. Apply the same set to as many routes as you like."
-            action={
-              profileCount > 0 ? (
-                <EnforcementProfileDialog workspaceSlug={data.activeWorkspace.slug} />
-              ) : null
-            }
-          >
-            {profileCount > 0 ? (
-              <DataTable
-                columns={profileColumns}
-                rows={data.enforcementProfiles}
-                getRowKey={(profile) => profile.id}
-                caption="Enforcement profiles in this workspace"
-                empty="No rule sets yet."
-              />
-            ) : (
-              <EmptyState
-                icon={<IconShieldCheck />}
-                title="No rule sets yet"
-                description="Decide what the gateway should do with risky requests — allow, block, clean them up, or send them for a person to review — then reuse that set on any route."
-                action={<EnforcementProfileDialog workspaceSlug={data.activeWorkspace.slug} />}
-              />
-            )}
-          </SectionCard>
-        </TabsContent>
-
-        <TabsContent value="integration">
-          <IntegrationCard
-            routes={data.gatewayRoutes}
-            selectedRouteId={selectedRouteId}
-            onSelectedRouteIdChange={setSelectedRouteId}
-            openAiBaseUrl={openAiBaseUrl}
-            anthropicBaseUrl={anthropicBaseUrl}
-            hasRuntimeKey={hasRuntimeKey}
-            workspaceSlug={data.activeWorkspace.slug}
-            providers={data.providerConnections}
-            profiles={data.enforcementProfiles}
-            agents={data.agents}
-          />
-        </TabsContent>
       </Tabs>
     </div>
   );
@@ -657,207 +515,13 @@ function ProviderConnectionDialog({ workspaceSlug }: { workspaceSlug: string }) 
   );
 }
 
-function EnforcementProfileDialog({ workspaceSlug }: { workspaceSlug: string }) {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [id, setId] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [inputAction, setInputAction] = useState<GatewayInputAction>('block');
-  const [outputAction, setOutputAction] = useState<GatewayOutputAction>('rewrite');
-  const [failMode, setFailMode] = useState<FailMode>('closed');
-  const [retentionMode, setRetentionMode] = useState<RetentionMode>('metadata_only');
-  const [responseMode, setResponseMode] = useState<ResponseMode>('regular');
-  const [fallbackMessage, setFallbackMessage] = useState("I can't help with that request.");
-  const [maxRegenerations, setMaxRegenerations] = useState('1');
-
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (submitting) return;
-    setSubmitting(true);
-    try {
-      await postGatewayConfig(`/api/enforcement-profiles${query(workspaceSlug)}`, {
-        ...(id.trim() === '' ? {} : { id: id.trim() }),
-        display_name: displayName.trim(),
-        input_action: inputAction,
-        output_action: outputAction,
-        fail_mode: failMode,
-        retention_mode: retentionMode,
-        response_mode: responseMode,
-        fallback_message: fallbackMessage.trim(),
-        max_regenerations: Number.parseInt(maxRegenerations, 10),
-      });
-      toast.success('Enforcement profile created');
-      setOpen(false);
-      reset();
-      router.refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Request failed');
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  function reset() {
-    setId('');
-    setDisplayName('');
-    setInputAction('block');
-    setOutputAction('rewrite');
-    setFailMode('closed');
-    setRetentionMode('metadata_only');
-    setResponseMode('regular');
-    setFallbackMessage("I can't help with that request.");
-    setMaxRegenerations('1');
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline">
-          <IconPlus />
-          Profile
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-xl">
-        <form onSubmit={onSubmit} className="grid gap-4">
-          <DialogHeader>
-            <DialogTitle>Create a rule set</DialogTitle>
-            <DialogDescription>
-              A rule set decides what happens when a request looks risky. Set it once, then reuse it
-              on any route. You can change these settings later.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field
-              label="Short id"
-              htmlFor="profile-id"
-              optional
-              hint="A short, lowercase nickname used in links. Leave blank to generate one."
-            >
-              <Input
-                id="profile-id"
-                autoComplete="off"
-                className="font-mono"
-                placeholder="strict-prod"
-                value={id}
-                onChange={(event) => setId(event.target.value)}
-              />
-            </Field>
-            <Field
-              label="Name"
-              htmlFor="profile-name"
-              hint="A friendly name you'll recognize in lists."
-            >
-              <Input
-                id="profile-name"
-                required
-                autoComplete="off"
-                placeholder="Strict production"
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-              />
-            </Field>
-            <EnumSelect
-              label="On the way in"
-              id="profile-input-action"
-              value={inputAction}
-              values={INPUT_ACTIONS}
-              hint="What to do with a risky request before it reaches the AI."
-              onValueChange={setInputAction}
-            />
-            <EnumSelect
-              label="On the way back"
-              id="profile-output-action"
-              value={outputAction}
-              values={OUTPUT_ACTIONS}
-              hint="What to do with a risky reply before it reaches your users."
-              onValueChange={setOutputAction}
-            />
-            <EnumSelect
-              label="If a check fails"
-              id="profile-fail-mode"
-              value={failMode}
-              values={FAIL_MODES}
-              hint="What happens if a safety check can't run. Block to stay safe, or allow to avoid interruptions."
-              onValueChange={setFailMode}
-            />
-            <EnumSelect
-              label="What we keep"
-              id="profile-retention"
-              value={retentionMode}
-              values={RETENTION_MODES}
-              hint="How much of each request and reply is stored for your records."
-              onValueChange={setRetentionMode}
-            />
-            <EnumSelect
-              label="Delivery"
-              id="profile-response-mode"
-              value={responseMode}
-              values={RESPONSE_MODES}
-              hint="Send the full reply at once (standard), or word by word as it's written (streaming)."
-              onValueChange={setResponseMode}
-            />
-            <Field
-              label="Retry limit"
-              htmlFor="profile-max-regenerations"
-              hint="How many times the AI may try again to produce a safe reply (0–5)."
-            >
-              <Input
-                id="profile-max-regenerations"
-                required
-                type="number"
-                min={0}
-                max={5}
-                className="tabular-nums"
-                value={maxRegenerations}
-                onChange={(event) => setMaxRegenerations(event.target.value)}
-              />
-            </Field>
-          </div>
-          <Field
-            label="Blocked-request message"
-            htmlFor="profile-fallback"
-            hint="What your users see when a request is blocked. Keep it polite and clear."
-          >
-            <Textarea
-              id="profile-fallback"
-              required
-              rows={3}
-              value={fallbackMessage}
-              onChange={(event) => setFallbackMessage(event.target.value)}
-            />
-          </Field>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                submitting ||
-                !displayName.trim() ||
-                !fallbackMessage.trim() ||
-                Number.isNaN(Number.parseInt(maxRegenerations, 10))
-              }
-            >
-              {submitting ? 'Creating...' : 'Create rule set'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function GatewayRouteDialog({
   workspaceSlug,
   providers,
-  profiles,
   agents,
 }: {
   workspaceSlug: string;
   providers: ProviderConnection[];
-  profiles: EnforcementProfile[];
   agents: Array<{ id: string; name: string }>;
 }) {
   const router = useRouter();
@@ -865,21 +529,10 @@ function GatewayRouteDialog({
   const [submitting, setSubmitting] = useState(false);
   const [id, setId] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [providerId, setProviderId] = useState(providers[0]?.id ?? '');
-  const [profileId, setProfileId] = useState(profiles[0]?.id ?? '');
-  const [agentId, setAgentId] = useState(agents[0]?.id ?? '');
+  const [providerId, setProviderId] = useState('');
+  const [agentId, setAgentId] = useState('');
 
-  useEffect(() => {
-    setProviderId((current) => current || providers[0]?.id || '');
-  }, [providers]);
-  useEffect(() => {
-    setProfileId((current) => current || profiles[0]?.id || '');
-  }, [profiles]);
-  useEffect(() => {
-    setAgentId((current) => current || agents[0]?.id || '');
-  }, [agents]);
-
-  const hasDependencies = providers.length > 0 && profiles.length > 0 && agents.length > 0;
+  const hasDependencies = providers.length > 0 && agents.length > 0;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -891,7 +544,6 @@ function GatewayRouteDialog({
         display_name: displayName.trim(),
         provider_connection_id: providerId,
         agent_id: agentId,
-        enforcement_profile_id: profileId,
       });
       toast.success('Gateway route created');
       setOpen(false);
@@ -907,9 +559,8 @@ function GatewayRouteDialog({
   function reset() {
     setId('');
     setDisplayName('');
-    setProviderId(providers[0]?.id ?? '');
-    setProfileId(profiles[0]?.id ?? '');
-    setAgentId(agents[0]?.id ?? '');
+    setProviderId('');
+    setAgentId('');
   }
 
   return (
@@ -925,8 +576,8 @@ function GatewayRouteDialog({
           <DialogHeader>
             <DialogTitle>Create a route</DialogTitle>
             <DialogDescription>
-              A route is the address your app points at. Pick one provider, one agent, and one rule
-              set, and the gateway checks every request that flows through it.
+              A route is the address your app points at. Pick one provider and one agent; all
+              enabled policies apply automatically.
             </DialogDescription>
           </DialogHeader>
           {!hasDependencies ? (
@@ -934,8 +585,7 @@ function GatewayRouteDialog({
               <IconAlertTriangle />
               <AlertTitle>A few things are needed first</AlertTitle>
               <AlertDescription>
-                Connect at least one provider, create a rule set, and add an agent before you can
-                build a route.
+                Connect at least one provider and add an agent before you can build a route.
               </AlertDescription>
             </Alert>
           ) : null}
@@ -987,17 +637,18 @@ function GatewayRouteDialog({
             hint="The AI assistant or app whose traffic flows through this route."
             onValueChange={setAgentId}
           />
-          <EntitySelect
-            label="Rule set"
-            id="route-profile"
-            value={profileId}
-            values={profiles.map((profile) => ({
-              id: profile.id,
-              label: profile.display_name,
-            }))}
-            hint="The rules that decide what happens to risky requests on this route."
-            onValueChange={setProfileId}
-          />
+          <Alert>
+            <IconCircleCheck />
+            <AlertTitle>Policies are already connected</AlertTitle>
+            <AlertDescription>
+              Every enabled policy for this environment and agent will check this route.
+              <Button asChild variant="link" className="h-auto px-1 py-0">
+                <Link href={`/policies?workspace=${encodeURIComponent(workspaceSlug)}`}>
+                  Review policies.
+                </Link>
+              </Button>
+            </AlertDescription>
+          </Alert>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
               Cancel
@@ -1009,7 +660,6 @@ function GatewayRouteDialog({
                 !hasDependencies ||
                 !displayName.trim() ||
                 !providerId ||
-                !profileId ||
                 !agentId
               }
             >
@@ -1108,7 +758,6 @@ function IntegrationCard({
   hasRuntimeKey,
   workspaceSlug,
   providers,
-  profiles,
   agents,
 }: {
   routes: GatewayRoute[];
@@ -1119,7 +768,6 @@ function IntegrationCard({
   hasRuntimeKey: boolean;
   workspaceSlug: string;
   providers: ProviderConnection[];
-  profiles: EnforcementProfile[];
   agents: Array<{ id: string; name: string }>;
 }) {
   const hasRoutes = routes.length > 0;
@@ -1175,6 +823,7 @@ const openai = new OpenAI({
 const response = await openai.chat.completions.create({
   model: "gpt-4o-mini",
   messages: [{ role: "user", content: userMessage }],
+  max_tokens: 512,
 });`}
               />
               <Snippet
@@ -1203,7 +852,6 @@ const response = await anthropic.messages.create({
               <GatewayRouteDialog
                 workspaceSlug={workspaceSlug}
                 providers={providers}
-                profiles={profiles}
                 agents={agents}
               />
             }
@@ -1347,22 +995,6 @@ function CredentialBadge({ status }: { status: string | null | undefined }) {
   );
 }
 
-function ActionBadge({ action }: { action: string | null | undefined }) {
-  const key = action?.trim().toLowerCase();
-  if (key && VERDICT_VARIANTS.has(key)) {
-    return (
-      <Badge variant={key as VerdictVariant} className="text-[0.6875rem]">
-        {friendlyLabel(action)}
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="outline" className="text-[0.6875rem]">
-      {friendlyLabel(action)}
-    </Badge>
-  );
-}
-
 function Field({
   label,
   htmlFor,
@@ -1390,39 +1022,6 @@ function Field({
       ) : null}
       {children}
     </div>
-  );
-}
-
-function EnumSelect<T extends string>({
-  label,
-  id,
-  value,
-  values,
-  hint,
-  onValueChange,
-}: {
-  label: string;
-  id: string;
-  value: T;
-  values: T[];
-  hint?: ReactNode;
-  onValueChange: (value: T) => void;
-}) {
-  return (
-    <Field label={label} htmlFor={id} hint={hint}>
-      <Select value={value} onValueChange={(next) => onValueChange(next as T)}>
-        <SelectTrigger id={id} className="w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {values.map((item) => (
-            <SelectItem key={item} value={item}>
-              {friendlyLabel(item)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </Field>
   );
 }
 
@@ -1475,9 +1074,6 @@ function routeReadiness(data: GatewayPageData, route: GatewayRoute): RouteReadin
   if (!data.providerConnections.some((provider) => provider.id === route.provider_connection_id)) {
     return { label: 'Needs a provider', tone: 'warning' };
   }
-  if (!data.enforcementProfiles.some((profile) => profile.id === route.enforcement_profile_id)) {
-    return { label: 'Needs a rule set', tone: 'warning' };
-  }
   if (!data.agents.some((agent) => agent.id === route.agent_id)) {
     return { label: 'Needs an agent', tone: 'warning' };
   }
@@ -1497,35 +1093,6 @@ function nameForAgent(rows: Array<{ id: string; name: string }>, id: string): st
 
 function providerKindLabel(kind: GatewayProviderKind): string {
   return kind === 'openai_compatible' ? 'OpenAI-compatible' : 'Anthropic';
-}
-
-// Plain-language wording for the raw enum values so a non-technical reader never
-// has to decode a value like `metadata_only` or `closed`. Falls back to the
-// title-cased value if an unexpected enum slips through.
-const FRIENDLY_LABELS: Record<string, string> = {
-  // Input actions
-  allow: 'Allow',
-  block: 'Block',
-  redact: 'Hide sensitive parts',
-  // Output actions
-  rewrite: 'Rewrite',
-  escalate: 'Send for review',
-  // Fail modes
-  closed: 'Block when unsure',
-  open: 'Allow when unsure',
-  // Retention modes
-  metadata_only: 'Metadata only',
-  redacted_body: 'Redacted text',
-  full_body: 'Full text',
-  // Response modes
-  regular: 'Standard',
-  streaming: 'Streaming',
-};
-
-function friendlyLabel(value: string | null | undefined): string {
-  const key = value?.trim().toLowerCase();
-  if (key && FRIENDLY_LABELS[key]) return FRIENDLY_LABELS[key];
-  return titleize(value);
 }
 
 // A column header with an inline "?" that defines the term in plain language.

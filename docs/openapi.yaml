@@ -826,78 +826,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
-  /v1/enforcement-profiles:
-    get:
-      tags:
-      - gateway
-      operationId: list_enforcement_profiles
-      responses:
-        '200':
-          description: Enforcement profiles
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnforcementProfileListResponse'
-        '403':
-          description: Workspace runtime keys cannot manage gateway configuration
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-    post:
-      tags:
-      - gateway
-      operationId: create_enforcement_profile
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateEnforcementProfileRequest'
-        required: true
-      responses:
-        '201':
-          description: Enforcement profile created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnforcementProfile'
-        '403':
-          description: Workspace runtime keys cannot manage gateway configuration
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-  /v1/enforcement-profiles/{id}:
-    patch:
-      tags:
-      - gateway
-      operationId: patch_enforcement_profile
-      parameters:
-      - name: id
-        in: path
-        description: Enforcement profile id
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateEnforcementProfileRequest'
-        required: true
-      responses:
-        '200':
-          description: Enforcement profile updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnforcementProfile'
-        '403':
-          description: Workspace runtime keys cannot manage gateway configuration
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
   /v1/environments:
     get:
       tags:
@@ -2228,7 +2156,7 @@ paths:
         schema:
           type: string
       requestBody:
-        description: Raw provider request body, proxied through unchanged
+        description: OpenAI-compatible request. When an LLM budget is active, model pricing and a positive max_tokens or max_completion_tokens bound are required.
         content:
           application/json:
             schema:
@@ -2249,12 +2177,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '429':
+          description: The request's reserved maximum cost would exceed an active principal budget
         '502':
           description: Provider request failed
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '503':
+          description: No trusted price is configured for the requested model
   /v1/identity/oauth-session:
     post:
       tags:
@@ -5109,38 +5041,6 @@ components:
           - 'null'
         window:
           $ref: '#/components/schemas/BudgetAlertWindow'
-    CreateEnforcementProfileRequest:
-      type: object
-      required:
-      - display_name
-      - input_action
-      - output_action
-      - fail_mode
-      - retention_mode
-      - fallback_message
-      properties:
-        display_name:
-          type: string
-        fail_mode:
-          $ref: '#/components/schemas/FailMode'
-        fallback_message:
-          type: string
-        id:
-          type:
-          - string
-          - 'null'
-        input_action:
-          $ref: '#/components/schemas/GatewayInputAction'
-        max_regenerations:
-          type: integer
-          format: int32
-          minimum: 0
-        output_action:
-          $ref: '#/components/schemas/GatewayOutputAction'
-        response_mode:
-          $ref: '#/components/schemas/ResponseMode'
-        retention_mode:
-          $ref: '#/components/schemas/RetentionMode'
     CreateFinancialActionRequest:
       type: object
       required:
@@ -5306,13 +5206,10 @@ components:
       - display_name
       - provider_connection_id
       - agent_id
-      - enforcement_profile_id
       properties:
         agent_id:
           type: string
         display_name:
-          type: string
-        enforcement_profile_id:
           type: string
         id:
           type:
@@ -5640,53 +5537,6 @@ components:
       - off
       - shadow
       - enforce
-    EnforcementProfile:
-      type: object
-      required:
-      - id
-      - display_name
-      - input_action
-      - output_action
-      - fail_mode
-      - retention_mode
-      - fallback_message
-      - max_regenerations
-      - created_at
-      - updated_at
-      properties:
-        created_at:
-          type: string
-        display_name:
-          type: string
-        fail_mode:
-          $ref: '#/components/schemas/FailMode'
-        fallback_message:
-          type: string
-        id:
-          type: string
-        input_action:
-          $ref: '#/components/schemas/GatewayInputAction'
-        max_regenerations:
-          type: integer
-          format: int32
-          minimum: 0
-        output_action:
-          $ref: '#/components/schemas/GatewayOutputAction'
-        response_mode:
-          $ref: '#/components/schemas/ResponseMode'
-        retention_mode:
-          $ref: '#/components/schemas/RetentionMode'
-        updated_at:
-          type: string
-    EnforcementProfileListResponse:
-      type: object
-      required:
-      - enforcement_profiles
-      properties:
-        enforcement_profiles:
-          type: array
-          items:
-            $ref: '#/components/schemas/EnforcementProfile'
     EnvironmentCheckerModes:
       type: object
       description: |-
@@ -5752,11 +5602,6 @@ components:
           type: string
         source_id:
           type: string
-    FailMode:
-      type: string
-      enum:
-      - open
-      - closed
     FinancialAction:
       type: object
       required:
@@ -6363,19 +6208,6 @@ components:
       enum:
       - configured
       - missing
-    GatewayInputAction:
-      type: string
-      enum:
-      - allow
-      - block
-      - redact
-    GatewayOutputAction:
-      type: string
-      enum:
-      - allow
-      - block
-      - rewrite
-      - escalate
     GatewayProviderConnection:
       type: object
       required:
@@ -6427,7 +6259,6 @@ components:
       - display_name
       - provider_connection_id
       - agent_id
-      - enforcement_profile_id
       - created_at
       - updated_at
       properties:
@@ -6436,8 +6267,6 @@ components:
         created_at:
           type: string
         display_name:
-          type: string
-        enforcement_profile_id:
           type: string
         id:
           type: string
@@ -8297,18 +8126,6 @@ components:
       - medium
       - low
       - info
-    ResponseMode:
-      type: string
-      description: How the gateway returns guarded responses for a route.
-      enum:
-      - regular
-      - streaming
-    RetentionMode:
-      type: string
-      enum:
-      - metadata_only
-      - redacted_body
-      - full_body
     ReversalCapability:
       type: string
       enum:
@@ -8874,43 +8691,6 @@ components:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/BudgetAlertWindow'
-    UpdateEnforcementProfileRequest:
-      type: object
-      properties:
-        display_name:
-          type:
-          - string
-          - 'null'
-        fail_mode:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/FailMode'
-        fallback_message:
-          type:
-          - string
-          - 'null'
-        input_action:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/GatewayInputAction'
-        max_regenerations:
-          type:
-          - integer
-          - 'null'
-          format: int32
-          minimum: 0
-        output_action:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/GatewayOutputAction'
-        response_mode:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/ResponseMode'
-        retention_mode:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/RetentionMode'
     UpdateEnvironmentCheckerModesRequest:
       type: object
       description: |-
@@ -8969,10 +8749,6 @@ components:
           - string
           - 'null'
         display_name:
-          type:
-          - string
-          - 'null'
-        enforcement_profile_id:
           type:
           - string
           - 'null'

@@ -4,11 +4,13 @@ mod payment;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
-use tl_core::{EnforcementProfile, GatewayProviderConnection};
+use tl_core::GatewayProviderConnection;
 
 pub(super) use anthropic::AnthropicGatewayProvider;
 pub(super) use openai::OpenAiCompatibleGatewayProvider;
 pub(crate) use payment::forward_payment;
+
+pub(super) const BLOCKED_MESSAGE: &str = "Blocked by TrustLoopGuard.";
 
 #[async_trait]
 pub(super) trait GatewayProvider: Send + Sync {
@@ -47,19 +49,8 @@ pub(super) trait GatewayProvider: Send + Sync {
         }
     }
 
-    fn inject_feedback(&self, request: &mut Value, reason: &str) {
-        if let Some(messages) = request.get_mut("messages").and_then(Value::as_array_mut) {
-            messages.push(json!({
-                "role": "system",
-                "content": format!(
-                    "Your previous response violated policy: {reason}. Please revise to comply."
-                )
-            }));
-        }
-    }
-
     fn apply_output_rewrite(&self, response: Value, safe_output: &str) -> Value;
-    fn safe_response(&self, request: &Value, profile: &EnforcementProfile) -> Value;
+    fn blocked_response(&self, request: &Value) -> Value;
     async fn forward(
         &self,
         http: &reqwest::Client,

@@ -115,7 +115,7 @@ The `/api-keys` dashboard page creates and lists these keys through Rust:
 - **Management authorization**: API key create/list/revoke requires an authenticated dashboard user who is an owner or admin of the workspace. The caller may authenticate with a user JWT or through the internal dashboard service lane with forwarded user context. Workspace id alone is never authority.
 - **Verification**: middleware inspects the bearer prefix. Starts with `tl_live_` -> SHA-256 the value, look up an active `workspace_api_keys` row, attach that row's `workspace_id` and `environment_id`, and update `last_used_at`.
 - **Scope enforcement**: the key decides the workspace and environment. Middleware overwrites `X-TLG-Workspace-Id` and `X-TLG-Environment-Id` with the stored values before handlers run, so caller-provided workspace or environment context cannot steer the request into another scope.
-- **Runtime-only surface**: workspace keys are for SDK and gateway model traffic. They cannot list, create, or revoke API keys, and gateway configuration endpoints reject this lane. Dashboard/user credentials must manage provider connections, routes, enforcement profiles, and keys.
+- **Runtime-only surface**: workspace keys are for SDK and gateway model traffic. They cannot list, create, or revoke API keys, and gateway configuration endpoints reject this lane. Dashboard/user credentials must manage provider connections, routes, and keys.
 
 ## What this model does *not* have
 

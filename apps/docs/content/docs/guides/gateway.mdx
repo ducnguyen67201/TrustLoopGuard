@@ -1,96 +1,72 @@
 ---
 title: Gateway
-description: Configure provider-compatible proxy routes for OpenAI-compatible and Anthropic model traffic.
+description: Route OpenAI-compatible and Anthropic traffic through the same TrustLoopGuard policies as direct SDK events.
 ---
 
-Gateway mode is the proxy integration path. Your application keeps using a provider SDK, but the SDK base URL points at TrustLoopGuard instead of the provider.
+Gateway is the proxy integration path. Your application keeps using its provider SDK, but changes
+the base URL and API key so requests pass through TrustLoopGuard first.
+
+## What you configure
+
+| Resource | Purpose |
+|---|---|
+| Provider | Stores the provider endpoint, model, and encrypted provider credential. |
+| Route | Gives one provider and agent a stable Gateway address. |
+| Runtime API key | Authenticates your application to the Gateway route. |
+
+Routes do not have a separate rule set. Every policy enabled for the selected environment and route
+agent applies automatically, using the same event service as `POST /v1/events`.
+
+## Set up a route
+
+1. Open **Gateway → Providers** and connect an OpenAI-compatible or Anthropic provider.
+2. Create or select the agent whose traffic the route represents.
+3. Open **Gateway → Routes** and create a route using that provider and agent.
+4. Create a runtime key under **API Keys**.
+5. Copy the route-specific example shown below the Routes table.
+
+For DigitalOcean inference, create an OpenAI-compatible provider with:
 
 ```text
-app -> /v1/gateway/<route_id>/openai -> TrustLoopGuard -> provider -> TrustLoopGuard -> app
+Base URL: https://inference.do-ai.run
+Default model: deepseek-4-flash
 ```
 
-Use SDK mode when your code should receive a `Decision`. Use gateway mode when TrustLoopGuard should apply the decision and return a provider-shaped response.
+Store the DigitalOcean model-access key as the provider secret. Applications call TrustLoopGuard
+with the TrustLoopGuard runtime key; the provider credential remains server-side.
 
-## Configuration model
-
-A gateway route has three dependencies:
-
-| Piece | Purpose |
-| --- | --- |
-| Provider connection | Stores provider kind, base URL, default model, and a sealed provider API key. |
-| Enforcement profile | Defines input action, output action, fail mode, retention mode, response mode, fallback message, and regeneration budget. |
-| Route | Binds provider, agent profile, and enforcement profile into a public model endpoint. |
-
-Dashboard and internal credentials manage configuration. Workspace runtime keys (`tl_live_...`) call the model endpoints but cannot create or update gateway configuration.
-
-## Quick start
-
-Get from zero to a guarded model call in five steps. Steps 1–4 are one-time configuration in the dashboard; step 5 is your application code.
-
-1. **Provider connection** — **Gateway → Add provider**. Choose `OpenAI-compatible` or `Anthropic`, set the default model, and paste the provider API key. The key is sealed server-side and never returned.
-2. **Enforcement profile** — **Gateway → Add profile**. Choose what happens on blocked input/output (block, rewrite, …) and the fail mode.
-3. **Route** — **Gateway → Add route**. Bind the provider, an agent, and the profile, and give it a **Route id** (for example `support-prod`). This id is the only part of the URL your app needs.
-4. **Runtime key** — **API Keys → Create key**. Copy the `tl_live_...` value; this authenticates your app to the route.
-5. **Point your client** at the route's base URL (see the snippets below) using the runtime key.
-
-### Where to find the route id
-
-Under **Gateway**, select your route and read the id from the base URL in the connect panel. It is the segment between `/gateway/` and `/openai`:
-
-```text
-https://api.gettrustloop.app/v1/gateway/support-prod/openai
-                                         ^^^^^^^^^^^^  <- route id
-```
-
-The route table lists each route's display name; the connect panel shows the id and copyable SDK snippets.
-
-### Verify the connection
-
-Before wiring an app, confirm the route is live with a single call:
-
-```sh
-curl https://api.gettrustloop.app/v1/gateway/support-prod/openai/chat/completions \
-  -H "Authorization: Bearer $TLG_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}'
-```
-
-A normal answer means the route is live. Send a prompt your policy should block and confirm the response carries `finish_reason: "content_filter"` and an `X-TrustLoopGuard-Verdict: blocked` header (see [Enforcement signals](#enforcement-signals)).
-
-## OpenAI-compatible clients
-
-Set the OpenAI SDK `baseURL` to the route's OpenAI base:
+## OpenAI-compatible client
 
 ```ts
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
   apiKey: process.env.TLG_API_KEY,
-  baseURL: 'https://api.gettrustloop.app/v1/gateway/support-prod/openai',
+  baseURL: 'https://<server>/v1/gateway/<route_id>/openai',
 });
 
 const response = await openai.chat.completions.create({
-  model: 'gpt-4o-mini',
+  model: 'deepseek-4-flash',
   messages: [{ role: 'user', content: userMessage }],
+  max_tokens: 512,
 });
 ```
 
-TrustLoopGuard exposes:
+The corresponding raw endpoint is:
 
 ```text
-POST /v1/gateway/{route_id}/openai/chat/completions
+POST /v1/gateway/<route_id>/openai/chat/completions
+Authorization: Bearer <tl_live_...>
 ```
 
-## Anthropic clients
-
-Set the Anthropic SDK `baseURL` to the route's Anthropic base:
+## Anthropic client
 
 ```ts
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({
   authToken: process.env.TLG_API_KEY,
-  baseURL: 'https://api.gettrustloop.app/v1/gateway/support-prod/anthropic',
+  baseURL: 'https://<server>/v1/gateway/<route_id>/anthropic',
 });
 
 const response = await anthropic.messages.create({
@@ -100,67 +76,57 @@ const response = await anthropic.messages.create({
 });
 ```
 
-TrustLoopGuard exposes:
+Use `authToken`, not the provider's `apiKey` option: Gateway runtime calls authenticate with a
+TrustLoopGuard bearer key.
 
-```text
-POST /v1/gateway/{route_id}/anthropic/v1/messages
-```
+## How policies apply
 
-Use bearer-token auth for Anthropic gateway calls. The provider API key is stored on the TrustLoopGuard provider connection; the SDK call should authenticate to TrustLoopGuard with the workspace runtime key.
+Gateway creates an input event before the provider call and an output event after it. Both go
+through the same `execute_event_submission` service as direct event submissions.
 
-## Enforcement signals
+| Policy verdict | Gateway behavior |
+|---|---|
+| Allow | Forwards or returns content unchanged. |
+| Rewrite | Uses the policy's safe replacement. |
+| Block | Suppresses content; input blocks never call the provider. |
+| Escalate | Suppresses content and queues the configured escalation. |
 
-If a policy blocks or escalates traffic, the response remains provider-shaped and uses provider-native content-filter markers:
+A rewrite without safe replacement text fails closed. Gateway does not issue an extra model call to
+regenerate output.
 
-| Provider | Signal |
-| --- | --- |
-| OpenAI-compatible | `finish_reason: "content_filter"` |
-| Anthropic | `stop_reason: "content_filter"` |
-
-The gateway also adds these headers for correlation:
-
-| Header | Meaning |
-| --- | --- |
-| `X-TrustLoopGuard-Verdict` | `blocked` or `escalated` |
-| `X-TrustLoopGuard-Phase` | `input` or `output` |
-| `X-TrustLoopGuard-Trace-Id` | Trace id to find the decision later |
-| `X-TrustLoopGuard-Policy-Id` | First triggered policy id, when available |
-
-Clean responses and successful rewrites do not add enforcement headers.
+Blocked and escalated responses use the provider's content-filter response shape and include
+`X-TrustLoopGuard-Verdict`, `X-TrustLoopGuard-Phase`, `X-TrustLoopGuard-Trace-Id`, and—when
+available—`X-TrustLoopGuard-Policy-Id`.
 
 ## Streaming
 
-Set the enforcement profile's **response mode** to enable streaming clients:
+Set `stream: true` normally. No route toggle is required. Gateway buffers the full upstream result,
+checks it, then emits guarded provider-native SSE. Tokens are not forwarded before the output policy
+decision is complete.
 
-| Response mode | Behavior |
-| --- | --- |
-| `regular` (default) | Buffered JSON only. A `stream: true` request is rejected with `400`. |
-| `streaming` | A `stream: true` request returns Server-Sent Events; a non-streaming request still returns JSON. |
+## Spend controls
 
-Streaming is **buffered, then emitted**: the gateway always waits for the full provider
-response, runs the output guard, and only then streams the guarded result as SSE. It never
-forwards unguarded tokens, so a blocked or rewritten reply is enforced before the client
-sees any content. This makes it compatible with realtime agent frameworks that require an
-SSE-shaped response, while preserving the same guard semantics and enforcement headers as
-the buffered path.
+OpenAI-compatible calls also support hard per-principal budgets. Create a financial policy with
+`meter: llm_usage`, configure the exact model's input/output price, and send a positive `max_tokens`
+or `max_completion_tokens` value. Gateway atomically reserves the request's maximum cost before the
+provider call, then settles the reservation to actual reported usage. If the maximum would exceed
+the remaining daily, weekly, or monthly budget, Gateway returns HTTP 429 without contacting the
+provider. Unknown pricing returns 503 and an unbounded budgeted request returns 400; both fail
+before provider spend.
 
-```ts
-const openai = new OpenAI({
-  apiKey: process.env.TLG_API_KEY,
-  baseURL: 'https://api.gettrustloop.app/v1/gateway/support-prod/openai',
-});
+## Troubleshooting
 
-// Requires the route's enforcement profile response_mode = "streaming".
-const stream = await openai.chat.completions.create({
-  model: 'gpt-4o-mini',
-  stream: true,
-  messages: [{ role: 'user', content: userMessage }],
-});
-```
-
-## Current limits
-
-- Streaming is buffered (the guarded result is emitted as a single SSE flush), not
-  token-by-token. Incremental token streaming with mid-stream interruption is future work.
-- OpenAI-compatible chat completions and Anthropic messages are the supported provider surfaces.
-- Gateway traffic is always enforced on the real prompt and output. Retention settings only control what raw body text is stored.
+- **401 Unauthorized** — the `Authorization` header is missing or the TrustLoopGuard runtime key is
+  invalid. A provider key cannot authenticate the Gateway route.
+- **404 gateway route not found** — the route id in the URL does not match a route in the runtime
+  key's workspace.
+- **400 provider kind mismatch** — use the `/openai` address for OpenAI-compatible providers and the
+  `/anthropic` address for Anthropic providers.
+- **400 budget_max_tokens_required** — a matching LLM budget requires a positive `max_tokens` or
+  `max_completion_tokens` value.
+- **429 budget_exceeded** — the next request's reserved maximum cost is larger than the principal's
+  remaining budget.
+- **503 pricing_unavailable** — add a trusted workspace price for the exact model before using a
+  hard LLM budget.
+- **502 Bad Gateway** — the upstream provider failed, timed out, or returned malformed JSON. This is
+  not reported as a policy block.

@@ -157,6 +157,7 @@ const DEFAULT_PRICES: &[(&str, ModelPrice)] = &[
 ];
 
 const TOKENS_PER_PRICE_UNIT: i64 = 1_000_000;
+pub(crate) const NANOS_PER_MINOR: i64 = 10_000_000;
 
 /// Characters that may separate an Azure/gateway deployment prefix from
 /// the model name (`my-deploy/gpt-4o`, `azure:gpt-4o`).
@@ -231,10 +232,35 @@ pub async fn cost_minor(
     prompt_tokens: i64,
     completion_tokens: i64,
 ) -> Option<i64> {
-    if let Some(price) = resolve_workspace_price(store, workspace_id, model).await {
-        return Some(price_tokens(price, prompt_tokens, completion_tokens));
-    }
-    default_table().cost_minor(model, prompt_tokens, completion_tokens)
+    let price = model_price(store, workspace_id, model).await?;
+    Some(cost_nanos(price, prompt_tokens, completion_tokens) / NANOS_PER_MINOR)
+}
+
+/// Resolve the authoritative price used by both preflight reservations
+/// and post-response settlement.
+pub(crate) async fn model_price(
+    store: &dyn LlmPricingStore,
+    workspace_id: &str,
+    model: &str,
+) -> Option<ModelPrice> {
+    resolve_workspace_price(store, workspace_id, model)
+        .await
+        .or_else(|| default_table().resolve(model))
+}
+
+/// Exact USD-nano cost for integer-cent per-million prices. One token
+/// at one cent / 1M costs ten USD nanos, so this avoids per-call cent
+/// rounding while remaining integer-only.
+pub(crate) fn cost_nanos(price: ModelPrice, prompt_tokens: i64, completion_tokens: i64) -> i64 {
+    let component = |tokens: i64, price_minor: i64| {
+        i128::from(tokens.max(0))
+            .saturating_mul(i128::from(price_minor.max(0)))
+            .saturating_mul(i128::from(NANOS_PER_MINOR))
+            / i128::from(TOKENS_PER_PRICE_UNIT)
+    };
+    component(prompt_tokens, price.input_per_million_minor)
+        .saturating_add(component(completion_tokens, price.output_per_million_minor))
+        .min(i128::from(i64::MAX)) as i64
 }
 
 async fn resolve_workspace_price(
@@ -268,15 +294,7 @@ async fn resolve_workspace_price(
 /// `(tokens × price_per_million) / 1M` per side, integer math rounding
 /// down, saturating.
 fn price_tokens(price: ModelPrice, prompt_tokens: i64, completion_tokens: i64) -> i64 {
-    let input = prompt_tokens
-        .max(0)
-        .saturating_mul(price.input_per_million_minor)
-        / TOKENS_PER_PRICE_UNIT;
-    let output = completion_tokens
-        .max(0)
-        .saturating_mul(price.output_per_million_minor)
-        / TOKENS_PER_PRICE_UNIT;
-    input.saturating_add(output)
+    cost_nanos(price, prompt_tokens, completion_tokens) / NANOS_PER_MINOR
 }
 
 /// Longest-suffix match over `(model_key, price)` entries: a key
@@ -334,6 +352,16 @@ mod tests {
     }
 
     #[test]
+    fn nano_pricing_preserves_sub_cent_calls() {
+        let price = ModelPrice {
+            input_per_million_minor: 5,
+            output_per_million_minor: 45,
+        };
+        assert_eq!(cost_nanos(price, 1, 1), 500);
+        assert_eq!(cost_nanos(price, 1, 1) / NANOS_PER_MINOR, 0);
+    }
+
+    #[test]
     fn deployment_prefixes_suffix_match() {
         let table = LlmPricingTable::default();
         let direct = table.cost_minor("gpt-4o", 1_000_000, 0);
@@ -346,9 +374,21 @@ mod tests {
     #[test]
     fn saturates_instead_of_overflowing() {
         let table = LlmPricingTable::default();
-        // Both multiplications saturate to i64::MAX, then divide.
+        // Nanos are the authoritative precision and clamp at i64::MAX;
+        // the public minor-unit projection must remain non-negative.
         let cost = table.cost_minor("gpt-4o", i64::MAX, i64::MAX);
-        assert_eq!(cost, Some((i64::MAX / TOKENS_PER_PRICE_UNIT) * 2));
+        assert_eq!(cost, Some(i64::MAX / NANOS_PER_MINOR));
+        assert_eq!(
+            cost_nanos(
+                ModelPrice {
+                    input_per_million_minor: 250,
+                    output_per_million_minor: 1_000,
+                },
+                i64::MAX,
+                i64::MAX,
+            ),
+            i64::MAX
+        );
     }
 
     #[test]

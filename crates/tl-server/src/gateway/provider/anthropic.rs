@@ -1,12 +1,12 @@
 use async_trait::async_trait;
 use reqwest::header;
 use serde_json::{json, Value};
-use tl_core::{EnforcementProfile, GatewayProviderConnection};
+use tl_core::GatewayProviderConnection;
 use uuid::Uuid;
 
 use super::{
     latest_user_message_input_text, message_content_text, provider_json_response, provider_url,
-    GatewayProvider,
+    GatewayProvider, BLOCKED_MESSAGE,
 };
 
 pub(in crate::gateway) struct AnthropicGatewayProvider;
@@ -40,17 +40,6 @@ impl GatewayProvider for AnthropicGatewayProvider {
                     .join("\n")
             })
             .unwrap_or_default()
-    }
-
-    fn inject_feedback(&self, request: &mut Value, reason: &str) {
-        if let Some(messages) = request.get_mut("messages").and_then(Value::as_array_mut) {
-            messages.push(json!({
-                "role": "user",
-                "content": format!(
-                    "Your previous response violated policy: {reason}. Please revise to comply."
-                )
-            }));
-        }
     }
 
     fn apply_output_rewrite(&self, mut response: Value, safe_output: &str) -> Value {
@@ -129,13 +118,13 @@ impl GatewayProvider for AnthropicGatewayProvider {
             .collect()
     }
 
-    fn safe_response(&self, request: &Value, profile: &EnforcementProfile) -> Value {
+    fn blocked_response(&self, request: &Value) -> Value {
         json!({
             "id": format!("msg_tlg_{}", Uuid::now_v7()),
             "type": "message",
             "role": "assistant",
             "model": request.get("model").cloned().unwrap_or_else(|| json!("trustloopguard-gateway")),
-            "content": [{ "type": "text", "text": profile.fallback_message }],
+            "content": [{ "type": "text", "text": BLOCKED_MESSAGE }],
             "stop_reason": "content_filter",
             "stop_sequence": null,
             "usage": { "input_tokens": 0, "output_tokens": 0 },

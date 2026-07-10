@@ -170,7 +170,7 @@ export function FinancialPolicyCreateDialog({
           <DialogTitle>{editing ? 'Edit financial policy' : 'Create financial policy'}</DialogTitle>
           <DialogDescription>
             {form.meter === 'llm_usage'
-              ? 'Cap gateway LLM spend per principal. A workspace-wide budget evaluates per principal — each principal gets its own cap.'
+              ? 'Hard-cap gateway LLM spend per principal. TrustLoopGuard reserves each request’s maximum cost before the provider call, then settles to actual usage. Budgeted calls require trusted model pricing and a max_tokens bound.'
               : 'Define the mandate requirement, caps, evidence checks, and approval behavior TrustLoopGuard evaluates before agent execution.'}
           </DialogDescription>
         </DialogHeader>

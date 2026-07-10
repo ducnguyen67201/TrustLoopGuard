@@ -1,7 +1,6 @@
 use axum::{http::StatusCode, response::Response};
 use bytes::Bytes;
 use serde_json::Value;
-use tl_core::{EnforcementProfile, ResponseMode};
 
 use super::super::errors::api_error_response;
 use super::super::provider::GatewayProvider;
@@ -25,22 +24,13 @@ pub(super) fn parse_provider_request(body: &Bytes) -> Result<Value, Response> {
     })
 }
 
-#[allow(clippy::result_large_err)]
 pub(super) fn prepare_streaming_request<P: GatewayProvider>(
     provider: &P,
-    profile: &EnforcementProfile,
     request: &mut Value,
-) -> Result<bool, Response> {
+) -> bool {
     let wants_stream = provider.is_streaming(request);
-    if !wants_stream {
-        return Ok(false);
+    if wants_stream {
+        provider.strip_streaming_fields(request);
     }
-    if profile.response_mode != ResponseMode::Streaming {
-        return Err(api_error_response(
-            StatusCode::BAD_REQUEST,
-            "streaming is not enabled for this route; set the enforcement profile response_mode to \"streaming\"".into(),
-        ));
-    }
-    provider.strip_streaming_fields(request);
-    Ok(true)
+    wants_stream
 }

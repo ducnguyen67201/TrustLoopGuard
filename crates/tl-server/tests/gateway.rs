@@ -135,28 +135,6 @@ async fn create_common_gateway_config(
     assert!(provider_body.get("provider_api_key").is_none());
     assert!(provider_body.get("encrypted_api_key").is_none());
 
-    let profile_resp = app
-        .clone()
-        .oneshot(json_request(
-            "POST",
-            "/v1/enforcement-profiles",
-            "sk-internal",
-            workspace,
-            json!({
-                "id": "profile",
-                "display_name": "Strict output",
-                "input_action": "allow",
-                "output_action": "block",
-                "fail_mode": "closed",
-                "retention_mode": "full_body",
-                "fallback_message": "Blocked by TrustLoopGuard.",
-                "max_regenerations": 0
-            }),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(profile_resp.status(), StatusCode::CREATED);
-
     let route_resp = app
         .oneshot(json_request(
             "POST",
@@ -167,29 +145,14 @@ async fn create_common_gateway_config(
                 "id": "route",
                 "display_name": "Gateway route",
                 "provider_connection_id": "provider",
-                "agent_id": "agent",
-                "enforcement_profile_id": "profile"
+                "agent_id": "agent"
             }),
         ))
         .await
         .unwrap();
     assert_eq!(route_resp.status(), StatusCode::CREATED);
-}
-
-/// Flip the common config's enforcement profile into streaming mode so the
-/// gateway will emit SSE for `stream:true` requests.
-async fn enable_streaming_mode(app: axum::Router, workspace: &str) {
-    let resp = app
-        .oneshot(json_request(
-            "PATCH",
-            "/v1/enforcement-profiles/profile",
-            "sk-internal",
-            workspace,
-            json!({ "response_mode": "streaming" }),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
+    let route_body = read_body(route_resp).await;
+    assert!(route_body.get("enforcement_profile_id").is_none());
 }
 
 async fn upsert_block_policy(app: axum::Router, workspace: &str) {
@@ -224,10 +187,6 @@ include!("gateway/streaming.rs");
 
 include!("gateway/input_enforcement.rs");
 
-include!("gateway/fail_modes.rs");
-
 include!("gateway/route_validation.rs");
 
-include!("gateway/output_actions.rs");
-
-include!("gateway/regeneration.rs");
+include!("gateway/policy_authority.rs");

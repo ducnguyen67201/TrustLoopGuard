@@ -4,12 +4,12 @@ use axum::response::Response;
 use serde_json::json;
 use tl_core::{
     Action, Decision, EventKind, GuardEvent, Labels, Origin, Principal, ProvenanceMap,
-    RetentionMode, SideEffectClass, Source,
+    SideEffectClass, Source,
 };
 
 use crate::{services::event_service::execute_event_submission, AppState};
 
-use super::super::normalization::{provider_kind_text, retention_mode_text};
+use super::super::normalization::provider_kind_text;
 use super::super::store::ResolvedGatewayRoute;
 
 pub(super) const GATEWAY_INPUT_SOURCE_ID: &str = "input.observed";
@@ -30,19 +30,14 @@ pub(super) async fn check_gateway_content(
     state: &AppState,
     check: GatewayContentCheck<'_>,
 ) -> Result<Decision, Response> {
-    let mut context = json!({
+    let context = json!({
         "integration_mode": "gateway",
         "gateway_phase": check.phase,
         "provider": provider_kind_text(check.resolved.provider_connection.kind),
         "route_id": check.resolved.route.id,
-        "enforcement_profile_id": check.resolved.enforcement_profile.id,
-        "retention_mode": retention_mode_text(check.resolved.enforcement_profile.retention_mode),
         "channel": "chat",
         "domain": check.phase,
     });
-    if check.resolved.enforcement_profile.retention_mode == RetentionMode::MetadataOnly {
-        context["body_retention"] = json!("omitted");
-    }
 
     let mut provenance = ProvenanceMap::default();
     provenance.insert("text", vec![check.text_source_id.to_string()]);

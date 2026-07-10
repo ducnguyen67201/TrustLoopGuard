@@ -188,8 +188,8 @@ For a runnable end-to-end demo against a local `tl-server`, run
 ## Gateway proxy quickstart
 
 Gateway mode protects provider traffic without wrapping every model call
-manually. Configure a provider connection, enforcement profile, and route, then
-point an OpenAI-compatible client at TrustLoopGuard:
+manually. Configure a provider connection and a route for an agent, then point
+an OpenAI-compatible client at TrustLoopGuard. All enabled policies apply automatically:
 
 ```ts
 import OpenAI from 'openai';
@@ -202,12 +202,12 @@ const openai = new OpenAI({
 const response = await openai.chat.completions.create({
   model: 'gpt-4o-mini',
   messages: [{ role: 'user', content: userMessage }],
+  max_tokens: 512,
 });
 ```
 
 See the [TypeScript SDK README](sdks/typescript/README.md) and
-[gateway guide](docs/gateway-proxy-runtime-branch-guide.md) for OpenAI and
-Anthropic examples.
+[gateway concept](docs/concept/gateway.md) for OpenAI and Anthropic examples.
 
 ## Runtime architecture
 
