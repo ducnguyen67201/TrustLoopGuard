@@ -142,6 +142,17 @@ pub struct WindowSpend {
     pub spent_minor: i64,
 }
 
+/// Shared context for evaluating a spend against configured alerts.
+pub struct SpendAlertEvaluation<'a> {
+    pub runtime: &'a BudgetAlertRuntime,
+    pub policy_store: &'a dyn PolicyStore,
+    pub workspace_id: &'a str,
+    pub environment_id: &'a str,
+    pub principal_id: &'a str,
+    pub currency: &'a str,
+    pub meter: SpendMeter,
+}
+
 /// Shared spend-time alert hook for both spend sources (financial
 /// ledger and LLM metering): load enabled configs, resolve the
 /// tightest caps from the financial policies admitted by
@@ -150,13 +161,7 @@ pub struct WindowSpend {
 /// [`process_spend`]. Infallible by design: alerting must never fail a
 /// spend, so every error path is `tracing::error!` + return.
 pub async fn evaluate_spend_alerts<M, S, Fut>(
-    runtime: &BudgetAlertRuntime,
-    policy_store: &dyn PolicyStore,
-    workspace_id: &str,
-    environment_id: &str,
-    principal_id: &str,
-    currency: &str,
-    meter: SpendMeter,
+    evaluation: SpendAlertEvaluation<'_>,
     policy_matches: M,
     spend_minor: S,
 ) where
@@ -164,6 +169,16 @@ pub async fn evaluate_spend_alerts<M, S, Fut>(
     S: Fn(DateTime<Utc>, DateTime<Utc>) -> Fut,
     Fut: std::future::Future<Output = Result<i64, String>>,
 {
+    let SpendAlertEvaluation {
+        runtime,
+        policy_store,
+        workspace_id,
+        environment_id,
+        principal_id,
+        currency,
+        meter,
+    } = evaluation;
+
     // One indexed lookup; almost always zero rows → early return.
     let configs = match runtime.store.list_enabled_configs(workspace_id).await {
         Ok(configs) => configs

@@ -532,13 +532,15 @@ async fn evaluate_llm_budget_alerts(
         delivery_tx: app.budget_alert_tx.clone(),
     };
     crate::budget_alerts::evaluate_spend_alerts(
-        &runtime,
-        app.policy_store.as_ref(),
-        workspace_id,
-        environment_id,
-        principal,
-        USD,
-        SpendMeter::LlmUsage,
+        crate::budget_alerts::SpendAlertEvaluation {
+            runtime: &runtime,
+            policy_store: app.policy_store.as_ref(),
+            workspace_id,
+            environment_id,
+            principal_id: principal,
+            currency: USD,
+            meter: SpendMeter::LlmUsage,
+        },
         |financial| llm_budget_policy_matches(financial, principal),
         |window_start, now| async move {
             app.llm_usage_store
