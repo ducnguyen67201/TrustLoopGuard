@@ -16,6 +16,7 @@ The journeys were derived from the requested workspace-level rollout controls:
 | Evaluate flags independently | `pnpm --filter web exec vitest run lib/workspace-features.test.ts` failed because `workspace-features` did not exist | Focused Vitest run passed | Either feature can be enabled without enabling the other. |
 | Reject direct access while disabled | `pnpm --filter web exec vitest run app/workspace-feature-pages.test.tsx` failed because both page promises resolved | Focused Vitest run passed | Disabled Attacks and Knowledge sources pages call `notFound()`; enabled pages render. |
 | Hide disabled navigation | `pnpm --filter web exec vitest run components/app-sidebar.test.ts` failed because `getVisibleNavGroups` did not exist | Focused Vitest run passed | Sidebar groups omit disabled feature links and retain independently enabled links. |
+| Label enabled rollout features as beta | The focused sidebar test failed because enabled titles were `Attacks` and `Knowledge sources` | `pnpm --filter web exec vitest run components/app-sidebar.test.ts` passed | Enabled gated links visibly identify both features as beta. |
 
 ## Test specification
 
@@ -25,8 +26,9 @@ The journeys were derived from the requested workspace-level rollout controls:
 | 2 | Feature evaluation is independent | `apps/web/lib/workspace-features.test.ts` | Unit | PASS |
 | 3 | Direct disabled routes, including new knowledge-source creation, return not found and enabled routes render | `apps/web/app/workspace-feature-pages.test.tsx` | Component/page | PASS |
 | 4 | Sidebar navigation hides disabled links | `apps/web/components/app-sidebar.test.ts` | Unit/component contract | PASS |
-| 5 | Existing web behavior remains intact | `pnpm --filter web test` | Web suite | PASS, 215 tests; the final focused gate run passed 10 tests |
-| 6 | Rust server behavior remains intact | `cargo test -p tl-server` | Rust unit/integration | PASS, 192 unit tests plus integration suites |
+| 5 | Enabled gated navigation displays `(Beta)` | `apps/web/components/app-sidebar.test.ts` | Unit/component contract | PASS |
+| 6 | Existing web behavior remains intact | `pnpm --filter web test` | Web suite | PASS, 217 tests |
+| 7 | Rust server behavior remains intact | `cargo test -p tl-server` | Rust unit/integration | PASS, 192 unit tests plus integration suites |
 
 ## Coverage and known gaps
 
@@ -36,4 +38,5 @@ The journeys were derived from the requested workspace-level rollout controls:
 
 - RED checkpoint: `27f81ae0 test: add workspace feature flag coverage`
 - RED checkpoint: `cf106f1e test: cover disabled workspace feature routes`
+- RED checkpoint: `72679052 test: require beta labels for gated navigation`
 - GREEN implementation and verification are captured by this report and the final implementation commit.

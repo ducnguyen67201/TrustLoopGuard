@@ -47,7 +47,7 @@ The primary sidebar groups runtime monitoring separately from configuration:
 
 Keep workspace/admin surfaces in the secondary section below the separator. Do not add new primary items as a flat list; choose the existing group that matches the workflow.
 
-Workspace rollout flags returned by `GET /v1/team/my-workspaces` control unavailable product areas. A gated navigation item declares its workspace feature in `components/app-sidebar.tsx`; `lib/workspace-features.ts` is the canonical evaluator. The page entry point must apply the same evaluator and call `notFound()` when disabled, so hiding a link never becomes the only gate. `/attacks` uses `isAttacksEnabled`; `/knowledge-sources` uses `isKnowledgeBaseEnabled`. Both default to disabled for new and existing workspaces.
+Workspace rollout flags returned by `GET /v1/team/my-workspaces` control unavailable product areas. A gated navigation item declares its workspace feature in `components/app-sidebar.tsx`; `lib/workspace-features.ts` is the canonical evaluator. The page entry point must apply the same evaluator and call `notFound()` when disabled, so hiding a link never becomes the only gate. `/attacks` uses `isAttacksEnabled`; `/knowledge-sources` uses `isKnowledgeBaseEnabled`. Both default to disabled for new and existing workspaces. When enabled during rollout, their sidebar labels remain `Attacks (Beta)` and `Knowledge sources (Beta)` until the product marks them generally available.
 
 The sidebar owns the workspace switcher and environment switcher. Runtime/product pages should preserve both URL parameters when linking within the dashboard so policy deployment toggles, runs, traces, and analytics stay scoped to the selected environment.
 

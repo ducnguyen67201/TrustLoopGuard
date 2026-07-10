@@ -83,7 +83,7 @@ const data = {
           description: 'Trends in decisions, speed, and policy activity',
         },
         {
-          title: 'Attacks',
+          title: 'Attacks (Beta)',
           url: '/attacks',
           icon: IconSwords,
           description: 'Safely test how well your guardrails hold up',
@@ -107,7 +107,7 @@ const data = {
           description: 'The AI apps you protect',
         },
         {
-          title: 'Knowledge sources',
+          title: 'Knowledge sources (Beta)',
           url: '/knowledge-sources',
           icon: IconBook2,
           description: 'Approved content the guardrail can trust',
