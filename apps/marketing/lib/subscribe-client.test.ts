@@ -4,8 +4,24 @@ import test from 'node:test';
 import {
   buildFrustrationEvent,
   emitFrustrationEvent,
+  reportSubscribeFrustration,
   submitWaitlist,
 } from './subscribe-client.ts';
+
+test('completes a successful signup request', async () => {
+  let requestBody = '';
+  const fetcher: typeof fetch = async (_input, init) => {
+    requestBody = String(init?.body ?? '');
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  await submitWaitlist({ email: 'person@example.com' }, { fetcher });
+
+  assert.equal(requestBody, JSON.stringify({ email: 'person@example.com' }));
+});
 
 test('times out a stalled signup request so the form can recover', async () => {
   const fetcher = (_input: string | URL | Request, init?: RequestInit) =>
@@ -20,10 +36,11 @@ test('times out a stalled signup request so the form can recover', async () => {
 });
 
 test('returns a stable error from a rejected signup response', async () => {
-  const fetcher = async () => new Response(
-    JSON.stringify({ error: 'Waitlist is unavailable.' }),
-    { status: 503, headers: { 'content-type': 'application/json' } },
-  );
+  const fetcher = async () =>
+    new Response(JSON.stringify({ error: 'Waitlist is unavailable.' }), {
+      status: 503,
+      headers: { 'content-type': 'application/json' },
+    });
 
   await assert.rejects(
     submitWaitlist({ email: 'person@example.com' }, { fetcher }),
@@ -56,4 +73,34 @@ test('emits the exact GRANNY_EVENT prefix and JSON payload once', () => {
 
   assert.equal(lines.length, 1);
   assert.match(lines[0] ?? '', /^GRANNY_EVENT \{"type":"report_frustration"/);
+});
+
+test('reports browser evidence around the failed submit control', () => {
+  const lines: string[] = [];
+  const originalInfo = console.info;
+  const originalWindow = globalThis.window;
+  console.info = (line) => lines.push(String(line));
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      innerHeight: 800,
+      innerWidth: 1000,
+      location: { href: 'https://gettrustloop.app/' },
+    },
+  });
+
+  try {
+    reportSubscribeFrustration({
+      getBoundingClientRect: () => ({ left: 800, top: 600, width: 80, height: 40 }),
+    } as HTMLElement);
+  } finally {
+    console.info = originalInfo;
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: originalWindow,
+    });
+  }
+
+  assert.equal(lines.length, 1);
+  assert.match(lines[0] ?? '', /"currentUrl":"https:\/\/gettrustloop\.app\/"/);
 });

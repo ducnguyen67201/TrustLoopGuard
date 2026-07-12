@@ -4,6 +4,7 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "preserve",
     "allowJs": false,
+    "allowImportingTsExtensions": true,
     "incremental": true,
     "noEmit": true,
     "plugins": [{ "name": "next" }],

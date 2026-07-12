@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { trackMarketingEvent } from '@/lib/gtm';
+import { reportSubscribeFrustration, submitWaitlist } from '@/lib/subscribe-client';
 import { Ascii } from './ascii-art';
 
 type Status = 'idle' | 'sending' | 'ok' | 'error';
@@ -15,13 +16,7 @@ export function StayInTouch() {
     const form = e.currentTarget;
     setStatus('sending');
     try {
-      const res = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(Object.fromEntries(new FormData(form))),
-      });
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(body.error ?? 'Something broke — try again in a minute.');
+      await submitWaitlist(Object.fromEntries(new FormData(form)));
       trackMarketingEvent('waitlist_submit', {
         page: '/',
         location: 'stay_in_touch',
@@ -32,6 +27,7 @@ export function StayInTouch() {
     } catch (err) {
       setStatus('error');
       setError(err instanceof Error ? err.message : 'Something broke — try again in a minute.');
+      reportSubscribeFrustration(form.querySelector<HTMLElement>('button[type="submit"]') ?? form);
     }
   }
 
