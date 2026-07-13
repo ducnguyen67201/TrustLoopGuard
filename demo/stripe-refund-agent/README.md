@@ -68,3 +68,10 @@ The deployed refund-agent service must read a production-scoped `TL_API_KEY` fro
 `TL_SERVER_URL=https://api.gettrustloop.app`. The Rust `/v1` API lives on `api.gettrustloop.app`;
 `https://app.gettrustloop.app` is the authenticated dashboard and is used only for held-action review
 links. Do not copy either key into the marketing app or expose it through a `NEXT_PUBLIC_*` variable.
+
+Railway deploys the service with `demo/stripe-refund-agent/Dockerfile`. Set `PORT=8080`,
+`STRIPE_REFUND_AGENT_UI_HOST=0.0.0.0`, a dedicated 32+ character
+`STRIPE_REFUND_PROVIDER_API_KEY`, and `STRIPE_REFUND_PROVIDER_BASE_URL` to the service's public HTTPS
+origin. The same service exposes the proxy-authenticated `/chat` and `/status/*` routes plus the
+separately authenticated `/payments` provider adapter. Run `stripe-refund-agent:setup` once per
+environment after deployment so the Rust API stores the hosted provider origin and credential.
