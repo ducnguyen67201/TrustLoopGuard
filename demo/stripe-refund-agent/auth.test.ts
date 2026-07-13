@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  RefundDemoRequestBudget,
   isValidRefundDemoAuthorization,
   requireRefundDemoProxySecret,
 } from './auth';
@@ -21,4 +22,13 @@ test('accepts only the exact bearer credential', () => {
     isValidRefundDemoAuthorization(`Bearer ${VALID_SECRET}`, VALID_SECRET),
     true,
   );
+});
+
+test('enforces a central fixed-window budget for expensive live runs', () => {
+  const budget = new RefundDemoRequestBudget({ maxRequests: 2, windowMs: 1_000 });
+
+  assert.equal(budget.tryAcquire(100), true);
+  assert.equal(budget.tryAcquire(200), true);
+  assert.equal(budget.tryAcquire(300), false);
+  assert.equal(budget.tryAcquire(1_101), true);
 });

@@ -157,6 +157,37 @@ test('limits repeated expensive requests for one visitor', async () => {
   }
 });
 
+test('uses the platform-owned client address instead of a spoofable forwarded value', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => Response.json(upstreamPayload)) as typeof fetch;
+
+  try {
+    const responses = [];
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      responses.push(
+        await POST(
+          new Request('http://localhost/api/demo/refund', {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              'x-vercel-forwarded-for': 'trusted-platform-client',
+              'x-forwarded-for': `spoofed-${attempt}`,
+            },
+            body: JSON.stringify({ prompt: 'Refund order ord_demo_1001 for $25.' }),
+          }),
+        ),
+      );
+    }
+
+    assert.deepEqual(
+      responses.map((response) => response.status),
+      [200, 200, 200, 200, 429],
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 function requestFor(body: object, ip: string): Request {
   return new Request('http://localhost/api/demo/refund', {
     method: 'POST',
