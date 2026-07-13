@@ -9,6 +9,7 @@ import {
   sanitizeRefundDemoStatus,
   sanitizeRefundDemoResponse,
 } from './contract';
+import { refundDemoReviewUrl } from './review-url';
 
 test('accepts a concrete refund request and trims whitespace', () => {
   assert.equal(
@@ -106,4 +107,15 @@ test('the Product Hunt route shows a live chat, the control boundary, and Stripe
   assert.match(source, /Stripe test mode/i);
   assert.match(source, /not a scripted animation/i);
   assert.match(source, /api\/demo\/refund\?actionId=/i);
+  assert.match(source, /Review this exact action/i);
+});
+
+test('links a held refund to the exact dashboard financial action', () => {
+  assert.equal(
+    refundDemoReviewUrl(
+      '019f5d6a-f57d-7c23-ada2-acc821b332ea',
+      'http://localhost:3000/',
+    ),
+    'http://localhost:3000/financial?workspace=default&environment=production&actionId=019f5d6a-f57d-7c23-ada2-acc821b332ea',
+  );
 });
