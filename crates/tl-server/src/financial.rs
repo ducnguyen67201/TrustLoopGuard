@@ -23,18 +23,18 @@ pub use executor::{
     PaymentHttpFinancialExecutor,
 };
 pub use handlers::{
-    __path_approve_action, __path_authorize_agentic_payment, __path_commit_agentic_payment,
-    __path_create_action, __path_create_mandate, __path_create_policy, __path_deny_action,
-    __path_execute_action, __path_get_action, __path_get_agentic_payment,
-    __path_get_agentic_payment_receipt, __path_get_decision_receipt, __path_get_receipt,
-    __path_list_action_outcomes, __path_list_actions, __path_list_approval_requests,
-    __path_list_mandates, __path_list_policies, __path_record_action_outcome,
-    __path_revoke_mandate, __path_rollback_agentic_payment, approve_action,
-    authorize_agentic_payment, commit_agentic_payment, create_action, create_mandate,
-    create_policy, deny_action, execute_action, get_action, get_agentic_payment,
-    get_agentic_payment_receipt, get_decision_receipt, get_receipt, list_action_outcomes,
-    list_actions, list_approval_requests, list_mandates, list_policies, record_action_outcome,
-    revoke_mandate, rollback_agentic_payment,
+    __path_approve_action, __path_approve_matching_actions, __path_authorize_agentic_payment,
+    __path_commit_agentic_payment, __path_create_action, __path_create_mandate,
+    __path_create_policy, __path_deny_action, __path_execute_action, __path_get_action,
+    __path_get_agentic_payment, __path_get_agentic_payment_receipt, __path_get_approval_envelope,
+    __path_get_decision_receipt, __path_get_receipt, __path_list_action_outcomes,
+    __path_list_actions, __path_list_approval_requests, __path_list_mandates, __path_list_policies,
+    __path_record_action_outcome, __path_revoke_mandate, __path_rollback_agentic_payment,
+    approve_action, approve_matching_actions, authorize_agentic_payment, commit_agentic_payment,
+    create_action, create_mandate, create_policy, deny_action, execute_action, get_action,
+    get_agentic_payment, get_agentic_payment_receipt, get_approval_envelope, get_decision_receipt,
+    get_receipt, list_action_outcomes, list_actions, list_approval_requests, list_mandates,
+    list_policies, record_action_outcome, revoke_mandate, rollback_agentic_payment,
 };
 pub use memory_store::MemoryFinancialStore;
 pub use service::{FinancialActionExecutionAttempt, FinancialAuthorizationService};
@@ -70,6 +70,57 @@ pub struct AgenticPaymentBudgetReservationRequest {
     pub session_limit_minor: i64,
     pub expires_at: DateTime<Utc>,
     pub metadata: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FinancialBudgetWindow {
+    Day,
+    Week,
+    Month,
+}
+
+#[derive(Debug, Clone)]
+pub struct FinancialBudgetConstraint {
+    pub policy_id: String,
+    pub window: FinancialBudgetWindow,
+    pub cap_minor: i64,
+    pub block_on_breach: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct FinancialBudgetReservationRequest {
+    pub workspace_id: String,
+    pub action_id: String,
+    pub principal_id: String,
+    pub amount: MoneyAmount,
+    pub idempotency_key: String,
+    pub day_start: DateTime<Utc>,
+    pub week_start: DateTime<Utc>,
+    pub month_start: DateTime<Utc>,
+    pub now: DateTime<Utc>,
+    pub constraints: Vec<FinancialBudgetConstraint>,
+    pub metadata: serde_json::Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FinancialBudgetViolation {
+    pub policy_id: String,
+    pub window: FinancialBudgetWindow,
+    pub cap_minor: i64,
+    pub committed_minor: i64,
+    pub requested_minor: i64,
+    pub block_on_breach: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FinancialBudgetReservationOutcome {
+    Reserved {
+        ledger_entry_id: String,
+        violations: Vec<FinancialBudgetViolation>,
+    },
+    Denied {
+        violations: Vec<FinancialBudgetViolation>,
+    },
 }
 
 #[async_trait]
@@ -155,6 +206,12 @@ pub trait FinancialStore: Send + Sync {
         workspace_id: &str,
     ) -> Result<FinancialApprovalRequestListResponse, FinancialStoreError>;
 
+    async fn has_current_approved_request(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<bool, FinancialStoreError>;
+
     async fn resolve_pending_approval_requests(
         &self,
         workspace_id: &str,
@@ -211,6 +268,11 @@ pub trait FinancialStore: Send + Sync {
     ) -> Result<i64, FinancialStoreError> {
         Ok(0)
     }
+
+    async fn try_reserve_action_budget(
+        &self,
+        request: FinancialBudgetReservationRequest,
+    ) -> Result<FinancialBudgetReservationOutcome, FinancialStoreError>;
 
     async fn try_reserve_agentic_payment_budget(
         &self,

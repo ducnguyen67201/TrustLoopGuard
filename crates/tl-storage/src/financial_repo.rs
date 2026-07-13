@@ -17,14 +17,14 @@ use crate::models::{
     FinancialActionRecord, FinancialLedgerEntryRecord, FinancialPaymentReservationRecord,
     FinancialPaymentSessionRecord, FinancialReceiptRecord, MandateRecord, NewApprovalRequest,
     NewFinancialAction, NewFinancialActionEvent, NewFinancialActionOutcome,
-    NewFinancialLedgerEntry, NewFinancialPaymentReservation, NewFinancialPaymentSession,
-    NewFinancialReceipt, NewMandate,
+    NewFinancialBudgetPrincipalLock, NewFinancialLedgerEntry, NewFinancialPaymentReservation,
+    NewFinancialPaymentSession, NewFinancialReceipt, NewMandate,
 };
 use crate::postgres::{DbConnection, DbPool};
 use crate::schema::{
     approval_requests, financial_action_events, financial_action_outcomes, financial_actions,
-    financial_ledger_entries, financial_payment_reservations, financial_payment_sessions,
-    financial_receipts, mandates,
+    financial_budget_principal_locks, financial_ledger_entries, financial_payment_reservations,
+    financial_payment_sessions, financial_receipts, mandates,
 };
 use crate::StorageError;
 
@@ -156,6 +156,57 @@ pub struct ReserveAgenticPaymentBudgetRequest {
     pub session_limit_minor: i64,
     pub expires_at: DateTime<Utc>,
     pub metadata: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FinancialBudgetWindow {
+    Day,
+    Week,
+    Month,
+}
+
+#[derive(Debug, Clone)]
+pub struct FinancialBudgetConstraint {
+    pub policy_id: String,
+    pub window: FinancialBudgetWindow,
+    pub cap_minor: i64,
+    pub block_on_breach: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ReserveFinancialActionBudgetRequest {
+    pub workspace_id: String,
+    pub action_id: String,
+    pub principal_id: String,
+    pub amount: MoneyAmount,
+    pub idempotency_key: String,
+    pub day_start: DateTime<Utc>,
+    pub week_start: DateTime<Utc>,
+    pub month_start: DateTime<Utc>,
+    pub now: DateTime<Utc>,
+    pub constraints: Vec<FinancialBudgetConstraint>,
+    pub metadata: serde_json::Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FinancialBudgetViolation {
+    pub policy_id: String,
+    pub window: FinancialBudgetWindow,
+    pub cap_minor: i64,
+    pub committed_minor: i64,
+    pub requested_minor: i64,
+    pub block_on_breach: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReserveFinancialActionBudgetResult {
+    Reserved {
+        ledger_entry_id: String,
+        violations: Vec<FinancialBudgetViolation>,
+    },
+    Denied {
+        violations: Vec<FinancialBudgetViolation>,
+    },
 }
 
 #[derive(Clone)]
@@ -617,6 +668,32 @@ impl FinancialRepo {
         rows.into_iter().map(approval_from_record).collect()
     }
 
+    pub async fn has_current_approved_request(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<bool, StorageError> {
+        let action_uuid = parse_uuid(action_id)?;
+        let mut conn = self.connection().await?;
+        approval_requests::table
+            .filter(approval_requests::workspace_id.eq(workspace_id))
+            .filter(approval_requests::action_id.eq(action_uuid))
+            .filter(
+                approval_requests::status.eq(enum_text(FinancialApprovalRequestStatus::Approved)?),
+            )
+            .filter(
+                approval_requests::expires_at
+                    .is_null()
+                    .or(approval_requests::expires_at.gt(Utc::now())),
+            )
+            .select(approval_requests::id)
+            .first::<Uuid>(&mut conn)
+            .await
+            .optional()
+            .map(|request| request.is_some())
+            .map_err(|e| StorageError::Internal(format!("approved request lookup: {e}")))
+    }
+
     pub async fn resolve_pending_approval_requests(
         &self,
         workspace_id: &str,
@@ -833,6 +910,165 @@ impl FinancialRepo {
         Ok(existing)
     }
 
+    /// Atomically check every matching action-budget constraint and reserve
+    /// the action amount before authorization. A durable principal/currency
+    /// row serializes replicas around the ledger read and reservation insert.
+    pub async fn reserve_action_budget(
+        &self,
+        request: ReserveFinancialActionBudgetRequest,
+    ) -> Result<ReserveFinancialActionBudgetResult, StorageError> {
+        if request.amount.amount_minor <= 0 {
+            return Err(StorageError::Internal(
+                "financial budget reservation amount must be positive".into(),
+            ));
+        }
+        let action_uuid = parse_uuid(&request.action_id)?;
+        let currency = clean_required("currency", &request.amount.currency)?.to_uppercase();
+        let idempotency_key = clean_required("idempotency_key", &request.idempotency_key)?;
+        let workspace_id = request.workspace_id.clone();
+        let mut conn = self.connection().await?;
+        conn.transaction::<_, StorageError, _>(async move |conn| {
+            diesel::insert_into(financial_budget_principal_locks::table)
+                .values(&NewFinancialBudgetPrincipalLock {
+                    workspace_id: workspace_id.clone(),
+                    principal_id: request.principal_id.clone(),
+                    currency: currency.clone(),
+                })
+                .on_conflict((
+                    financial_budget_principal_locks::workspace_id,
+                    financial_budget_principal_locks::principal_id,
+                    financial_budget_principal_locks::currency,
+                ))
+                .do_nothing()
+                .execute(conn)
+                .await
+                .map_err(|error| {
+                    StorageError::Internal(format!("financial budget lock insert: {error}"))
+                })?;
+            financial_budget_principal_locks::table
+                .filter(financial_budget_principal_locks::workspace_id.eq(&workspace_id))
+                .filter(financial_budget_principal_locks::principal_id.eq(&request.principal_id))
+                .filter(financial_budget_principal_locks::currency.eq(&currency))
+                .select((
+                    financial_budget_principal_locks::workspace_id,
+                    financial_budget_principal_locks::principal_id,
+                    financial_budget_principal_locks::currency,
+                ))
+                .for_update()
+                .first::<(String, String, String)>(conn)
+                .await
+                .map_err(|error| {
+                    StorageError::Internal(format!("financial budget principal lock: {error}"))
+                })?;
+
+            if let Some(existing) = financial_ledger_entries::table
+                .filter(financial_ledger_entries::workspace_id.eq(&workspace_id))
+                .filter(financial_ledger_entries::idempotency_key.eq(&idempotency_key))
+                .select(FinancialLedgerEntryRecord::as_select())
+                .first::<FinancialLedgerEntryRecord>(conn)
+                .await
+                .optional()
+                .map_err(|error| {
+                    StorageError::Internal(format!("financial budget reservation get: {error}"))
+                })?
+            {
+                if existing.action_id != action_uuid
+                    || existing.entry_kind != FinancialLedgerEntryKind::Reserved.as_str()
+                    || existing.amount_minor != request.amount.amount_minor
+                    || existing.currency != currency
+                {
+                    return Err(StorageError::Conflict);
+                }
+                return Ok(ReserveFinancialActionBudgetResult::Reserved {
+                    ledger_entry_id: existing.id.to_string(),
+                    violations: vec![],
+                });
+            }
+
+            let action = financial_actions::table
+                .filter(financial_actions::workspace_id.eq(&workspace_id))
+                .filter(financial_actions::id.eq(action_uuid))
+                .select(FinancialActionRecord::as_select())
+                .first::<FinancialActionRecord>(conn)
+                .await
+                .optional()
+                .map_err(|error| {
+                    StorageError::Internal(format!("financial budget action get: {error}"))
+                })?
+                .ok_or(StorageError::NotFound)?;
+            if action.principal_id != request.principal_id
+                || action.amount_minor != request.amount.amount_minor
+                || action.currency != currency
+            {
+                return Err(StorageError::Conflict);
+            }
+            let action_ids = financial_action_ids_in_transaction(
+                conn,
+                &workspace_id,
+                &request.principal_id,
+                &currency,
+            )
+            .await?;
+
+            let mut violations = Vec::new();
+            for constraint in request.constraints {
+                let start = match constraint.window {
+                    FinancialBudgetWindow::Day => request.day_start,
+                    FinancialBudgetWindow::Week => request.week_start,
+                    FinancialBudgetWindow::Month => request.month_start,
+                };
+                let committed_minor = net_spend_minor_in_transaction(
+                    conn,
+                    &workspace_id,
+                    &action_ids,
+                    &currency,
+                    start,
+                    request.now,
+                )
+                .await?;
+                if committed_minor.saturating_add(request.amount.amount_minor)
+                    > constraint.cap_minor
+                {
+                    violations.push(FinancialBudgetViolation {
+                        policy_id: constraint.policy_id,
+                        window: constraint.window,
+                        cap_minor: constraint.cap_minor,
+                        committed_minor,
+                        requested_minor: request.amount.amount_minor,
+                        block_on_breach: constraint.block_on_breach,
+                    });
+                }
+            }
+            if violations.iter().any(|violation| violation.block_on_breach) {
+                return Ok(ReserveFinancialActionBudgetResult::Denied { violations });
+            }
+
+            let entry = NewFinancialLedgerEntry {
+                workspace_id: workspace_id.clone(),
+                id: Uuid::now_v7(),
+                action_id: action_uuid,
+                entry_kind: FinancialLedgerEntryKind::Reserved.as_str().to_string(),
+                amount_minor: request.amount.amount_minor,
+                currency,
+                idempotency_key,
+                metadata: request.metadata,
+            };
+            let row = diesel::insert_into(financial_ledger_entries::table)
+                .values(&entry)
+                .returning(FinancialLedgerEntryRecord::as_returning())
+                .get_result::<FinancialLedgerEntryRecord>(conn)
+                .await
+                .map_err(|error| {
+                    StorageError::Internal(format!("financial budget reservation insert: {error}"))
+                })?;
+            Ok(ReserveFinancialActionBudgetResult::Reserved {
+                ledger_entry_id: row.id.to_string(),
+                violations,
+            })
+        })
+        .await
+    }
+
     pub async fn net_spend_minor(
         &self,
         workspace_id: &str,
@@ -844,31 +1080,22 @@ impl FinancialRepo {
         let clean_principal = clean_required("principal_id", principal_id)?;
         let clean_currency = clean_required("currency", currency)?.to_uppercase();
         let mut conn = self.connection().await?;
-        let action_ids = financial_actions::table
-            .filter(financial_actions::workspace_id.eq(workspace_id))
-            .filter(financial_actions::principal_id.eq(clean_principal))
-            .select(financial_actions::id)
-            .load::<Uuid>(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("financial spend actions: {e}")))?;
-        if action_ids.is_empty() {
-            return Ok(0);
-        }
-        let rows = financial_ledger_entries::table
-            .filter(financial_ledger_entries::workspace_id.eq(workspace_id))
-            .filter(financial_ledger_entries::action_id.eq_any(action_ids))
-            .filter(financial_ledger_entries::currency.eq(clean_currency))
-            .filter(financial_ledger_entries::effective_at.ge(start))
-            .filter(financial_ledger_entries::effective_at.lt(end))
-            .select(FinancialLedgerEntryRecord::as_select())
-            .load::<FinancialLedgerEntryRecord>(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("financial spend ledger: {e}")))?;
-
-        rows.into_iter().try_fold(0_i64, |total, row| {
-            let kind = ledger_kind_from_text(&row.entry_kind)?;
-            Ok(total + kind.signed_amount(row.amount_minor))
-        })
+        let action_ids = financial_action_ids_in_transaction(
+            &mut conn,
+            workspace_id,
+            &clean_principal,
+            &clean_currency,
+        )
+        .await?;
+        net_spend_minor_in_transaction(
+            &mut conn,
+            workspace_id,
+            &action_ids,
+            &clean_currency,
+            start,
+            end,
+        )
+        .await
     }
 
     pub async fn try_reserve_agentic_payment_budget(
@@ -1531,6 +1758,50 @@ fn ledger_entry_from_record(
         metadata: record.metadata,
         effective_at: record.effective_at,
         created_at: record.created_at,
+    })
+}
+
+async fn financial_action_ids_in_transaction(
+    conn: &mut diesel_async::AsyncPgConnection,
+    workspace_id: &str,
+    principal_id: &str,
+    currency: &str,
+) -> Result<Vec<Uuid>, StorageError> {
+    financial_actions::table
+        .filter(financial_actions::workspace_id.eq(workspace_id))
+        .filter(financial_actions::principal_id.eq(principal_id))
+        .filter(financial_actions::currency.eq(currency))
+        .select(financial_actions::id)
+        .load::<Uuid>(conn)
+        .await
+        .map_err(|error| StorageError::Internal(format!("financial spend actions: {error}")))
+}
+
+async fn net_spend_minor_in_transaction(
+    conn: &mut diesel_async::AsyncPgConnection,
+    workspace_id: &str,
+    action_ids: &[Uuid],
+    currency: &str,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+) -> Result<i64, StorageError> {
+    if action_ids.is_empty() {
+        return Ok(0);
+    }
+    let rows = financial_ledger_entries::table
+        .filter(financial_ledger_entries::workspace_id.eq(workspace_id))
+        .filter(financial_ledger_entries::action_id.eq_any(action_ids))
+        .filter(financial_ledger_entries::currency.eq(currency))
+        .filter(financial_ledger_entries::effective_at.ge(start))
+        .filter(financial_ledger_entries::effective_at.lt(end))
+        .select(FinancialLedgerEntryRecord::as_select())
+        .load::<FinancialLedgerEntryRecord>(conn)
+        .await
+        .map_err(|error| StorageError::Internal(format!("financial spend ledger: {error}")))?;
+
+    rows.into_iter().try_fold(0_i64, |total, row| {
+        let kind = ledger_kind_from_text(&row.entry_kind)?;
+        Ok(total.saturating_add(kind.signed_amount(row.amount_minor)))
     })
 }
 

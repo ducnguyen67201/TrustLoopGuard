@@ -4,9 +4,9 @@ use std::time::Duration;
 
 use tl_sdk_rust::{
     AgenticPaymentAuthorizeRequest, AgenticPaymentCommitRequest, AgenticPaymentDecision,
-    AgenticPaymentRollbackRequest, Client, CounterpartyRef, CreateFinancialActionRequest,
-    CreateFinancialMandateRequest, CreateFinancialPolicyRequest, FinancialAction,
-    FinancialActionDecision, FinancialActionKind, FinancialActionOutcome,
+    AgenticPaymentRollbackRequest, ApproveMatchingFinancialActionsRequest, Client, CounterpartyRef,
+    CreateFinancialActionRequest, CreateFinancialMandateRequest, CreateFinancialPolicyRequest,
+    FinancialAction, FinancialActionDecision, FinancialActionKind, FinancialActionOutcome,
     FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionStatus,
     FinancialDecisionRiskCode, FinancialExecutionProofStatus, FinancialMandateStatus,
     FinancialPolicySelector, FinancialRail, MandateRef, MoneyAmount, PolicyAction, RecoveryStatus,
@@ -470,6 +470,56 @@ async fn financial_action_helpers_encode_ids_and_parse_statuses() {
 
     let executed = client.execute_action("action/one").await.unwrap();
     assert_eq!(executed.status, FinancialActionStatus::Executed);
+}
+
+#[tokio::test]
+async fn reusable_approval_helpers_preview_and_submit_the_reviewed_fingerprint() {
+    let server = MockServer::start().await;
+    let envelope = serde_json::json!({
+        "action_id": "action/one",
+        "action_fingerprint": "sha256:v1:abc123",
+        "fingerprint_version": 1,
+        "principal_id": "refund-bot",
+        "action_kind": "refund",
+        "operation": "issue_refund",
+        "rail": "card",
+        "currency": "USD",
+        "counterparty_id": "cust_456",
+        "current_amount_minor": 7_500,
+        "recommended_max_amount_minor": 7_500
+    });
+    Mock::given(method("GET"))
+        .and(path("/v1/financial/actions/action%2Fone/approval-envelope"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(envelope.clone()))
+        .mount(&server)
+        .await;
+    let request = ApproveMatchingFinancialActionsRequest {
+        action_fingerprint: "sha256:v1:abc123".into(),
+        max_amount_minor: 10_000,
+        expires_at: "2026-07-14T12:00:00Z".into(),
+    };
+    Mock::given(method("POST"))
+        .and(path("/v1/financial/actions/action%2Fone/approve-matching"))
+        .and(body_json(&request))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "action": action_body("action/one", "authorized"),
+            "mandate": mandate_body("active"),
+            "approval_envelope": envelope
+        })))
+        .mount(&server)
+        .await;
+
+    let client = Client::new(server.uri()).with_retry(one_shot_retry());
+    let preview = client
+        .get_financial_approval_envelope("action/one")
+        .await
+        .unwrap();
+    assert_eq!(preview.action_fingerprint, "sha256:v1:abc123");
+    let result = client
+        .approve_matching_financial_actions("action/one", &request)
+        .await
+        .unwrap();
+    assert_eq!(result.mandate.status, FinancialMandateStatus::Active);
 }
 
 #[tokio::test]

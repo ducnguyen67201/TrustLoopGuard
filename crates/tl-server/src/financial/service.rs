@@ -1,30 +1,34 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 use tl_core::{
     AgenticPaymentAuthorizationResponse, AgenticPaymentAuthorizeRequest,
     AgenticPaymentCommitRequest, AgenticPaymentDecision, AgenticPaymentMandateScope,
     AgenticPaymentRecord, AgenticPaymentReservationStatus, AgenticPaymentRollbackRequest,
-    ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
+    ApprovalRequirement, ApproveMatchingFinancialActionsRequest,
+    ApproveMatchingFinancialActionsResponse, CounterpartyRef, CreateFinancialActionRequest,
     CreateFinancialMandateRequest, CreateFinancialPolicyRequest, EvidenceRef, FinancialAction,
     FinancialActionDecision, FinancialActionDecisionReceipt, FinancialActionKind,
     FinancialActionListResponse, FinancialActionOutcome, FinancialActionOutcomeStatus,
     FinancialActionPrecondition, FinancialActionRecord, FinancialActionStatus,
-    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
-    FinancialAuthorizationScopeProof, FinancialDecisionRisk, FinancialDecisionRiskCode,
-    FinancialEligibilityStatus, FinancialEvidenceProof, FinancialExecutionProof,
-    FinancialExecutionProofStatus, FinancialMandate, FinancialMandateListResponse,
-    FinancialMandateStatus, FinancialOutcomeListResponse, FinancialPolicyListResponse,
-    FinancialPolicyRecord, FinancialPolicySelector, FinancialRail, FinancialReceipt, PolicyAction,
-    RecoveryStatus, ReversalCapability, Severity, Verdict, X402NormalizedPaymentRequirement,
-    X402SettlementProof, DEFAULT_ENVIRONMENT_ID,
+    FinancialApprovalEnvelope, FinancialApprovalRequestListResponse,
+    FinancialApprovalRequestStatus, FinancialAuthorizationScopeProof, FinancialDecisionRisk,
+    FinancialDecisionRiskCode, FinancialEligibilityStatus, FinancialEvidenceProof,
+    FinancialExecutionProof, FinancialExecutionProofStatus, FinancialMandate,
+    FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
+    FinancialPolicyListResponse, FinancialPolicyRecord, FinancialPolicySelector, FinancialRail,
+    FinancialReceipt, PolicyAction, RecoveryStatus, ReversalCapability, Severity, Verdict,
+    X402NormalizedPaymentRequirement, X402SettlementProof, DEFAULT_ENVIRONMENT_ID,
 };
 use tl_engine::{evaluate_financial_policies, financial_matches, financial_windowed_verdict};
 use tl_policy::{validate_family_policy, Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
 
 use super::{
     validation::validate_create_action, x402, AgenticPaymentBudgetReservationRequest,
+    FinancialBudgetConstraint, FinancialBudgetReservationOutcome,
+    FinancialBudgetReservationRequest, FinancialBudgetViolation, FinancialBudgetWindow,
     FinancialExecutionError, FinancialExecutionResult, FinancialExecutor, FinancialLedgerEntryKind,
     FinancialStore, FinancialStoreError,
 };
@@ -40,6 +44,10 @@ pub struct FinancialAuthorizationService {
     /// Budget alert evaluation at spend-record time. `None` = alerts
     /// off (tests, minimal wiring); the spend path is unaffected.
     budget_alerts: Option<BudgetAlertRuntime>,
+}
+
+struct BudgetReservationDecision {
+    decision: Option<(Verdict, String)>,
 }
 
 impl FinancialAuthorizationService {
@@ -99,6 +107,9 @@ impl FinancialAuthorizationService {
         input: CreateFinancialActionRequest,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
         validate_create_action(&input)?;
+        let input = self
+            .attach_reusable_approval_mandate(workspace_id, input)
+            .await?;
         let should_execute = input.execute;
         let action = self.store.create_action(workspace_id, input).await?;
         if action.status != FinancialActionStatus::Proposed {
@@ -109,10 +120,17 @@ impl FinancialAuthorizationService {
             return Ok(action);
         }
         let action = self
-            .apply_financial_policies(workspace_id, environment_id, action)
+            .apply_financial_policies(workspace_id, environment_id, action, should_execute)
             .await?;
         if should_execute && action.status == FinancialActionStatus::Proposed {
-            let authorized = self.authorize_action(workspace_id, &action.id).await?;
+            let authorized = self
+                .transition_action(
+                    workspace_id,
+                    &action.id,
+                    FinancialActionStatus::Authorized,
+                    "authorized",
+                )
+                .await?;
             return self.execute_action(workspace_id, &authorized.id).await;
         }
         Ok(action)
@@ -124,6 +142,18 @@ impl FinancialAuthorizationService {
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
         self.store.get_action(workspace_id, action_id).await
+    }
+
+    pub async fn get_approval_envelope(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<FinancialApprovalEnvelope, FinancialStoreError> {
+        let action = self.store.get_action(workspace_id, action_id).await?;
+        if action.status != FinancialActionStatus::Held {
+            return Err(FinancialStoreError::Conflict);
+        }
+        approval_envelope(&action)
     }
 
     pub async fn list_actions(
@@ -178,13 +208,16 @@ impl FinancialAuthorizationService {
         };
 
         validate_create_action(&action_input)?;
+        let action_input = self
+            .attach_reusable_approval_mandate(workspace_id, action_input)
+            .await?;
         let mut action = self.store.create_action(workspace_id, action_input).await?;
         if action.status == FinancialActionStatus::Proposed {
             action = self.enforce_mandate(workspace_id, action).await?;
         }
         if action.status == FinancialActionStatus::Proposed {
             action = self
-                .apply_financial_policies(workspace_id, environment_id, action)
+                .apply_financial_policies(workspace_id, environment_id, action, true)
                 .await?;
         }
 
@@ -216,19 +249,19 @@ impl FinancialAuthorizationService {
             let reserved = match reserve_result {
                 Ok(reserved) => reserved,
                 Err(error) => {
+                    if self
+                        .action_budget_is_reserved(workspace_id, &action)
+                        .await?
+                    {
+                        self.record_action_ledger_entry(
+                            workspace_id,
+                            &action,
+                            FinancialLedgerEntryKind::Released,
+                            "released",
+                        )
+                        .await?;
+                    }
                     if action.status == FinancialActionStatus::Held {
-                        if self
-                            .ledger_entry_exists(workspace_id, &action, "reserved")
-                            .await?
-                        {
-                            self.record_action_ledger_entry(
-                                workspace_id,
-                                &action,
-                                FinancialLedgerEntryKind::Released,
-                                "released",
-                            )
-                            .await?;
-                        }
                         self.store
                             .resolve_pending_approval_requests(
                                 workspace_id,
@@ -237,26 +270,19 @@ impl FinancialAuthorizationService {
                                 None,
                             )
                             .await?;
-                        self.transition_action(
-                            workspace_id,
-                            &action.id,
-                            FinancialActionStatus::Failed,
-                            "x402_reservation_failed",
-                        )
-                        .await?;
                     }
+                    self.transition_action(
+                        workspace_id,
+                        &action.id,
+                        FinancialActionStatus::Failed,
+                        "x402_reservation_failed",
+                    )
+                    .await?;
                     return Err(error);
                 }
             };
             reservation = Some(reserved);
             if action.status == FinancialActionStatus::Proposed {
-                self.record_action_ledger_entry(
-                    workspace_id,
-                    &action,
-                    FinancialLedgerEntryKind::Reserved,
-                    "reserved",
-                )
-                .await?;
                 action = self
                     .transition_action(
                         workspace_id,
@@ -396,8 +422,17 @@ impl FinancialAuthorizationService {
             )
             .await?;
         let mut ledger_event_ids = Vec::new();
+        ledger_event_ids.push(
+            self.record_action_ledger_entry(
+                workspace_id,
+                &executed,
+                FinancialLedgerEntryKind::Executed,
+                "executed",
+            )
+            .await?,
+        );
         if self
-            .ledger_entry_exists(workspace_id, &current, "reserved")
+            .action_budget_is_reserved(workspace_id, &current)
             .await?
         {
             ledger_event_ids.push(
@@ -410,15 +445,6 @@ impl FinancialAuthorizationService {
                 .await?,
             );
         }
-        ledger_event_ids.push(
-            self.record_action_ledger_entry(
-                workspace_id,
-                &executed,
-                FinancialLedgerEntryKind::Executed,
-                "executed",
-            )
-            .await?,
-        );
         self.notify_budget_alerts(workspace_id, &executed).await;
         let provider_result = Some(agentic_payment_execution_result(&input.proof));
         let receipt = self
@@ -477,7 +503,7 @@ impl FinancialAuthorizationService {
             )
             .await?;
         if self
-            .ledger_entry_exists(workspace_id, &current, "reserved")
+            .action_budget_is_reserved(workspace_id, &current)
             .await?
         {
             self.record_action_ledger_entry(
@@ -751,6 +777,25 @@ impl FinancialAuthorizationService {
         action_id: &str,
         approval: ApprovalRequirement,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        let action = self.store.get_action(workspace_id, action_id).await?;
+        let families = self
+            .enabled_financial_families(workspace_id, DEFAULT_ENVIRONMENT_ID)
+            .await?;
+        let reservation = self
+            .reserve_action_budget(workspace_id, &action, &families)
+            .await?;
+        if let Some((Verdict::Block | Verdict::Rewrite, reason)) = reservation.decision {
+            return self
+                .store
+                .transition_action_with_reason(
+                    workspace_id,
+                    action_id,
+                    FinancialActionStatus::Denied,
+                    "policy_denied",
+                    &reason,
+                )
+                .await;
+        }
         let held = self
             .transition_action(
                 workspace_id,
@@ -759,13 +804,6 @@ impl FinancialAuthorizationService {
                 "approval_required",
             )
             .await?;
-        self.record_action_ledger_entry(
-            workspace_id,
-            &held,
-            FinancialLedgerEntryKind::Reserved,
-            "reserved",
-        )
-        .await?;
         self.store
             .create_approval_request(workspace_id, action_id, approval)
             .await?;
@@ -786,6 +824,49 @@ impl FinancialAuthorizationService {
         action_id: &str,
         actor_id: Option<&str>,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        let current = self.store.get_action(workspace_id, action_id).await?;
+        let current = self.enforce_mandate(workspace_id, current).await?;
+        if current.status == FinancialActionStatus::Denied {
+            return Ok(current);
+        }
+        if !self
+            .action_budget_is_reserved(workspace_id, &current)
+            .await?
+        {
+            let families = self
+                .enabled_financial_families(workspace_id, DEFAULT_ENVIRONMENT_ID)
+                .await?;
+            let decision = self
+                .current_policy_decision(workspace_id, &current, &families)
+                .await?;
+            if let Some((Verdict::Block | Verdict::Rewrite, reason)) = decision {
+                return self
+                    .store
+                    .transition_action_with_reason(
+                        workspace_id,
+                        action_id,
+                        FinancialActionStatus::Denied,
+                        "policy_denied",
+                        &reason,
+                    )
+                    .await;
+            }
+            let reservation = self
+                .reserve_action_budget(workspace_id, &current, &families)
+                .await?;
+            if let Some((Verdict::Block | Verdict::Rewrite, reason)) = reservation.decision {
+                return self
+                    .store
+                    .transition_action_with_reason(
+                        workspace_id,
+                        action_id,
+                        FinancialActionStatus::Denied,
+                        "policy_denied",
+                        &reason,
+                    )
+                    .await;
+            }
+        }
         let approved = self
             .transition_action(
                 workspace_id,
@@ -805,20 +886,160 @@ impl FinancialAuthorizationService {
         Ok(approved)
     }
 
+    pub async fn approve_matching_actions_as(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        actor_id: Option<&str>,
+        input: ApproveMatchingFinancialActionsRequest,
+    ) -> Result<ApproveMatchingFinancialActionsResponse, FinancialStoreError> {
+        let action = self.store.get_action(workspace_id, action_id).await?;
+        if action.status != FinancialActionStatus::Held {
+            return Err(FinancialStoreError::Conflict);
+        }
+        let envelope = approval_envelope(&action)?;
+        if input.action_fingerprint != envelope.action_fingerprint {
+            return Err(FinancialStoreError::Conflict);
+        }
+        if input.max_amount_minor < action.action.amount.amount_minor || input.max_amount_minor <= 0
+        {
+            return Err(FinancialStoreError::Validation(
+                "max_amount_minor must cover the held action and be greater than zero".into(),
+            ));
+        }
+        let now = Utc::now();
+        let expires_at = parse_rfc3339("expires_at", &input.expires_at)?;
+        if expires_at <= now {
+            return Err(FinancialStoreError::Validation(
+                "expires_at must be in the future".into(),
+            ));
+        }
+        if expires_at > now + Duration::days(30) {
+            return Err(FinancialStoreError::Validation(
+                "expires_at cannot be more than 30 days in the future".into(),
+            ));
+        }
+
+        let mandate_id = reusable_mandate_id(&envelope.action_fingerprint);
+        let previous = match self
+            .store
+            .get_mandate(workspace_id, &mandate_id, None)
+            .await
+        {
+            Ok(mandate) => Some(mandate),
+            Err(FinancialStoreError::NotFound) => None,
+            Err(error) => return Err(error),
+        };
+        if previous.as_ref().is_some_and(|mandate| {
+            reusable_mandate_fingerprint(mandate) != Some(envelope.action_fingerprint.as_str())
+        }) {
+            return Err(FinancialStoreError::Conflict);
+        }
+        let version = previous
+            .as_ref()
+            .map(|mandate| mandate.version)
+            .unwrap_or(0)
+            .checked_add(1)
+            .ok_or_else(|| FinancialStoreError::Internal("mandate version overflow".into()))?;
+        let payment_scope = reusable_payment_scope(&action, input.max_amount_minor)?;
+        let approved = self
+            .approve_action_as(workspace_id, action_id, actor_id)
+            .await?;
+        if approved.status != FinancialActionStatus::Authorized {
+            return Err(FinancialStoreError::Conflict);
+        }
+        let mandate = self
+            .create_mandate(
+                workspace_id,
+                CreateFinancialMandateRequest {
+                    id: Some(mandate_id.clone()),
+                    version: Some(version),
+                    principal_id: action.action.principal_id.clone(),
+                    scope: serde_json::Value::Null,
+                    payment_scope: Some(payment_scope),
+                    metadata: serde_json::json!({
+                        "mode": "approval_reuse",
+                        "action_fingerprint": envelope.action_fingerprint,
+                        "fingerprint_version": envelope.fingerprint_version,
+                        "source_action_id": action.id,
+                        "approved_by": actor_id,
+                    }),
+                    starts_at: None,
+                    expires_at: Some(expires_at.to_rfc3339()),
+                },
+            )
+            .await?;
+        Ok(ApproveMatchingFinancialActionsResponse {
+            action: approved,
+            mandate,
+            approval_envelope: envelope,
+        })
+    }
+
+    async fn attach_reusable_approval_mandate(
+        &self,
+        workspace_id: &str,
+        mut input: CreateFinancialActionRequest,
+    ) -> Result<CreateFinancialActionRequest, FinancialStoreError> {
+        if input.action.mandate.is_some() {
+            return Ok(input);
+        }
+        let fingerprint = action_fingerprint(&input.action)?;
+        let mandate_id = reusable_mandate_id(&fingerprint);
+        let latest = match self
+            .store
+            .get_mandate(workspace_id, &mandate_id, None)
+            .await
+        {
+            Ok(mandate) => mandate,
+            Err(FinancialStoreError::NotFound) => return Ok(input),
+            Err(error) => return Err(error),
+        };
+        if reusable_mandate_fingerprint(&latest) != Some(fingerprint.as_str()) {
+            return Err(FinancialStoreError::Conflict);
+        }
+        let candidate = FinancialActionRecord {
+            id: input.action.id.clone().unwrap_or_default(),
+            workspace_id: workspace_id.to_string(),
+            status: FinancialActionStatus::Proposed,
+            status_reason: None,
+            action: input.action.clone(),
+            evidence: input.evidence.clone(),
+            created_at: Utc::now().to_rfc3339(),
+            updated_at: Utc::now().to_rfc3339(),
+        };
+        if mandate_denial_reason(&latest, &candidate)?.is_none() {
+            input.action.mandate = Some(tl_core::MandateRef {
+                id: latest.id.clone(),
+                version: Some(latest.version),
+            });
+        }
+        Ok(input)
+    }
+
     pub async fn authorize_action(
         &self,
         workspace_id: &str,
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
-        let approved = self
-            .transition_action(
-                workspace_id,
-                action_id,
-                FinancialActionStatus::Authorized,
-                "authorized",
-            )
+        let current = self.store.get_action(workspace_id, action_id).await?;
+        let current = self.enforce_mandate(workspace_id, current).await?;
+        if current.status == FinancialActionStatus::Denied {
+            return Ok(current);
+        }
+        let prepared = self
+            .apply_financial_policies(workspace_id, DEFAULT_ENVIRONMENT_ID, current, true)
             .await?;
-        Ok(approved)
+        if prepared.status != FinancialActionStatus::Proposed {
+            return Ok(prepared);
+        }
+        self.transition_action(
+            workspace_id,
+            action_id,
+            FinancialActionStatus::Authorized,
+            "authorized",
+        )
+        .await
     }
 
     pub async fn execute_held_action_retryable(
@@ -858,8 +1079,17 @@ impl FinancialAuthorizationService {
             )
             .await?;
         let mut ledger_event_ids = Vec::new();
+        ledger_event_ids.push(
+            self.record_action_ledger_entry(
+                workspace_id,
+                &executed,
+                FinancialLedgerEntryKind::Executed,
+                "executed",
+            )
+            .await?,
+        );
         if self
-            .ledger_entry_exists(workspace_id, &current, "reserved")
+            .action_budget_is_reserved(workspace_id, &current)
             .await?
         {
             ledger_event_ids.push(
@@ -872,15 +1102,6 @@ impl FinancialAuthorizationService {
                 .await?,
             );
         }
-        ledger_event_ids.push(
-            self.record_action_ledger_entry(
-                workspace_id,
-                &executed,
-                FinancialLedgerEntryKind::Executed,
-                "executed",
-            )
-            .await?,
-        );
         self.store
             .resolve_pending_approval_requests(
                 workspace_id,
@@ -953,6 +1174,10 @@ impl FinancialAuthorizationService {
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
         let current = self.store.get_action(workspace_id, action_id).await?;
+        let current = self.enforce_mandate(workspace_id, current).await?;
+        if current.status == FinancialActionStatus::Denied {
+            return Ok(current);
+        }
         match current.status {
             FinancialActionStatus::Authorized => {}
             FinancialActionStatus::Held => {
@@ -976,6 +1201,33 @@ impl FinancialAuthorizationService {
                 )));
             }
         }
+        if !self
+            .action_budget_is_reserved(workspace_id, &current)
+            .await?
+        {
+            return Err(FinancialStoreError::Validation(
+                "financial action requires a current budget reservation before execution".into(),
+            ));
+        }
+        let families = self
+            .enabled_financial_families(workspace_id, DEFAULT_ENVIRONMENT_ID)
+            .await?;
+        if let Some((verdict, reason)) = self
+            .current_commit_policy_decision(workspace_id, &current, &families)
+            .await?
+        {
+            let approval_satisfies_escalation = verdict == Verdict::Escalate
+                && self
+                    .action_has_approved_review(workspace_id, &current)
+                    .await?;
+            if matches!(verdict, Verdict::Block | Verdict::Rewrite)
+                || (verdict == Verdict::Escalate && !approval_satisfies_escalation)
+            {
+                return self
+                    .deny_reserved_action(workspace_id, &current, &reason)
+                    .await;
+            }
+        }
         let provider_result = match self
             .execute_provider_if_required(workspace_id, &current)
             .await
@@ -983,7 +1235,7 @@ impl FinancialAuthorizationService {
             Ok(result) => result,
             Err(reason) => {
                 if self
-                    .ledger_entry_exists(workspace_id, &current, "reserved")
+                    .action_budget_is_reserved(workspace_id, &current)
                     .await?
                 {
                     self.record_action_ledger_entry(
@@ -1016,8 +1268,17 @@ impl FinancialAuthorizationService {
             )
             .await?;
         let mut ledger_event_ids = Vec::new();
+        ledger_event_ids.push(
+            self.record_action_ledger_entry(
+                workspace_id,
+                &executed,
+                FinancialLedgerEntryKind::Executed,
+                "executed",
+            )
+            .await?,
+        );
         if self
-            .ledger_entry_exists(workspace_id, &current, "reserved")
+            .action_budget_is_reserved(workspace_id, &current)
             .await?
         {
             ledger_event_ids.push(
@@ -1030,15 +1291,6 @@ impl FinancialAuthorizationService {
                 .await?,
             );
         }
-        ledger_event_ids.push(
-            self.record_action_ledger_entry(
-                workspace_id,
-                &executed,
-                FinancialLedgerEntryKind::Executed,
-                "executed",
-            )
-            .await?,
-        );
         // Budget alert thresholds are checked right after the spend
         // lands in the ledger. Never fails or delays the spend beyond
         // one indexed config lookup — errors are logged and swallowed.
@@ -1148,6 +1400,22 @@ impl FinancialAuthorizationService {
         self.store
             .ledger_entry_exists(workspace_id, &ledger_idempotency_key(&action.id, suffix))
             .await
+    }
+
+    async fn action_budget_is_reserved(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+    ) -> Result<bool, FinancialStoreError> {
+        if !self
+            .ledger_entry_exists(workspace_id, action, "reserved")
+            .await?
+        {
+            return Ok(false);
+        }
+        Ok(!self
+            .ledger_entry_exists(workspace_id, action, "released")
+            .await?)
     }
 
     async fn create_execution_receipt(
@@ -1466,28 +1734,40 @@ impl FinancialAuthorizationService {
             Ok(mandate) => mandate,
             Err(FinancialStoreError::NotFound) => {
                 return self
-                    .transition_action(
-                        workspace_id,
-                        &action.id,
-                        FinancialActionStatus::Denied,
-                        "mandate_not_found",
-                    )
+                    .deny_for_mandate(workspace_id, &action, "mandate_not_found")
                     .await;
             }
             Err(error) => return Err(error),
         };
 
         if let Some(reason) = mandate_denial_reason(&mandate, &action)? {
-            return self
-                .transition_action(
-                    workspace_id,
-                    &action.id,
-                    FinancialActionStatus::Denied,
-                    &reason,
-                )
-                .await;
+            return self.deny_for_mandate(workspace_id, &action, &reason).await;
         }
         Ok(action)
+    }
+
+    async fn deny_for_mandate(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+        reason: &str,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        if self.action_budget_is_reserved(workspace_id, action).await? {
+            self.record_action_ledger_entry(
+                workspace_id,
+                action,
+                FinancialLedgerEntryKind::Released,
+                "released",
+            )
+            .await?;
+        }
+        self.transition_action(
+            workspace_id,
+            &action.id,
+            FinancialActionStatus::Denied,
+            reason,
+        )
+        .await
     }
 
     async fn apply_financial_policies(
@@ -1495,31 +1775,26 @@ impl FinancialAuthorizationService {
         workspace_id: &str,
         environment_id: &str,
         action: FinancialActionRecord,
+        reserve_if_allowed: bool,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
-        let Some(policy_store) = &self.policy_store else {
-            return Ok(action);
-        };
-        let families = policy_store
-            .list_enabled_families(workspace_id, environment_id)
-            .await
-            .map_err(|e| FinancialStoreError::Internal(format!("financial policies: {e}")))?;
-        let pure = evaluate_financial_policies(&action.action, families.iter().map(Arc::as_ref));
-        let windowed = self
-            .evaluate_ledger_windows(workspace_id, &action, &families)
+        let families = self
+            .enabled_financial_families(workspace_id, environment_id)
             .await?;
-        let eligibility = financial_eligibility_decision(&action, &families);
-
-        let mut decision = compose_policy_decisions(
-            pure.verdict.map(|verdict| {
-                (
-                    verdict,
-                    pure.reason
-                        .unwrap_or_else(|| "financial policy matched".to_string()),
-                )
-            }),
-            windowed,
-        );
-        decision = compose_policy_decisions(decision, eligibility);
+        let mut decision = self
+            .current_policy_decision(workspace_id, &action, &families)
+            .await?;
+        if matches!(
+            decision.as_ref(),
+            Some((Verdict::Block | Verdict::Rewrite, _))
+        ) {
+            return deny_for_policy(self.store.as_ref(), workspace_id, &action.id, decision).await;
+        }
+        if reserve_if_allowed || matches!(decision.as_ref(), Some((Verdict::Escalate, _))) {
+            let reservation = self
+                .reserve_action_budget(workspace_id, &action, &families)
+                .await?;
+            decision = compose_policy_decisions(decision, reservation.decision);
+        }
 
         match decision {
             Some((Verdict::Block | Verdict::Rewrite, reason)) => {
@@ -1535,7 +1810,7 @@ impl FinancialAuthorizationService {
             }
             Some((Verdict::Escalate, reason)) => {
                 let approver_roles = financial_approver_roles(&families, &action.action);
-                self.hold_action(
+                self.hold_reserved_action(
                     workspace_id,
                     &action.id,
                     ApprovalRequirement {
@@ -1551,6 +1826,216 @@ impl FinancialAuthorizationService {
         }
     }
 
+    async fn enabled_financial_families(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+    ) -> Result<Vec<Arc<FamilyPolicy>>, FinancialStoreError> {
+        let Some(policy_store) = &self.policy_store else {
+            return Ok(vec![]);
+        };
+        policy_store
+            .list_enabled_families(workspace_id, environment_id)
+            .await
+            .map_err(|error| FinancialStoreError::Internal(format!("financial policies: {error}")))
+    }
+
+    async fn current_policy_decision(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+        families: &[Arc<FamilyPolicy>],
+    ) -> Result<Option<(Verdict, String)>, FinancialStoreError> {
+        let pure = self
+            .current_per_action_policy_decision(workspace_id, action, families)
+            .await?;
+        let windowed = self
+            .evaluate_ledger_windows(workspace_id, action, families)
+            .await?;
+        let eligibility = financial_eligibility_decision(action, families);
+        let decision = compose_policy_decisions(pure, windowed);
+        Ok(compose_policy_decisions(decision, eligibility))
+    }
+
+    async fn current_commit_policy_decision(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+        families: &[Arc<FamilyPolicy>],
+    ) -> Result<Option<(Verdict, String)>, FinancialStoreError> {
+        let pure = self
+            .current_per_action_policy_decision(workspace_id, action, families)
+            .await?;
+        let windowed = self
+            .evaluate_reserved_ledger_windows(workspace_id, action, families)
+            .await?;
+        let eligibility = financial_eligibility_decision(action, families);
+        Ok(compose_policy_decisions(
+            compose_policy_decisions(pure, windowed),
+            eligibility,
+        ))
+    }
+
+    async fn current_per_action_policy_decision(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+        families: &[Arc<FamilyPolicy>],
+    ) -> Result<Option<(Verdict, String)>, FinancialStoreError> {
+        let pure = evaluate_financial_policies(&action.action, families.iter().map(Arc::as_ref));
+        let reusable_approval = self
+            .action_uses_reusable_approval_mandate(workspace_id, action)
+            .await?;
+        Ok(pure.verdict.and_then(|verdict| {
+            if reusable_approval && verdict == Verdict::Escalate {
+                None
+            } else {
+                Some((
+                    verdict,
+                    pure.reason
+                        .unwrap_or_else(|| "financial policy matched".to_string()),
+                ))
+            }
+        }))
+    }
+
+    async fn action_uses_reusable_approval_mandate(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+    ) -> Result<bool, FinancialStoreError> {
+        let Some(reference) = &action.action.mandate else {
+            return Ok(false);
+        };
+        let mandate = match self
+            .store
+            .get_mandate(workspace_id, &reference.id, reference.version)
+            .await
+        {
+            Ok(mandate) => mandate,
+            Err(FinancialStoreError::NotFound) => return Ok(false),
+            Err(error) => return Err(error),
+        };
+        let fingerprint = action_fingerprint(&action.action)?;
+        Ok(reusable_mandate_fingerprint(&mandate) == Some(fingerprint.as_str()))
+    }
+
+    async fn reserve_action_budget(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+        families: &[Arc<FamilyPolicy>],
+    ) -> Result<BudgetReservationDecision, FinancialStoreError> {
+        let now = Utc::now();
+        let (day_start, week_start, month_start) = financial_window_starts(now)?;
+        let mut constraints = Vec::new();
+        for family in families {
+            let FamilyPolicy::Financial(financial) = family.as_ref() else {
+                continue;
+            };
+            if !financial_matches(financial, &action.action) {
+                continue;
+            }
+            let block_on_breach = financial.on_breach != Action::Escalate;
+            for (window, cap_minor) in [
+                (FinancialBudgetWindow::Day, financial.daily_minor),
+                (FinancialBudgetWindow::Week, financial.weekly_minor),
+                (FinancialBudgetWindow::Month, financial.monthly_minor),
+            ] {
+                if let Some(cap_minor) = cap_minor {
+                    constraints.push(FinancialBudgetConstraint {
+                        policy_id: financial.id.clone(),
+                        window,
+                        cap_minor,
+                        block_on_breach,
+                    });
+                }
+            }
+        }
+        let outcome = self
+            .store
+            .try_reserve_action_budget(FinancialBudgetReservationRequest {
+                workspace_id: workspace_id.to_string(),
+                action_id: action.id.clone(),
+                principal_id: action.action.principal_id.clone(),
+                amount: action.action.amount.clone(),
+                idempotency_key: ledger_idempotency_key(&action.id, "reserved"),
+                day_start,
+                week_start,
+                month_start,
+                now,
+                constraints,
+                metadata: serde_json::json!({
+                    "action_id": action.id,
+                    "financial_status": action.status,
+                    "source": "financial_authorization_service",
+                    "reservation": "policy_budget"
+                }),
+            })
+            .await?;
+        let violations = match outcome {
+            FinancialBudgetReservationOutcome::Reserved { violations, .. }
+            | FinancialBudgetReservationOutcome::Denied { violations } => violations,
+        };
+        Ok(BudgetReservationDecision {
+            decision: budget_violation_decision(&violations),
+        })
+    }
+
+    async fn hold_reserved_action(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        approval: ApprovalRequirement,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        let held = self
+            .transition_action(
+                workspace_id,
+                action_id,
+                FinancialActionStatus::Held,
+                "approval_required",
+            )
+            .await?;
+        self.store
+            .create_approval_request(workspace_id, action_id, approval)
+            .await?;
+        Ok(held)
+    }
+
+    async fn action_has_approved_review(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+    ) -> Result<bool, FinancialStoreError> {
+        self.store
+            .has_current_approved_request(workspace_id, &action.id)
+            .await
+    }
+
+    async fn deny_reserved_action(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+        reason: &str,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        self.record_action_ledger_entry(
+            workspace_id,
+            action,
+            FinancialLedgerEntryKind::Released,
+            "released",
+        )
+        .await?;
+        self.store
+            .transition_action_with_reason(
+                workspace_id,
+                &action.id,
+                FinancialActionStatus::Denied,
+                "policy_denied_before_execution",
+                reason,
+            )
+            .await
+    }
+
     async fn evaluate_ledger_windows(
         &self,
         workspace_id: &str,
@@ -1558,17 +2043,7 @@ impl FinancialAuthorizationService {
         families: &[Arc<FamilyPolicy>],
     ) -> Result<Option<(Verdict, String)>, FinancialStoreError> {
         let now = Utc::now();
-        let day_start = Utc
-            .with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0)
-            .single()
-            .ok_or_else(|| FinancialStoreError::Internal("invalid day window".into()))?;
-        // ponytail: week starts Monday UTC; make configurable if a customer asks
-        let days_from_monday = i64::from(now.weekday().num_days_from_monday());
-        let week_start = day_start - Duration::days(days_from_monday);
-        let month_start = Utc
-            .with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
-            .single()
-            .ok_or_else(|| FinancialStoreError::Internal("invalid month window".into()))?;
+        let (day_start, week_start, month_start) = financial_window_starts(now)?;
         let mut decision = None;
         let mut spend_cache = None;
         for family in families {
@@ -1632,6 +2107,139 @@ impl FinancialAuthorizationService {
         }
         Ok(decision)
     }
+
+    async fn evaluate_reserved_ledger_windows(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+        families: &[Arc<FamilyPolicy>],
+    ) -> Result<Option<(Verdict, String)>, FinancialStoreError> {
+        let now = Utc::now();
+        let (day_start, week_start, month_start) = financial_window_starts(now)?;
+        let spent = (
+            self.store
+                .net_spend_minor(
+                    workspace_id,
+                    &action.action.principal_id,
+                    &action.action.amount.currency,
+                    day_start,
+                    now,
+                )
+                .await?,
+            self.store
+                .net_spend_minor(
+                    workspace_id,
+                    &action.action.principal_id,
+                    &action.action.amount.currency,
+                    week_start,
+                    now,
+                )
+                .await?,
+            self.store
+                .net_spend_minor(
+                    workspace_id,
+                    &action.action.principal_id,
+                    &action.action.amount.currency,
+                    month_start,
+                    now,
+                )
+                .await?,
+        );
+        let mut violations = Vec::new();
+        for family in families {
+            let FamilyPolicy::Financial(financial) = family.as_ref() else {
+                continue;
+            };
+            if !financial_matches(financial, &action.action) {
+                continue;
+            }
+            let block_on_breach = financial.on_breach != Action::Escalate;
+            for (window, committed_minor, cap_minor) in [
+                (FinancialBudgetWindow::Day, spent.0, financial.daily_minor),
+                (FinancialBudgetWindow::Week, spent.1, financial.weekly_minor),
+                (
+                    FinancialBudgetWindow::Month,
+                    spent.2,
+                    financial.monthly_minor,
+                ),
+            ] {
+                if let Some(cap_minor) = cap_minor.filter(|cap| committed_minor > *cap) {
+                    violations.push(FinancialBudgetViolation {
+                        policy_id: financial.id.clone(),
+                        window,
+                        cap_minor,
+                        committed_minor,
+                        requested_minor: 0,
+                        block_on_breach,
+                    });
+                }
+            }
+        }
+        Ok(budget_violation_decision(&violations))
+    }
+}
+
+async fn deny_for_policy(
+    store: &dyn FinancialStore,
+    workspace_id: &str,
+    action_id: &str,
+    decision: Option<(Verdict, String)>,
+) -> Result<FinancialActionRecord, FinancialStoreError> {
+    let reason = decision
+        .map(|(_, reason)| reason)
+        .ok_or_else(|| FinancialStoreError::Internal("missing policy denial reason".into()))?;
+    store
+        .transition_action_with_reason(
+            workspace_id,
+            action_id,
+            FinancialActionStatus::Denied,
+            "policy_denied",
+            &reason,
+        )
+        .await
+}
+
+type FinancialWindowStarts = (DateTime<Utc>, DateTime<Utc>, DateTime<Utc>);
+
+fn financial_window_starts(
+    now: DateTime<Utc>,
+) -> Result<FinancialWindowStarts, FinancialStoreError> {
+    let day_start = Utc
+        .with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0)
+        .single()
+        .ok_or_else(|| FinancialStoreError::Internal("invalid day window".into()))?;
+    // ponytail: week starts Monday UTC; make configurable if a customer asks
+    let week_start = day_start - Duration::days(i64::from(now.weekday().num_days_from_monday()));
+    let month_start = Utc
+        .with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
+        .single()
+        .ok_or_else(|| FinancialStoreError::Internal("invalid month window".into()))?;
+    Ok((day_start, week_start, month_start))
+}
+
+fn budget_violation_decision(violations: &[FinancialBudgetViolation]) -> Option<(Verdict, String)> {
+    violations.iter().fold(None, |decision, violation| {
+        let verdict = if violation.block_on_breach {
+            Verdict::Block
+        } else {
+            Verdict::Escalate
+        };
+        let window = match violation.window {
+            FinancialBudgetWindow::Day => "daily",
+            FinancialBudgetWindow::Week => "weekly",
+            FinancialBudgetWindow::Month => "monthly",
+        };
+        compose_policy_decisions(
+            decision,
+            Some((
+                verdict,
+                format!(
+                    "financial policy `{}`: {window} spend would exceed cap {}",
+                    violation.policy_id, violation.cap_minor
+                ),
+            )),
+        )
+    })
 }
 
 fn agentic_payment_principal(
@@ -1803,6 +2411,195 @@ fn json_scope_is_empty(value: &serde_json::Value) -> bool {
         serde_json::Value::Object(object) => object.is_empty(),
         _ => false,
     }
+}
+
+const APPROVAL_FINGERPRINT_VERSION: i32 = 1;
+
+#[derive(Serialize)]
+struct ApprovalFingerprintPayload {
+    version: i32,
+    principal_id: String,
+    action_kind: FinancialActionKind,
+    operation: String,
+    rail: FinancialRail,
+    currency: String,
+    counterparty_id: Option<String>,
+    counterparty_kind: Option<String>,
+    counterparty_country: Option<String>,
+    x402_host: Option<String>,
+    x402_resource: Option<String>,
+    x402_network: Option<String>,
+    x402_asset: Option<String>,
+    x402_pay_to: Option<String>,
+}
+
+fn action_fingerprint(action: &FinancialAction) -> Result<String, FinancialStoreError> {
+    let normalized_x402 = action
+        .metadata
+        .get("agentic_payment")
+        .and_then(|value| value.get("normalized_requirement"))
+        .or_else(|| {
+            action
+                .metadata
+                .get("x402")
+                .and_then(|value| value.get("normalized_requirement"))
+        })
+        .cloned()
+        .and_then(|value| serde_json::from_value::<X402NormalizedPaymentRequirement>(value).ok());
+    let payload = ApprovalFingerprintPayload {
+        version: APPROVAL_FINGERPRINT_VERSION,
+        principal_id: action.principal_id.trim().to_string(),
+        action_kind: action.kind,
+        operation: action.operation.trim().to_string(),
+        rail: action.rail,
+        currency: action.amount.currency.trim().to_ascii_uppercase(),
+        counterparty_id: action
+            .counterparty
+            .as_ref()
+            .map(|counterparty| counterparty.id.trim().to_string()),
+        counterparty_kind: action
+            .counterparty
+            .as_ref()
+            .map(|counterparty| counterparty.kind.trim().to_ascii_lowercase()),
+        counterparty_country: action
+            .counterparty
+            .as_ref()
+            .and_then(|counterparty| counterparty.country.as_deref())
+            .map(|country| country.trim().to_ascii_uppercase()),
+        x402_host: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.host.clone()),
+        x402_resource: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.resource.clone()),
+        x402_network: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.network.clone()),
+        x402_asset: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.asset.clone()),
+        x402_pay_to: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.normalized_pay_to.clone())
+            .or_else(|| {
+                normalized_x402
+                    .as_ref()
+                    .map(|requirement| requirement.pay_to.clone())
+            }),
+    };
+    let encoded = serde_json::to_vec(&payload).map_err(|error| {
+        FinancialStoreError::Internal(format!("action fingerprint encode: {error}"))
+    })?;
+    let mut hasher = Sha256::new();
+    hasher.update(encoded);
+    let hash_hex = hasher
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    Ok(format!("sha256:v{APPROVAL_FINGERPRINT_VERSION}:{hash_hex}"))
+}
+
+fn approval_envelope(
+    action: &FinancialActionRecord,
+) -> Result<FinancialApprovalEnvelope, FinancialStoreError> {
+    Ok(FinancialApprovalEnvelope {
+        action_id: action.id.clone(),
+        action_fingerprint: action_fingerprint(&action.action)?,
+        fingerprint_version: APPROVAL_FINGERPRINT_VERSION,
+        principal_id: action.action.principal_id.clone(),
+        action_kind: action.action.kind,
+        operation: action.action.operation.clone(),
+        rail: action.action.rail,
+        currency: action.action.amount.currency.to_ascii_uppercase(),
+        counterparty_id: action
+            .action
+            .counterparty
+            .as_ref()
+            .map(|counterparty| counterparty.id.clone()),
+        current_amount_minor: action.action.amount.amount_minor,
+        recommended_max_amount_minor: action.action.amount.amount_minor,
+    })
+}
+
+fn reusable_mandate_id(fingerprint: &str) -> String {
+    let digest = fingerprint.rsplit(':').next().unwrap_or(fingerprint);
+    let short = digest.get(..32).unwrap_or(digest);
+    format!("approval-reuse-{short}")
+}
+
+fn reusable_mandate_fingerprint(mandate: &FinancialMandate) -> Option<&str> {
+    if mandate
+        .metadata
+        .get("mode")
+        .and_then(serde_json::Value::as_str)
+        != Some("approval_reuse")
+    {
+        return None;
+    }
+    mandate
+        .metadata
+        .get("action_fingerprint")
+        .and_then(serde_json::Value::as_str)
+}
+
+fn reusable_payment_scope(
+    action: &FinancialActionRecord,
+    max_amount_minor: i64,
+) -> Result<AgenticPaymentMandateScope, FinancialStoreError> {
+    let normalized_x402 = if action.action.rail == FinancialRail::X402 {
+        Some(normalized_requirement_from_action(action)?)
+    } else {
+        None
+    };
+    Ok(AgenticPaymentMandateScope {
+        intent_label: Some(format!(
+            "Approved matching {} actions",
+            action.action.operation
+        )),
+        action_kinds: vec![action.action.kind],
+        operation: Some(action.action.operation.clone()),
+        max_amount_minor: Some(max_amount_minor),
+        currency: Some(action.action.amount.currency.to_ascii_uppercase()),
+        rail: Some(action.action.rail),
+        allowed_counterparty_ids: action
+            .action
+            .counterparty
+            .as_ref()
+            .map(|counterparty| vec![counterparty.id.clone()])
+            .unwrap_or_default(),
+        allowed_hosts: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.host.clone())
+            .into_iter()
+            .collect(),
+        allowed_resources: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.resource.clone())
+            .into_iter()
+            .collect(),
+        allowed_networks: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.network.clone())
+            .into_iter()
+            .collect(),
+        allowed_assets: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.asset.clone())
+            .into_iter()
+            .collect(),
+        allowed_pay_to: normalized_x402
+            .as_ref()
+            .map(|requirement| {
+                requirement
+                    .normalized_pay_to
+                    .clone()
+                    .unwrap_or_else(|| requirement.pay_to.clone())
+            })
+            .into_iter()
+            .collect(),
+        required_preconditions: vec![],
+    })
 }
 
 fn mandate_hash(scope: &serde_json::Value) -> Result<String, FinancialStoreError> {

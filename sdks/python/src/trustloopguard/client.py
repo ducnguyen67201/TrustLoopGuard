@@ -23,6 +23,8 @@ from trustloopguard._generated.types import (
     AgenticPaymentCommitRequest,
     AgenticPaymentRecord,
     AgenticPaymentRollbackRequest,
+    ApproveMatchingFinancialActionsRequest,
+    ApproveMatchingFinancialActionsResponse,
     CounterpartyRef,
     CreateFinancialActionRequest,
     CreateFinancialMandateRequest,
@@ -38,6 +40,7 @@ from trustloopguard._generated.types import (
     FinancialActionListResponse,
     FinancialActionOutcome,
     FinancialActionRecord,
+    FinancialApprovalEnvelope,
     FinancialApprovalRequestListResponse,
     FinancialMandate,
     FinancialMandateListResponse,
@@ -709,6 +712,32 @@ class Client:
         self, action_id: str, *, timeout: float | None = None
     ) -> FinancialActionRecord:
         return self._transition_financial_action(action_id, "approve", timeout=timeout)
+
+    def get_financial_approval_envelope(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialApprovalEnvelope:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/approval-envelope"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialApprovalEnvelope
+            )
+        )
+
+    def approve_matching_financial_actions(
+        self,
+        action_id: str,
+        request: ApproveMatchingFinancialActionsRequest,
+        *,
+        timeout: float | None = None,
+    ) -> ApproveMatchingFinancialActionsResponse:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/approve-matching"
+        return self._send_json_model(
+            path,
+            method="POST",
+            body=request.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=ApproveMatchingFinancialActionsResponse,
+        )
 
     def deny_action(
         self, action_id: str, *, timeout: float | None = None
@@ -1515,6 +1544,32 @@ class AsyncClient:
         self, action_id: str, *, timeout: float | None = None
     ) -> FinancialActionRecord:
         return await self._transition_financial_action(action_id, "approve", timeout=timeout)
+
+    async def get_financial_approval_envelope(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialApprovalEnvelope:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/approval-envelope"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialApprovalEnvelope
+            )
+        )
+
+    async def approve_matching_financial_actions(
+        self,
+        action_id: str,
+        request: ApproveMatchingFinancialActionsRequest,
+        *,
+        timeout: float | None = None,
+    ) -> ApproveMatchingFinancialActionsResponse:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/approve-matching"
+        return await self._send_json_model(
+            path,
+            method="POST",
+            body=request.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=ApproveMatchingFinancialActionsResponse,
+        )
 
     async def deny_action(
         self, action_id: str, *, timeout: float | None = None

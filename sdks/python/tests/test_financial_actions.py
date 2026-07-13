@@ -7,6 +7,7 @@ import respx
 
 from trustloopguard import (
     Client,
+    ApproveMatchingFinancialActionsRequest,
     CounterpartyRef,
     CreateFinancialActionRequest,
     CreateFinancialMandateRequest,
@@ -311,6 +312,57 @@ def test_financial_action_get_and_transitions() -> None:
     assert get.called
     assert approve.called
     assert execute.called
+
+
+@respx.mock
+def test_reusable_financial_approval_fingerprint() -> None:
+    action_id = "018f3333-3333-7333-8333-333333333333"
+    envelope = {
+        "action_id": action_id,
+        "action_fingerprint": "sha256:v1:abc123",
+        "fingerprint_version": 1,
+        "principal_id": "refund-bot",
+        "action_kind": "refund",
+        "operation": "issue_refund",
+        "rail": "card",
+        "currency": "USD",
+        "counterparty_id": "cust_456",
+        "current_amount_minor": 7500,
+        "recommended_max_amount_minor": 7500,
+    }
+    preview = respx.get(
+        f"https://api.example.test/v1/financial/actions/{action_id}/approval-envelope"
+    ).mock(return_value=httpx.Response(200, json=envelope))
+    approve = respx.post(
+        f"https://api.example.test/v1/financial/actions/{action_id}/approve-matching"
+    ).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "action": action_body("authorized"),
+                "mandate": mandate_body(),
+                "approval_envelope": envelope,
+            },
+        )
+    )
+
+    with Client("https://api.example.test", api_key="test") as client:
+        assert (
+            client.get_financial_approval_envelope(action_id).action_fingerprint
+            == "sha256:v1:abc123"
+        )
+        result = client.approve_matching_financial_actions(
+            action_id,
+            ApproveMatchingFinancialActionsRequest(
+                action_fingerprint="sha256:v1:abc123",
+                max_amount_minor=10000,
+                expires_at="2026-07-14T12:00:00Z",
+            ),
+        )
+
+    assert result.mandate.status is FinancialMandateStatus.active
+    assert json.loads(approve.calls.last.request.content)["max_amount_minor"] == 10000
+    assert preview.called
 
 
 @respx.mock

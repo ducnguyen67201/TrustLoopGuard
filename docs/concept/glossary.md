@@ -199,6 +199,10 @@ authoritative billing record.
 
 A tenant-scoped authorization boundary for a specific financial task. A mandate answers what the user or customer app authorized this agent to do, such as paying up to $5 in USD for one x402 resource on a specific host, network, asset, and `pay_to` address. A mandate is not a standing policy: financial policies set general rules and spend limits; mandates prove task-specific intent. TrustLoopGuard-managed mandates are stored by Rust financial APIs and referenced by `MandateRef` during runtime authorization.
 
+### Approval fingerprint
+
+A versioned, server-computed SHA-256 identity for the stable semantic fields of a held [Financial action](#financial-action). Fingerprint v1 binds principal, action kind, operation, rail, currency, counterparty identity, and normalized x402 destination fields while leaving amount to an explicit mandate cap. The approval queue can turn a reviewed fingerprint into a time-bounded reusable mandate; future actions receive that mandate only when both the fingerprint and the full scope match. Reuse removes only the repeated human-review gate. Current mandate validity, hard policy, eligibility, and live ledger budget are still checked and the individual action's budget is atomically reserved before execution.
+
 ### Payment mandate scope
 
 The structured boundary inside a financial mandate for agentic payments. The typed `payment_scope` create field normalizes into durable mandate `scope` JSON and can constrain action kind, operation, rail, currency, max amount, counterparty, x402 host/resource/network/asset/payee, and required evidence preconditions.

@@ -1,16 +1,21 @@
 'use client';
 
-import { IconCheck, IconX } from '@tabler/icons-react';
+import { IconCheck, IconFingerprint, IconX } from '@tabler/icons-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import type { FinancialActionRecord, FinancialApprovalRequest } from '@trustloopguard/sdk';
+import type {
+  ApproveMatchingFinancialActionsResponse,
+  FinancialActionRecord,
+  FinancialApprovalRequest,
+} from '@trustloopguard/sdk';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
+import { ReusableFinancialApprovalDialog } from '@/components/workspace/ReusableFinancialApprovalDialog';
 import {
   counterpartyLabel,
   currentContextQuery,
@@ -36,6 +41,7 @@ export function FinancialApprovalsContent({
   const [approvalRows, setApprovalRows] = useState(approvals);
   const [actionRows, setActionRows] = useState(actions);
   const [busyActionIds, setBusyActionIds] = useState<string[]>([]);
+  const [reuseActionId, setReuseActionId] = useState<string | null>(null);
   const actionById = useMemo(
     () => new Map(actionRows.map((action) => [action.id, action])),
     [actionRows],
@@ -112,10 +118,21 @@ export function FinancialApprovalsContent({
               size="sm"
               disabled={busy}
               onClick={() => approveAndExecute(row.action_id)}
-              aria-label={`Approve financial action ${row.action_id}`}
+              aria-label={`Approve only financial action ${row.action_id}`}
             >
               <IconCheck />
-              Approve
+              Approve once
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => setReuseActionId(row.action_id)}
+              aria-label={`Approve matching financial actions for ${row.action_id}`}
+            >
+              <IconFingerprint />
+              Approve matching
             </Button>
             <Button
               type="button"
@@ -174,6 +191,24 @@ export function FinancialApprovalsContent({
     }
   }
 
+  async function handleReusableApproval(result: ApproveMatchingFinancialActionsResponse) {
+    const actionId = result.action.id;
+    setActionRows((prev) => upsertAction(prev, result.action));
+    setApprovalRows((prev) =>
+      prev.map((approval) =>
+        approval.action_id === actionId ? { ...approval, status: 'approved' } : approval,
+      ),
+    );
+    try {
+      const executed = await postAction(actionId, 'execute', contextQuery);
+      setActionRows((prev) => upsertAction(prev, executed));
+    } catch (error) {
+      toast.error('Reusable approval is active, but the current action did not execute', {
+        description: error instanceof Error ? error.message : undefined,
+      });
+    }
+  }
+
   return (
     <div className="grid gap-4 px-4 lg:px-6">
       <PageHeader
@@ -200,6 +235,15 @@ export function FinancialApprovalsContent({
           />
         </CardContent>
       </Card>
+      {reuseActionId ? (
+        <ReusableFinancialApprovalDialog
+          key={reuseActionId}
+          actionId={reuseActionId}
+          contextQuery={contextQuery}
+          onClose={() => setReuseActionId(null)}
+          onApproved={handleReusableApproval}
+        />
+      ) : null}
     </div>
   );
 }

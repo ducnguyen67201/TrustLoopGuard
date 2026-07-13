@@ -1,0 +1,1 @@
+DROP INDEX CONCURRENTLY IF EXISTS approval_requests_workspace_action_status_expiry_idx;

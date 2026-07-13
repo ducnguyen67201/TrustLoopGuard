@@ -25,6 +25,8 @@ import type { AgenticPaymentAuthorizeRequest } from './generated/AgenticPaymentA
 import type { AgenticPaymentCommitRequest } from './generated/AgenticPaymentCommitRequest';
 import type { AgenticPaymentRecord } from './generated/AgenticPaymentRecord';
 import type { AgenticPaymentRollbackRequest } from './generated/AgenticPaymentRollbackRequest';
+import type { ApproveMatchingFinancialActionsRequest } from './generated/ApproveMatchingFinancialActionsRequest';
+import type { ApproveMatchingFinancialActionsResponse } from './generated/ApproveMatchingFinancialActionsResponse';
 import type { CreateFinancialActionRequest } from './generated/CreateFinancialActionRequest';
 import type { CreateFinancialMandateRequest } from './generated/CreateFinancialMandateRequest';
 import type { CreateFinancialPolicyRequest } from './generated/CreateFinancialPolicyRequest';
@@ -35,6 +37,7 @@ import type { FinancialActionDecisionReceipt } from './generated/FinancialAction
 import type { FinancialActionListResponse } from './generated/FinancialActionListResponse';
 import type { FinancialActionOutcome } from './generated/FinancialActionOutcome';
 import type { FinancialApprovalRequestListResponse } from './generated/FinancialApprovalRequestListResponse';
+import type { FinancialApprovalEnvelope } from './generated/FinancialApprovalEnvelope';
 import type { FinancialRail } from './generated/FinancialRail';
 import type { MandateRef } from './generated/MandateRef';
 import type { MoneyAmount } from './generated/MoneyAmount';
@@ -584,6 +587,33 @@ export class Client {
 
   async approveAction(actionId: string, signal?: AbortSignal): Promise<FinancialActionRecord> {
     return this.transitionFinancialAction(actionId, 'approve', signal);
+  }
+
+  async getFinancialApprovalEnvelope(
+    actionId: string,
+    signal?: AbortSignal,
+  ): Promise<FinancialApprovalEnvelope> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialApprovalEnvelope>(
+          `/v1/financial/actions/${encodeURIComponent(actionId)}/approval-envelope`,
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async approveMatchingFinancialActions(
+    actionId: string,
+    request: ApproveMatchingFinancialActionsRequest,
+    signal?: AbortSignal,
+  ): Promise<ApproveMatchingFinancialActionsResponse> {
+    return this.sendJson<ApproveMatchingFinancialActionsResponse>(
+      `/v1/financial/actions/${encodeURIComponent(actionId)}/approve-matching`,
+      { method: 'POST', body: stringifyJson(request) },
+      signal,
+    );
   }
 
   async denyAction(actionId: string, signal?: AbortSignal): Promise<FinancialActionRecord> {

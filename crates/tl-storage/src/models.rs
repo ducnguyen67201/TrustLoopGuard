@@ -6,12 +6,12 @@ use uuid::Uuid;
 use crate::schema::{
     agents, approval_requests, budget_alert_configs, budget_alert_firings, entity_versions,
     escalations, financial_action_events, financial_action_outcomes, financial_actions,
-    financial_ledger_entries, financial_payment_reservations, financial_payment_sessions,
-    financial_receipts, gateway_provider_connections, gateway_routes, human_review_events,
-    llm_budget_principal_locks, llm_budget_reservations, llm_model_prices, llm_usage_events,
-    mandates, oauth_identities, policies, policy_environment_deployments, redteam_attack_sessions,
-    redteam_jobs, redteam_plans, redteam_report_shares, redteam_session_events, run_events, runs,
-    tool_metadata, traces, users, workspace_environments,
+    financial_budget_principal_locks, financial_ledger_entries, financial_payment_reservations,
+    financial_payment_sessions, financial_receipts, gateway_provider_connections, gateway_routes,
+    human_review_events, llm_budget_principal_locks, llm_budget_reservations, llm_model_prices,
+    llm_usage_events, mandates, oauth_identities, policies, policy_environment_deployments,
+    redteam_attack_sessions, redteam_jobs, redteam_plans, redteam_report_shares,
+    redteam_session_events, run_events, runs, tool_metadata, traces, users, workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -254,6 +254,14 @@ pub struct NewFinancialLedgerEntry {
     pub currency: String,
     pub idempotency_key: String,
     pub metadata: Value,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = financial_budget_principal_locks)]
+pub struct NewFinancialBudgetPrincipalLock {
+    pub workspace_id: String,
+    pub principal_id: String,
+    pub currency: String,
 }
 
 #[derive(Debug, Clone, Queryable, Selectable)]

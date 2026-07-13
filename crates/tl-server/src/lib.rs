@@ -49,8 +49,10 @@ pub use escalation::{
 };
 pub use financial::{
     AgenticPaymentBudgetReservationRequest, FinancialActionExecutionAttempt,
-    FinancialAuthorizationService, FinancialLedgerEntryKind, FinancialState, FinancialStore,
-    FinancialStoreError, MemoryFinancialStore,
+    FinancialAuthorizationService, FinancialBudgetConstraint, FinancialBudgetReservationOutcome,
+    FinancialBudgetReservationRequest, FinancialBudgetViolation, FinancialBudgetWindow,
+    FinancialLedgerEntryKind, FinancialState, FinancialStore, FinancialStoreError,
+    MemoryFinancialStore,
 };
 pub use gateway::{build_seal_key, GatewayState, GatewayStore, MemoryGatewayStore};
 pub use human_review::{HumanReviewStore, HumanReviewStoreError, MemoryHumanReviewStore};

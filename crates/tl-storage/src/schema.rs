@@ -469,6 +469,15 @@ diesel::table! {
 }
 
 diesel::table! {
+    financial_budget_principal_locks (workspace_id, principal_id, currency) {
+        workspace_id -> Text,
+        principal_id -> Text,
+        currency -> Text,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     financial_payment_sessions (workspace_id, id) {
         workspace_id -> Text,
         id -> Text,
@@ -740,6 +749,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     financial_actions,
     financial_action_events,
     financial_ledger_entries,
+    financial_budget_principal_locks,
     financial_payment_sessions,
     financial_payment_reservations,
     budget_alert_configs,

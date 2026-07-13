@@ -18,7 +18,9 @@ use tl_core::{
 use tl_storage::{
     connect_postgres, migrate_postgres,
     schema::{organizations, workspace_environments, workspaces},
-    DbPool, FinancialLedgerEntryKind, FinancialRepo, StorageError,
+    DbPool, FinancialBudgetConstraint, FinancialBudgetWindow, FinancialLedgerEntryKind,
+    FinancialRepo, ReserveFinancialActionBudgetRequest, ReserveFinancialActionBudgetResult,
+    StorageError,
 };
 
 async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>) {
@@ -497,6 +499,19 @@ async fn resolve_pending_approval_requests_updates_only_matching_action_queue_it
     .await
     .expect("resolve first");
 
+    assert!(repo
+        .has_current_approved_request("ws_finance", &first.id)
+        .await
+        .expect("approved request lookup"));
+    assert!(!repo
+        .has_current_approved_request("ws_finance", &second.id)
+        .await
+        .expect("pending request lookup"));
+    assert!(!repo
+        .has_current_approved_request("ws_other", &first.id)
+        .await
+        .expect("cross-workspace request lookup"));
+
     let approvals = repo
         .list_approval_requests("ws_finance")
         .await
@@ -714,4 +729,87 @@ async fn spend_window_uses_net_reserved_and_executed_ledger_entries() {
         .await
         .expect("spend");
     assert_eq!(spend, 20_000);
+}
+
+#[tokio::test]
+async fn action_budget_reservations_serialize_concurrent_ledger_admission() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = FinancialRepo::new(pool);
+    let mut first_request = refund_request("refund-bot", 2_500);
+    first_request.idempotency_key = "budget-action-a".into();
+    let first = repo
+        .create_action("ws_finance", first_request)
+        .await
+        .expect("create first action");
+    let mut second_request = refund_request("refund-bot", 2_500);
+    second_request.idempotency_key = "budget-action-b".into();
+    let second = repo
+        .create_action("ws_finance", second_request)
+        .await
+        .expect("create second action");
+    let now = Utc::now();
+    let reserve = |action_id: String, idempotency_key: &str| {
+        let repo = repo.clone();
+        let idempotency_key = idempotency_key.to_string();
+        async move {
+            repo.reserve_action_budget(ReserveFinancialActionBudgetRequest {
+                workspace_id: "ws_finance".into(),
+                action_id,
+                principal_id: "refund-bot".into(),
+                amount: MoneyAmount {
+                    amount_minor: 2_500,
+                    currency: "USD".into(),
+                },
+                idempotency_key,
+                day_start: now - Duration::hours(1),
+                week_start: now - Duration::days(1),
+                month_start: now - Duration::days(2),
+                now: now + Duration::minutes(1),
+                constraints: vec![FinancialBudgetConstraint {
+                    policy_id: "daily-refund-cap".into(),
+                    window: FinancialBudgetWindow::Day,
+                    cap_minor: 2_500,
+                    block_on_breach: true,
+                }],
+                metadata: serde_json::json!({ "source": "test" }),
+            })
+            .await
+        }
+    };
+
+    let (first_outcome, second_outcome) = tokio::join!(
+        reserve(first.id.clone(), "budget-reserve-a"),
+        reserve(second.id.clone(), "budget-reserve-b")
+    );
+    let outcomes = [first_outcome.unwrap(), second_outcome.unwrap()];
+
+    assert_eq!(
+        outcomes
+            .iter()
+            .filter(|outcome| matches!(
+                outcome,
+                ReserveFinancialActionBudgetResult::Reserved { .. }
+            ))
+            .count(),
+        1
+    );
+    assert_eq!(
+        outcomes
+            .iter()
+            .filter(|outcome| matches!(outcome, ReserveFinancialActionBudgetResult::Denied { .. }))
+            .count(),
+        1
+    );
+    assert_eq!(
+        repo.net_spend_minor(
+            "ws_finance",
+            "refund-bot",
+            "USD",
+            now - Duration::hours(1),
+            now + Duration::hours(1),
+        )
+        .await
+        .expect("reserved spend"),
+        2_500
+    );
 }
