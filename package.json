@@ -16,7 +16,7 @@
     "marketing:dev": "pnpm --filter marketing dev",
     "marketing:build": "pnpm --filter marketing build",
     "test:marketing-use-cases": "tsx --test apps/marketing/app/use-cases/use-cases.test.ts",
-    "test:refund-demo": "tsx --tsconfig apps/marketing/tsconfig.json --test demo/stripe-refund-agent/agent.test.ts demo/stripe-refund-agent/auth.test.ts demo/stripe-refund-agent/status.test.ts apps/marketing/app/demo/demo-contract.test.ts apps/marketing/app/demo/status-model.test.ts apps/marketing/app/api/demo/refund/route.test.ts",
+    "test:refund-demo": "tsx --tsconfig apps/marketing/tsconfig.json --test demo/stripe-refund-agent/agent.test.ts demo/stripe-refund-agent/auth.test.ts demo/stripe-refund-agent/deployment.test.ts demo/stripe-refund-agent/status.test.ts apps/marketing/app/demo/demo-contract.test.ts apps/marketing/app/demo/status-model.test.ts apps/marketing/app/api/demo/refund/route.test.ts",
     "build": "pnpm -r --filter \"@trustloopguard/sdk\" --filter web --filter docs --filter marketing build",
     "typecheck": "pnpm -r typecheck",
     "codegen": "cargo run -p tl-codegen",

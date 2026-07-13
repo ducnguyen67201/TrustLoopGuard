@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { rmSync } from 'node:fs';
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,6 +12,7 @@ import {
   requireRefundDemoProxySecret,
 } from './auth';
 import { customerBackendState, orderDatabasePath } from './order-db';
+import { handleProviderPayment, providerApiKey } from './provider';
 import { seedLiveRefundOrder } from './seed';
 import { readRefundDemoActionStatus } from './status';
 import { stripeTestKeyFromEnv } from './stripe';
@@ -20,6 +21,7 @@ import {
   type AgentRunLogEntry,
   type AgentRunResult,
   type CustomerBackendState,
+  type StripeRefundProviderRequest,
 } from './types';
 
 const DEFAULT_UI_PORT = 9310;
@@ -45,16 +47,35 @@ interface ChatResponse {
 
 export function startRefundAgentUi(): void {
   requireRefundDemoProxySecret();
-  const server = createServer((req, res) => {
-    void handleRequest(req, res);
-  });
-  server.listen(uiPort(), '127.0.0.1', () => {
-    process.stdout.write(`Stripe refund agent UI: http://127.0.0.1:${uiPort()}\n`);
+  providerApiKey();
+  const server = createRefundAgentServer();
+  server.listen(refundAgentPort(), refundAgentHost(), () => {
+    process.stdout.write(
+      `Stripe refund agent service: http://${refundAgentHost()}:${refundAgentPort()}\n`,
+    );
   });
 }
 
-function uiPort(): number {
-  const raw = process.env.STRIPE_REFUND_AGENT_UI_PORT?.trim();
+export function createRefundAgentServer(): Server {
+  return createServer((req, res) => {
+    void handleRequest(req, res);
+  });
+}
+
+export function refundAgentHost(
+  raw = process.env.STRIPE_REFUND_AGENT_UI_HOST,
+): string {
+  const host = raw?.trim() || '127.0.0.1';
+  if (!['127.0.0.1', '0.0.0.0', '::1', '::'].includes(host)) {
+    throw new Error('STRIPE_REFUND_AGENT_UI_HOST must be a local bind address');
+  }
+  return host;
+}
+
+export function refundAgentPort(
+  raw = process.env.STRIPE_REFUND_AGENT_UI_PORT ?? process.env.PORT,
+): number {
+  raw = raw?.trim();
   if (raw === undefined || raw === '') return DEFAULT_UI_PORT;
   const port = Number.parseInt(raw, 10);
   return Number.isInteger(port) && port > 0 && port <= 65_535 ? port : DEFAULT_UI_PORT;
@@ -62,6 +83,10 @@ function uiPort(): number {
 
 async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? '127.0.0.1'}`);
+  if (req.method === 'GET' && url.pathname === '/health') {
+    writeJson(res, 200, { status: 'ok' });
+    return;
+  }
   if (req.method === 'GET' && url.pathname === '/') {
     if (!isDirectLoopbackRequest(req)) {
       writeJson(res, 404, { error: 'not found' });
@@ -90,6 +115,17 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     } catch (error) {
       process.stderr.write(`[stripe-refund-agent] status error: ${safeErrorForLog(error)}\n`);
       writeJson(res, 404, { error: 'action status not found' });
+    }
+    return;
+  }
+  if (req.method === 'POST' && url.pathname === '/payments') {
+    try {
+      const body = (await readJson(req)) as StripeRefundProviderRequest;
+      const reply = await handleProviderPayment(req.headers.authorization, body);
+      writeJson(res, reply.statusCode, reply.body);
+    } catch (error) {
+      process.stderr.write(`[stripe-refund-agent] provider error: ${safeErrorForLog(error)}\n`);
+      writeJson(res, 500, { error: 'provider request failed' });
     }
     return;
   }

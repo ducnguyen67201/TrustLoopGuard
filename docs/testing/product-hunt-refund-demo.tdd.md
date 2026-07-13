@@ -127,6 +127,21 @@ resets on process restart and is not an exact cross-replica quota; a shared limi
 multi-instance deployment. The authenticated refund service retains its separate 60-run global
 circuit breaker per 10-minute window.
 
+## Hosted Railway service
+
+As a launch operator, I can deploy one refund-demo service whose chat/status surface and payment
+adapter use separate bearer credentials. Railway can bind the service on `0.0.0.0:$PORT`, while the
+Rust API registers only a validated HTTPS provider origin.
+
+RED checkpoint `6bca808d` failed because the merged demo exported no hosted server factory and had no
+Railway network contract. GREEN checkpoint `49748821` adds the authenticated `/payments` adapter,
+strong production provider-key validation, hosted-origin validation, Railway host/port configuration,
+and a dedicated allowlisted Docker build context.
+
+`pnpm test:refund-demo` passes 28 tests, `pnpm --filter @trustloopguard/demo typecheck` passes, the
+Docker image builds, and a running container returns `401` for an invalid payment bearer credential.
+The container does not expose secret values in its image or startup output.
+
 ## Live integration evidence
 
 The local Product Hunt route was exercised through the same-origin marketing proxy with Doppler
