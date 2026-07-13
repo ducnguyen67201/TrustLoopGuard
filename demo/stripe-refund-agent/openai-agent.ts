@@ -45,6 +45,7 @@ export async function runOpenAiRefundAgent(
         const result = await runRefundTool(call.function.name, call.function.arguments, client, {
           logger: options.logger,
           requestId: options.requestId,
+          dbPath: options.dbPath,
         });
         state.recordToolResult(result);
         messages.push({
@@ -56,6 +57,10 @@ export async function runOpenAiRefundAgent(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    if (options.requireLiveAgent === true) {
+      options.logger?.log('openai_agent', 'stopped safely after a tool error');
+      throw error;
+    }
     options.logger?.log('openai_agent', `stopped after tool work: ${message}`);
     if (!state.hasToolResults()) throw error;
     state.setFinalMessage(`The refund agent stopped after a tool error: ${message}`);

@@ -24,6 +24,7 @@
     "stripe-refund-agent:provider": "tsx stripe-refund-agent/provider.ts",
     "stripe-refund-agent:ui": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/ui.ts",
     "stripe-refund-agent:check": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/check.ts",
+    "stripe-refund-agent:live": "doppler run --project trustloopguard --config dev_stripe_demo -- pnpm dev",
     "arena:check": "tsx arena/adapter.check.ts",
     "typecheck": "tsc --noEmit"
   },

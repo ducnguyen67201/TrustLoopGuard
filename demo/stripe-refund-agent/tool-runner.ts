@@ -22,6 +22,7 @@ export interface ToolRunResult {
 export interface ToolRunOptions {
   logger?: AgentRunLogger;
   requestId?: string;
+  dbPath?: string;
 }
 
 export const refundAgentTools: ChatCompletionTool[] = [
@@ -91,8 +92,8 @@ export async function runRefundTool(
   };
 }
 
-export function searchTrace(orderId: string): ToolTrace {
-  const search = searchOrderTool({ orderId });
+export function searchTrace(orderId: string, dbPath?: string): ToolTrace {
+  const search = searchOrderTool({ orderId }, dbPath);
   return {
     tool: 'search_order',
     summary: search.found
@@ -106,7 +107,7 @@ async function runSearchOrder(
   options: ToolRunOptions,
 ): Promise<ToolRunResult> {
   const args = JSON.parse(rawArguments) as { orderId?: string; email?: string; last4?: string };
-  const result = searchOrderTool(args);
+  const result = searchOrderTool(args, options.dbPath);
   options.logger?.log(
     'search_order',
     result.found ? `found ${result.order?.id}` : 'order not found',
@@ -129,7 +130,7 @@ async function runPrepareRefund(
     ...(JSON.parse(rawArguments) as PrepareRefundInput),
     requestId: options.requestId ?? randomUUID(),
   };
-  const result = await prepareRefundTool(args, client);
+  const result = await prepareRefundTool(args, client, options.dbPath);
   options.logger?.log('prepare_refund', `${result.status}: ${result.action.id}`);
   return {
     trace: {
@@ -151,7 +152,7 @@ async function runExecuteRefund(
   options: ToolRunOptions,
 ): Promise<ToolRunResult> {
   const args = JSON.parse(rawArguments) as { actionId: string };
-  const result = await executeRefundTool(args.actionId, client);
+  const result = await executeRefundTool(args.actionId, client, options.dbPath);
   options.logger?.log('execute_refund', `${result.status}: ${result.action.id}`);
   return {
     trace: {

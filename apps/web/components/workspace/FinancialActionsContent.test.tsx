@@ -20,6 +20,42 @@ afterEach(() => {
 });
 
 describe('FinancialActionsContent', () => {
+  it('focuses a deep-linked demo action so an older held row cannot be approved by mistake', () => {
+    render(
+      <FinancialActionsContent
+        workspaceSlug="default"
+        environmentId="production"
+        actions={[action('act_old', 'held', 7_500), action('act_current_demo', 'held', 7_500)]}
+        approvals={[
+          {
+            id: 'approval_current',
+            workspace_id: 'ws_1',
+            action_id: 'act_current_demo',
+            status: 'pending',
+            reason: 'above threshold',
+            approver_roles: [],
+            metadata: {},
+            created_at: '2026-07-05T20:00:00Z',
+            updated_at: '2026-07-05T20:00:00Z',
+          },
+        ]}
+        outcomesByActionId={{}}
+        familyPolicies={[]}
+        mandatesCount={0}
+        mandates={[]}
+        providerConnections={[]}
+        focusActionId="act_current_demo"
+      />,
+    );
+
+    expect(screen.getByText('Reviewing this demo action')).toBeInTheDocument();
+    expect(screen.getAllByText('act_current_demo').length).toBeGreaterThan(0);
+    expect(screen.queryByText('act_old')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /approve financial action act_current_demo/i }),
+    ).toBeInTheDocument();
+  });
+
   it('renders held, executed, denied, failed, and reversed action states', () => {
     render(
       <FinancialActionsContent

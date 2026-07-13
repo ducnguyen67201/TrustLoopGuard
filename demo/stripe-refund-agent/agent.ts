@@ -10,12 +10,19 @@ export async function runRefundAgent(
   options: AgentRunOptions = {},
 ): Promise<AgentRunResult> {
   if (!shouldUseOpenAI(options.useOpenAI)) {
+    if (options.requireLiveAgent === true) {
+      throw new Error('live agent mode requires OPENAI_API_KEY and OpenAI tool calling');
+    }
     return runScriptedRefundAgent(prompt, client, options);
   }
 
   try {
     return await runOpenAiRefundAgent(prompt, client, options);
-  } catch {
+  } catch (error) {
+    if (options.requireLiveAgent === true) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`live agent failed: ${message}`, { cause: error });
+    }
     options.logger?.log('openai_fallback', 'OpenAI agent failed, using scripted refund flow');
     return runScriptedRefundAgent(prompt, client, options);
   }

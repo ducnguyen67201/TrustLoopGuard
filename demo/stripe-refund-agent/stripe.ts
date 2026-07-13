@@ -17,6 +17,7 @@ export interface CreatePaymentIntentInput {
   secretKey: string;
   amountMinor: number;
   metadata: Record<string, string>;
+  idempotencyKey?: string;
   fetchImpl?: StripeFetch;
 }
 
@@ -87,7 +88,7 @@ export async function createTestPaymentIntent(
     'https://api.stripe.com/v1/payment_intents',
     input.secretKey,
     body,
-    `tlg-demo-pi:${input.metadata.order_id ?? 'order'}`,
+    input.idempotencyKey ?? `tlg-demo-pi:${input.metadata.order_id ?? 'order'}`,
     input.fetchImpl ?? fetch,
   );
   if (json.id === undefined) throw new Error('stripe payment intent response did not include an id');
