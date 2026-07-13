@@ -11,7 +11,7 @@ import { USE_CASES } from './content';
 const PAGE_PATH = '/use-cases';
 const PAGE_TITLE = 'Use Cases for AI Spend and Action Authorization | TrustLoopGuard';
 const PAGE_DESCRIPTION =
-  'See how TrustLoopGuard controls AI inference spend, authorizes x402 payments, and guards irreversible agent actions before execution.';
+  'See how TrustLoopGuard controls AI inference spend, authorizes x402 payments, guards irreversible actions, and checks email sends before execution.';
 
 export const metadata: Metadata = {
   title: { absolute: PAGE_TITLE },
@@ -60,8 +60,8 @@ function UseCasesHero() {
             provider, payment rail, or tool that makes it real.
           </p>
           <p>
-            Start with one of three boundaries we support today: model usage, x402 payments, or a
-            consequential action in your own workflow.
+            Start with one of four boundaries we support today: model usage, x402 payments, a
+            consequential workflow action, or an external email send.
           </p>
           <MarketingEventLink
             href={BOOK_MEETING_URL}
@@ -155,8 +155,9 @@ function UseCasesCta() {
       </div>
       <div>
         <p>
-          Bring the provider call, x402 payment, refund, invoice, payout, or tool action. We will
-          map what must be checked, where the hold belongs, and what proof you need afterward.
+          Bring the provider call, x402 payment, refund, invoice, payout, email send, or tool
+          action. We will map what must be checked, where the hold belongs, and what proof you need
+          afterward.
         </p>
         <MarketingEventLink
           href={BOOK_MEETING_URL}

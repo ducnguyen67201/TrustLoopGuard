@@ -9,10 +9,10 @@ import {
   USE_CASES,
 } from './content';
 
-test('the use-cases page presents the three supported customer workflows', () => {
+test('the use-cases page presents the four supported customer workflows', () => {
   assert.deepEqual(
     USE_CASES.map((useCase) => useCase.slug),
-    ['ai-inference-spend', 'x402-payments', 'action-authorization'],
+    ['ai-inference-spend', 'x402-payments', 'action-authorization', 'email'],
   );
 });
 
@@ -23,6 +23,7 @@ test('every use case has its own canonical detail route', () => {
       '/use-cases/ai-inference-spend',
       '/use-cases/x402-payments',
       '/use-cases/action-authorization',
+      '/use-case/email',
     ],
   );
 });
@@ -32,6 +33,7 @@ test('detail routes resolve only supported use-case slugs', () => {
     getUseCase('x402-payments')?.title,
     'Authorize the purchase before the agent signs.',
   );
+  assert.equal(getUseCase('email')?.title, 'Stop the wrong email before it leaves.');
   assert.equal(getUseCase('not-a-use-case'), undefined);
 });
 
@@ -53,10 +55,15 @@ test('the navigation dropdown exposes the overview and every detail page', () =>
       label: 'Action authorization',
       detail: 'Guard the one-way door',
     },
+    {
+      href: '/use-case/email',
+      label: 'Email action control',
+      detail: 'Authorize before external send',
+    },
   ]);
 });
 
-test('the navigation mega-menu separates the overview from its three use-case columns', () => {
+test('the navigation mega-menu separates the overview from its four use-case columns', () => {
   assert.deepEqual(USE_CASE_NAV_GROUPS.overview, USE_CASE_NAV_ITEMS[0]);
   assert.deepEqual(
     USE_CASE_NAV_GROUPS.details.map((item) => item.href),
@@ -64,8 +71,19 @@ test('the navigation mega-menu separates the overview from its three use-case co
       '/use-cases/ai-inference-spend',
       '/use-cases/x402-payments',
       '/use-cases/action-authorization',
+      '/use-case/email',
     ],
   );
+});
+
+test('email control binds authorization to the proposed send and its outcome', () => {
+  const email = getUseCase('email');
+
+  assert.equal(email?.href, '/use-case/email');
+  assert.match(email?.control ?? '', /exact proposed version/i);
+  assert.match(JSON.stringify(email?.checks), /recipient/i);
+  assert.match(JSON.stringify(email?.checks), /duplicate/i);
+  assert.match(JSON.stringify(email?.proof), /provider outcome/i);
 });
 
 test('the use-case trigger spans the header so the pointer can reach the mega-menu', () => {

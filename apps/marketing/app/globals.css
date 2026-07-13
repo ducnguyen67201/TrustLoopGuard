@@ -247,7 +247,7 @@ input {
 
 .site-nav-mega-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 0;
   padding: 0;
   list-style: none;
@@ -3185,7 +3185,7 @@ input {
 
 @media (min-width: 680px) {
   .use-case-index {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .use-case-index-card {
@@ -3193,7 +3193,7 @@ input {
   }
 
   .use-case-related > div {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .use-case-context-grid,
@@ -3217,6 +3217,12 @@ input {
 
   .use-case-flow-part > i {
     transform: none;
+  }
+}
+
+@media (min-width: 1100px) {
+  .use-case-index {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
