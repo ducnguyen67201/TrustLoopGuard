@@ -57,3 +57,8 @@ per-visitor throttle, an upstream timeout, and a strict public response schema. 
 service independently authenticates every mutation and caps the total number of expensive runs, so
 multiple marketing instances share one launch budget. If the refund service itself is scaled beyond
 one instance, replace that central in-process budget with a shared durable limiter first.
+
+The deployed refund-agent service must read a production-scoped `TL_API_KEY` from Doppler and set
+`TL_SERVER_URL=https://api.gettrustloop.app`. The Rust `/v1` API lives on `api.gettrustloop.app`;
+`https://app.gettrustloop.app` is the authenticated dashboard and is used only for held-action review
+links. Do not copy either key into the marketing app or expose it through a `NEXT_PUBLIC_*` variable.
