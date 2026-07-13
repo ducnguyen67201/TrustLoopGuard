@@ -208,6 +208,9 @@ impl FinancialAuthorizationService {
         };
 
         validate_create_action(&action_input)?;
+        let action_input = self
+            .attach_reusable_approval_mandate(workspace_id, action_input)
+            .await?;
         let mut action = self.store.create_action(workspace_id, action_input).await?;
         if action.status == FinancialActionStatus::Proposed {
             action = self.enforce_mandate(workspace_id, action).await?;
@@ -942,6 +945,9 @@ impl FinancialAuthorizationService {
         let approved = self
             .approve_action_as(workspace_id, action_id, actor_id)
             .await?;
+        if approved.status != FinancialActionStatus::Authorized {
+            return Err(FinancialStoreError::Conflict);
+        }
         let mandate = self
             .create_mandate(
                 workspace_id,

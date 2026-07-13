@@ -1,2 +1,1 @@
-DROP INDEX IF EXISTS approval_requests_workspace_action_status_expiry_idx;
 DROP TABLE IF EXISTS financial_budget_principal_locks;

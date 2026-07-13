@@ -1002,6 +1002,13 @@ impl FinancialRepo {
             {
                 return Err(StorageError::Conflict);
             }
+            let action_ids = financial_action_ids_in_transaction(
+                conn,
+                &workspace_id,
+                &request.principal_id,
+                &currency,
+            )
+            .await?;
 
             let mut violations = Vec::new();
             for constraint in request.constraints {
@@ -1013,7 +1020,7 @@ impl FinancialRepo {
                 let committed_minor = net_spend_minor_in_transaction(
                     conn,
                     &workspace_id,
-                    &request.principal_id,
+                    &action_ids,
                     &currency,
                     start,
                     request.now,
@@ -1073,10 +1080,17 @@ impl FinancialRepo {
         let clean_principal = clean_required("principal_id", principal_id)?;
         let clean_currency = clean_required("currency", currency)?.to_uppercase();
         let mut conn = self.connection().await?;
-        net_spend_minor_in_transaction(
+        let action_ids = financial_action_ids_in_transaction(
             &mut conn,
             workspace_id,
             &clean_principal,
+            &clean_currency,
+        )
+        .await?;
+        net_spend_minor_in_transaction(
+            &mut conn,
+            workspace_id,
+            &action_ids,
             &clean_currency,
             start,
             end,
@@ -1747,21 +1761,30 @@ fn ledger_entry_from_record(
     })
 }
 
-async fn net_spend_minor_in_transaction(
+async fn financial_action_ids_in_transaction(
     conn: &mut diesel_async::AsyncPgConnection,
     workspace_id: &str,
     principal_id: &str,
     currency: &str,
-    start: DateTime<Utc>,
-    end: DateTime<Utc>,
-) -> Result<i64, StorageError> {
-    let action_ids = financial_actions::table
+) -> Result<Vec<Uuid>, StorageError> {
+    financial_actions::table
         .filter(financial_actions::workspace_id.eq(workspace_id))
         .filter(financial_actions::principal_id.eq(principal_id))
+        .filter(financial_actions::currency.eq(currency))
         .select(financial_actions::id)
         .load::<Uuid>(conn)
         .await
-        .map_err(|error| StorageError::Internal(format!("financial spend actions: {error}")))?;
+        .map_err(|error| StorageError::Internal(format!("financial spend actions: {error}")))
+}
+
+async fn net_spend_minor_in_transaction(
+    conn: &mut diesel_async::AsyncPgConnection,
+    workspace_id: &str,
+    action_ids: &[Uuid],
+    currency: &str,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+) -> Result<i64, StorageError> {
     if action_ids.is_empty() {
         return Ok(0);
     }

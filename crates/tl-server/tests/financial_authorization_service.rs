@@ -1699,11 +1699,7 @@ async fn reusable_approval_does_not_mint_authority_when_live_mandate_denies_sour
     let action = service
         .create_action(
             "ws_finance",
-            refund_request_with_mandate(
-                "idem-reuse-denied-source",
-                7_500,
-                &source_mandate.id,
-            ),
+            refund_request_with_mandate("idem-reuse-denied-source", 7_500, &source_mandate.id),
         )
         .await
         .unwrap();

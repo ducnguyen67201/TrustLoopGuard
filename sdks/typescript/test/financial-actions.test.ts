@@ -370,24 +370,27 @@ describe('Client financial action methods', () => {
       current_amount_minor: 7500,
       recommended_max_amount_minor: 7500,
     };
-    const fetchSpy = mockFetch(async (input) => {
+    const fetchSpy = mockFetch(async (input, init) => {
       const url = String(input);
       if (url.endsWith('/approval-envelope')) return jsonResponse(envelope);
-      return jsonResponse({
-        action: { ...ACTION, status: 'authorized' },
-        mandate: {
-          id: 'approval-reuse-abc123',
-          workspace_id: 'ws_test',
-          version: 1,
-          status: 'active',
-          principal_id: 'refund-bot',
-          scope: {},
-          metadata: {},
-          created_at: '2026-07-13T12:00:00Z',
-          updated_at: '2026-07-13T12:00:00Z',
-        },
-        approval_envelope: envelope,
-      });
+      if (url.endsWith('/approve-matching') && init?.method === 'POST') {
+        return jsonResponse({
+          action: { ...ACTION, status: 'authorized' },
+          mandate: {
+            id: 'approval-reuse-abc123',
+            workspace_id: 'ws_test',
+            version: 1,
+            status: 'active',
+            principal_id: 'refund-bot',
+            scope: {},
+            metadata: {},
+            created_at: '2026-07-13T12:00:00Z',
+            updated_at: '2026-07-13T12:00:00Z',
+          },
+          approval_envelope: envelope,
+        });
+      }
+      throw new Error(`unexpected financial approval request: ${init?.method ?? 'GET'} ${url}`);
     });
     const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
 
@@ -402,7 +405,11 @@ describe('Client financial action methods', () => {
       }),
     ).resolves.toMatchObject({ mandate: { status: 'active' } });
 
-    const [, approvalInit] = fetchSpy.mock.calls[1]!;
+    const [approvalUrl, approvalInit] = fetchSpy.mock.calls[1]!;
+    expect(String(approvalUrl)).toBe(
+      `http://server.test/v1/financial/actions/${ACTION.id}/approve-matching`,
+    );
+    expect((approvalInit as RequestInit).method).toBe('POST');
     expect(JSON.parse(String((approvalInit as RequestInit).body))).toEqual({
       action_fingerprint: envelope.action_fingerprint,
       max_amount_minor: 10000,
