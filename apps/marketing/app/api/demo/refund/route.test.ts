@@ -157,6 +157,35 @@ test('limits repeated expensive requests for one visitor', async () => {
   }
 });
 
+test('allows repeated localhost runs during development', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalNodeEnv = process.env['NODE_ENV'];
+  let upstreamCalls = 0;
+  process.env['NODE_ENV'] = 'development';
+  globalThis.fetch = (async () => {
+    upstreamCalls += 1;
+    return Response.json(upstreamPayload);
+  }) as typeof fetch;
+
+  try {
+    const responses = [];
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      responses.push(
+        await POST(requestFor({ prompt: 'Refund order ord_demo_1001 for $25.' }, 'route-local-dev')),
+      );
+    }
+    assert.deepEqual(
+      responses.map((response) => response.status),
+      [200, 200, 200, 200, 200, 200],
+    );
+    assert.equal(upstreamCalls, 6);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalNodeEnv === undefined) delete process.env['NODE_ENV'];
+    else process.env['NODE_ENV'] = originalNodeEnv;
+  }
+});
+
 test('uses the platform-owned client address instead of a spoofable forwarded value', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => Response.json(upstreamPayload)) as typeof fetch;
