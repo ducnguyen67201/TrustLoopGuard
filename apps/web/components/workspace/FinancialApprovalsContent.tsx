@@ -7,26 +7,15 @@ import { z } from 'zod';
 import type {
   ApproveMatchingFinancialActionsResponse,
   FinancialActionRecord,
-  FinancialApprovalEnvelope,
   FinancialApprovalRequest,
 } from '@trustloopguard/sdk';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/ui/page-header';
+import { ReusableFinancialApprovalDialog } from '@/components/workspace/ReusableFinancialApprovalDialog';
 import {
   counterpartyLabel,
   currentContextQuery,
@@ -53,10 +42,6 @@ export function FinancialApprovalsContent({
   const [actionRows, setActionRows] = useState(actions);
   const [busyActionIds, setBusyActionIds] = useState<string[]>([]);
   const [reuseActionId, setReuseActionId] = useState<string | null>(null);
-  const [envelope, setEnvelope] = useState<FinancialApprovalEnvelope | null>(null);
-  const [loadingEnvelope, setLoadingEnvelope] = useState(false);
-  const [maxAmount, setMaxAmount] = useState('');
-  const [expiresAt, setExpiresAt] = useState(defaultExpiryInput());
   const actionById = useMemo(
     () => new Map(actionRows.map((action) => [action.id, action])),
     [actionRows],
@@ -136,14 +121,14 @@ export function FinancialApprovalsContent({
               aria-label={`Approve only financial action ${row.action_id}`}
             >
               <IconCheck />
-              Approve this one
+              Approve once
             </Button>
             <Button
               type="button"
               size="sm"
               variant="outline"
               disabled={busy}
-              onClick={() => openReusableApproval(row.action_id)}
+              onClick={() => setReuseActionId(row.action_id)}
               aria-label={`Approve matching financial actions for ${row.action_id}`}
             >
               <IconFingerprint />
@@ -206,94 +191,21 @@ export function FinancialApprovalsContent({
     }
   }
 
-  async function openReusableApproval(actionId: string) {
-    setReuseActionId(actionId);
-    setEnvelope(null);
-    setLoadingEnvelope(true);
-    setExpiresAt(defaultExpiryInput());
+  async function handleReusableApproval(result: ApproveMatchingFinancialActionsResponse) {
+    const actionId = result.action.id;
+    setActionRows((prev) => upsertAction(prev, result.action));
+    setApprovalRows((prev) =>
+      prev.map((approval) =>
+        approval.action_id === actionId ? { ...approval, status: 'approved' } : approval,
+      ),
+    );
     try {
-      const response = await fetch(
-        `/api/financial/actions/${encodeURIComponent(actionId)}/approval-envelope${contextQuery}`,
-      );
-      const text = await response.text();
-      if (!response.ok) {
-        throw new Error(safeError(text) ?? 'Unable to load approval fingerprint');
-      }
-      const nextEnvelope = financialApprovalEnvelopeSchema.parse(
-        JSON.parse(text),
-      ) as FinancialApprovalEnvelope;
-      setEnvelope(nextEnvelope);
-      setMaxAmount(minorUnitsInput(nextEnvelope.current_amount_minor));
+      const executed = await postAction(actionId, 'execute', contextQuery);
+      setActionRows((prev) => upsertAction(prev, executed));
     } catch (error) {
-      setReuseActionId(null);
-      toast.error(error instanceof Error ? error.message : 'Unable to load approval fingerprint');
-    } finally {
-      setLoadingEnvelope(false);
-    }
-  }
-
-  async function approveMatchingAndExecute() {
-    if (!reuseActionId || !envelope) return;
-    const actionId = reuseActionId;
-    let maxAmountMinor: number;
-    try {
-      maxAmountMinor = parseMinorUnits(maxAmount);
-      if (maxAmountMinor < Number(envelope.current_amount_minor)) {
-        throw new Error('Maximum must cover this action');
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Maximum is invalid');
-      return;
-    }
-    const expiry = new Date(expiresAt);
-    if (Number.isNaN(expiry.getTime()) || expiry.getTime() <= Date.now()) {
-      toast.error('Expiry must be in the future');
-      return;
-    }
-
-    setBusyActionIds((prev) => [...prev, actionId]);
-    try {
-      const response = await fetch(
-        `/api/financial/actions/${encodeURIComponent(actionId)}/approve-matching${contextQuery}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action_fingerprint: envelope.action_fingerprint,
-            max_amount_minor: maxAmountMinor,
-            expires_at: expiry.toISOString(),
-          }),
-        },
-      );
-      const text = await response.text();
-      if (!response.ok) {
-        throw new Error(safeError(text) ?? 'Unable to activate reusable approval');
-      }
-      const result = approveMatchingResponseSchema.parse(
-        JSON.parse(text),
-      ) as ApproveMatchingFinancialActionsResponse;
-      setActionRows((prev) => upsertAction(prev, result.action));
-      setApprovalRows((prev) =>
-        prev.map((approval) =>
-          approval.action_id === actionId ? { ...approval, status: 'approved' } : approval,
-        ),
-      );
-      setReuseActionId(null);
-      toast.success('Mandate active', {
-        description: 'Matching actions can now reuse this approval until it expires.',
+      toast.error('Reusable approval is active, but the current action did not execute', {
+        description: error instanceof Error ? error.message : undefined,
       });
-      try {
-        const executed = await postAction(actionId, 'execute', contextQuery);
-        setActionRows((prev) => upsertAction(prev, executed));
-      } catch (error) {
-        toast.error('Mandate is active, but the current action did not execute', {
-          description: error instanceof Error ? error.message : undefined,
-        });
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Reusable approval failed');
-    } finally {
-      setBusyActionIds((prev) => prev.filter((id) => id !== actionId));
     }
   }
 
@@ -323,124 +235,15 @@ export function FinancialApprovalsContent({
           />
         </CardContent>
       </Card>
-      <Dialog
-        open={reuseActionId !== null}
-        onOpenChange={(open) => {
-          if (!open && !(reuseActionId && busySet.has(reuseActionId))) setReuseActionId(null);
-        }}
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Approve matching actions</DialogTitle>
-            <DialogDescription>
-              Reuse this human approval for the same bounded action shape. TrustLoopGuard still
-              checks every future action before money moves.
-            </DialogDescription>
-          </DialogHeader>
-          {loadingEnvelope || !envelope ? (
-            <p className="text-sm text-muted-foreground">Computing action fingerprint…</p>
-          ) : (
-            <div className="grid gap-4">
-              <div className="grid gap-3 rounded-lg border bg-muted/30 p-4 sm:grid-cols-2">
-                <ApprovalDetail label="Principal" value={envelope.principal_id} mono />
-                <ApprovalDetail
-                  label="Action"
-                  value={`${envelope.action_kind} · ${envelope.operation}`}
-                />
-                <ApprovalDetail label="Rail" value={envelope.rail} />
-                <ApprovalDetail
-                  label="Counterparty"
-                  value={envelope.counterparty_id ?? 'No counterparty'}
-                  mono
-                />
-              </div>
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label>Action fingerprint</Label>
-                  <Badge variant="outline">v{envelope.fingerprint_version}</Badge>
-                </div>
-                <code className="break-all rounded-md border bg-muted px-3 py-2 text-xs">
-                  {envelope.action_fingerprint}
-                </code>
-                <p className="text-xs text-muted-foreground">
-                  Approval is bound to this action version. Amount is controlled separately by the
-                  maximum below.
-                </p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="grid gap-2">
-                  <Label htmlFor="reuse-max-amount">Maximum per action ({envelope.currency})</Label>
-                  <Input
-                    id="reuse-max-amount"
-                    inputMode="decimal"
-                    value={maxAmount}
-                    onChange={(event) => setMaxAmount(event.target.value)}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="reuse-expires-at">Expires at</Label>
-                  <Input
-                    id="reuse-expires-at"
-                    type="datetime-local"
-                    value={expiresAt}
-                    onChange={(event) => setExpiresAt(event.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">Maximum reusable window: 30 days.</p>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Changes to principal, action kind, operation, rail, currency, counterparty, or x402
-                destination require a new approval.
-              </p>
-              <div className="grid gap-2 rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm">
-                <p className="font-medium">Only the matching human-review step is reused.</p>
-                <p className="text-muted-foreground">
-                  Mandate status, hard policies, eligibility evidence, and the live available budget
-                  are checked again for every action. A matching fingerprint never reserves or
-                  guarantees funds in advance.
-                </p>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={reuseActionId ? busySet.has(reuseActionId) : false}
-              onClick={() => setReuseActionId(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={!envelope || (reuseActionId ? busySet.has(reuseActionId) : false)}
-              onClick={approveMatchingAndExecute}
-            >
-              <IconFingerprint />
-              Approve once and reuse
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-function ApprovalDetail({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div className="grid min-w-0 gap-1">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={mono ? 'truncate font-mono text-xs' : 'truncate text-sm font-medium'}>
-        {value}
-      </span>
+      {reuseActionId ? (
+        <ReusableFinancialApprovalDialog
+          key={reuseActionId}
+          actionId={reuseActionId}
+          contextQuery={contextQuery}
+          onClose={() => setReuseActionId(null)}
+          onApproved={handleReusableApproval}
+        />
+      ) : null}
     </div>
   );
 }
@@ -487,47 +290,6 @@ const financialActionRecordSchema = z.looseObject({
   created_at: z.string(),
   updated_at: z.string(),
 });
-
-const financialApprovalEnvelopeSchema = z.looseObject({
-  action_id: z.string(),
-  action_fingerprint: z.string().startsWith('sha256:v'),
-  fingerprint_version: z.number().int().positive(),
-  principal_id: z.string(),
-  action_kind: z.string(),
-  operation: z.string(),
-  rail: z.string(),
-  currency: z.string(),
-  counterparty_id: z.string().optional().nullable(),
-  current_amount_minor: z.union([z.number(), z.bigint()]),
-  recommended_max_amount_minor: z.union([z.number(), z.bigint()]),
-});
-
-const approveMatchingResponseSchema = z.looseObject({
-  action: financialActionRecordSchema,
-  mandate: z.looseObject({ id: z.string(), version: z.number(), status: z.string() }),
-  approval_envelope: financialApprovalEnvelopeSchema,
-});
-
-function defaultExpiryInput(): string {
-  const date = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
-}
-
-function minorUnitsInput(amount: number | bigint): string {
-  const minor = BigInt(amount);
-  return `${minor / 100n}.${(minor % 100n).toString().padStart(2, '0')}`;
-}
-
-function parseMinorUnits(value: string): number {
-  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(value.trim());
-  if (!match) throw new Error('Enter an amount with up to two decimal places');
-  const major = match[1];
-  if (!major) throw new Error('Enter a valid amount');
-  const minor = BigInt(major) * 100n + BigInt((match[2] ?? '').padEnd(2, '0'));
-  if (minor > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('Maximum is too large');
-  return Number(minor);
-}
 
 function upsertAction(
   actions: FinancialActionRecord[],

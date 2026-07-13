@@ -60,6 +60,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | Atomic financial budget admission | Concurrent service actions and Postgres transactions both passed stale ledger reads and could authorize above one daily cap. | `service_serializes_concurrent_reservations_against_the_daily_cap` and `action_budget_reservations_serialize_concurrent_ledger_admission` pass with principal/currency locking and atomic reservation. |
 | Stale proposal and commit-time policy drift | A proposal approved after another action filled the budget was authorized, and an authorized action still executed after its per-transaction cap was tightened. | `service_rechecks_budget_before_approving_a_stale_proposal` and `service_rechecks_hard_policy_immediately_before_execution` pass; denial releases any reservation before provider execution. |
 | Bounded reusable approval | A matching reusable mandate still repeated the same policy approval hold, while its intended boundary against live controls was implicit. | Reuse now satisfies only the matching human-review gate; budget, new eligibility requirements, policy tightening, and mandate revocation tests pass without bypassing live enforcement. |
+| Reusable approval action-ledger parity | `FinancialActionsContent` rendered only Approve and Deny for a held row even though the dedicated approval queue exposed the reusable path. | Both financial pages now render the shared reusable-approval dialog; focused component tests prove fingerprint preview, live-budget warning, approve-matching submission, and execution resume from the action ledger. |
 
 ## Validation Commands
 
@@ -145,7 +146,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | 38 | Financial budget admission checks current window spend and inserts the action reservation atomically across replicas. | `crates/tl-storage/tests/financial_repo.rs`, `crates/tl-server/tests/financial_authorization_service.rs` | Postgres/service concurrency | PASS |
 | 39 | Reusable approval removes only the matching human-review gate and cannot bypass live budget or new eligibility requirements. | `crates/tl-server/tests/financial_authorization_service.rs` | Service integration | PASS |
 | 40 | Approval and execution recheck current hard controls; policy tightening or mandate revocation denies before the provider and releases reserved spend. | `crates/tl-server/tests/financial_authorization_service.rs` | Service integration | PASS |
-| 41 | The dashboard explains that fingerprint reuse does not reserve funds and that live mandate, policy, eligibility, and budget checks still run. | `apps/web/components/workspace/FinancialApprovalsContent.test.tsx` | Component | PASS |
+| 41 | Both financial action surfaces explain that fingerprint reuse does not reserve funds and that live mandate, policy, eligibility, and budget checks still run. | `apps/web/components/workspace/FinancialActionsContent.test.tsx`, `apps/web/components/workspace/FinancialApprovalsContent.test.tsx` | Component | PASS |
 | 42 | Execution requires an active reservation, not merely historical evidence that a reservation once existed. | `crates/tl-server/tests/financial_authorization_service.rs` | Service integration | PASS |
 
 ## Completion Status
