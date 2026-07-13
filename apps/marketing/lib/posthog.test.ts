@@ -21,12 +21,13 @@ interface CaptureCall {
   properties: Record<string, string | undefined> | undefined;
 }
 
-function fakeClient() {
+function fakeClient(loaded = true) {
   const initCalls: InitCall[] = [];
   const registerCalls: Array<Record<string, string>> = [];
   const captureCalls: CaptureCall[] = [];
 
   const client: PostHogBrowserClient = {
+    __loaded: loaded,
     init(token, options) {
       initCalls.push({ token, options });
     },
@@ -116,4 +117,17 @@ test('sends one marketing interaction to both GTM and PostHog', () => {
       properties: { page: '/', location: 'footer', label: 'Documentation' },
     },
   ]);
+});
+
+test('keeps GTM working without calling an uninitialized PostHog client', () => {
+  const { client, captureCalls } = fakeClient(false);
+  const browser = { dataLayer: [] as Array<Record<string, string>> };
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: browser });
+
+  trackMarketingEvent('landing_cta_click', { page: '/', location: 'hero' }, client);
+
+  assert.deepEqual(browser.dataLayer, [
+    { event: 'landing_cta_click', page: '/', location: 'hero' },
+  ]);
+  assert.deepEqual(captureCalls, []);
 });
