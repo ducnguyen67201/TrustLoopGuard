@@ -83,6 +83,10 @@ export function refundAgentPort(
 
 async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? '127.0.0.1'}`);
+  if (req.method === 'GET' && url.pathname === '/health') {
+    writeJson(res, 200, { status: 'ok' });
+    return;
+  }
   if (req.method === 'GET' && url.pathname === '/') {
     if (!isDirectLoopbackRequest(req)) {
       writeJson(res, 404, { error: 'not found' });
