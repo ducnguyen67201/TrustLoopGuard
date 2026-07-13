@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { BOOK_MEETING_URL, GITHUB_URL, getStarCount } from '@/lib/github';
 import { NavActions } from './nav-actions';
+import { UseCaseNav } from './use-case-nav';
 
-const NAV_LINKS = [
-  { href: '/#product', label: 'Product' },
+const NAV_LINKS_AFTER_USE_CASES = [
   { href: '/#trust', label: 'Why trust us' },
   { href: '/#how', label: 'How it works' },
   { href: '/#developers', label: 'Developers' },
@@ -14,16 +14,17 @@ export async function Nav() {
 
   return (
     <header className="site-header sticky top-0 inset-x-0 z-40">
-      <nav
-        aria-label="Main navigation"
-        className="site-nav"
-      >
+      <nav aria-label="Main navigation" className="site-nav">
         <Link href="/" className="wordmark" aria-label="TrustLoopGuard home">
           <img src="/trustloop-logo.svg" alt="" aria-hidden="true" className="wordmark-logo" />
           <span>TrustLoopGuard</span>
         </Link>
         <ul className="site-nav-links">
-          {NAV_LINKS.map((link) => (
+          <li>
+            <a href="/#product">Product</a>
+          </li>
+          <UseCaseNav />
+          {NAV_LINKS_AFTER_USE_CASES.map((link) => (
             <li key={link.href}>
               <a href={link.href}>{link.label}</a>
             </li>
