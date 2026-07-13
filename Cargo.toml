@@ -79,7 +79,7 @@ url = "2"
 argon2 = "0.5"
 rand = "0.10"
 base64 = "0.22"
-jsonwebtoken = { version = "9", default-features = false }
+jsonwebtoken = { version = "10", default-features = false }
 ring = "0.17"
 
 [profile.release]
