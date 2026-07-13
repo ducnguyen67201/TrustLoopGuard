@@ -71,6 +71,7 @@ test('exposes only the public agent trace, order, refund, and decision fields', 
   assert.equal('customerEmail' in response.state.orders[0]!, false);
   assert.equal('paymentIntentId' in response.state.orders[0]!, false);
   assert.equal('providerApiKey' in response, false);
+  assert.equal('logs' in response, false);
 });
 
 test('the Product Hunt route shows a live chat, the control boundary, and Stripe outcome', () => {

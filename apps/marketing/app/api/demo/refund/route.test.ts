@@ -3,6 +3,9 @@ import test from 'node:test';
 
 import { POST } from './route';
 
+const PROXY_SECRET = 'refund-demo-proxy-secret-32-bytes-minimum';
+process.env.REFUND_DEMO_PROXY_SECRET = PROXY_SECRET;
+
 const upstreamPayload = {
   result: {
     prompt: 'Refund order ord_demo_1001 for $25.',
@@ -56,6 +59,7 @@ test('proxies a valid prompt and strips private upstream fields', async () => {
   let upstreamBody = '';
   globalThis.fetch = (async (input, init) => {
     assert.equal(String(input), 'http://127.0.0.1:9310/chat');
+    assert.equal(new Headers(init?.headers).get('authorization'), `Bearer ${PROXY_SECRET}`);
     upstreamBody = String(init?.body);
     return Response.json(upstreamPayload);
   }) as typeof fetch;
@@ -71,6 +75,7 @@ test('proxies a valid prompt and strips private upstream fields', async () => {
     assert.equal(body.state.orders[0].customerEmail, undefined);
     assert.equal(body.state.orders[0].paymentIntentId, undefined);
     assert.equal(body.state.refunds[0].providerReference, 're_test_123');
+    assert.equal(body.logs, undefined);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -106,6 +111,47 @@ test('does not expose raw upstream errors to the public browser', async () => {
     const body = await response.json();
     assert.equal(response.status, 500);
     assert.equal(body.error, 'The refund workflow failed safely. No refund was executed.');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('treats an invalid upstream success payload as a service failure', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => Response.json({ internal: 'unexpected response' })) as typeof fetch;
+
+  try {
+    const response = await POST(
+      requestFor({ prompt: 'Refund order ord_demo_1001 for $25.' }, 'route-invalid-upstream'),
+    );
+    const body = await response.json();
+    assert.equal(response.status, 502);
+    assert.equal(body.error, 'The refund workflow returned an invalid response. No refund was executed.');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('limits repeated expensive requests for one visitor', async () => {
+  const originalFetch = globalThis.fetch;
+  let upstreamCalls = 0;
+  globalThis.fetch = (async () => {
+    upstreamCalls += 1;
+    return Response.json(upstreamPayload);
+  }) as typeof fetch;
+
+  try {
+    const responses = [];
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      responses.push(
+        await POST(requestFor({ prompt: 'Refund order ord_demo_1001 for $25.' }, 'route-limited')),
+      );
+    }
+    assert.deepEqual(
+      responses.map((response) => response.status),
+      [200, 200, 200, 200, 429],
+    );
+    assert.equal(upstreamCalls, 4);
   } finally {
     globalThis.fetch = originalFetch;
   }
