@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { signOut } from '@/auth';
 import { BrandLogo } from '@/components/brand-logo';
+import { PostHogSignOutButton } from '@/components/posthog-sign-out-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -32,9 +33,7 @@ export default async function SignOutPage() {
                 await signOut({ redirectTo: '/signin' });
               }}
             >
-              <Button type="submit" className="w-full">
-                Sign out
-              </Button>
+              <PostHogSignOutButton className="w-full">Sign out</PostHogSignOutButton>
             </form>
             <Button asChild variant="outline" className="w-full">
               <Link href="/">Cancel</Link>

@@ -1,5 +1,5 @@
 import { auth, signOut } from '@/auth';
-import { Button } from '@/components/ui/button';
+import { PostHogSignOutButton } from '@/components/posthog-sign-out-button';
 
 /**
  * Shared frame for the pre-shell onboarding steps (workspace → connect →
@@ -23,9 +23,9 @@ export default async function OnboardingLayout({ children }: { children: React.R
           <span className="hidden text-xs text-muted-foreground sm:inline">{email}</span>
         ) : null}
         <form action={signOutAction}>
-          <Button type="submit" variant="ghost" size="sm">
+          <PostHogSignOutButton variant="ghost" size="sm">
             Sign out
-          </Button>
+          </PostHogSignOutButton>
         </form>
       </div>
       {children}

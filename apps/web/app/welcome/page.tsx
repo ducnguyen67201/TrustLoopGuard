@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { InfoHint } from '@/components/ui/info-hint';
+import { PostHogSignOutButton } from '@/components/posthog-sign-out-button';
 import { Separator } from '@/components/ui/separator';
 import { CreateWorkspaceCard } from '@/components/workspace/CreateWorkspaceCard';
 import { approvedWorkspaceLandingPath } from '@/lib/onboarding';
@@ -173,9 +174,7 @@ export default async function WelcomePage() {
                 </Link>
               </Button>
               <form action={signOutAction}>
-                <Button type="submit" variant="ghost">
-                  Sign out
-                </Button>
+                <PostHogSignOutButton variant="ghost">Sign out</PostHogSignOutButton>
               </form>
             </CardFooter>
           </Card>

@@ -42,6 +42,7 @@ That boundary keeps one source of truth:
 | Environments, policies, agents, traces, API keys, knowledge sources | `crates/tl-storage` | Durable guardrail data must not split between Rust and the web app. |
 | Dashboard pages and browser-friendly proxy routes | `apps/web` | The web layer handles UI concerns, session context, and same-origin calls. |
 | Wire contracts | `crates/tl-core` | SDKs, OpenAPI, server handlers, and storage agree on one type vocabulary. |
+| Marketing and dashboard product-usage events | PostHog | Client-only product analytics are observational and never become guardrail/runtime state. See [product analytics](product-analytics.md). |
 
 ## Customer integration paths
 

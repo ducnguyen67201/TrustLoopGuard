@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { AppSidebar } from '@/components/app-sidebar';
+import { PostHogIdentity } from '@/components/posthog-identity';
 import { SiteHeader, type Breadcrumb } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { getDashboardShell, type DashboardShellData } from '@/lib/server/dashboard-data';
@@ -33,6 +34,7 @@ export async function AppLayout({
         } as CSSProperties
       }
     >
+      <PostHogIdentity user={resolvedShell.user} />
       <AppSidebar
         variant="inset"
         user={resolvedShell.user}
