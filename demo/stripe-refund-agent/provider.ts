@@ -72,8 +72,15 @@ export async function handleProviderPayment(
   };
 }
 
-export function providerApiKey(): string {
-  return process.env.STRIPE_REFUND_PROVIDER_API_KEY?.trim() || DEFAULT_PROVIDER_API_KEY;
+export function providerApiKey(
+  raw = process.env.STRIPE_REFUND_PROVIDER_API_KEY,
+  nodeEnv = process.env.NODE_ENV,
+): string {
+  const key = raw?.trim() || DEFAULT_PROVIDER_API_KEY;
+  if (nodeEnv === 'production' && key.length < 32) {
+    throw new Error('STRIPE_REFUND_PROVIDER_API_KEY must contain at least 32 characters');
+  }
+  return key;
 }
 
 export function providerPort(): number {
@@ -83,8 +90,28 @@ export function providerPort(): number {
   return Number.isInteger(port) && port > 0 && port <= 65_535 ? port : DEFAULT_PROVIDER_PORT;
 }
 
-export function providerBaseUrl(): string {
-  return `http://127.0.0.1:${providerPort()}`;
+export function providerBaseUrl(
+  raw = process.env.STRIPE_REFUND_PROVIDER_BASE_URL,
+): string {
+  if (raw === undefined || raw.trim() === '') {
+    return `http://127.0.0.1:${providerPort()}`;
+  }
+
+  const url = new URL(raw.trim());
+  const isLoopback = ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(url.hostname);
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && isLoopback)) {
+    throw new Error('STRIPE_REFUND_PROVIDER_BASE_URL must use HTTPS or loopback HTTP');
+  }
+  if (
+    url.username !== '' ||
+    url.password !== '' ||
+    url.search !== '' ||
+    url.hash !== '' ||
+    (url.pathname !== '' && url.pathname !== '/')
+  ) {
+    throw new Error('STRIPE_REFUND_PROVIDER_BASE_URL must be a plain service origin');
+  }
+  return url.toString().replace(/\/$/, '');
 }
 
 export function startProvider(): void {
