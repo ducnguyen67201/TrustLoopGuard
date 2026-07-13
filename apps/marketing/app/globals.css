@@ -2325,6 +2325,33 @@ input {
   text-align: right;
 }
 
+.footer-intro-aside {
+  display: grid;
+  justify-items: end;
+  gap: 0.9rem;
+}
+
+.product-hunt-badge {
+  display: inline-flex;
+  max-width: 100%;
+  line-height: 0;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.product-hunt-badge:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.product-hunt-badge img {
+  display: block;
+  width: 250px;
+  max-width: 100%;
+  height: auto;
+}
+
 .footer-link-group {
   min-width: 0;
 }
@@ -2498,6 +2525,20 @@ input {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+  }
+}
+
+@media (max-width: 639px) {
+  .footer-intro {
+    flex-direction: column;
+  }
+
+  .footer-intro-aside {
+    justify-items: start;
+  }
+
+  .footer-intro p {
+    text-align: left;
   }
 }
 
