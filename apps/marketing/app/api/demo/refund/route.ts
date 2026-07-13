@@ -9,8 +9,8 @@ import {
   sanitizeRefundDemoStatus,
 } from '@/app/demo/contract';
 
-const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1_000;
-const RATE_LIMIT_MAX = 4;
+const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1_000;
+const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_MAX_ENTRIES = 10_000;
 const UPSTREAM_TIMEOUT_MS = 45_000;
 
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   if (isRateLimited(request)) {
     return NextResponse.json(
-      { error: 'Demo limit reached. Try again in a few minutes.' },
+      { error: 'Daily demo limit reached. Try again tomorrow.' },
       { status: 429 },
     );
   }
