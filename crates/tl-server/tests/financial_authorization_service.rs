@@ -1659,6 +1659,61 @@ async fn reusable_approval_does_not_bypass_the_live_ledger_budget() {
 }
 
 #[tokio::test]
+async fn reusable_approval_satisfies_only_the_matching_human_review_gate() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    let mut policy = financial_policy(Some(10_000), None);
+    if let FamilyPolicy::Financial(financial) = &mut policy {
+        financial.approval_threshold_minor = Some(1_000);
+    }
+    policy_store
+        .upsert_family(
+            "ws_finance",
+            "production",
+            &policy,
+            "family: financial",
+        )
+        .await
+        .unwrap();
+    let service = FinancialAuthorizationService::with_policy_store(
+        Arc::new(MemoryFinancialStore::new()),
+        policy_store,
+    );
+    let held = service
+        .create_action("ws_finance", refund_request("idem-reuse-review-source", 2_500))
+        .await
+        .unwrap();
+    assert_eq!(held.status, FinancialActionStatus::Held);
+    let envelope = service
+        .get_approval_envelope("ws_finance", &held.id)
+        .await
+        .unwrap();
+    service
+        .approve_matching_actions_as(
+            "ws_finance",
+            &held.id,
+            Some("finance-admin-1"),
+            ApproveMatchingFinancialActionsRequest {
+                action_fingerprint: envelope.action_fingerprint,
+                max_amount_minor: 5_000,
+                expires_at: (Utc::now() + Duration::hours(1)).to_rfc3339(),
+            },
+        )
+        .await
+        .unwrap();
+
+    let matching = service
+        .create_action(
+            "ws_finance",
+            executable_refund_request("idem-reuse-review-match", 2_500),
+        )
+        .await
+        .unwrap();
+
+    assert!(matching.action.mandate.is_some());
+    assert_eq!(matching.status, FinancialActionStatus::Executed);
+}
+
+#[tokio::test]
 async fn reusable_approval_rejects_a_stale_fingerprint() {
     let service = service();
     let action = service
