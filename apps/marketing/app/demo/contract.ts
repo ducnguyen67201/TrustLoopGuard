@@ -56,7 +56,30 @@ const responseSchema = z.object({
   runtime: runtimeSchema,
 });
 
+const actionIdSchema = z.string().uuid('Action ID must be a UUID.');
+
+const statusSchema = z.object({
+  actionId: actionIdSchema,
+  status: z.enum([
+    'proposed',
+    'authorized',
+    'held',
+    'executed',
+    'denied',
+    'failed',
+    'reversed',
+    'expired',
+  ]),
+  orderId: z.string().max(100),
+  amountMinor: z.number().int().positive(),
+  currency: z.literal('USD'),
+  receiptId: z.string().max(200).optional(),
+  providerReference: z.string().max(200).optional(),
+  updatedAt: z.string().max(100),
+});
+
 export type RefundDemoResponse = z.infer<typeof responseSchema>;
+export type RefundDemoStatus = z.infer<typeof statusSchema>;
 
 export function parseRefundDemoPrompt(input: unknown): string {
   return promptSchema.parse(input).prompt;
@@ -64,6 +87,14 @@ export function parseRefundDemoPrompt(input: unknown): string {
 
 export function sanitizeRefundDemoResponse(input: unknown): RefundDemoResponse {
   return responseSchema.parse(input);
+}
+
+export function parseRefundDemoActionId(input: unknown): string {
+  return actionIdSchema.parse(input);
+}
+
+export function sanitizeRefundDemoStatus(input: unknown): RefundDemoStatus {
+  return statusSchema.parse(input);
 }
 
 export function refundDemoServiceUrl(raw = process.env['REFUND_DEMO_SERVICE_URL']): string {

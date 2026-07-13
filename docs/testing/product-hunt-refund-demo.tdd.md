@@ -75,6 +75,23 @@ service retains its central expensive-run budget in every environment.
 coverage reports 89.60% lines for the proxy route and 92.45% lines across the route plus public
 contract.
 
+## External approval synchronization
+
+As a demo viewer, I can leave a `$75` refund held, approve that exact action in the TrustLoopGuard
+dashboard, and watch the original `/demo` page advance to executed with its receipt and Stripe
+reference. RED checkpoint `800566f2` captured the missing authenticated status reader, redacted
+proxy, browser merge model, and polling hook.
+
+The GREEN path polls only the UUID returned by the original run, refuses non-demo financial actions,
+does not consume the expensive-run budget for status reads, and stops polling on a terminal state.
+`pnpm test:refund-demo` passes 23 tests; both demo and marketing typechecks pass; the production
+marketing build passes. Focused coverage is 95.45% lines overall: the status reader is 100%, status
+model 85.71%, proxy route 90.68%, and public contract 99.15%.
+
+Live verification read executed action `019f5d63-f8ca-77c3-ae7f-07b122daa7b3` through the new
+same-origin status route and returned its real Stripe test reference
+`re_3TsrRG730BwJXVLd0d71BxUd` without exposing internal action proof.
+
 ## Live integration evidence
 
 The local Product Hunt route was exercised through the same-origin marketing proxy with Doppler

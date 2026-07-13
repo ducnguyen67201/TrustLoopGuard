@@ -13,6 +13,7 @@ import {
 } from './auth';
 import { customerBackendState, orderDatabasePath } from './order-db';
 import { seedLiveRefundOrder } from './seed';
+import { readRefundDemoActionStatus } from './status';
 import { stripeTestKeyFromEnv } from './stripe';
 import {
   DEMO_ORDER_ID,
@@ -75,6 +76,21 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       return;
     }
     writeJson(res, 200, customerBackendState());
+    return;
+  }
+  if (req.method === 'GET' && url.pathname.startsWith('/status/')) {
+    if (!authorizeRequest(req, res)) return;
+    const actionId = decodeURIComponent(url.pathname.slice('/status/'.length));
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actionId)) {
+      writeJson(res, 400, { error: 'invalid action id' });
+      return;
+    }
+    try {
+      writeJson(res, 200, await readRefundDemoActionStatus(createClient(), actionId));
+    } catch (error) {
+      process.stderr.write(`[stripe-refund-agent] status error: ${safeErrorForLog(error)}\n`);
+      writeJson(res, 404, { error: 'action status not found' });
+    }
     return;
   }
   if (req.method === 'POST' && url.pathname === '/reset') {
@@ -147,6 +163,15 @@ async function handleChat(req: IncomingMessage, res: ServerResponse): Promise<vo
 }
 
 function authorizeMutation(req: IncomingMessage, res: ServerResponse): boolean {
+  if (!authorizeRequest(req, res)) return false;
+  if (!PUBLIC_RUN_BUDGET.tryAcquire()) {
+    writeJson(res, 429, { error: 'demo budget reached; try again later' });
+    return false;
+  }
+  return true;
+}
+
+function authorizeRequest(req: IncomingMessage, res: ServerResponse): boolean {
   if (
     !isValidRefundDemoAuthorization(
       req.headers.authorization,
@@ -154,10 +179,6 @@ function authorizeMutation(req: IncomingMessage, res: ServerResponse): boolean {
     )
   ) {
     writeJson(res, 401, { error: 'unauthorized' });
-    return false;
-  }
-  if (!PUBLIC_RUN_BUDGET.tryAcquire()) {
-    writeJson(res, 429, { error: 'demo budget reached; try again later' });
     return false;
   }
   return true;

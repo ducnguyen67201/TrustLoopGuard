@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
-import type { RefundDemoResponse } from './contract';
+import { useEffect, useState, type FormEvent } from 'react';
+import type { RefundDemoResponse, RefundDemoStatus } from './contract';
+import { mergeRefundDemoStatus } from './status-model';
 import styles from './demo.module.css';
 
 const EXAMPLES = [
@@ -28,6 +29,41 @@ export function RefundDemo() {
   const [runState, setRunState] = useState<RunState>('idle');
   const [response, setResponse] = useState<RefundDemoResponse | null>(null);
   const [error, setError] = useState('');
+  const actionId = response?.result.actionId;
+  const isHeld = response !== null && decisionFrom(response, runState) === 'held';
+
+  useEffect(() => {
+    if (actionId === undefined || !isHeld) return;
+    const polledActionId = actionId;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    async function pollStatus() {
+      try {
+        const result = await fetch(
+          `/api/demo/refund?actionId=${encodeURIComponent(polledActionId)}`,
+          { cache: 'no-store' },
+        );
+        if (result.ok) {
+          const status = (await result.json()) as RefundDemoStatus;
+          if (!active) return;
+          setResponse((current) =>
+            current === null ? current : mergeRefundDemoStatus(current, status),
+          );
+          if (!['proposed', 'authorized', 'held'].includes(status.status)) return;
+        }
+      } catch {
+        // A transient status failure must not change or falsely complete the held refund.
+      }
+      if (active) timer = setTimeout(pollStatus, 1_500);
+    }
+
+    timer = setTimeout(pollStatus, 1_000);
+    return () => {
+      active = false;
+      if (timer !== undefined) clearTimeout(timer);
+    };
+  }, [actionId, isHeld]);
 
   async function runDemo(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

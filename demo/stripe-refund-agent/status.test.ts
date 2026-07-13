@@ -13,7 +13,9 @@ test('reads the Stripe receipt after an externally approved demo refund executes
     async getFinancialDecisionReceipt() {
       return {
         execution: { status: 'executed', receipt_id: actionId, ledger_event_ids: [] },
-      } as Awaited<ReturnType<RefundDemoStatusClient['getFinancialDecisionReceipt']>>;
+      } as unknown as Awaited<
+        ReturnType<RefundDemoStatusClient['getFinancialDecisionReceipt']>
+      >;
     },
     async getReceipt(): Promise<FinancialReceipt> {
       return {

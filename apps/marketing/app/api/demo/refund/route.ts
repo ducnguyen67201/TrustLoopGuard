@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import {
+  parseRefundDemoActionId,
   parseRefundDemoPrompt,
   refundDemoProxySecret,
   refundDemoServiceUrl,
   sanitizeRefundDemoResponse,
+  sanitizeRefundDemoStatus,
 } from '@/app/demo/contract';
 
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1_000;
@@ -14,6 +16,40 @@ const UPSTREAM_TIMEOUT_MS = 45_000;
 
 // Per-visitor UX throttle. The authenticated refund service owns the central launch budget.
 const hits = new Map<string, { count: number; resetAt: number }>();
+
+export async function GET(request: Request) {
+  let actionId: string;
+  try {
+    actionId = parseRefundDemoActionId(new URL(request.url).searchParams.get('actionId'));
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json({ error: 'A valid action ID is required.' }, { status: 400 });
+    }
+    return NextResponse.json({ error: 'Invalid status request.' }, { status: 400 });
+  }
+
+  try {
+    const upstream = await fetch(
+      `${refundDemoServiceUrl()}/status/${encodeURIComponent(actionId)}`,
+      {
+        method: 'GET',
+        headers: { authorization: `Bearer ${refundDemoProxySecret()}` },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      },
+    );
+    const payload: unknown = await upstream.json().catch(() => ({}));
+    if (!upstream.ok) {
+      return NextResponse.json({ error: 'Action status is unavailable.' }, { status: upstream.status });
+    }
+    return NextResponse.json(sanitizeRefundDemoStatus(payload), {
+      headers: { 'cache-control': 'no-store' },
+    });
+  } catch (error) {
+    console.error('refund demo status failed', safeErrorForLog(error));
+    return NextResponse.json({ error: 'Action status is temporarily unavailable.' }, { status: 503 });
+  }
+}
 
 export async function POST(request: Request) {
   if (isRateLimited(request)) {
