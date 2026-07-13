@@ -277,6 +277,10 @@ function stringMetadata(metadata: Record<string, unknown> | null, key: string): 
 }
 
 function providerReferenceFromReceipt(receipt: FinancialReceipt | undefined): string | undefined {
-  const value = receipt?.proof?.provider_reference;
-  return typeof value === 'string' ? value : undefined;
+  const provider = receipt?.proof?.provider;
+  if (typeof provider === 'object' && provider !== null && 'reference' in provider) {
+    return typeof provider.reference === 'string' ? provider.reference : undefined;
+  }
+  const legacyValue = receipt?.proof?.provider_reference;
+  return typeof legacyValue === 'string' ? legacyValue : undefined;
 }

@@ -21,7 +21,7 @@ import {
   prepareRefundTool,
   type RefundAgentClient,
 } from './core';
-import { resetOrderDatabase } from './order-db';
+import { customerBackendState, resetOrderDatabase } from './order-db';
 import { searchOrder } from './orders';
 import { handleProviderPayment, providerApiKey } from './provider';
 import { requireStripeTestKey } from './stripe';
@@ -114,6 +114,8 @@ async function testOfflineAgentApprovesAndExecutesProposedRefund(): Promise<void
   const after = searchOrder({ orderId: DEMO_ORDER_ID });
   assert.equal(after.order?.refundableBalanceMinor, 2_500);
   assert.equal(after.evidence.noDuplicateRefund, false);
+  const refund = customerRefunds()[0];
+  assert.equal(refund?.providerReference, `simulated_re_${result.actionId}`);
 }
 
 async function testHeldActionDoesNotExecute(): Promise<void> {
@@ -327,7 +329,10 @@ class MockRefundClient implements RefundAgentClient {
       trace_id: `trace_${actionId}`,
       ledger_event_ids: [`${actionId}:authorized`, `${actionId}:executed`],
       proof: {
-        provider_reference: `simulated_re_${actionId}`,
+        provider: {
+          reference: `simulated_re_${actionId}`,
+          status: 'succeeded',
+        },
       },
       created_at: timestamp(),
     });
@@ -345,6 +350,10 @@ class MockRefundClient implements RefundAgentClient {
     if (action === undefined) throw new Error(`missing action ${actionId}`);
     return action;
   }
+}
+
+function customerRefunds() {
+  return customerBackendState().refunds;
 }
 
 function timestamp(): string {

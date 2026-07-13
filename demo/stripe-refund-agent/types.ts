@@ -115,6 +115,7 @@ export interface AgentRunLogEntry {
 
 export interface AgentRunOptions {
   useOpenAI?: boolean;
+  requireLiveAgent?: boolean;
   logger?: AgentRunLogger;
   requestId?: string;
 }

@@ -5,7 +5,9 @@ import { fileURLToPath } from 'node:url';
 
 import { createClient, SERVER_URL, WORKSPACE_ID } from '../shared/env';
 import { runRefundAgent } from './agent';
-import { customerBackendState, resetOrderDatabase } from './order-db';
+import { customerBackendState } from './order-db';
+import { seedLiveRefundOrder } from './seed';
+import { stripeTestKeyFromEnv } from './stripe';
 import {
   DEMO_ORDER_ID,
   type AgentRunLogEntry,
@@ -23,6 +25,11 @@ interface ChatResponse {
   result: AgentRunResult;
   state: CustomerBackendState;
   logs: AgentRunLogEntry[];
+  runtime: {
+    agent: 'openai';
+    guard: 'trustloopguard-rust-api';
+    provider: 'stripe-test';
+  };
 }
 
 export function startRefundAgentUi(): void {
@@ -52,8 +59,14 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     return;
   }
   if (req.method === 'POST' && url.pathname === '/reset') {
-    resetOrderDatabase();
-    writeJson(res, 200, customerBackendState());
+    try {
+      await seedLiveRefundOrder();
+      writeJson(res, 200, customerBackendState());
+    } catch (error) {
+      writeJson(res, 500, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
     return;
   }
   if (req.method === 'POST' && url.pathname === '/chat') {
@@ -81,9 +94,24 @@ async function handleChat(req: IncomingMessage, res: ServerResponse): Promise<vo
       return;
     }
     logger.log('chat', 'received refund request');
-    const result = await runRefundAgent(prompt, createClient(), { logger, requestId });
+    logger.log('stripe_fixture', 'creating a fresh captured $100 Stripe test order');
+    await seedLiveRefundOrder();
+    const result = await runRefundAgent(prompt, createClient(), {
+      logger,
+      requestId,
+      requireLiveAgent: true,
+    });
     logger.log('chat', 'refund agent finished');
-    const response: ChatResponse = { result, state: customerBackendState(), logs };
+    const response: ChatResponse = {
+      result,
+      state: customerBackendState(),
+      logs,
+      runtime: {
+        agent: 'openai',
+        guard: 'trustloopguard-rust-api',
+        provider: 'stripe-test',
+      },
+    };
     writeJson(res, 200, response);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -456,5 +484,15 @@ function isMainModule(): boolean {
 }
 
 if (isMainModule()) {
-  startRefundAgentUi();
+  try {
+    if (stripeTestKeyFromEnv() === null) {
+      throw new Error('STRIPE_SECRET_KEY is required for the live refund demo');
+    }
+    startRefundAgentUi();
+  } catch (error) {
+    process.stderr.write(
+      `Stripe refund agent UI failed: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    process.exitCode = 1;
+  }
 }

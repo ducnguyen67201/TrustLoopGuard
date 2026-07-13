@@ -58,6 +58,11 @@ test('exposes only the public agent trace, order, refund, and decision fields', 
       refunds: [],
     },
     logs: [{ step: 'prepare_refund', message: 'held: financial_action_123' }],
+    runtime: {
+      agent: 'openai',
+      guard: 'trustloopguard-rust-api',
+      provider: 'stripe-test',
+    },
     providerApiKey: 'must-not-leak',
   });
 
@@ -70,9 +75,11 @@ test('exposes only the public agent trace, order, refund, and decision fields', 
 
 test('the Product Hunt route shows a live chat, the control boundary, and Stripe outcome', () => {
   const page = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+  const demo = readFileSync(new URL('./refund-demo.tsx', import.meta.url), 'utf8');
+  const source = `${page}\n${demo}`;
 
-  assert.match(page, /Ask the refund agent/i);
-  assert.match(page, /TrustLoopGuard/i);
-  assert.match(page, /Stripe test mode/i);
-  assert.match(page, /not a scripted animation/i);
+  assert.match(source, /Ask the refund agent/i);
+  assert.match(source, /TrustLoopGuard/i);
+  assert.match(source, /Stripe test mode/i);
+  assert.match(source, /not a scripted animation/i);
 });
