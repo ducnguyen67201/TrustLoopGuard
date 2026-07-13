@@ -7,8 +7,8 @@ import {
 
 import { findOrder } from './order-db';
 
-export function searchOrder(query: OrderSearchQuery): OrderSearchResult {
-  const order = findOrder(query);
+export function searchOrder(query: OrderSearchQuery, dbPath?: string): OrderSearchResult {
+  const order = findOrder(query, dbPath);
 
   if (order === null) {
     return {

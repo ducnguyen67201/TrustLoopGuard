@@ -118,6 +118,7 @@ export interface AgentRunOptions {
   requireLiveAgent?: boolean;
   logger?: AgentRunLogger;
   requestId?: string;
+  dbPath?: string;
 }
 
 export interface StripeRefundProviderRequest {

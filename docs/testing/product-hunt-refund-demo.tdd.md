@@ -40,6 +40,23 @@ Focused result: 9 tests passed. Contract coverage is 100% line / 90% branch / 10
 The proxy route is 82.89% line covered. Aggregate coverage is not representative because importing
 the existing demo agent also loads the full SDK/demo graph into Node's coverage denominator.
 
+## Review hardening
+
+The PR review identified concurrency, authentication, error-redaction, upstream-validation, and
+throttling gaps. RED checkpoints `9513d702` and `312f0bae` captured the failing reproducers before
+production changes. The GREEN suite now contains 16 passing tests and guarantees that:
+
+- concurrent demo seeds use independent SQLite files and Stripe PaymentIntent IDs;
+- the upstream service accepts only the exact 32+ character proxy bearer credential;
+- every marketing instance shares the central refund-service request budget;
+- platform-owned client addresses take precedence over spoofable forwarding values;
+- internal run logs are removed from the browser response;
+- malformed upstream success payloads return a generic `502`, not a client `400`.
+
+Focused coverage after hardening: proxy route 90.24% lines, public contract 98.85% lines, proxy auth
+and central budget 100% lines/branches/functions, and live Stripe seeding 92.5% lines. Aggregate
+coverage remains diluted by the imported generated SDK graph and is not used as the focused gate.
+
 ## Live integration evidence
 
 The local Product Hunt route was exercised through the same-origin marketing proxy with Doppler

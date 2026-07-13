@@ -44,11 +44,6 @@ const stateSchema = z.object({
   refunds: z.array(refundSchema).max(20),
 });
 
-const logSchema = z.object({
-  step: z.string().max(80),
-  message: z.string().max(1_000),
-});
-
 const runtimeSchema = z.object({
   agent: z.literal('openai'),
   guard: z.literal('trustloopguard-rust-api'),
@@ -58,7 +53,6 @@ const runtimeSchema = z.object({
 const responseSchema = z.object({
   result: resultSchema,
   state: stateSchema,
-  logs: z.array(logSchema).max(30),
   runtime: runtimeSchema,
 });
 
@@ -82,4 +76,12 @@ export function refundDemoServiceUrl(raw = process.env['REFUND_DEMO_SERVICE_URL'
     throw new Error('REFUND_DEMO_SERVICE_URL must be a plain service origin');
   }
   return url.toString().replace(/\/$/, '');
+}
+
+export function refundDemoProxySecret(raw = process.env['REFUND_DEMO_PROXY_SECRET']): string {
+  const secret = raw?.trim();
+  if (secret === undefined || secret.length < 32) {
+    throw new Error('REFUND_DEMO_PROXY_SECRET must contain at least 32 characters');
+  }
+  return secret;
 }

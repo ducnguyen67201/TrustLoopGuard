@@ -1,11 +1,17 @@
 import { randomUUID } from 'node:crypto';
+import { rmSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createClient, SERVER_URL, WORKSPACE_ID } from '../shared/env';
 import { runRefundAgent } from './agent';
-import { customerBackendState } from './order-db';
+import {
+  RefundDemoRequestBudget,
+  isValidRefundDemoAuthorization,
+  requireRefundDemoProxySecret,
+} from './auth';
+import { customerBackendState, orderDatabasePath } from './order-db';
 import { seedLiveRefundOrder } from './seed';
 import { stripeTestKeyFromEnv } from './stripe';
 import {
@@ -16,6 +22,10 @@ import {
 } from './types';
 
 const DEFAULT_UI_PORT = 9310;
+const PUBLIC_RUN_BUDGET = new RefundDemoRequestBudget({
+  maxRequests: 60,
+  windowMs: 10 * 60 * 1_000,
+});
 
 interface ChatRequest {
   prompt?: string;
@@ -33,6 +43,7 @@ interface ChatResponse {
 }
 
 export function startRefundAgentUi(): void {
+  requireRefundDemoProxySecret();
   const server = createServer((req, res) => {
     void handleRequest(req, res);
   });
@@ -51,14 +62,23 @@ function uiPort(): number {
 async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? '127.0.0.1'}`);
   if (req.method === 'GET' && url.pathname === '/') {
-    writeHtml(res, pageHtml());
+    if (!isDirectLoopbackRequest(req)) {
+      writeJson(res, 404, { error: 'not found' });
+      return;
+    }
+    writeHtml(res, pageHtml(requireRefundDemoProxySecret()));
     return;
   }
   if (req.method === 'GET' && url.pathname === '/state') {
+    if (!isDirectLoopbackRequest(req)) {
+      writeJson(res, 404, { error: 'not found' });
+      return;
+    }
     writeJson(res, 200, customerBackendState());
     return;
   }
   if (req.method === 'POST' && url.pathname === '/reset') {
+    if (!authorizeMutation(req, res)) return;
     try {
       await seedLiveRefundOrder();
       writeJson(res, 200, customerBackendState());
@@ -70,6 +90,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     return;
   }
   if (req.method === 'POST' && url.pathname === '/chat') {
+    if (!authorizeMutation(req, res)) return;
     await handleChat(req, res);
     return;
   }
@@ -78,6 +99,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 
 async function handleChat(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const requestId = randomUUID();
+  const dbPath = requestDatabasePath(requestId);
   const logs: AgentRunLogEntry[] = [];
   const logger = {
     log(step: string, message: string): void {
@@ -95,16 +117,17 @@ async function handleChat(req: IncomingMessage, res: ServerResponse): Promise<vo
     }
     logger.log('chat', 'received refund request');
     logger.log('stripe_fixture', 'creating a fresh captured $100 Stripe test order');
-    await seedLiveRefundOrder();
+    await seedLiveRefundOrder({ dbPath });
     const result = await runRefundAgent(prompt, createClient(), {
       logger,
       requestId,
       requireLiveAgent: true,
+      dbPath,
     });
     logger.log('chat', 'refund agent finished');
     const response: ChatResponse = {
       result,
-      state: customerBackendState(),
+      state: customerBackendState(dbPath),
       logs,
       runtime: {
         agent: 'openai',
@@ -114,10 +137,51 @@ async function handleChat(req: IncomingMessage, res: ServerResponse): Promise<vo
     };
     writeJson(res, 200, response);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.log('error', message);
-    writeJson(res, 500, { error: message, state: customerBackendState(), logs });
+    process.stderr.write(`[stripe-refund-agent] ${requestId} error: ${safeErrorForLog(error)}\n`);
+    writeJson(res, 500, {
+      error: 'The refund workflow failed safely. No refund was executed.',
+    });
+  } finally {
+    rmSync(dbPath, { force: true });
   }
+}
+
+function authorizeMutation(req: IncomingMessage, res: ServerResponse): boolean {
+  if (
+    !isValidRefundDemoAuthorization(
+      req.headers.authorization,
+      requireRefundDemoProxySecret(),
+    )
+  ) {
+    writeJson(res, 401, { error: 'unauthorized' });
+    return false;
+  }
+  if (!PUBLIC_RUN_BUDGET.tryAcquire()) {
+    writeJson(res, 429, { error: 'demo budget reached; try again later' });
+    return false;
+  }
+  return true;
+}
+
+function isDirectLoopbackRequest(req: IncomingMessage): boolean {
+  const address = req.socket.remoteAddress;
+  const isLoopback =
+    address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
+  return (
+    isLoopback &&
+    req.headers.forwarded === undefined &&
+    req.headers['x-forwarded-for'] === undefined &&
+    req.headers['x-real-ip'] === undefined
+  );
+}
+
+function requestDatabasePath(requestId: string): string {
+  return resolve(dirname(orderDatabasePath()), 'runs', `${requestId}.sqlite`);
+}
+
+function safeErrorForLog(error: unknown): string {
+  if (!(error instanceof Error)) return 'unknown error';
+  return `${error.name}: ${error.message}`.slice(0, 500);
 }
 
 function readJson(req: IncomingMessage): Promise<unknown> {
@@ -148,7 +212,7 @@ function writeJson(res: ServerResponse, statusCode: number, body: object): void 
   res.end(JSON.stringify(body));
 }
 
-function pageHtml(): string {
+function pageHtml(proxySecret: string): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -319,6 +383,7 @@ function pageHtml(): string {
   </main>
 
   <script>
+    const proxyAuthorization = ${JSON.stringify(`Bearer ${proxySecret}`)};
     const form = document.getElementById('chat-form');
     const send = document.getElementById('send');
     const output = document.getElementById('chat-output');
@@ -340,7 +405,10 @@ function pageHtml(): string {
       }
       if (target.dataset.reset === 'true') {
         target.setAttribute('disabled', 'true');
-        const res = await fetch('/reset', { method: 'POST' });
+        const res = await fetch('/reset', {
+          method: 'POST',
+          headers: { authorization: proxyAuthorization },
+        });
         renderState(await res.json());
         output.innerHTML = '<div class="result">Seeded order reset. Try the refund again.</div>';
       }
@@ -352,7 +420,10 @@ function pageHtml(): string {
       try {
         const res = await fetch('/chat', {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: {
+            authorization: proxyAuthorization,
+            'content-type': 'application/json',
+          },
           body: JSON.stringify({ prompt }),
         });
         const json = await res.json();

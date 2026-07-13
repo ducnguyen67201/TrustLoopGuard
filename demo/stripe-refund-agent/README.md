@@ -16,7 +16,8 @@ public route redacts internal order, payment-intent, and provider-credential fie
 
 The `trustloopguard/dev_stripe_demo` Doppler config must contain `OPENAI_API_KEY`,
 `STRIPE_SECRET_KEY`, `TL_API_KEY`, `TL_SERVER_URL`, `DATABASE_URL`, and
-`TL_GATEWAY_CREDENTIAL_KEY`.
+`TL_GATEWAY_CREDENTIAL_KEY`. It must also contain a dedicated, randomly generated
+`REFUND_DEMO_PROXY_SECRET` of at least 32 characters. Do not reuse another application key.
 
 Start the Rust API:
 
@@ -40,7 +41,8 @@ pnpm --filter @trustloopguard/demo stripe-refund-agent:live
 Start the marketing app:
 
 ```bash
-pnpm --filter marketing dev
+doppler run --project trustloopguard --config dev_stripe_demo -- \
+  pnpm --filter marketing dev
 ```
 
 Open [http://localhost:3002/demo](http://localhost:3002/demo). Try `$25` for automatic execution,
@@ -48,8 +50,10 @@ Open [http://localhost:3002/demo](http://localhost:3002/demo). Try `$25` for aut
 
 ## Deploy
 
-Deploy the refund-agent service on a private server with the same Doppler config, expose only its
-chat endpoint through an HTTPS origin, and set `REFUND_DEMO_SERVICE_URL` on the marketing app. The
-marketing proxy enforces input limits, a small process-local rate limit, an upstream timeout, and a
-strict public response schema. Use a shared rate limiter before sending significant launch traffic
-across multiple marketing instances.
+Deploy one refund-agent service on a private server with the same Doppler config, expose only its
+authenticated chat endpoint through an HTTPS origin, and set `REFUND_DEMO_SERVICE_URL` plus the same
+`REFUND_DEMO_PROXY_SECRET` on the marketing app. The marketing proxy enforces input limits, a bounded
+per-visitor throttle, an upstream timeout, and a strict public response schema. The central refund
+service independently authenticates every mutation and caps the total number of expensive runs, so
+multiple marketing instances share one launch budget. If the refund service itself is scaled beyond
+one instance, replace that central in-process budget with a shared durable limiter first.

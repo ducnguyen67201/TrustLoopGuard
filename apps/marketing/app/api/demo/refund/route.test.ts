@@ -4,7 +4,7 @@ import test from 'node:test';
 import { POST } from './route';
 
 const PROXY_SECRET = 'refund-demo-proxy-secret-32-bytes-minimum';
-process.env.REFUND_DEMO_PROXY_SECRET = PROXY_SECRET;
+process.env['REFUND_DEMO_PROXY_SECRET'] = PROXY_SECRET;
 
 const upstreamPayload = {
   result: {

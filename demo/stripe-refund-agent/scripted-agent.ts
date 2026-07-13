@@ -20,8 +20,8 @@ export async function runScriptedRefundAgent(
     'parse_prompt',
     `order=${input.orderId} amount_minor=${input.amountMinor} reason=${input.reason}`,
   );
-  const search = searchOrderTool({ orderId: input.orderId });
-  traces.push(searchTrace(input.orderId));
+  const search = searchOrderTool({ orderId: input.orderId }, options.dbPath);
+  traces.push(searchTrace(input.orderId, options.dbPath));
   options.logger?.log(
     'search_order',
     search.found
@@ -37,7 +37,7 @@ export async function runScriptedRefundAgent(
   }
 
   options.logger?.log('prepare_refund', 'submitting typed financial action to TrustLoopGuard');
-  const prepared = await prepareRefundTool(input, client);
+  const prepared = await prepareRefundTool(input, client, options.dbPath);
   traces.push({
     tool: 'prepare_refund',
     summary: `${prepared.status}: ${prepared.message}`,
@@ -53,7 +53,7 @@ export async function runScriptedRefundAgent(
   }
 
   options.logger?.log('execute_refund', `executing action ${prepared.action.id}`);
-  const executed = await executeRefundTool(prepared.action.id, client);
+  const executed = await executeRefundTool(prepared.action.id, client, options.dbPath);
   traces.push({
     tool: 'execute_refund',
     summary: `${executed.status}: ${executed.message}`,

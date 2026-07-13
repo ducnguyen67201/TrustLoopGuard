@@ -71,19 +71,20 @@ export async function ensureRefundMandate(client: RefundAgentClient): Promise<Fi
   });
 }
 
-export function searchOrderTool(query: OrderSearchQuery): OrderSearchResult {
-  return searchOrder(query);
+export function searchOrderTool(query: OrderSearchQuery, dbPath?: string): OrderSearchResult {
+  return searchOrder(query, dbPath);
 }
 
 export async function prepareRefundTool(
   input: PrepareRefundInput,
   client: RefundAgentClient,
+  dbPath?: string,
 ): Promise<PrepareRefundResult> {
   if (!Number.isInteger(input.amountMinor) || input.amountMinor <= 0) {
     throw new Error('refund amount must be a positive integer minor-unit amount');
   }
 
-  const search = searchOrderTool({ orderId: input.orderId });
+  const search = searchOrderTool({ orderId: input.orderId }, dbPath);
   if (!search.found || search.order === undefined) {
     throw new Error(`cannot prepare refund: ${search.reason ?? 'order not found'}`);
   }
@@ -104,6 +105,7 @@ export async function prepareRefundTool(
 export async function executeRefundTool(
   actionId: string,
   client: RefundAgentClient,
+  dbPath?: string,
 ): Promise<ExecuteRefundResult> {
   let current = await client.getFinancialAction(actionId);
   if (current.status === 'proposed') {
@@ -127,14 +129,17 @@ export async function executeRefundTool(
   const executed = current.status === 'executed' ? current : await client.executeAction(actionId);
   const receipt = executed.status === 'executed' ? await client.getReceipt(executed.id) : undefined;
   if (executed.status === 'executed') {
-    recordRefundExecution({
-      orderId: stringMetadata(executed.action.metadata, 'order_id') ?? 'unknown_order',
-      financialActionId: executed.id,
-      amountMinor: Number(executed.action.amount.amount_minor),
-      providerReference: providerReferenceFromReceipt(receipt),
-      status: 'succeeded',
-      reason: stringMetadata(executed.action.metadata, 'reason') ?? 'customer_request',
-    });
+    recordRefundExecution(
+      {
+        orderId: stringMetadata(executed.action.metadata, 'order_id') ?? 'unknown_order',
+        financialActionId: executed.id,
+        amountMinor: Number(executed.action.amount.amount_minor),
+        providerReference: providerReferenceFromReceipt(receipt),
+        status: 'succeeded',
+        reason: stringMetadata(executed.action.metadata, 'reason') ?? 'customer_request',
+      },
+      dbPath,
+    );
   }
   return {
     action: executed,

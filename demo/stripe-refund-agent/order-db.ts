@@ -31,17 +31,23 @@ export function orderDatabasePath(): string {
   );
 }
 
-export function resetOrderDatabase(dbPath = orderDatabasePath()): void {
+export function resetOrderDatabase(
+  dbPath = orderDatabasePath(),
+  paymentIntentId = seededPaymentIntentId(),
+): void {
   const db = openDatabase(dbPath);
   try {
     db.exec('DROP TABLE IF EXISTS refunds; DROP TABLE IF EXISTS orders;');
-    ensureOrderDatabase(dbPath);
   } finally {
     db.close();
   }
+  ensureOrderDatabase(dbPath, paymentIntentId);
 }
 
-export function ensureOrderDatabase(dbPath = orderDatabasePath()): void {
+export function ensureOrderDatabase(
+  dbPath = orderDatabasePath(),
+  paymentIntentId = seededPaymentIntentId(),
+): void {
   const db = openDatabase(dbPath);
   try {
     db.exec(`
@@ -73,7 +79,6 @@ export function ensureOrderDatabase(dbPath = orderDatabasePath()): void {
       );
     `);
 
-    const paymentIntentId = process.env.STRIPE_PAYMENT_INTENT_ID?.trim() || 'pi_demo_seeded_refund';
     db.prepare(
       `
       INSERT INTO orders (
@@ -308,4 +313,8 @@ function numberValue(row: SqlRow, key: string): number {
 
 function timestamp(): string {
   return '2026-07-06T10:00:00.000Z';
+}
+
+function seededPaymentIntentId(): string {
+  return process.env.STRIPE_PAYMENT_INTENT_ID?.trim() || 'pi_demo_seeded_refund';
 }
