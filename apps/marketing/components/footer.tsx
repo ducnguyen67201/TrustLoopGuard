@@ -19,6 +19,7 @@ const LINK_GROUPS = [
   {
     title: 'Use cases',
     links: [
+      { href: '/use-cases', label: 'All use cases' },
       { href: '/agentic-travel-payments', label: 'Travel payments' },
       { href: '/shopping-agent-checkout', label: 'Shopping checkout' },
       { href: '/accounts-payable-agents', label: 'Accounts payable agents' },
