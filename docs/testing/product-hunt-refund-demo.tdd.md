@@ -57,6 +57,12 @@ Focused coverage after hardening: proxy route 90.24% lines, public contract 98.8
 and central budget 100% lines/branches/functions, and live Stripe seeding 92.5% lines. Aggregate
 coverage remains diluted by the imported generated SDK graph and is not used as the focused gate.
 
+The hardened live path was also exercised with two simultaneous requests through separate local
+ports while the existing developer stack remained untouched. An unauthenticated direct `/chat`
+request returned `401`. The concurrent `$25` and `$75` runs produced distinct action IDs: the `$25`
+run executed a real Stripe test refund and returned a 7,500 minor-unit balance, while the `$75` run
+remained held with a 10,000 balance and no refund. Neither public response contained `logs`.
+
 ## Live integration evidence
 
 The local Product Hunt route was exercised through the same-origin marketing proxy with Doppler
