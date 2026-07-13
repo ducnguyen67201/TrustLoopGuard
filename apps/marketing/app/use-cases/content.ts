@@ -5,8 +5,12 @@ export interface UseCaseStep {
 }
 
 export interface UseCaseData {
-  slug: 'ai-inference-spend' | 'x402-payments' | 'action-authorization';
-  href: `/use-cases/${UseCaseData['slug']}`;
+  slug: 'ai-inference-spend' | 'x402-payments' | 'action-authorization' | 'email';
+  href:
+    | '/use-cases/ai-inference-spend'
+    | '/use-cases/x402-payments'
+    | '/use-cases/action-authorization'
+    | '/use-case/email';
   number: string;
   eyebrow: string;
   title: string;
@@ -23,6 +27,58 @@ export interface UseCaseData {
   ctaLabel: string;
   ctaHref: string;
 }
+
+export const EMAIL_USE_CASE = {
+  slug: 'email',
+  href: '/use-case/email',
+  number: '04',
+  eyebrow: 'Email action control',
+  title: 'Stop the wrong email before it leaves.',
+  summary:
+    'Let AI prepare the draft, then check the exact recipients, attachments, workflow state, approval, and prior attempts before an email provider makes the send real.',
+  trigger:
+    'An agent proposes an external email through Gmail, Outlook, a support platform, CRM, MCP tool, or email API.',
+  failure:
+    'The agent selects the wrong recipient, uses stale facts, includes the wrong attachment, changes an approved draft, or retries a send that already succeeded.',
+  control:
+    'Bind policy and approval to the exact proposed version, then allow, rewrite to draft, hold, or block before the provider send.',
+  flow: ['Proposed email', 'Policy + context', 'Decision', 'Email provider'],
+  steps: [
+    {
+      label: 'Describe',
+      title: 'Turn the send into a typed action',
+      body: 'Submit the actor, workflow, recipients, message and attachment hashes, triggering record, and an idempotency key before calling the email provider.',
+    },
+    {
+      label: 'Check',
+      title: 'Evaluate the exact external effect',
+      body: 'Policy verifies recipient identity, workflow state, approval scope, changed fields, sensitive attachments, send velocity, and prior attempts outside the model prompt.',
+    },
+    {
+      label: 'Hold',
+      title: 'Keep uncertain sends as drafts',
+      body: 'Low-risk sends can proceed. Risky or changed sends wait for a named reviewer, while denied sends can be rewritten into drafts instead of disappearing.',
+    },
+    {
+      label: 'Prove',
+      title: 'Join authorization to provider outcome',
+      body: 'Record the approved version and provider message ID so a retry cannot silently become a duplicate and the team can see what actually happened.',
+    },
+  ],
+  checks: [
+    'Recipient and workflow match',
+    'Approved version and attachments',
+    'Duplicate intent and velocity',
+    'External-send authority',
+  ],
+  result: 'Allow, draft, hold, or block before external send.',
+  resultDetail:
+    'Your existing email system still sends the message. TrustLoopGuard owns the contextual permission check, version-bound approval, duplicate protection, and decision receipt.',
+  proof: ['Proposed send', 'Policy decision', 'Approved version', 'Provider outcome'],
+  ctaLabel: 'Read the authorization model',
+  ctaHref:
+    'https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/concept/authorization.md',
+} as const satisfies UseCaseData;
 
 export const USE_CASES = [
   {
@@ -170,6 +226,7 @@ export const USE_CASES = [
     ctaHref:
       'https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/concept/financial-authorization.md',
   },
+  EMAIL_USE_CASE,
 ] as const satisfies readonly UseCaseData[];
 
 export function getUseCase(slug: string): UseCaseData | undefined {
@@ -194,6 +251,11 @@ export const USE_CASE_NAV_ITEMS = [
     href: '/use-cases/action-authorization',
     label: 'Action authorization',
     detail: 'Guard the one-way door',
+  },
+  {
+    href: '/use-case/email',
+    label: 'Email action control',
+    detail: 'Authorize before external send',
   },
 ] as const;
 
