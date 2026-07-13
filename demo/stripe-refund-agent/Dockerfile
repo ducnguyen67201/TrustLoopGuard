@@ -15,6 +15,9 @@ RUN PNPM_HOME=/pnpm pnpm config set store-dir /pnpm/store \
 COPY demo ./demo
 COPY sdks/typescript ./sdks/typescript
 
+RUN mkdir -p /app/demo/.data \
+ && chown -R node:node /app/demo/.data
+
 ENV NODE_ENV=production \
     PORT=8080 \
     STRIPE_REFUND_AGENT_UI_HOST=0.0.0.0
