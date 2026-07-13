@@ -9,11 +9,12 @@ use tl_core::ApiError;
 use tl_core::{
     AgenticPaymentAuthorizationResponse, AgenticPaymentAuthorizeRequest,
     AgenticPaymentCommitRequest, AgenticPaymentRecord, AgenticPaymentRollbackRequest,
+    ApproveMatchingFinancialActionsRequest, ApproveMatchingFinancialActionsResponse,
     CreateFinancialActionRequest, CreateFinancialMandateRequest, CreateFinancialPolicyRequest,
     FinancialActionDecisionReceipt, FinancialActionListResponse, FinancialActionOutcome,
-    FinancialActionRecord, FinancialApprovalRequestListResponse, FinancialMandate,
-    FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialPolicyListResponse,
-    FinancialPolicyRecord, FinancialReceipt, DEFAULT_ENVIRONMENT_ID,
+    FinancialActionRecord, FinancialApprovalEnvelope, FinancialApprovalRequestListResponse,
+    FinancialMandate, FinancialMandateListResponse, FinancialOutcomeListResponse,
+    FinancialPolicyListResponse, FinancialPolicyRecord, FinancialReceipt, DEFAULT_ENVIRONMENT_ID,
 };
 
 use super::{response::financial_error_response, FinancialState};
@@ -509,6 +510,66 @@ pub async fn approve_action(
         .await
     {
         Ok(action) => Json(action).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/v1/financial/actions/{id}/approval-envelope",
+    tag = "financial",
+    params(("id" = String, Path, description = "Held financial action id")),
+    responses(
+        (status = 200, description = "Versioned reusable approval envelope", body = FinancialApprovalEnvelope),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Financial action not found", body = ApiError),
+        (status = 409, description = "Action is not awaiting approval", body = ApiError),
+    ),
+)]
+pub async fn get_approval_envelope(
+    State(state): State<FinancialState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state
+        .service
+        .get_approval_envelope(&workspace_id, &id)
+        .await
+    {
+        Ok(envelope) => Json(envelope).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/v1/financial/actions/{id}/approve-matching",
+    tag = "financial",
+    params(("id" = String, Path, description = "Held financial action id")),
+    request_body = ApproveMatchingFinancialActionsRequest,
+    responses(
+        (status = 200, description = "Action approved and reusable mandate activated", body = ApproveMatchingFinancialActionsResponse),
+        (status = 400, description = "Invalid mandate bounds", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Financial action not found", body = ApiError),
+        (status = 409, description = "Action or fingerprint changed", body = ApiError),
+    ),
+)]
+pub async fn approve_matching_actions(
+    State(state): State<FinancialState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(input): Json<ApproveMatchingFinancialActionsRequest>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let actor_id = financial_actor_id_from_headers(&headers);
+    match state
+        .service
+        .approve_matching_actions_as(&workspace_id, &id, actor_id.as_deref(), input)
+        .await
+    {
+        Ok(result) => Json(result).into_response(),
         Err(error) => financial_error_response(error),
     }
 }

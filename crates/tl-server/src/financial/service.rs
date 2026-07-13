@@ -1,24 +1,26 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 use tl_core::{
     AgenticPaymentAuthorizationResponse, AgenticPaymentAuthorizeRequest,
     AgenticPaymentCommitRequest, AgenticPaymentDecision, AgenticPaymentMandateScope,
     AgenticPaymentRecord, AgenticPaymentReservationStatus, AgenticPaymentRollbackRequest,
-    ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
+    ApprovalRequirement, ApproveMatchingFinancialActionsRequest,
+    ApproveMatchingFinancialActionsResponse, CounterpartyRef, CreateFinancialActionRequest,
     CreateFinancialMandateRequest, CreateFinancialPolicyRequest, EvidenceRef, FinancialAction,
     FinancialActionDecision, FinancialActionDecisionReceipt, FinancialActionKind,
     FinancialActionListResponse, FinancialActionOutcome, FinancialActionOutcomeStatus,
     FinancialActionPrecondition, FinancialActionRecord, FinancialActionStatus,
-    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
-    FinancialAuthorizationScopeProof, FinancialDecisionRisk, FinancialDecisionRiskCode,
-    FinancialEligibilityStatus, FinancialEvidenceProof, FinancialExecutionProof,
-    FinancialExecutionProofStatus, FinancialMandate, FinancialMandateListResponse,
-    FinancialMandateStatus, FinancialOutcomeListResponse, FinancialPolicyListResponse,
-    FinancialPolicyRecord, FinancialPolicySelector, FinancialRail, FinancialReceipt, PolicyAction,
-    RecoveryStatus, ReversalCapability, Severity, Verdict, X402NormalizedPaymentRequirement,
-    X402SettlementProof, DEFAULT_ENVIRONMENT_ID,
+    FinancialApprovalEnvelope, FinancialApprovalRequestListResponse,
+    FinancialApprovalRequestStatus, FinancialAuthorizationScopeProof, FinancialDecisionRisk,
+    FinancialDecisionRiskCode, FinancialEligibilityStatus, FinancialEvidenceProof,
+    FinancialExecutionProof, FinancialExecutionProofStatus, FinancialMandate,
+    FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
+    FinancialPolicyListResponse, FinancialPolicyRecord, FinancialPolicySelector, FinancialRail,
+    FinancialReceipt, PolicyAction, RecoveryStatus, ReversalCapability, Severity, Verdict,
+    X402NormalizedPaymentRequirement, X402SettlementProof, DEFAULT_ENVIRONMENT_ID,
 };
 use tl_engine::{evaluate_financial_policies, financial_matches, financial_windowed_verdict};
 use tl_policy::{validate_family_policy, Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
@@ -99,6 +101,9 @@ impl FinancialAuthorizationService {
         input: CreateFinancialActionRequest,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
         validate_create_action(&input)?;
+        let input = self
+            .attach_reusable_approval_mandate(workspace_id, input)
+            .await?;
         let should_execute = input.execute;
         let action = self.store.create_action(workspace_id, input).await?;
         if action.status != FinancialActionStatus::Proposed {
@@ -124,6 +129,18 @@ impl FinancialAuthorizationService {
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
         self.store.get_action(workspace_id, action_id).await
+    }
+
+    pub async fn get_approval_envelope(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<FinancialApprovalEnvelope, FinancialStoreError> {
+        let action = self.store.get_action(workspace_id, action_id).await?;
+        if action.status != FinancialActionStatus::Held {
+            return Err(FinancialStoreError::Conflict);
+        }
+        approval_envelope(&action)
     }
 
     pub async fn list_actions(
@@ -803,6 +820,134 @@ impl FinancialAuthorizationService {
             )
             .await?;
         Ok(approved)
+    }
+
+    pub async fn approve_matching_actions_as(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        actor_id: Option<&str>,
+        input: ApproveMatchingFinancialActionsRequest,
+    ) -> Result<ApproveMatchingFinancialActionsResponse, FinancialStoreError> {
+        let action = self.store.get_action(workspace_id, action_id).await?;
+        if action.status != FinancialActionStatus::Held {
+            return Err(FinancialStoreError::Conflict);
+        }
+        let envelope = approval_envelope(&action)?;
+        if input.action_fingerprint != envelope.action_fingerprint {
+            return Err(FinancialStoreError::Conflict);
+        }
+        if input.max_amount_minor < action.action.amount.amount_minor || input.max_amount_minor <= 0
+        {
+            return Err(FinancialStoreError::Validation(
+                "max_amount_minor must cover the held action and be greater than zero".into(),
+            ));
+        }
+        let now = Utc::now();
+        let expires_at = parse_rfc3339("expires_at", &input.expires_at)?;
+        if expires_at <= now {
+            return Err(FinancialStoreError::Validation(
+                "expires_at must be in the future".into(),
+            ));
+        }
+        if expires_at > now + Duration::days(30) {
+            return Err(FinancialStoreError::Validation(
+                "expires_at cannot be more than 30 days in the future".into(),
+            ));
+        }
+
+        let mandate_id = reusable_mandate_id(&envelope.action_fingerprint);
+        let previous = match self
+            .store
+            .get_mandate(workspace_id, &mandate_id, None)
+            .await
+        {
+            Ok(mandate) => Some(mandate),
+            Err(FinancialStoreError::NotFound) => None,
+            Err(error) => return Err(error),
+        };
+        if previous.as_ref().is_some_and(|mandate| {
+            reusable_mandate_fingerprint(mandate) != Some(envelope.action_fingerprint.as_str())
+        }) {
+            return Err(FinancialStoreError::Conflict);
+        }
+        let version = previous
+            .as_ref()
+            .map(|mandate| mandate.version)
+            .unwrap_or(0)
+            .checked_add(1)
+            .ok_or_else(|| FinancialStoreError::Internal("mandate version overflow".into()))?;
+        let payment_scope = reusable_payment_scope(&action, input.max_amount_minor)?;
+        let approved = self
+            .approve_action_as(workspace_id, action_id, actor_id)
+            .await?;
+        let mandate = self
+            .create_mandate(
+                workspace_id,
+                CreateFinancialMandateRequest {
+                    id: Some(mandate_id.clone()),
+                    version: Some(version),
+                    principal_id: action.action.principal_id.clone(),
+                    scope: serde_json::Value::Null,
+                    payment_scope: Some(payment_scope),
+                    metadata: serde_json::json!({
+                        "mode": "approval_reuse",
+                        "action_fingerprint": envelope.action_fingerprint,
+                        "fingerprint_version": envelope.fingerprint_version,
+                        "source_action_id": action.id,
+                        "approved_by": actor_id,
+                    }),
+                    starts_at: None,
+                    expires_at: Some(expires_at.to_rfc3339()),
+                },
+            )
+            .await?;
+        Ok(ApproveMatchingFinancialActionsResponse {
+            action: approved,
+            mandate,
+            approval_envelope: envelope,
+        })
+    }
+
+    async fn attach_reusable_approval_mandate(
+        &self,
+        workspace_id: &str,
+        mut input: CreateFinancialActionRequest,
+    ) -> Result<CreateFinancialActionRequest, FinancialStoreError> {
+        if input.action.mandate.is_some() {
+            return Ok(input);
+        }
+        let fingerprint = action_fingerprint(&input.action)?;
+        let mandate_id = reusable_mandate_id(&fingerprint);
+        let latest = match self
+            .store
+            .get_mandate(workspace_id, &mandate_id, None)
+            .await
+        {
+            Ok(mandate) => mandate,
+            Err(FinancialStoreError::NotFound) => return Ok(input),
+            Err(error) => return Err(error),
+        };
+        if reusable_mandate_fingerprint(&latest) != Some(fingerprint.as_str()) {
+            return Err(FinancialStoreError::Conflict);
+        }
+        let candidate = FinancialActionRecord {
+            id: input.action.id.clone().unwrap_or_default(),
+            workspace_id: workspace_id.to_string(),
+            status: FinancialActionStatus::Proposed,
+            status_reason: None,
+            action: input.action.clone(),
+            evidence: input.evidence.clone(),
+            created_at: Utc::now().to_rfc3339(),
+            updated_at: Utc::now().to_rfc3339(),
+        };
+        if mandate_denial_reason(&latest, &candidate)?.is_none() {
+            input.action.mandate = Some(tl_core::MandateRef {
+                id: latest.id.clone(),
+                version: Some(latest.version),
+            });
+        }
+        Ok(input)
     }
 
     pub async fn authorize_action(
@@ -1803,6 +1948,195 @@ fn json_scope_is_empty(value: &serde_json::Value) -> bool {
         serde_json::Value::Object(object) => object.is_empty(),
         _ => false,
     }
+}
+
+const APPROVAL_FINGERPRINT_VERSION: i32 = 1;
+
+#[derive(Serialize)]
+struct ApprovalFingerprintPayload {
+    version: i32,
+    principal_id: String,
+    action_kind: FinancialActionKind,
+    operation: String,
+    rail: FinancialRail,
+    currency: String,
+    counterparty_id: Option<String>,
+    counterparty_kind: Option<String>,
+    counterparty_country: Option<String>,
+    x402_host: Option<String>,
+    x402_resource: Option<String>,
+    x402_network: Option<String>,
+    x402_asset: Option<String>,
+    x402_pay_to: Option<String>,
+}
+
+fn action_fingerprint(action: &FinancialAction) -> Result<String, FinancialStoreError> {
+    let normalized_x402 = action
+        .metadata
+        .get("agentic_payment")
+        .and_then(|value| value.get("normalized_requirement"))
+        .or_else(|| {
+            action
+                .metadata
+                .get("x402")
+                .and_then(|value| value.get("normalized_requirement"))
+        })
+        .cloned()
+        .and_then(|value| serde_json::from_value::<X402NormalizedPaymentRequirement>(value).ok());
+    let payload = ApprovalFingerprintPayload {
+        version: APPROVAL_FINGERPRINT_VERSION,
+        principal_id: action.principal_id.trim().to_string(),
+        action_kind: action.kind,
+        operation: action.operation.trim().to_string(),
+        rail: action.rail,
+        currency: action.amount.currency.trim().to_ascii_uppercase(),
+        counterparty_id: action
+            .counterparty
+            .as_ref()
+            .map(|counterparty| counterparty.id.trim().to_string()),
+        counterparty_kind: action
+            .counterparty
+            .as_ref()
+            .map(|counterparty| counterparty.kind.trim().to_ascii_lowercase()),
+        counterparty_country: action
+            .counterparty
+            .as_ref()
+            .and_then(|counterparty| counterparty.country.as_deref())
+            .map(|country| country.trim().to_ascii_uppercase()),
+        x402_host: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.host.clone()),
+        x402_resource: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.resource.clone()),
+        x402_network: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.network.clone()),
+        x402_asset: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.asset.clone()),
+        x402_pay_to: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.normalized_pay_to.clone())
+            .or_else(|| {
+                normalized_x402
+                    .as_ref()
+                    .map(|requirement| requirement.pay_to.clone())
+            }),
+    };
+    let encoded = serde_json::to_vec(&payload).map_err(|error| {
+        FinancialStoreError::Internal(format!("action fingerprint encode: {error}"))
+    })?;
+    let mut hasher = Sha256::new();
+    hasher.update(encoded);
+    let hash_hex = hasher
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    Ok(format!("sha256:v{APPROVAL_FINGERPRINT_VERSION}:{hash_hex}"))
+}
+
+fn approval_envelope(
+    action: &FinancialActionRecord,
+) -> Result<FinancialApprovalEnvelope, FinancialStoreError> {
+    Ok(FinancialApprovalEnvelope {
+        action_id: action.id.clone(),
+        action_fingerprint: action_fingerprint(&action.action)?,
+        fingerprint_version: APPROVAL_FINGERPRINT_VERSION,
+        principal_id: action.action.principal_id.clone(),
+        action_kind: action.action.kind,
+        operation: action.action.operation.clone(),
+        rail: action.action.rail,
+        currency: action.action.amount.currency.to_ascii_uppercase(),
+        counterparty_id: action
+            .action
+            .counterparty
+            .as_ref()
+            .map(|counterparty| counterparty.id.clone()),
+        current_amount_minor: action.action.amount.amount_minor,
+        recommended_max_amount_minor: action.action.amount.amount_minor,
+    })
+}
+
+fn reusable_mandate_id(fingerprint: &str) -> String {
+    let digest = fingerprint.rsplit(':').next().unwrap_or(fingerprint);
+    let short = digest.get(..32).unwrap_or(digest);
+    format!("approval-reuse-{short}")
+}
+
+fn reusable_mandate_fingerprint(mandate: &FinancialMandate) -> Option<&str> {
+    if mandate
+        .metadata
+        .get("mode")
+        .and_then(serde_json::Value::as_str)
+        != Some("approval_reuse")
+    {
+        return None;
+    }
+    mandate
+        .metadata
+        .get("action_fingerprint")
+        .and_then(serde_json::Value::as_str)
+}
+
+fn reusable_payment_scope(
+    action: &FinancialActionRecord,
+    max_amount_minor: i64,
+) -> Result<AgenticPaymentMandateScope, FinancialStoreError> {
+    let normalized_x402 = if action.action.rail == FinancialRail::X402 {
+        Some(normalized_requirement_from_action(action)?)
+    } else {
+        None
+    };
+    Ok(AgenticPaymentMandateScope {
+        intent_label: Some(format!(
+            "Approved matching {} actions",
+            action.action.operation
+        )),
+        action_kinds: vec![action.action.kind],
+        operation: Some(action.action.operation.clone()),
+        max_amount_minor: Some(max_amount_minor),
+        currency: Some(action.action.amount.currency.to_ascii_uppercase()),
+        rail: Some(action.action.rail),
+        allowed_counterparty_ids: action
+            .action
+            .counterparty
+            .as_ref()
+            .map(|counterparty| vec![counterparty.id.clone()])
+            .unwrap_or_default(),
+        allowed_hosts: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.host.clone())
+            .into_iter()
+            .collect(),
+        allowed_resources: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.resource.clone())
+            .into_iter()
+            .collect(),
+        allowed_networks: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.network.clone())
+            .into_iter()
+            .collect(),
+        allowed_assets: normalized_x402
+            .as_ref()
+            .and_then(|requirement| requirement.asset.clone())
+            .into_iter()
+            .collect(),
+        allowed_pay_to: normalized_x402
+            .as_ref()
+            .map(|requirement| {
+                requirement
+                    .normalized_pay_to
+                    .clone()
+                    .unwrap_or_else(|| requirement.pay_to.clone())
+            })
+            .into_iter()
+            .collect(),
+        required_preconditions: vec![],
+    })
 }
 
 fn mandate_hash(scope: &serde_json::Value) -> Result<String, FinancialStoreError> {

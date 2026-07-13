@@ -23,18 +23,18 @@ pub use executor::{
     PaymentHttpFinancialExecutor,
 };
 pub use handlers::{
-    __path_approve_action, __path_authorize_agentic_payment, __path_commit_agentic_payment,
-    __path_create_action, __path_create_mandate, __path_create_policy, __path_deny_action,
-    __path_execute_action, __path_get_action, __path_get_agentic_payment,
-    __path_get_agentic_payment_receipt, __path_get_decision_receipt, __path_get_receipt,
-    __path_list_action_outcomes, __path_list_actions, __path_list_approval_requests,
-    __path_list_mandates, __path_list_policies, __path_record_action_outcome,
-    __path_revoke_mandate, __path_rollback_agentic_payment, approve_action,
-    authorize_agentic_payment, commit_agentic_payment, create_action, create_mandate,
-    create_policy, deny_action, execute_action, get_action, get_agentic_payment,
-    get_agentic_payment_receipt, get_decision_receipt, get_receipt, list_action_outcomes,
-    list_actions, list_approval_requests, list_mandates, list_policies, record_action_outcome,
-    revoke_mandate, rollback_agentic_payment,
+    __path_approve_action, __path_approve_matching_actions, __path_authorize_agentic_payment,
+    __path_commit_agentic_payment, __path_create_action, __path_create_mandate,
+    __path_create_policy, __path_deny_action, __path_execute_action, __path_get_action,
+    __path_get_agentic_payment, __path_get_agentic_payment_receipt, __path_get_approval_envelope,
+    __path_get_decision_receipt, __path_get_receipt, __path_list_action_outcomes,
+    __path_list_actions, __path_list_approval_requests, __path_list_mandates, __path_list_policies,
+    __path_record_action_outcome, __path_revoke_mandate, __path_rollback_agentic_payment,
+    approve_action, approve_matching_actions, authorize_agentic_payment, commit_agentic_payment,
+    create_action, create_mandate, create_policy, deny_action, execute_action, get_action,
+    get_agentic_payment, get_agentic_payment_receipt, get_approval_envelope, get_decision_receipt,
+    get_receipt, list_action_outcomes, list_actions, list_approval_requests, list_mandates,
+    list_policies, record_action_outcome, revoke_mandate, rollback_agentic_payment,
 };
 pub use memory_store::MemoryFinancialStore;
 pub use service::{FinancialActionExecutionAttempt, FinancialAuthorizationService};

@@ -222,6 +222,8 @@ const executed = await client.executeAction(approved.id);
 const receipt = await client.getReceipt(executed.id);
 ```
 
+For human-approved reuse, SDKs expose the same two-step Rust contract as the dashboard: fetch the action's `FinancialApprovalEnvelope`, show the versioned fingerprint and bounds to the approver, then call `approveMatchingFinancialActions` (or the language-equivalent method) with the fingerprint that was reviewed. Do not compute the fingerprint in an SDK or client UI.
+
 For production integrations, prefer the SDK financial operation helper over
 hand-building each request:
 

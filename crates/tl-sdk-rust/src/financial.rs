@@ -2,13 +2,15 @@ use tracing::instrument;
 
 use crate::{
     AgenticPaymentAuthorizationResponse, AgenticPaymentAuthorizeRequest,
-    AgenticPaymentCommitRequest, AgenticPaymentRecord, AgenticPaymentRollbackRequest, Client,
+    AgenticPaymentCommitRequest, AgenticPaymentRecord, AgenticPaymentRollbackRequest,
+    ApproveMatchingFinancialActionsRequest, ApproveMatchingFinancialActionsResponse, Client,
     CounterpartyRef, CreateFinancialActionRequest, CreateFinancialMandateRequest,
     CreateFinancialPolicyRequest, EvidenceRef, FinancialAction, FinancialActionDecisionReceipt,
     FinancialActionKind, FinancialActionListResponse, FinancialActionOutcome,
-    FinancialActionRecord, FinancialApprovalRequestListResponse, FinancialMandate,
-    FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialPolicyListResponse,
-    FinancialPolicyRecord, FinancialRail, FinancialReceipt, MandateRef, MoneyAmount, SdkError,
+    FinancialActionRecord, FinancialApprovalEnvelope, FinancialApprovalRequestListResponse,
+    FinancialMandate, FinancialMandateListResponse, FinancialOutcomeListResponse,
+    FinancialPolicyListResponse, FinancialPolicyRecord, FinancialRail, FinancialReceipt,
+    MandateRef, MoneyAmount, SdkError,
 };
 
 #[derive(Debug, Clone)]
@@ -382,6 +384,31 @@ impl Client {
     )]
     pub async fn approve_action(&self, action_id: &str) -> Result<FinancialActionRecord, SdkError> {
         self.transition_financial_action(action_id, "approve").await
+    }
+
+    /// Preview the versioned identity and recommended bounds for reusable approval.
+    pub async fn get_financial_approval_envelope(
+        &self,
+        action_id: &str,
+    ) -> Result<FinancialApprovalEnvelope, SdkError> {
+        let path = format!(
+            "/v1/financial/actions/{}/approval-envelope",
+            urlencoding::encode(action_id)
+        );
+        self.retry_loop(&path, || self.send_get(&path)).await
+    }
+
+    /// Approve the held action and activate a mandate for matching fingerprints.
+    pub async fn approve_matching_financial_actions(
+        &self,
+        action_id: &str,
+        request: &ApproveMatchingFinancialActionsRequest,
+    ) -> Result<ApproveMatchingFinancialActionsResponse, SdkError> {
+        let path = format!(
+            "/v1/financial/actions/{}/approve-matching",
+            urlencoding::encode(action_id)
+        );
+        self.send_post_json(&path, request).await
     }
 
     /// Deny a pending financial action.

@@ -302,6 +302,14 @@ pub(super) fn financial_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> 
             post(financial::approve_action),
         )
         .route(
+            "/v1/financial/actions/:id/approval-envelope",
+            get(financial::get_approval_envelope),
+        )
+        .route(
+            "/v1/financial/actions/:id/approve-matching",
+            post(financial::approve_matching_actions),
+        )
+        .route(
             "/v1/financial/actions/:id/deny",
             post(financial::deny_action),
         )

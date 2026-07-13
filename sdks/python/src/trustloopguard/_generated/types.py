@@ -150,6 +150,15 @@ class ApprovalRule(BaseModel):
     required: bool
 
 
+class ApproveMatchingFinancialActionsRequest(BaseModel):
+    action_fingerprint: str = Field(
+        ...,
+        description='The fingerprint shown to the approver. The server recomputes it before\ncreating the mandate so an action cannot change underneath the dialog.',
+    )
+    expires_at: str
+    max_amount_minor: int
+
+
 class AuthRequest(BaseModel):
     password: str = Field(
         ..., description="SHA-256-hex of the user's plaintext password."
@@ -1661,6 +1670,20 @@ class FinancialActionRecord(BaseModel):
     workspace_id: str
 
 
+class FinancialApprovalEnvelope(BaseModel):
+    action_fingerprint: str
+    action_id: str
+    action_kind: FinancialActionKind
+    counterparty_id: str | None = None
+    currency: str
+    current_amount_minor: int
+    fingerprint_version: int
+    operation: str
+    principal_id: str
+    rail: FinancialRail
+    recommended_max_amount_minor: int
+
+
 class FinancialApprovalRequest(BaseModel):
     action_id: str
     approver_roles: list[str] | None = None
@@ -2229,6 +2252,12 @@ class AgenticPaymentRecord(BaseModel):
 class AnalyticsDashboardViewConfig(BaseModel):
     filters: list[AnalyticsFilter]
     widgets: list[AnalyticsDashboardWidget]
+
+
+class ApproveMatchingFinancialActionsResponse(BaseModel):
+    action: FinancialActionRecord
+    approval_envelope: FinancialApprovalEnvelope
+    mandate: FinancialMandate
 
 
 class CreateAnalyticsDashboardViewRequest(BaseModel):

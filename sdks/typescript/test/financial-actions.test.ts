@@ -356,6 +356,60 @@ describe('Client financial action methods', () => {
     ]);
   });
 
+  it('previews and approves a reusable financial action fingerprint', async () => {
+    const envelope = {
+      action_id: ACTION.id,
+      action_fingerprint: 'sha256:v1:abc123',
+      fingerprint_version: 1,
+      principal_id: 'refund-bot',
+      action_kind: 'refund',
+      operation: 'issue_refund',
+      rail: 'card',
+      currency: 'USD',
+      counterparty_id: 'cust_456',
+      current_amount_minor: 7500,
+      recommended_max_amount_minor: 7500,
+    };
+    const fetchSpy = mockFetch(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/approval-envelope')) return jsonResponse(envelope);
+      return jsonResponse({
+        action: { ...ACTION, status: 'authorized' },
+        mandate: {
+          id: 'approval-reuse-abc123',
+          workspace_id: 'ws_test',
+          version: 1,
+          status: 'active',
+          principal_id: 'refund-bot',
+          scope: {},
+          metadata: {},
+          created_at: '2026-07-13T12:00:00Z',
+          updated_at: '2026-07-13T12:00:00Z',
+        },
+        approval_envelope: envelope,
+      });
+    });
+    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
+
+    await expect(client.getFinancialApprovalEnvelope(ACTION.id)).resolves.toMatchObject({
+      action_fingerprint: envelope.action_fingerprint,
+    });
+    await expect(
+      client.approveMatchingFinancialActions(ACTION.id, {
+        action_fingerprint: envelope.action_fingerprint,
+        max_amount_minor: 10000n,
+        expires_at: '2026-07-14T12:00:00Z',
+      }),
+    ).resolves.toMatchObject({ mandate: { status: 'active' } });
+
+    const [, approvalInit] = fetchSpy.mock.calls[1]!;
+    expect(JSON.parse(String((approvalInit as RequestInit).body))).toEqual({
+      action_fingerprint: envelope.action_fingerprint,
+      max_amount_minor: 10000,
+      expires_at: '2026-07-14T12:00:00Z',
+    });
+  });
+
   it('can list financial actions', async () => {
     const fetchSpy = mockFetch(async () => jsonResponse({ actions: [ACTION] }));
     const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
@@ -372,12 +426,15 @@ describe('Client financial action methods', () => {
     const fetchSpy = mockFetch(async (input) => {
       const url = String(input);
       if (url.endsWith('/authorize')) {
-        return jsonResponse({
-          decision: 'authorized',
-          signable: true,
-          reason: 'x402 payment authorized',
-          record: AGENTIC_RECORD,
-        }, 201);
+        return jsonResponse(
+          {
+            decision: 'authorized',
+            signable: true,
+            reason: 'x402 payment authorized',
+            record: AGENTIC_RECORD,
+          },
+          201,
+        );
       }
       if (url.endsWith('/commit')) {
         return jsonResponse({

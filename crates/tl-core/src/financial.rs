@@ -885,6 +885,55 @@ pub struct FinancialActionRecord {
     pub updated_at: String,
 }
 
+/// A server-computed, versioned summary of the action identity that a human
+/// is about to authorize for reuse. Amount is intentionally represented as a
+/// separate bound so matching actions can vary in value without changing the
+/// fingerprint.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialApprovalEnvelope {
+    pub action_id: String,
+    pub action_fingerprint: String,
+    pub fingerprint_version: i32,
+    pub principal_id: String,
+    pub action_kind: FinancialActionKind,
+    pub operation: String,
+    pub rail: FinancialRail,
+    pub currency: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub counterparty_id: Option<String>,
+    pub current_amount_minor: i64,
+    pub recommended_max_amount_minor: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct ApproveMatchingFinancialActionsRequest {
+    /// The fingerprint shown to the approver. The server recomputes it before
+    /// creating the mandate so an action cannot change underneath the dialog.
+    pub action_fingerprint: String,
+    pub max_amount_minor: i64,
+    pub expires_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct ApproveMatchingFinancialActionsResponse {
+    pub action: FinancialActionRecord,
+    pub mandate: FinancialMandate,
+    pub approval_envelope: FinancialApprovalEnvelope,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]

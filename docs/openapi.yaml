@@ -1156,6 +1156,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions/{id}/approval-envelope:
+    get:
+      tags:
+      - financial
+      operationId: get_approval_envelope
+      parameters:
+      - name: id
+        in: path
+        description: Held financial action id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Versioned reusable approval envelope
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialApprovalEnvelope'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial action not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Action is not awaiting approval
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/financial/actions/{id}/approve:
     post:
       tags:
@@ -1189,6 +1226,55 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '409':
           description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions/{id}/approve-matching:
+    post:
+      tags:
+      - financial
+      operationId: approve_matching_actions
+      parameters:
+      - name: id
+        in: path
+        description: Held financial action id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveMatchingFinancialActionsRequest'
+        required: true
+      responses:
+        '200':
+          description: Action approved and reusable mandate activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApproveMatchingFinancialActionsResponse'
+        '400':
+          description: Invalid mandate bounds
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial action not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Action or fingerprint changed
           content:
             application/json:
               schema:
@@ -4682,6 +4768,36 @@ components:
           - 'null'
         required:
           type: boolean
+    ApproveMatchingFinancialActionsRequest:
+      type: object
+      required:
+      - action_fingerprint
+      - max_amount_minor
+      - expires_at
+      properties:
+        action_fingerprint:
+          type: string
+          description: |-
+            The fingerprint shown to the approver. The server recomputes it before
+            creating the mandate so an action cannot change underneath the dialog.
+        expires_at:
+          type: string
+        max_amount_minor:
+          type: integer
+          format: int64
+    ApproveMatchingFinancialActionsResponse:
+      type: object
+      required:
+      - action
+      - mandate
+      - approval_envelope
+      properties:
+        action:
+          $ref: '#/components/schemas/FinancialActionRecord'
+        approval_envelope:
+          $ref: '#/components/schemas/FinancialApprovalEnvelope'
+        mandate:
+          $ref: '#/components/schemas/FinancialMandate'
     AttackVector:
       type: object
       description: One tailored attack vector derived from the agent's definition.
@@ -5864,6 +5980,52 @@ components:
       - failed
       - reversed
       - expired
+    FinancialApprovalEnvelope:
+      type: object
+      description: |-
+        A server-computed, versioned summary of the action identity that a human
+        is about to authorize for reuse. Amount is intentionally represented as a
+        separate bound so matching actions can vary in value without changing the
+        fingerprint.
+      required:
+      - action_id
+      - action_fingerprint
+      - fingerprint_version
+      - principal_id
+      - action_kind
+      - operation
+      - rail
+      - currency
+      - current_amount_minor
+      - recommended_max_amount_minor
+      properties:
+        action_fingerprint:
+          type: string
+        action_id:
+          type: string
+        action_kind:
+          $ref: '#/components/schemas/FinancialActionKind'
+        counterparty_id:
+          type:
+          - string
+          - 'null'
+        currency:
+          type: string
+        current_amount_minor:
+          type: integer
+          format: int64
+        fingerprint_version:
+          type: integer
+          format: int32
+        operation:
+          type: string
+        principal_id:
+          type: string
+        rail:
+          $ref: '#/components/schemas/FinancialRail'
+        recommended_max_amount_minor:
+          type: integer
+          format: int64
     FinancialApprovalRequest:
       type: object
       required:

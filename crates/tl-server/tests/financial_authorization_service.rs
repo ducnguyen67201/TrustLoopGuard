@@ -7,9 +7,9 @@ use chrono::{DateTime, Duration, Utc};
 use tl_core::{
     AgenticPaymentAuthorizeRequest, AgenticPaymentCommitRequest, AgenticPaymentDecision,
     AgenticPaymentMandateScope, AgenticPaymentReservation, AgenticPaymentReservationStatus,
-    AgenticPaymentRollbackRequest, ApprovalRequirement, CounterpartyRef,
-    CreateFinancialActionRequest, CreateFinancialMandateRequest, EvidenceRef, FinancialAction,
-    FinancialActionDecision, FinancialActionKind, FinancialActionOutcome,
+    AgenticPaymentRollbackRequest, ApprovalRequirement, ApproveMatchingFinancialActionsRequest,
+    CounterpartyRef, CreateFinancialActionRequest, CreateFinancialMandateRequest, EvidenceRef,
+    FinancialAction, FinancialActionDecision, FinancialActionKind, FinancialActionOutcome,
     FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionStatus,
     FinancialApprovalRequestStatus, FinancialDecisionRiskCode, FinancialEligibilityStatus,
     FinancialExecutionProofStatus, FinancialMandate, FinancialMandateListResponse,
@@ -1379,6 +1379,192 @@ async fn service_hold_creates_pending_approval_request() {
         .await
         .unwrap();
     assert_eq!(spend, 7_500);
+}
+
+#[tokio::test]
+async fn reusable_approval_binds_a_fingerprint_and_auto_attaches_the_latest_mandate() {
+    let store = Arc::new(MemoryFinancialStore::new());
+    let service = FinancialAuthorizationService::new(store);
+    let action = service
+        .create_action("ws_finance", refund_request("idem-reuse-source", 7_500))
+        .await
+        .unwrap();
+    let held = service
+        .hold_action(
+            "ws_finance",
+            &action.id,
+            ApprovalRequirement {
+                required: true,
+                approver_roles: vec!["finance_admin".into()],
+                reason: "review first matching refund".into(),
+                expires_at: None,
+            },
+        )
+        .await
+        .unwrap();
+
+    let envelope = service
+        .get_approval_envelope("ws_finance", &held.id)
+        .await
+        .unwrap();
+    assert_eq!(envelope.fingerprint_version, 1);
+    assert!(envelope.action_fingerprint.starts_with("sha256:v1:"));
+    assert_eq!(envelope.counterparty_id.as_deref(), Some("cust_456"));
+
+    let reusable = service
+        .approve_matching_actions_as(
+            "ws_finance",
+            &held.id,
+            Some("finance-admin-1"),
+            ApproveMatchingFinancialActionsRequest {
+                action_fingerprint: envelope.action_fingerprint.clone(),
+                max_amount_minor: 10_000,
+                expires_at: (Utc::now() + Duration::hours(1)).to_rfc3339(),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(reusable.action.status, FinancialActionStatus::Authorized);
+    assert_eq!(reusable.mandate.scope["max_amount_minor"], 10_000);
+    assert_eq!(reusable.mandate.metadata["mode"], "approval_reuse");
+    assert_eq!(
+        reusable.mandate.metadata["action_fingerprint"],
+        envelope.action_fingerprint
+    );
+
+    let mut matching = executable_refund_request("idem-reuse-match", 5_000);
+    matching.action.memo = Some("a different memo is not part of action identity".into());
+    let executed = service.create_action("ws_finance", matching).await.unwrap();
+    assert_eq!(executed.status, FinancialActionStatus::Executed);
+    assert_eq!(
+        executed
+            .action
+            .mandate
+            .as_ref()
+            .map(|reference| reference.id.as_str()),
+        Some(reusable.mandate.id.as_str())
+    );
+
+    let over_cap = service
+        .create_action("ws_finance", refund_request("idem-reuse-over-cap", 10_001))
+        .await
+        .unwrap();
+    assert_eq!(over_cap.status, FinancialActionStatus::Proposed);
+    assert!(over_cap.action.mandate.is_none());
+
+    let mut other_counterparty = refund_request("idem-reuse-other-counterparty", 5_000);
+    other_counterparty.action.counterparty.as_mut().unwrap().id = "cust_other".into();
+    let other_counterparty = service
+        .create_action("ws_finance", other_counterparty)
+        .await
+        .unwrap();
+    assert!(other_counterparty.action.mandate.is_none());
+
+    service
+        .revoke_mandate("ws_finance", &reusable.mandate.id)
+        .await
+        .unwrap();
+    let after_revoke = service
+        .create_action("ws_finance", refund_request("idem-reuse-revoked", 5_000))
+        .await
+        .unwrap();
+    assert!(after_revoke.action.mandate.is_none());
+}
+
+#[tokio::test]
+async fn reusable_approval_rejects_a_stale_fingerprint() {
+    let service = service();
+    let action = service
+        .create_action("ws_finance", refund_request("idem-reuse-stale", 7_500))
+        .await
+        .unwrap();
+    let held = service
+        .hold_action(
+            "ws_finance",
+            &action.id,
+            ApprovalRequirement {
+                required: true,
+                approver_roles: vec![],
+                reason: "review".into(),
+                expires_at: None,
+            },
+        )
+        .await
+        .unwrap();
+
+    let error = service
+        .approve_matching_actions_as(
+            "ws_finance",
+            &held.id,
+            None,
+            ApproveMatchingFinancialActionsRequest {
+                action_fingerprint: "sha256:v1:stale".into(),
+                max_amount_minor: 10_000,
+                expires_at: (Utc::now() + Duration::hours(1)).to_rfc3339(),
+            },
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, FinancialStoreError::Conflict));
+    assert!(service
+        .list_mandates("ws_finance")
+        .await
+        .unwrap()
+        .mandates
+        .is_empty());
+}
+
+#[tokio::test]
+async fn reusable_approval_caps_the_standing_authority_window() {
+    let service = service();
+    let action = service
+        .create_action("ws_finance", refund_request("idem-reuse-expiry", 7_500))
+        .await
+        .unwrap();
+    let held = service
+        .hold_action(
+            "ws_finance",
+            &action.id,
+            ApprovalRequirement {
+                required: true,
+                approver_roles: vec![],
+                reason: "review".into(),
+                expires_at: None,
+            },
+        )
+        .await
+        .unwrap();
+    let envelope = service
+        .get_approval_envelope("ws_finance", &held.id)
+        .await
+        .unwrap();
+
+    let error = service
+        .approve_matching_actions_as(
+            "ws_finance",
+            &held.id,
+            None,
+            ApproveMatchingFinancialActionsRequest {
+                action_fingerprint: envelope.action_fingerprint,
+                max_amount_minor: 10_000,
+                expires_at: (Utc::now() + Duration::days(31)).to_rfc3339(),
+            },
+        )
+        .await
+        .unwrap_err();
+
+    assert!(
+        matches!(error, FinancialStoreError::Validation(message) if message.contains("30 days"))
+    );
+    assert_eq!(
+        service
+            .get_action("ws_finance", &held.id)
+            .await
+            .unwrap()
+            .status,
+        FinancialActionStatus::Held
+    );
 }
 
 #[tokio::test]
