@@ -71,6 +71,7 @@ from trustloopguard._generated.types import (
 from trustloopguard.client import AsyncClient, Client
 from trustloopguard.errors import SdkError
 from trustloopguard.retry import RetryConfig
+from trustloopguard import _analytics
 
 _logger = logging.getLogger("trustloopguard")
 
@@ -178,20 +179,30 @@ class OutputGuard:
         if client is not None:
             self.client = client
             self._owns_client = False
-            return
+        else:
+            resolved_base_url = (
+                base_url
+                or _env("TL_SERVER_URL", "TRUSTLOOPGUARD_URL", "TRUSTLOOP_URL")
+                or "http://127.0.0.1:8080"
+            )
+            self.client = AsyncClient(
+                base_url=resolved_base_url,
+                api_key=api_key or _env("TL_API_KEY", "TRUSTLOOPGUARD_API_KEY", "TRUSTLOOP_API_KEY"),
+                timeout=timeout,
+                retry=retry,
+            )
+            self._owns_client = True
 
-        resolved_base_url = (
-            base_url
-            or _env("TL_SERVER_URL", "TRUSTLOOPGUARD_URL", "TRUSTLOOP_URL")
-            or "http://127.0.0.1:8080"
+        _analytics.set_person_props(
+            agent_id,
+            {
+                "sdk_mode": "async",
+                "guard_mode": str(self.mode.value),
+                "api_key_configured": bool(
+                    api_key or _env("TL_API_KEY", "TRUSTLOOPGUARD_API_KEY", "TRUSTLOOP_API_KEY")
+                ),
+            },
         )
-        self.client = AsyncClient(
-            base_url=resolved_base_url,
-            api_key=api_key or _env("TL_API_KEY", "TRUSTLOOPGUARD_API_KEY", "TRUSTLOOP_API_KEY"),
-            timeout=timeout,
-            retry=retry,
-        )
-        self._owns_client = True
 
     async def __call__(
         self,
@@ -618,6 +629,11 @@ def _guard_sync(
     except SdkError as e:
         result = on_error(e, draft) if on_error else draft  # fail-open default
         _emit_log(log, trace_id or "", "allow", "error", start)
+        _analytics.capture(
+            agent_id,
+            "sdk_guard_error_occurred",
+            {"error_code": e.code.value, "is_retriable": e.is_retriable()},
+        )
         return result
 
     if decision.verdict == Verdict.allow:
@@ -635,6 +651,16 @@ def _guard_sync(
     else:  # pragma: no cover — exhaustive over the verdict literal
         raise RuntimeError(f"unknown verdict: {decision.verdict}")
 
+    latency_ms = int((time.monotonic() - start) * 1000)
+    _analytics.capture(
+        agent_id,
+        "sdk_guard_check_completed",
+        {
+            "verdict": decision.verdict.value,
+            "has_safe_output": decision.safe_output is not None,
+            "latency_ms": latency_ms,
+        },
+    )
     _emit_log(
         log,
         decision.trace_id,
@@ -686,6 +712,11 @@ async def guard_async(
     except SdkError as e:
         result = await on_error(e, draft) if on_error else draft
         _emit_log(log, trace_id or "", "allow", "error", start)
+        _analytics.capture(
+            agent_id,
+            "sdk_guard_error_occurred",
+            {"error_code": e.code.value, "is_retriable": e.is_retriable()},
+        )
         return result
 
     if decision.verdict == Verdict.allow:
@@ -703,6 +734,16 @@ async def guard_async(
     else:  # pragma: no cover
         raise RuntimeError(f"unknown verdict: {decision.verdict}")
 
+    latency_ms = int((time.monotonic() - start) * 1000)
+    _analytics.capture(
+        agent_id,
+        "sdk_guard_check_completed",
+        {
+            "verdict": decision.verdict.value,
+            "has_safe_output": decision.safe_output is not None,
+            "latency_ms": latency_ms,
+        },
+    )
     _emit_log(
         log,
         decision.trace_id,

@@ -81,6 +81,8 @@ from trustloopguard.retry import RetryConfig
 # Module-level logger; callers can hook into trustloopguard.* if they want
 # our retry decisions in their structured logs.
 _logger = logging.getLogger("trustloopguard")
+
+from trustloopguard import _analytics
 _run_context: contextvars.ContextVar[dict[str, str]] = contextvars.ContextVar(
     "trustloopguard_run_context", default={}
 )
@@ -415,7 +417,7 @@ class Client:
         self, req: CreateFinancialActionRequest, *, timeout: float | None = None
     ) -> FinancialActionRecord:
         """Create or verify a typed financial action."""
-        return self._run_with_retry(
+        record = self._run_with_retry(
             lambda: self._send_json_model(
                 "/v1/financial/actions",
                 method="POST",
@@ -424,6 +426,16 @@ class Client:
                 model=FinancialActionRecord,
             )
         )
+        _analytics.capture(
+            req.action.principal_id,
+            "sdk_financial_action_verified",
+            {
+                "action_kind": req.action.kind.value,
+                "rail": req.action.rail.value,
+                "execute": req.execute,
+            },
+        )
+        return record
 
     def guard_payment(
         self, req: CreateFinancialActionRequest, *, timeout: float | None = None
@@ -753,9 +765,15 @@ class Client:
         self, action_id: str, transition: str, *, timeout: float | None = None
     ) -> FinancialActionRecord:
         path = f"/v1/financial/actions/{quote(action_id, safe='')}/{transition}"
-        return self._send_get_or_post(
+        record = self._send_get_or_post(
             path, method="POST", timeout=timeout, model=FinancialActionRecord
         )
+        _analytics.capture(
+            action_id,
+            "sdk_financial_action_transitioned",
+            {"transition": transition},
+        )
+        return record
 
     def generate_guardrails(
         self, agent_id: str, *, timeout: float | None = None
@@ -776,11 +794,17 @@ class Client:
             Unavailable: the deployment has no LLM configured (HTTP 503).
         """
         path = f"/v1/agents/{quote(agent_id, safe='')}/guardrails/generate"
-        return self._run_with_retry(
+        response = self._run_with_retry(
             lambda: self._send_get_or_post(
                 path, method="POST", timeout=timeout, model=GuardrailGenerateResponse
             )
         )
+        _analytics.capture(
+            agent_id,
+            "sdk_guardrails_generated",
+            {"policy_count": len(response.generated) if response.generated else 0},
+        )
+        return response
 
     def list_guardrails(
         self, agent_id: str, *, timeout: float | None = None
@@ -797,7 +821,7 @@ class Client:
         self, req: CreateRunRequest, *, timeout: float | None = None
     ) -> RunSummary:
         """Create a run grouping for subsequent ``check`` calls."""
-        return self._run_with_retry(
+        summary = self._run_with_retry(
             lambda: self._send_json_model(
                 "/v1/runs",
                 method="POST",
@@ -806,6 +830,12 @@ class Client:
                 model=RunSummary,
             )
         )
+        _analytics.capture(
+            req.agent_id,
+            "sdk_run_started",
+            {"run_kind": req.kind.value},
+        )
+        return summary
 
     def list_runs(self, *, timeout: float | None = None) -> RunListResponse:
         """List recent runs for the authenticated workspace."""
@@ -847,9 +877,15 @@ class Client:
         timeout: float | None = None,
     ) -> RunSummary:
         """Mark a run completed, failed, or canceled."""
-        return self.update_run(
+        summary = self.update_run(
             run_id, UpdateRunRequest(status=status), timeout=timeout
         )
+        _analytics.capture(
+            run_id,
+            "sdk_run_finished",
+            {"status": status.value},
+        )
+        return summary
 
     def create_run_event(
         self,
@@ -1247,7 +1283,7 @@ class AsyncClient:
         self, req: CreateFinancialActionRequest, *, timeout: float | None = None
     ) -> FinancialActionRecord:
         """Async variant of ``Client.verify_action``."""
-        return await self._run_with_retry(
+        record = await self._run_with_retry(
             lambda: self._send_json_model(
                 "/v1/financial/actions",
                 method="POST",
@@ -1256,6 +1292,16 @@ class AsyncClient:
                 model=FinancialActionRecord,
             )
         )
+        _analytics.capture(
+            req.action.principal_id,
+            "sdk_financial_action_verified",
+            {
+                "action_kind": req.action.kind.value,
+                "rail": req.action.rail.value,
+                "execute": req.execute,
+            },
+        )
+        return record
 
     async def guard_payment(
         self, req: CreateFinancialActionRequest, *, timeout: float | None = None
@@ -1585,20 +1631,32 @@ class AsyncClient:
         self, action_id: str, transition: str, *, timeout: float | None = None
     ) -> FinancialActionRecord:
         path = f"/v1/financial/actions/{quote(action_id, safe='')}/{transition}"
-        return await self._send_get_or_post(
+        record = await self._send_get_or_post(
             path, method="POST", timeout=timeout, model=FinancialActionRecord
         )
+        _analytics.capture(
+            action_id,
+            "sdk_financial_action_transitioned",
+            {"transition": transition},
+        )
+        return record
 
     async def generate_guardrails(
         self, agent_id: str, *, timeout: float | None = None
     ) -> GuardrailGenerateResponse:
         """Async variant of ``Client.generate_guardrails``."""
         path = f"/v1/agents/{quote(agent_id, safe='')}/guardrails/generate"
-        return await self._run_with_retry(
+        response = await self._run_with_retry(
             lambda: self._send_get_or_post(
                 path, method="POST", timeout=timeout, model=GuardrailGenerateResponse
             )
         )
+        _analytics.capture(
+            agent_id,
+            "sdk_guardrails_generated",
+            {"policy_count": len(response.generated) if response.generated else 0},
+        )
+        return response
 
     async def list_guardrails(
         self, agent_id: str, *, timeout: float | None = None
@@ -1615,7 +1673,7 @@ class AsyncClient:
         self, req: CreateRunRequest, *, timeout: float | None = None
     ) -> RunSummary:
         """Async variant of ``Client.start_run``."""
-        return await self._run_with_retry(
+        summary = await self._run_with_retry(
             lambda: self._send_json_model(
                 "/v1/runs",
                 method="POST",
@@ -1624,6 +1682,12 @@ class AsyncClient:
                 model=RunSummary,
             )
         )
+        _analytics.capture(
+            req.agent_id,
+            "sdk_run_started",
+            {"run_kind": req.kind.value},
+        )
+        return summary
 
     async def list_runs(self, *, timeout: float | None = None) -> RunListResponse:
         """Async variant of ``Client.list_runs``."""
@@ -1665,9 +1729,15 @@ class AsyncClient:
         timeout: float | None = None,
     ) -> RunSummary:
         """Async variant of ``Client.finish_run``."""
-        return await self.update_run(
+        summary = await self.update_run(
             run_id, UpdateRunRequest(status=status), timeout=timeout
         )
+        _analytics.capture(
+            run_id,
+            "sdk_run_finished",
+            {"status": status.value},
+        )
+        return summary
 
     async def create_run_event(
         self,
