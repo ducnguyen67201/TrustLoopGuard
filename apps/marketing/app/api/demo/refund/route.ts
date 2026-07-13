@@ -79,6 +79,8 @@ export async function POST(request: Request) {
 }
 
 function isRateLimited(request: Request): boolean {
+  if (process.env['NODE_ENV'] !== 'production') return false;
+
   const now = Date.now();
   const key = clientAddress(request);
   const current = hits.get(key);

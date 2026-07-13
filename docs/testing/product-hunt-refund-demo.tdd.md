@@ -63,6 +63,18 @@ request returned `401`. The concurrent `$25` and `$75` runs produced distinct ac
 run executed a real Stripe test refund and returned a 7,500 minor-unit balance, while the `$75` run
 remained held with a 10,000 balance and no refund. Neither public response contained `logs`.
 
+## Local repeatability follow-up
+
+As a local demo operator, I can run more than four refund scenarios without waiting for the public
+launch throttle to reset. RED checkpoint `8763554b` reproduced the bug with statuses
+`200, 200, 200, 200, 429, 429`. The GREEN implementation bypasses only the marketing edge throttle
+outside production; production still enforces the per-visitor limit, and the authenticated refund
+service retains its central expensive-run budget in every environment.
+
+`pnpm test:refund-demo` passes 17 tests, marketing typecheck and production build pass, and focused
+coverage reports 89.60% lines for the proxy route and 92.45% lines across the route plus public
+contract.
+
 ## Live integration evidence
 
 The local Product Hunt route was exercised through the same-origin marketing proxy with Doppler

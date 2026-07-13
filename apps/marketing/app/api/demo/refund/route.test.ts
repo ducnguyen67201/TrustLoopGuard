@@ -4,7 +4,9 @@ import test from 'node:test';
 import { POST } from './route';
 
 const PROXY_SECRET = 'refund-demo-proxy-secret-32-bytes-minimum';
+const mutableEnv = process.env as Record<string, string | undefined>;
 process.env['REFUND_DEMO_PROXY_SECRET'] = PROXY_SECRET;
+mutableEnv['NODE_ENV'] = 'production';
 
 const upstreamPayload = {
   result: {
@@ -161,7 +163,7 @@ test('allows repeated localhost runs during development', async () => {
   const originalFetch = globalThis.fetch;
   const originalNodeEnv = process.env['NODE_ENV'];
   let upstreamCalls = 0;
-  process.env['NODE_ENV'] = 'development';
+  mutableEnv['NODE_ENV'] = 'development';
   globalThis.fetch = (async () => {
     upstreamCalls += 1;
     return Response.json(upstreamPayload);
@@ -181,8 +183,8 @@ test('allows repeated localhost runs during development', async () => {
     assert.equal(upstreamCalls, 6);
   } finally {
     globalThis.fetch = originalFetch;
-    if (originalNodeEnv === undefined) delete process.env['NODE_ENV'];
-    else process.env['NODE_ENV'] = originalNodeEnv;
+    if (originalNodeEnv === undefined) delete mutableEnv['NODE_ENV'];
+    else mutableEnv['NODE_ENV'] = originalNodeEnv;
   }
 });
 
