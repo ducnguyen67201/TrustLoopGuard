@@ -55,7 +55,12 @@ test('serves the authenticated payment adapter on the refund service', async () 
       server.listen(0, '127.0.0.1', resolve);
     });
     const address = server.address() as AddressInfo;
-    const url = `http://127.0.0.1:${address.port}/payments`;
+    const serviceUrl = `http://127.0.0.1:${address.port}`;
+    const health = await fetch(`${serviceUrl}/health`);
+    assert.equal(health.status, 200);
+    assert.deepEqual(await health.json(), { status: 'ok' });
+
+    const url = `${serviceUrl}/payments`;
     const request = {
       action_id: 'financial_action_deploy_test',
       kind: 'refund',
