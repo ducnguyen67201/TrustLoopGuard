@@ -25,10 +25,7 @@ describe('FinancialActionsContent', () => {
       <FinancialActionsContent
         workspaceSlug="default"
         environmentId="production"
-        actions={[
-          action('act_old', 'held', 7_500),
-          action('act_current_demo', 'held', 7_500),
-        ]}
+        actions={[action('act_old', 'held', 7_500), action('act_current_demo', 'held', 7_500)]}
         approvals={[
           {
             id: 'approval_current',

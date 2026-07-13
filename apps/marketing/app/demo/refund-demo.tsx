@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { RefundDemoResponse, RefundDemoStatus } from './contract';
 import { mergeRefundDemoStatus } from './status-model';
+import { refundDemoReviewUrl } from './review-url';
 import styles from './demo.module.css';
 
 const EXAMPLES = [
@@ -141,6 +142,18 @@ export function RefundDemo() {
             <div className={styles['assistantMessage']}>
               <span>Support agent</span>
               <p>{response.result.finalMessage}</p>
+            </div>
+          ) : null}
+
+          {isHeld && actionId !== undefined ? (
+            <div className={styles['reviewCallout']}>
+              <div>
+                <strong>Human approval required</strong>
+                <p>Open the exact held action in TrustLoopGuard. This demo updates automatically.</p>
+              </div>
+              <a href={refundDemoReviewUrl(actionId)} target="_blank" rel="noreferrer">
+                Review this exact action <span aria-hidden="true">↗</span>
+              </a>
             </div>
           ) : null}
 

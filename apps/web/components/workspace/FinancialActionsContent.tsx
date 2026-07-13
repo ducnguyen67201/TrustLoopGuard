@@ -55,6 +55,7 @@ type FinancialActionsContentProps = {
   providerConnections: GatewayProviderConnection[];
   budgetAlerts?: BudgetAlertConfig[];
   budgetAlertFirings?: BudgetAlertFiring[];
+  focusActionId?: string | null;
 };
 
 export function FinancialActionsContent({
@@ -69,6 +70,7 @@ export function FinancialActionsContent({
   providerConnections,
   budgetAlerts = [],
   budgetAlertFirings = [],
+  focusActionId = null,
 }: FinancialActionsContentProps) {
   const contextQuery = currentContextQuery(workspaceSlug, environmentId);
   const [actionRows, setActionRows] = useState(actions);
@@ -101,6 +103,10 @@ export function FinancialActionsContent({
     (provider) => provider.kind === 'payment_http',
   );
   const financialPolicies = familyPolicies;
+  const visibleActionRows =
+    focusActionId === null
+      ? actionRows
+      : actionRows.filter((action) => action.id === focusActionId);
 
   const columns: DataTableColumn<FinancialActionRecord>[] = [
     {
@@ -289,6 +295,15 @@ export function FinancialActionsContent({
         <SummaryTile label="Denied or failed" value={failedCount} tone="failed" />
         <SummaryTile label="Active mandates" value={mandatesCount} tone="x402" />
       </div>
+      {focusActionId !== null ? (
+        <div className="flex flex-col gap-1 rounded-lg border border-orange-300 bg-orange-50 p-3 text-sm dark:border-orange-900 dark:bg-orange-950/30">
+          <strong>Reviewing this demo action</strong>
+          <code className="break-all text-xs">{focusActionId}</code>
+          <span className="text-muted-foreground">
+            Approve runs this exact authorized action through its configured provider.
+          </span>
+        </div>
+      ) : null}
       <Card>
         <CardHeader>
           <CardTitle>Ledger</CardTitle>
@@ -296,7 +311,7 @@ export function FinancialActionsContent({
         <CardContent>
           <DataTable
             columns={columns}
-            rows={actionRows}
+            rows={visibleActionRows}
             getRowKey={(row) => row.id}
             empty={
               <EmptyState

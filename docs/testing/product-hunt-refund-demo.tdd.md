@@ -92,6 +92,20 @@ Live verification read executed action `019f5d63-f8ca-77c3-ae7f-07b122daa7b3` th
 same-origin status route and returned its real Stripe test reference
 `re_3TsrRG730BwJXVLd0d71BxUd` without exposing internal action proof.
 
+## Exact approval targeting
+
+Multiple held demo runs made it possible to approve an older ledger row while the current `/demo`
+continued waiting. RED checkpoint `8a113420` reproduces the ambiguity. The GREEN flow gives each
+held run a direct dashboard link containing its exact action ID, and the financial ledger filters
+to that one action before presenting Approve.
+
+The refund-demo suite passes 24 tests, the web suite passes 226 tests, and both app typechecks pass.
+Focused coverage is 91.94% lines across the public demo contract, review URL, and status model; the
+financial ledger component is 95.5% lines and 80.55% branches.
+Live verification moved action `019f5d6a-f57d-7c23-ada2-acc821b332ea` from held to authorized to
+executed and returned Stripe test refund `re_3TsrYd730BwJXVLd00yeIDwD` through the public status
+route.
+
 ## Live integration evidence
 
 The local Product Hunt route was exercised through the same-origin marketing proxy with Doppler

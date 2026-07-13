@@ -19,7 +19,11 @@ import type {
 export default async function FinancialPage({
   searchParams,
 }: {
-  searchParams: Promise<{ workspace?: string | string[]; environment?: string | string[] }>;
+  searchParams: Promise<{
+    workspace?: string | string[];
+    environment?: string | string[];
+    actionId?: string | string[];
+  }>;
 }) {
   const params = await searchParams;
   const workspaceSlug = readWorkspaceSlug(params);
@@ -80,6 +84,7 @@ export default async function FinancialPage({
         providerConnections={providers.provider_connections}
         budgetAlerts={budgetAlerts.configs}
         budgetAlertFirings={budgetAlertFirings}
+        focusActionId={readParam(params.actionId)}
       />
     </AppLayout>
   );

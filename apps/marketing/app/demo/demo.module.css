@@ -264,6 +264,42 @@
   font-size: 0.8rem;
 }
 
+.reviewCallout {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--color-escalate) 42%, transparent);
+  border-radius: var(--radius);
+  padding: 1rem;
+  background: color-mix(in srgb, var(--color-escalate) 7%, var(--color-panel));
+}
+
+.reviewCallout strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--color-ink);
+  font-size: 0.85rem;
+}
+
+.reviewCallout p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.reviewCallout a {
+  display: flex;
+  min-height: 2.6rem;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.8rem;
+  background: var(--color-accent-deep);
+  color: var(--color-panel);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .spinner {
   width: 0.9rem;
   height: 0.9rem;
