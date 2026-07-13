@@ -134,9 +134,12 @@ test('treats an invalid upstream success payload as a service failure', async ()
   }
 });
 
-test('limits repeated expensive requests for one visitor', async () => {
+test('allows ten requests per visitor in a rolling 24-hour window', async () => {
   const originalFetch = globalThis.fetch;
+  const originalDateNow = Date.now;
+  let now = Date.parse('2026-07-13T12:00:00.000Z');
   let upstreamCalls = 0;
+  Date.now = () => now;
   globalThis.fetch = (async () => {
     upstreamCalls += 1;
     return Response.json(upstreamPayload);
@@ -144,17 +147,25 @@ test('limits repeated expensive requests for one visitor', async () => {
 
   try {
     const responses = [];
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (let attempt = 0; attempt < 11; attempt += 1) {
       responses.push(
         await POST(requestFor({ prompt: 'Refund order ord_demo_1001 for $25.' }, 'route-limited')),
       );
     }
     assert.deepEqual(
       responses.map((response) => response.status),
-      [200, 200, 200, 200, 429],
+      [200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 429],
     );
-    assert.equal(upstreamCalls, 4);
+    assert.equal(upstreamCalls, 10);
+
+    now += 24 * 60 * 60 * 1_000;
+    const nextWindow = await POST(
+      requestFor({ prompt: 'Refund order ord_demo_1001 for $25.' }, 'route-limited'),
+    );
+    assert.equal(nextWindow.status, 200);
+    assert.equal(upstreamCalls, 11);
   } finally {
+    Date.now = originalDateNow;
     globalThis.fetch = originalFetch;
   }
 });
@@ -194,7 +205,7 @@ test('uses the platform-owned client address instead of a spoofable forwarded va
 
   try {
     const responses = [];
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (let attempt = 0; attempt < 11; attempt += 1) {
       responses.push(
         await POST(
           new Request('http://localhost/api/demo/refund', {
@@ -212,7 +223,7 @@ test('uses the platform-owned client address instead of a spoofable forwarded va
 
     assert.deepEqual(
       responses.map((response) => response.status),
-      [200, 200, 200, 200, 429],
+      [200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 429],
     );
   } finally {
     globalThis.fetch = originalFetch;
