@@ -668,6 +668,32 @@ impl FinancialRepo {
         rows.into_iter().map(approval_from_record).collect()
     }
 
+    pub async fn has_current_approved_request(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<bool, StorageError> {
+        let action_uuid = parse_uuid(action_id)?;
+        let mut conn = self.connection().await?;
+        approval_requests::table
+            .filter(approval_requests::workspace_id.eq(workspace_id))
+            .filter(approval_requests::action_id.eq(action_uuid))
+            .filter(
+                approval_requests::status.eq(enum_text(FinancialApprovalRequestStatus::Approved)?),
+            )
+            .filter(
+                approval_requests::expires_at
+                    .is_null()
+                    .or(approval_requests::expires_at.gt(Utc::now())),
+            )
+            .select(approval_requests::id)
+            .first::<Uuid>(&mut conn)
+            .await
+            .optional()
+            .map(|request| request.is_some())
+            .map_err(|e| StorageError::Internal(format!("approved request lookup: {e}")))
+    }
+
     pub async fn resolve_pending_approval_requests(
         &self,
         workspace_id: &str,

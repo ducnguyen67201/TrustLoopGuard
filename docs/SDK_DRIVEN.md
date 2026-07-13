@@ -222,7 +222,7 @@ const executed = await client.executeAction(approved.id);
 const receipt = await client.getReceipt(executed.id);
 ```
 
-For human-approved reuse, SDKs expose the same two-step Rust contract as the dashboard: fetch the action's `FinancialApprovalEnvelope`, show the versioned fingerprint and bounds to the approver, then call `approveMatchingFinancialActions` (or the language-equivalent method) with the fingerprint that was reviewed. Do not compute the fingerprint in an SDK or client UI.
+For human-approved reuse, SDKs expose the same two-step Rust contract as the dashboard: fetch the action's `FinancialApprovalEnvelope`, show the versioned fingerprint and bounds to the approver, then call `approveMatchingFinancialActions` (or the language-equivalent method) with the fingerprint that was reviewed. Do not compute the fingerprint in an SDK or client UI. Tell the approver that reuse skips only the repeated matching human-review step: every future action still passes current mandate, hard-policy, eligibility, and live-ledger checks and receives its own atomic budget reservation.
 
 For production integrations, prefer the SDK financial operation helper over
 hand-building each request:

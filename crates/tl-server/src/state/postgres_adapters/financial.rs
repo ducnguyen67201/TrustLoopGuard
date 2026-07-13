@@ -206,6 +206,17 @@ impl FinancialStore for PostgresFinancialAdapter {
         Ok(tl_core::FinancialApprovalRequestListResponse { approval_requests })
     }
 
+    async fn has_current_approved_request(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<bool, FinancialStoreError> {
+        self.0
+            .has_current_approved_request(workspace_id, action_id)
+            .await
+            .map_err(financial_store_error)
+    }
+
     async fn resolve_pending_approval_requests(
         &self,
         workspace_id: &str,

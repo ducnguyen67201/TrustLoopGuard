@@ -499,6 +499,19 @@ async fn resolve_pending_approval_requests_updates_only_matching_action_queue_it
     .await
     .expect("resolve first");
 
+    assert!(repo
+        .has_current_approved_request("ws_finance", &first.id)
+        .await
+        .expect("approved request lookup"));
+    assert!(!repo
+        .has_current_approved_request("ws_finance", &second.id)
+        .await
+        .expect("pending request lookup"));
+    assert!(!repo
+        .has_current_approved_request("ws_other", &first.id)
+        .await
+        .expect("cross-workspace request lookup"));
+
     let approvals = repo
         .list_approval_requests("ws_finance")
         .await

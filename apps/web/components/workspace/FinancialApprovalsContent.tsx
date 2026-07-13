@@ -333,8 +333,8 @@ export function FinancialApprovalsContent({
           <DialogHeader>
             <DialogTitle>Approve matching actions</DialogTitle>
             <DialogDescription>
-              Create a bounded mandate from this action. Future actions reuse it only when the
-              server-computed fingerprint and every scope limit match.
+              Reuse this human approval for the same bounded action shape. TrustLoopGuard still
+              checks every future action before money moves.
             </DialogDescription>
           </DialogHeader>
           {loadingEnvelope || !envelope ? (
@@ -390,8 +390,16 @@ export function FinancialApprovalsContent({
               </div>
               <p className="text-sm text-muted-foreground">
                 Changes to principal, action kind, operation, rail, currency, counterparty, or x402
-                destination require a new approval. Existing policy checks still run on every call.
+                destination require a new approval.
               </p>
+              <div className="grid gap-2 rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm">
+                <p className="font-medium">Only the matching human-review step is reused.</p>
+                <p className="text-muted-foreground">
+                  Mandate status, hard policies, eligibility evidence, and the live available budget
+                  are checked again for every action. A matching fingerprint never reserves or
+                  guarantees funds in advance.
+                </p>
+              </div>
             </div>
           )}
           <DialogFooter>
@@ -409,7 +417,7 @@ export function FinancialApprovalsContent({
               onClick={approveMatchingAndExecute}
             >
               <IconFingerprint />
-              Approve this mandate
+              Approve once and reuse
             </Button>
           </DialogFooter>
         </DialogContent>

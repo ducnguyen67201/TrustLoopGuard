@@ -199,8 +199,12 @@ describe('FinancialApprovalsContent', () => {
     expect(await screen.findByText(fingerprint)).toBeInTheDocument();
     expect(screen.getByLabelText(/maximum per action/i)).toHaveValue('75.00');
     expect(screen.getByText(/approval is bound to this action version/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/only the matching human-review step is reused/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/live available budget/i)).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: /approve this mandate/i }));
+    await userEvent.click(screen.getByRole('button', { name: /approve once and reuse/i }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(

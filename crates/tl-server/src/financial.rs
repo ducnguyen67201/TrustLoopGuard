@@ -206,6 +206,12 @@ pub trait FinancialStore: Send + Sync {
         workspace_id: &str,
     ) -> Result<FinancialApprovalRequestListResponse, FinancialStoreError>;
 
+    async fn has_current_approved_request(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<bool, FinancialStoreError>;
+
     async fn resolve_pending_approval_requests(
         &self,
         workspace_id: &str,

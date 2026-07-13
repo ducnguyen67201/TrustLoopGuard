@@ -398,6 +398,25 @@ impl FinancialStore for MemoryFinancialStore {
         Ok(FinancialApprovalRequestListResponse { approval_requests })
     }
 
+    async fn has_current_approved_request(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<bool, FinancialStoreError> {
+        let now = Utc::now();
+        Ok(self.approval_requests.read().await.values().any(|request| {
+            request.workspace_id == workspace_id
+                && request.action_id == action_id
+                && request.status == FinancialApprovalRequestStatus::Approved
+                && match request.expires_at.as_deref() {
+                    None => true,
+                    Some(expires_at) => DateTime::parse_from_rfc3339(expires_at)
+                        .map(|expires_at| expires_at.with_timezone(&Utc) > now)
+                        .unwrap_or(false),
+                }
+        }))
+    }
+
     async fn resolve_pending_approval_requests(
         &self,
         workspace_id: &str,

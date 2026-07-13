@@ -235,6 +235,16 @@ impl FinancialStore for SpendAwareStore {
         self.inner.list_approval_requests(workspace_id).await
     }
 
+    async fn has_current_approved_request(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<bool, FinancialStoreError> {
+        self.inner
+            .has_current_approved_request(workspace_id, action_id)
+            .await
+    }
+
     async fn resolve_pending_approval_requests(
         &self,
         workspace_id: &str,
@@ -758,12 +768,7 @@ async fn service_rechecks_hard_policy_immediately_before_execution() {
         financial.per_transaction_minor = Some(1_000);
     }
     policy_store
-        .upsert_family(
-            "ws_finance",
-            "production",
-            &tightened,
-            "family: financial",
-        )
+        .upsert_family("ws_finance", "production", &tightened, "family: financial")
         .await
         .unwrap();
 
@@ -1161,6 +1166,44 @@ async fn service_rejects_execute_before_authorization() {
 
     assert!(
         matches!(err, FinancialStoreError::Validation(message) if message.contains("requires authorization"))
+    );
+}
+
+#[tokio::test]
+async fn service_rejects_execution_after_budget_reservation_was_released() {
+    let store = Arc::new(MemoryFinancialStore::new());
+    let service = FinancialAuthorizationService::new(store.clone());
+    let created = service
+        .create_action(
+            "ws_finance",
+            refund_request("idem-released-before-execute", 7_500),
+        )
+        .await
+        .unwrap();
+    let authorized = service
+        .approve_action("ws_finance", &created.id)
+        .await
+        .unwrap();
+    store
+        .record_ledger_entry(
+            "ws_finance",
+            &authorized.id,
+            FinancialLedgerEntryKind::Released,
+            authorized.action.amount.amount_minor,
+            &authorized.action.amount.currency,
+            &format!("{}:released", authorized.id),
+            serde_json::json!({ "reason": "simulated_partial_failure" }),
+        )
+        .await
+        .unwrap();
+
+    let error = service
+        .execute_action("ws_finance", &authorized.id)
+        .await
+        .unwrap_err();
+
+    assert!(
+        matches!(error, FinancialStoreError::Validation(message) if message.contains("current budget reservation"))
     );
 }
 
@@ -1724,12 +1767,7 @@ async fn reusable_approval_satisfies_only_the_matching_human_review_gate() {
         financial.approval_threshold_minor = Some(1_000);
     }
     policy_store
-        .upsert_family(
-            "ws_finance",
-            "production",
-            &policy,
-            "family: financial",
-        )
+        .upsert_family("ws_finance", "production", &policy, "family: financial")
         .await
         .unwrap();
     let service = FinancialAuthorizationService::with_policy_store(
@@ -1737,7 +1775,10 @@ async fn reusable_approval_satisfies_only_the_matching_human_review_gate() {
         policy_store,
     );
     let held = service
-        .create_action("ws_finance", refund_request("idem-reuse-review-source", 2_500))
+        .create_action(
+            "ws_finance",
+            refund_request("idem-reuse-review-source", 2_500),
+        )
         .await
         .unwrap();
     assert_eq!(held.status, FinancialActionStatus::Held);
@@ -1769,6 +1810,172 @@ async fn reusable_approval_satisfies_only_the_matching_human_review_gate() {
 
     assert!(matching.action.mandate.is_some());
     assert_eq!(matching.status, FinancialActionStatus::Executed);
+}
+
+#[tokio::test]
+async fn reusable_approval_does_not_bypass_new_eligibility_requirements() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    let mut policy = financial_policy(Some(10_000), None);
+    if let FamilyPolicy::Financial(financial) = &mut policy {
+        financial.approval_threshold_minor = Some(1_000);
+    }
+    policy_store
+        .upsert_family("ws_finance", "production", &policy, "family: financial")
+        .await
+        .unwrap();
+    let service = FinancialAuthorizationService::with_policy_store(
+        Arc::new(MemoryFinancialStore::new()),
+        policy_store.clone(),
+    );
+    let held = service
+        .create_action(
+            "ws_finance",
+            refund_request("idem-reuse-eligibility-source", 2_500),
+        )
+        .await
+        .unwrap();
+    let envelope = service
+        .get_approval_envelope("ws_finance", &held.id)
+        .await
+        .unwrap();
+    service
+        .approve_matching_actions_as(
+            "ws_finance",
+            &held.id,
+            Some("finance-admin-1"),
+            ApproveMatchingFinancialActionsRequest {
+                action_fingerprint: envelope.action_fingerprint,
+                max_amount_minor: 5_000,
+                expires_at: (Utc::now() + Duration::hours(1)).to_rfc3339(),
+            },
+        )
+        .await
+        .unwrap();
+
+    if let FamilyPolicy::Financial(financial) = &mut policy {
+        financial.required_preconditions = vec![FinancialActionPrecondition::PaymentCaptured];
+    }
+    policy_store
+        .upsert_family("ws_finance", "production", &policy, "family: financial")
+        .await
+        .unwrap();
+
+    let matching = service
+        .create_action(
+            "ws_finance",
+            executable_refund_request("idem-reuse-eligibility-match", 2_500),
+        )
+        .await
+        .unwrap();
+
+    assert!(matching.action.mandate.is_some());
+    assert_eq!(matching.status, FinancialActionStatus::Held);
+    let approvals = service.list_approval_requests("ws_finance").await.unwrap();
+    assert!(approvals.approval_requests.iter().any(|approval| {
+        approval.action_id == matching.id
+            && approval
+                .reason
+                .contains("missing eligibility evidence `payment_captured`")
+    }));
+}
+
+#[tokio::test]
+async fn revoked_reusable_approval_releases_budget_before_execution() {
+    let store = Arc::new(MemoryFinancialStore::new());
+    let service = FinancialAuthorizationService::new(store.clone());
+    let source = service
+        .create_action(
+            "ws_finance",
+            refund_request("idem-reuse-revoked-before-execution", 2_500),
+        )
+        .await
+        .unwrap();
+    let held = service
+        .hold_action(
+            "ws_finance",
+            &source.id,
+            ApprovalRequirement {
+                required: true,
+                approver_roles: vec!["finance_admin".into()],
+                reason: "review first matching refund".into(),
+                expires_at: None,
+            },
+        )
+        .await
+        .unwrap();
+    let envelope = service
+        .get_approval_envelope("ws_finance", &held.id)
+        .await
+        .unwrap();
+    let reusable = service
+        .approve_matching_actions_as(
+            "ws_finance",
+            &held.id,
+            Some("finance-admin-1"),
+            ApproveMatchingFinancialActionsRequest {
+                action_fingerprint: envelope.action_fingerprint,
+                max_amount_minor: 5_000,
+                expires_at: (Utc::now() + Duration::hours(1)).to_rfc3339(),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(reusable.action.status, FinancialActionStatus::Authorized);
+    let baseline_spend = store
+        .net_spend_minor(
+            "ws_finance",
+            "refund-bot",
+            "USD",
+            Utc::now() - Duration::minutes(5),
+            Utc::now() + Duration::minutes(5),
+        )
+        .await
+        .unwrap();
+
+    let matching = service
+        .create_action(
+            "ws_finance",
+            refund_request("idem-reuse-revoked-matching-action", 2_500),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        matching
+            .action
+            .mandate
+            .as_ref()
+            .map(|mandate| mandate.id.as_str()),
+        Some(reusable.mandate.id.as_str())
+    );
+    let authorized = service
+        .approve_action("ws_finance", &matching.id)
+        .await
+        .unwrap();
+    assert_eq!(authorized.status, FinancialActionStatus::Authorized);
+
+    service
+        .revoke_mandate("ws_finance", &reusable.mandate.id)
+        .await
+        .unwrap();
+    let denied = service
+        .execute_action("ws_finance", &authorized.id)
+        .await
+        .unwrap();
+
+    assert_eq!(denied.status, FinancialActionStatus::Denied);
+    assert_eq!(
+        store
+            .net_spend_minor(
+                "ws_finance",
+                "refund-bot",
+                "USD",
+                Utc::now() - Duration::minutes(5),
+                Utc::now() + Duration::minutes(5),
+            )
+            .await
+            .unwrap(),
+        baseline_spend
+    );
 }
 
 #[tokio::test]

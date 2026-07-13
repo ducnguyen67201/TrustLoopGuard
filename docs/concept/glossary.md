@@ -201,7 +201,7 @@ A tenant-scoped authorization boundary for a specific financial task. A mandate 
 
 ### Approval fingerprint
 
-A versioned, server-computed SHA-256 identity for the stable semantic fields of a held [Financial action](#financial-action). Fingerprint v1 binds principal, action kind, operation, rail, currency, counterparty identity, and normalized x402 destination fields while leaving amount to an explicit mandate cap. The approval queue can turn a reviewed fingerprint into a time-bounded reusable mandate; future actions receive that mandate only when both the fingerprint and the full scope match.
+A versioned, server-computed SHA-256 identity for the stable semantic fields of a held [Financial action](#financial-action). Fingerprint v1 binds principal, action kind, operation, rail, currency, counterparty identity, and normalized x402 destination fields while leaving amount to an explicit mandate cap. The approval queue can turn a reviewed fingerprint into a time-bounded reusable mandate; future actions receive that mandate only when both the fingerprint and the full scope match. Reuse removes only the repeated human-review gate. Current mandate validity, hard policy, eligibility, and live ledger budget are still checked and the individual action's budget is atomically reserved before execution.
 
 ### Payment mandate scope
 
