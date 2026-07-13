@@ -6,6 +6,7 @@ import {
   initializeMarketingPostHog,
   type PostHogBrowserClient,
 } from './posthog';
+import { trackMarketingEvent } from './gtm';
 
 interface InitCall {
   token: string;
@@ -17,7 +18,7 @@ interface InitCall {
 
 interface CaptureCall {
   event: string;
-  properties?: Record<string, string>;
+  properties: Record<string, string | undefined> | undefined;
 }
 
 function fakeClient() {
@@ -91,6 +92,28 @@ test('captures the existing typed marketing event and its funnel properties', ()
         location: 'header',
         label: 'Book a demo',
       },
+    },
+  ]);
+});
+
+test('sends one marketing interaction to both GTM and PostHog', () => {
+  const { client, captureCalls } = fakeClient();
+  const browser = { dataLayer: [] as Array<Record<string, string>> };
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: browser });
+
+  trackMarketingEvent(
+    'docs_click',
+    { page: '/', location: 'footer', label: 'Documentation' },
+    client,
+  );
+
+  assert.deepEqual(browser.dataLayer, [
+    { event: 'docs_click', page: '/', location: 'footer', label: 'Documentation' },
+  ]);
+  assert.deepEqual(captureCalls, [
+    {
+      event: 'docs_click',
+      properties: { page: '/', location: 'footer', label: 'Documentation' },
     },
   ]);
 });
