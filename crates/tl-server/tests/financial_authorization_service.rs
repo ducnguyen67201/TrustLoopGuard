@@ -679,6 +679,116 @@ async fn service_blocks_financial_action_when_weekly_ledger_window_exceeds_cap()
 }
 
 #[tokio::test]
+async fn service_rechecks_budget_before_approving_a_stale_proposal() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    policy_store
+        .upsert_family(
+            "ws_finance",
+            "production",
+            &financial_policy(Some(10_000), None),
+            "family: financial",
+        )
+        .await
+        .unwrap();
+    let service = FinancialAuthorizationService::with_policy_store(
+        Arc::new(MemoryFinancialStore::new()),
+        policy_store,
+    );
+
+    let stale = service
+        .create_action_in_environment(
+            "ws_finance",
+            "production",
+            refund_request("idem-stale-proposal", 2_500),
+        )
+        .await
+        .unwrap();
+    assert_eq!(stale.status, FinancialActionStatus::Proposed);
+
+    let spent = service
+        .create_action_in_environment(
+            "ws_finance",
+            "production",
+            executable_refund_request("idem-fill-daily-budget", 10_000),
+        )
+        .await
+        .unwrap();
+    assert_eq!(spent.status, FinancialActionStatus::Executed);
+
+    let stale = service
+        .approve_action("ws_finance", &stale.id)
+        .await
+        .unwrap();
+
+    assert_eq!(stale.status, FinancialActionStatus::Denied);
+    assert_eq!(
+        stale.status_reason.as_deref(),
+        Some("financial policy `refund-ledger-caps`: daily spend would exceed cap 10000")
+    );
+}
+
+#[tokio::test]
+async fn service_serializes_concurrent_reservations_against_the_daily_cap() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    policy_store
+        .upsert_family(
+            "ws_finance",
+            "production",
+            &financial_policy(Some(2_500), None),
+            "family: financial",
+        )
+        .await
+        .unwrap();
+    // This wrapper intentionally returns the same stale read to both callers.
+    // The store-level reserve operation must remain authoritative.
+    let store = Arc::new(SpendAwareStore::default());
+    let service = FinancialAuthorizationService::with_policy_store(store.clone(), policy_store);
+
+    let (first, second) = tokio::join!(
+        service.create_action_in_environment(
+            "ws_finance",
+            "production",
+            executable_refund_request("idem-concurrent-budget-a", 2_500),
+        ),
+        service.create_action_in_environment(
+            "ws_finance",
+            "production",
+            executable_refund_request("idem-concurrent-budget-b", 2_500),
+        )
+    );
+    let statuses = [first.unwrap().status, second.unwrap().status];
+
+    assert_eq!(
+        statuses
+            .iter()
+            .filter(|status| **status == FinancialActionStatus::Executed)
+            .count(),
+        1
+    );
+    assert_eq!(
+        statuses
+            .iter()
+            .filter(|status| **status == FinancialActionStatus::Denied)
+            .count(),
+        1
+    );
+    assert_eq!(
+        store
+            .inner
+            .net_spend_minor(
+                "ws_finance",
+                "refund-bot",
+                "USD",
+                Utc::now() - Duration::minutes(5),
+                Utc::now() + Duration::minutes(5),
+            )
+            .await
+            .unwrap(),
+        2_500
+    );
+}
+
+#[tokio::test]
 async fn service_holds_when_required_financial_evidence_is_missing() {
     let policy_store = Arc::new(MemoryPolicyStore::new());
     let mut policy = financial_policy(None, None);
@@ -1469,6 +1579,73 @@ async fn reusable_approval_binds_a_fingerprint_and_auto_attaches_the_latest_mand
         .await
         .unwrap();
     assert!(after_revoke.action.mandate.is_none());
+}
+
+#[tokio::test]
+async fn reusable_approval_does_not_bypass_the_live_ledger_budget() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    policy_store
+        .upsert_family(
+            "ws_finance",
+            "production",
+            &financial_policy(Some(10_000), None),
+            "family: financial",
+        )
+        .await
+        .unwrap();
+    let service = FinancialAuthorizationService::with_policy_store(
+        Arc::new(MemoryFinancialStore::new()),
+        policy_store,
+    );
+    let source = service
+        .create_action("ws_finance", refund_request("idem-reuse-budget-source", 2_500))
+        .await
+        .unwrap();
+    let held = service
+        .hold_action(
+            "ws_finance",
+            &source.id,
+            ApprovalRequirement {
+                required: true,
+                approver_roles: vec!["finance_admin".into()],
+                reason: "review first matching refund".into(),
+                expires_at: None,
+            },
+        )
+        .await
+        .unwrap();
+    let envelope = service
+        .get_approval_envelope("ws_finance", &held.id)
+        .await
+        .unwrap();
+    service
+        .approve_matching_actions_as(
+            "ws_finance",
+            &held.id,
+            Some("finance-admin-1"),
+            ApproveMatchingFinancialActionsRequest {
+                action_fingerprint: envelope.action_fingerprint,
+                max_amount_minor: 10_000,
+                expires_at: (Utc::now() + Duration::hours(1)).to_rfc3339(),
+            },
+        )
+        .await
+        .unwrap();
+
+    let matching = service
+        .create_action(
+            "ws_finance",
+            executable_refund_request("idem-reuse-budget-match", 8_000),
+        )
+        .await
+        .unwrap();
+
+    assert!(matching.action.mandate.is_some());
+    assert_eq!(matching.status, FinancialActionStatus::Denied);
+    assert_eq!(
+        matching.status_reason.as_deref(),
+        Some("financial policy `refund-ledger-caps`: daily spend would exceed cap 10000")
+    );
 }
 
 #[tokio::test]
