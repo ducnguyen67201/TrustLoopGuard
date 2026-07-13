@@ -58,6 +58,12 @@ service independently authenticates every mutation and caps the total number of 
 multiple marketing instances share one launch budget. If the refund service itself is scaled beyond
 one instance, replace that central in-process budget with a shared durable limiter first.
 
+The marketing edge permits 10 runs per platform-reported client address in a rolling 24-hour window.
+That visitor counter is process-local: it resets when the marketing process restarts and is not shared
+between replicas. Use a shared rate-limit store before scaling the marketing app beyond one instance
+or when an exact daily quota is required. The refund service separately retains its 60-run global
+circuit breaker per 10-minute window.
+
 The deployed refund-agent service must read a production-scoped `TL_API_KEY` from Doppler and set
 `TL_SERVER_URL=https://api.gettrustloop.app`. The Rust `/v1` API lives on `api.gettrustloop.app`;
 `https://app.gettrustloop.app` is the authenticated dashboard and is used only for held-action review

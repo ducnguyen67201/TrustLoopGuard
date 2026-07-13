@@ -106,6 +106,27 @@ Live verification moved action `019f5d6a-f57d-7c23-ada2-acc821b332ea` from held 
 executed and returned Stripe test refund `re_3TsrYd730BwJXVLd00yeIDwD` through the public status
 route.
 
+## Daily visitor throttle
+
+As an anonymous demo visitor, I can run at most 10 expensive refund workflows in a rolling 24-hour
+window, limiting launch cost without requiring an account. The platform-provided client address is
+the visitor identity; spoofable forwarding values do not override a platform-owned address.
+
+RED checkpoint `44880ec7` changed the contract to expect 10 successful responses followed by a
+`429`. Against the old implementation, requests 5 through 11 returned `429`, proving the previous
+4-per-10-minute limit was still active. GREEN checkpoint `07e5a925` changes the edge window to 24
+hours and the visitor maximum to 10. `pnpm test:refund-demo` passes all 24 tests and verifies that the
+eleventh request is blocked, a request succeeds after the 24-hour boundary, and spoofed forwarded
+addresses cannot create extra quota behind a trusted platform header.
+
+Focused Node coverage for the proxy route and public contract is 94.62% lines, 72.34% branches, and
+87.5% functions; `route.ts` itself is 91.3% line covered.
+
+The visitor counter is intentionally process-local for the single-instance launch deployment. It
+resets on process restart and is not an exact cross-replica quota; a shared limiter is required before
+multi-instance deployment. The authenticated refund service retains its separate 60-run global
+circuit breaker per 10-minute window.
+
 ## Live integration evidence
 
 The local Product Hunt route was exercised through the same-origin marketing proxy with Doppler
