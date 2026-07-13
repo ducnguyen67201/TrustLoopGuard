@@ -4,6 +4,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
+use chrono::{Duration, Utc};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tl_engine::Engine;
@@ -561,7 +562,25 @@ async fn payment_http_execute_uses_vaulted_provider_and_records_proof() {
         .unwrap();
     assert_eq!(receipt.status(), StatusCode::OK);
     let receipt = json_body(receipt).await;
-    assert_eq!(receipt["ledger_event_ids"].as_array().unwrap().len(), 1);
+    let ledger_event_ids = receipt["ledger_event_ids"].as_array().unwrap();
+    assert_eq!(ledger_event_ids.len(), 2);
+    assert_ne!(ledger_event_ids[0], ledger_event_ids[1]);
+    assert_eq!(
+        receipt["proof"]["ledger_event_ids"],
+        receipt["ledger_event_ids"]
+    );
+    let net_spend = state
+        .financial_store
+        .net_spend_minor(
+            "ws_finance",
+            "payment-bot",
+            "USD",
+            Utc::now() - Duration::minutes(5),
+            Utc::now() + Duration::minutes(5),
+        )
+        .await
+        .unwrap();
+    assert_eq!(net_spend, 4_000);
     assert_eq!(receipt["proof"]["provider"]["reference"], json!("pay_123"));
     assert_eq!(
         receipt["proof"]["provider"]["response"]["status"],

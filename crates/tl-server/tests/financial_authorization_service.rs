@@ -1690,6 +1690,160 @@ async fn reusable_approval_binds_a_fingerprint_and_auto_attaches_the_latest_mand
 }
 
 #[tokio::test]
+async fn reusable_approval_does_not_mint_authority_when_live_mandate_denies_source() {
+    let service = service();
+    let source_mandate = service
+        .create_mandate("ws_finance", mandate_request("refund-bot"))
+        .await
+        .unwrap();
+    let action = service
+        .create_action(
+            "ws_finance",
+            refund_request_with_mandate(
+                "idem-reuse-denied-source",
+                7_500,
+                &source_mandate.id,
+            ),
+        )
+        .await
+        .unwrap();
+    let held = service
+        .hold_action(
+            "ws_finance",
+            &action.id,
+            ApprovalRequirement {
+                required: true,
+                approver_roles: vec!["finance_admin".into()],
+                reason: "review matching refunds".into(),
+                expires_at: None,
+            },
+        )
+        .await
+        .unwrap();
+    let envelope = service
+        .get_approval_envelope("ws_finance", &held.id)
+        .await
+        .unwrap();
+    service
+        .revoke_mandate("ws_finance", &source_mandate.id)
+        .await
+        .unwrap();
+
+    let error = service
+        .approve_matching_actions_as(
+            "ws_finance",
+            &held.id,
+            Some("finance-admin-1"),
+            ApproveMatchingFinancialActionsRequest {
+                action_fingerprint: envelope.action_fingerprint,
+                max_amount_minor: 10_000,
+                expires_at: (Utc::now() + Duration::hours(1)).to_rfc3339(),
+            },
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, FinancialStoreError::Conflict));
+    assert_eq!(
+        service
+            .get_action("ws_finance", &held.id)
+            .await
+            .unwrap()
+            .status,
+        FinancialActionStatus::Denied
+    );
+    assert!(service
+        .list_mandates("ws_finance")
+        .await
+        .unwrap()
+        .mandates
+        .iter()
+        .all(|mandate| mandate.metadata["mode"] != "approval_reuse"));
+}
+
+#[tokio::test]
+async fn reusable_approval_auto_attaches_to_matching_x402_authorizations() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    let mut policy = financial_policy(Some(10_000), None);
+    if let FamilyPolicy::Financial(financial) = &mut policy {
+        financial.when.agents = vec!["spid:pay-agent".into()];
+        financial.when.action_kinds = vec![FinancialActionKind::Payment];
+        financial.when.operations = vec!["x402_resource_payment".into()];
+        financial.when.rails = vec![FinancialRail::X402];
+        financial.approval_threshold_minor = Some(100);
+    }
+    policy_store
+        .upsert_family("ws_finance", "prod", &policy, "family: financial")
+        .await
+        .unwrap();
+    let service = FinancialAuthorizationService::with_policy_store(
+        Arc::new(MemoryFinancialStore::new()),
+        policy_store,
+    );
+    let source = service
+        .authorize_agentic_payment_in_environment(
+            "ws_finance",
+            "prod",
+            None,
+            x402_authorize_request(
+                "x402-reuse-source",
+                "session-reuse-source",
+                700,
+                2_000,
+                "/article/reusable",
+            ),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source.record.action.status, FinancialActionStatus::Held);
+    let envelope = service
+        .get_approval_envelope("ws_finance", &source.record.id)
+        .await
+        .unwrap();
+    let reusable = service
+        .approve_matching_actions_as(
+            "ws_finance",
+            &source.record.id,
+            Some("finance-admin-1"),
+            ApproveMatchingFinancialActionsRequest {
+                action_fingerprint: envelope.action_fingerprint,
+                max_amount_minor: 800,
+                expires_at: (Utc::now() + Duration::hours(1)).to_rfc3339(),
+            },
+        )
+        .await
+        .unwrap();
+
+    let matching = service
+        .authorize_agentic_payment_in_environment(
+            "ws_finance",
+            "prod",
+            None,
+            x402_authorize_request(
+                "x402-reuse-match",
+                "session-reuse-match",
+                600,
+                2_000,
+                "/article/reusable",
+            ),
+        )
+        .await
+        .unwrap();
+
+    assert!(matching.signable);
+    assert_eq!(
+        matching
+            .record
+            .action
+            .action
+            .mandate
+            .as_ref()
+            .map(|mandate| mandate.id.as_str()),
+        Some(reusable.mandate.id.as_str())
+    );
+}
+
+#[tokio::test]
 async fn reusable_approval_does_not_bypass_the_live_ledger_budget() {
     let policy_store = Arc::new(MemoryPolicyStore::new());
     policy_store
