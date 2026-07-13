@@ -7,8 +7,9 @@ import {
   type PostHogBrowserClient,
 } from './posthog';
 
-function fakeClient(distinctId = 'anonymous-id') {
+function fakeClient(distinctId = 'anonymous-id', loaded = true) {
   return {
+    __loaded: loaded,
     init: vi.fn<PostHogBrowserClient['init']>(),
     register: vi.fn<PostHogBrowserClient['register']>(),
     identify: vi.fn<PostHogBrowserClient['identify']>(),
@@ -74,11 +75,32 @@ describe('dashboard PostHog integration', () => {
     expect(client.identify).not.toHaveBeenCalled();
   });
 
+  it('does not identify when PostHog is uninitialized', () => {
+    const client = fakeClient('anonymous-id', false);
+
+    identifyPostHogUser(client, {
+      id: 'user_123',
+      name: 'Ada Lovelace',
+      email: 'ada@example.com',
+    });
+
+    expect(client.get_distinct_id).not.toHaveBeenCalled();
+    expect(client.identify).not.toHaveBeenCalled();
+  });
+
   it('resets browser identity during sign out', () => {
     const client = fakeClient('user_123');
 
     resetPostHogIdentity(client);
 
     expect(client.reset).toHaveBeenCalledOnce();
+  });
+
+  it('does not reset an uninitialized PostHog client', () => {
+    const client = fakeClient('anonymous-id', false);
+
+    resetPostHogIdentity(client);
+
+    expect(client.reset).not.toHaveBeenCalled();
   });
 });
