@@ -735,6 +735,64 @@ async fn service_rechecks_budget_before_approving_a_stale_proposal() {
 }
 
 #[tokio::test]
+async fn service_rechecks_hard_policy_immediately_before_execution() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    let store = Arc::new(MemoryFinancialStore::new());
+    let service =
+        FinancialAuthorizationService::with_policy_store(store.clone(), policy_store.clone());
+    let proposed = service
+        .create_action(
+            "ws_finance",
+            refund_request("idem-policy-change-before-execute", 2_500),
+        )
+        .await
+        .unwrap();
+    let authorized = service
+        .approve_action("ws_finance", &proposed.id)
+        .await
+        .unwrap();
+    assert_eq!(authorized.status, FinancialActionStatus::Authorized);
+
+    let mut tightened = financial_policy(None, None);
+    if let FamilyPolicy::Financial(financial) = &mut tightened {
+        financial.per_transaction_minor = Some(1_000);
+    }
+    policy_store
+        .upsert_family(
+            "ws_finance",
+            "production",
+            &tightened,
+            "family: financial",
+        )
+        .await
+        .unwrap();
+
+    let denied = service
+        .execute_action("ws_finance", &authorized.id)
+        .await
+        .unwrap();
+
+    assert_eq!(denied.status, FinancialActionStatus::Denied);
+    assert_eq!(
+        denied.status_reason.as_deref(),
+        Some("financial policy `refund-ledger-caps`: amount 2500 over per-transaction cap 1000")
+    );
+    assert_eq!(
+        store
+            .net_spend_minor(
+                "ws_finance",
+                "refund-bot",
+                "USD",
+                Utc::now() - Duration::minutes(5),
+                Utc::now() + Duration::minutes(5),
+            )
+            .await
+            .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
 async fn service_serializes_concurrent_reservations_against_the_daily_cap() {
     let policy_store = Arc::new(MemoryPolicyStore::new());
     policy_store
