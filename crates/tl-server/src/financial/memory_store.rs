@@ -10,12 +10,13 @@ use tl_core::{
     FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
     FinancialReceipt, MoneyAmount,
 };
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
 use super::{
     validation::{is_valid_transition, validate_create_action},
-    AgenticPaymentBudgetReservationRequest, FinancialLedgerEntryKind, FinancialStore,
-    FinancialStoreError,
+    AgenticPaymentBudgetReservationRequest, FinancialBudgetReservationOutcome,
+    FinancialBudgetReservationRequest, FinancialBudgetViolation, FinancialBudgetWindow,
+    FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
 };
 
 #[derive(Debug, Default)]
@@ -28,6 +29,7 @@ pub struct MemoryFinancialStore {
     outcomes: RwLock<HashMap<String, Vec<FinancialActionOutcome>>>,
     ledger_entries: RwLock<HashMap<String, MemoryLedgerEntry>>,
     ledger_idempotency: RwLock<HashMap<String, String>>,
+    action_budget_lock: Mutex<()>,
     agentic_payments: RwLock<MemoryAgenticPayments>,
 }
 
@@ -538,6 +540,102 @@ impl FinancialStore for MemoryFinancialStore {
             })
             .map(|entry| signed_ledger_amount(entry.kind, entry.amount_minor))
             .sum())
+    }
+
+    async fn try_reserve_action_budget(
+        &self,
+        request: FinancialBudgetReservationRequest,
+    ) -> Result<FinancialBudgetReservationOutcome, FinancialStoreError> {
+        let _guard = self.action_budget_lock.lock().await;
+        let FinancialBudgetReservationRequest {
+            workspace_id,
+            action_id,
+            principal_id,
+            amount,
+            idempotency_key,
+            day_start,
+            week_start,
+            month_start,
+            now,
+            constraints,
+            metadata,
+        } = request;
+        let existing_key = key(&workspace_id, idempotency_key.trim());
+        if let Some(entry_id) = self
+            .ledger_idempotency
+            .read()
+            .await
+            .get(&existing_key)
+            .cloned()
+        {
+            return Ok(FinancialBudgetReservationOutcome::Reserved {
+                ledger_entry_id: entry_id,
+                violations: vec![],
+            });
+        }
+        let action = self.get_action(&workspace_id, &action_id).await?;
+        let currency = clean_required("currency", &amount.currency)?.to_uppercase();
+        if action.action.principal_id != principal_id
+            || action.action.amount.amount_minor != amount.amount_minor
+            || !action
+                .action
+                .amount
+                .currency
+                .eq_ignore_ascii_case(&currency)
+        {
+            return Err(FinancialStoreError::Conflict);
+        }
+
+        let entries = self.ledger_entries.read().await;
+        let mut violations = Vec::new();
+        for constraint in constraints {
+            let start = match constraint.window {
+                FinancialBudgetWindow::Day => day_start,
+                FinancialBudgetWindow::Week => week_start,
+                FinancialBudgetWindow::Month => month_start,
+            };
+            let committed_minor = entries
+                .values()
+                .filter(|entry| {
+                    entry.workspace_id == workspace_id
+                        && entry.principal_id == principal_id
+                        && entry.currency == currency
+                        && entry.effective_at >= start
+                        && entry.effective_at < now
+                })
+                .map(|entry| signed_ledger_amount(entry.kind, entry.amount_minor))
+                .sum::<i64>();
+            if committed_minor.saturating_add(amount.amount_minor) > constraint.cap_minor {
+                violations.push(FinancialBudgetViolation {
+                    policy_id: constraint.policy_id,
+                    window: constraint.window,
+                    cap_minor: constraint.cap_minor,
+                    committed_minor,
+                    requested_minor: amount.amount_minor,
+                    block_on_breach: constraint.block_on_breach,
+                });
+            }
+        }
+        drop(entries);
+        if violations.iter().any(|violation| violation.block_on_breach) {
+            return Ok(FinancialBudgetReservationOutcome::Denied { violations });
+        }
+
+        let ledger_entry_id = self
+            .record_ledger_entry(
+                &workspace_id,
+                &action_id,
+                FinancialLedgerEntryKind::Reserved,
+                amount.amount_minor,
+                &currency,
+                &idempotency_key,
+                metadata,
+            )
+            .await?;
+        Ok(FinancialBudgetReservationOutcome::Reserved {
+            ledger_entry_id,
+            violations,
+        })
     }
 
     async fn try_reserve_agentic_payment_budget(

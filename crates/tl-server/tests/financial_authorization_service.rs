@@ -20,8 +20,8 @@ use tl_core::{
 use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
 use tl_server::{
     AgenticPaymentBudgetReservationRequest, FinancialAuthorizationService,
-    FinancialLedgerEntryKind, FinancialStore, FinancialStoreError, MemoryFinancialStore,
-    MemoryPolicyStore, PolicyStore,
+    FinancialBudgetReservationOutcome, FinancialBudgetReservationRequest, FinancialLedgerEntryKind,
+    FinancialStore, FinancialStoreError, MemoryFinancialStore, MemoryPolicyStore, PolicyStore,
 };
 
 fn refund_request(idempotency_key: &str, amount_minor: i64) -> CreateFinancialActionRequest {
@@ -361,6 +361,13 @@ impl FinancialStore for SpendAwareStore {
         } else {
             Ok(self.spent_month_minor)
         }
+    }
+
+    async fn try_reserve_action_budget(
+        &self,
+        request: FinancialBudgetReservationRequest,
+    ) -> Result<FinancialBudgetReservationOutcome, FinancialStoreError> {
+        self.inner.try_reserve_action_budget(request).await
     }
 }
 
@@ -1118,7 +1125,7 @@ async fn service_execute_true_authorizes_executes_and_records_ledger_receipt() {
         .await
         .unwrap();
     assert_eq!(receipt.action_id, executed.id);
-    assert_eq!(receipt.ledger_event_ids.len(), 1);
+    assert_eq!(receipt.ledger_event_ids.len(), 2);
     assert_eq!(receipt.proof["ledger_source"], "financial_ledger_entries");
     let spend = store
         .net_spend_minor(
@@ -1598,7 +1605,10 @@ async fn reusable_approval_does_not_bypass_the_live_ledger_budget() {
         policy_store,
     );
     let source = service
-        .create_action("ws_finance", refund_request("idem-reuse-budget-source", 2_500))
+        .create_action(
+            "ws_finance",
+            refund_request("idem-reuse-budget-source", 2_500),
+        )
         .await
         .unwrap();
     let held = service

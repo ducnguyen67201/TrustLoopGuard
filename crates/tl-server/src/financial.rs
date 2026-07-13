@@ -72,6 +72,57 @@ pub struct AgenticPaymentBudgetReservationRequest {
     pub metadata: serde_json::Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FinancialBudgetWindow {
+    Day,
+    Week,
+    Month,
+}
+
+#[derive(Debug, Clone)]
+pub struct FinancialBudgetConstraint {
+    pub policy_id: String,
+    pub window: FinancialBudgetWindow,
+    pub cap_minor: i64,
+    pub block_on_breach: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct FinancialBudgetReservationRequest {
+    pub workspace_id: String,
+    pub action_id: String,
+    pub principal_id: String,
+    pub amount: MoneyAmount,
+    pub idempotency_key: String,
+    pub day_start: DateTime<Utc>,
+    pub week_start: DateTime<Utc>,
+    pub month_start: DateTime<Utc>,
+    pub now: DateTime<Utc>,
+    pub constraints: Vec<FinancialBudgetConstraint>,
+    pub metadata: serde_json::Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FinancialBudgetViolation {
+    pub policy_id: String,
+    pub window: FinancialBudgetWindow,
+    pub cap_minor: i64,
+    pub committed_minor: i64,
+    pub requested_minor: i64,
+    pub block_on_breach: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FinancialBudgetReservationOutcome {
+    Reserved {
+        ledger_entry_id: String,
+        violations: Vec<FinancialBudgetViolation>,
+    },
+    Denied {
+        violations: Vec<FinancialBudgetViolation>,
+    },
+}
+
 #[async_trait]
 pub trait FinancialStore: Send + Sync {
     async fn create_action(
@@ -211,6 +262,11 @@ pub trait FinancialStore: Send + Sync {
     ) -> Result<i64, FinancialStoreError> {
         Ok(0)
     }
+
+    async fn try_reserve_action_budget(
+        &self,
+        request: FinancialBudgetReservationRequest,
+    ) -> Result<FinancialBudgetReservationOutcome, FinancialStoreError>;
 
     async fn try_reserve_agentic_payment_budget(
         &self,

@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::financial::{FinancialLedgerEntryKind, FinancialStore, FinancialStoreError};
+use crate::financial::{
+    FinancialBudgetReservationOutcome, FinancialBudgetReservationRequest, FinancialBudgetViolation,
+    FinancialBudgetWindow, FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
+};
 
 pub struct PostgresFinancialAdapter(pub Arc<tl_storage::FinancialRepo>);
 
@@ -307,6 +310,57 @@ impl FinancialStore for PostgresFinancialAdapter {
             .map_err(financial_store_error)
     }
 
+    async fn try_reserve_action_budget(
+        &self,
+        request: FinancialBudgetReservationRequest,
+    ) -> Result<FinancialBudgetReservationOutcome, FinancialStoreError> {
+        self.0
+            .reserve_action_budget(tl_storage::ReserveFinancialActionBudgetRequest {
+                workspace_id: request.workspace_id,
+                action_id: request.action_id,
+                principal_id: request.principal_id,
+                amount: request.amount,
+                idempotency_key: request.idempotency_key,
+                day_start: request.day_start,
+                week_start: request.week_start,
+                month_start: request.month_start,
+                now: request.now,
+                constraints: request
+                    .constraints
+                    .into_iter()
+                    .map(|constraint| tl_storage::FinancialBudgetConstraint {
+                        policy_id: constraint.policy_id,
+                        window: storage_budget_window(constraint.window),
+                        cap_minor: constraint.cap_minor,
+                        block_on_breach: constraint.block_on_breach,
+                    })
+                    .collect(),
+                metadata: request.metadata,
+            })
+            .await
+            .map(|outcome| match outcome {
+                tl_storage::ReserveFinancialActionBudgetResult::Reserved {
+                    ledger_entry_id,
+                    violations,
+                } => FinancialBudgetReservationOutcome::Reserved {
+                    ledger_entry_id,
+                    violations: violations
+                        .into_iter()
+                        .map(server_budget_violation)
+                        .collect(),
+                },
+                tl_storage::ReserveFinancialActionBudgetResult::Denied { violations } => {
+                    FinancialBudgetReservationOutcome::Denied {
+                        violations: violations
+                            .into_iter()
+                            .map(server_budget_violation)
+                            .collect(),
+                    }
+                }
+            })
+            .map_err(financial_store_error)
+    }
+
     async fn try_reserve_agentic_payment_budget(
         &self,
         request: crate::financial::AgenticPaymentBudgetReservationRequest,
@@ -370,6 +424,31 @@ fn storage_ledger_kind(kind: FinancialLedgerEntryKind) -> tl_storage::FinancialL
         FinancialLedgerEntryKind::Released => tl_storage::FinancialLedgerEntryKind::Released,
         FinancialLedgerEntryKind::Executed => tl_storage::FinancialLedgerEntryKind::Executed,
         FinancialLedgerEntryKind::Reversed => tl_storage::FinancialLedgerEntryKind::Reversed,
+    }
+}
+
+fn storage_budget_window(window: FinancialBudgetWindow) -> tl_storage::FinancialBudgetWindow {
+    match window {
+        FinancialBudgetWindow::Day => tl_storage::FinancialBudgetWindow::Day,
+        FinancialBudgetWindow::Week => tl_storage::FinancialBudgetWindow::Week,
+        FinancialBudgetWindow::Month => tl_storage::FinancialBudgetWindow::Month,
+    }
+}
+
+fn server_budget_violation(
+    violation: tl_storage::FinancialBudgetViolation,
+) -> FinancialBudgetViolation {
+    FinancialBudgetViolation {
+        policy_id: violation.policy_id,
+        window: match violation.window {
+            tl_storage::FinancialBudgetWindow::Day => FinancialBudgetWindow::Day,
+            tl_storage::FinancialBudgetWindow::Week => FinancialBudgetWindow::Week,
+            tl_storage::FinancialBudgetWindow::Month => FinancialBudgetWindow::Month,
+        },
+        cap_minor: violation.cap_minor,
+        committed_minor: violation.committed_minor,
+        requested_minor: violation.requested_minor,
+        block_on_breach: violation.block_on_breach,
     }
 }
 

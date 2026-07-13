@@ -107,10 +107,11 @@ pub use environment_repo::EnvironmentRepo;
 pub use escalations::{EscalationRepo, EscalationRow};
 #[cfg(feature = "postgres")]
 pub use financial_repo::{
+    FinancialBudgetConstraint, FinancialBudgetViolation, FinancialBudgetWindow,
     FinancialLedgerEntryKind, FinancialRepo, ReserveAgenticPaymentBudgetRequest,
-    StoredFinancialAction, StoredFinancialActionEvent, StoredFinancialActionOutcome,
-    StoredFinancialApprovalRequest, StoredFinancialLedgerEntry, StoredFinancialMandate,
-    StoredFinancialReceipt,
+    ReserveFinancialActionBudgetRequest, ReserveFinancialActionBudgetResult, StoredFinancialAction,
+    StoredFinancialActionEvent, StoredFinancialActionOutcome, StoredFinancialApprovalRequest,
+    StoredFinancialLedgerEntry, StoredFinancialMandate, StoredFinancialReceipt,
 };
 #[cfg(feature = "postgres")]
 pub use gateway_repo::{
