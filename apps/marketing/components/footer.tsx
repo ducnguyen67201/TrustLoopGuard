@@ -87,7 +87,23 @@ export function Footer() {
             <img src="/trustloop-logo.svg" alt="" aria-hidden="true" className="wordmark-logo" />
             <span>TrustLoopGuard</span>
           </div>
-          <p>Runtime control for production AI agents.</p>
+          <div className="footer-intro-aside">
+            <p>Runtime control for production AI agents.</p>
+            <a
+              href="https://www.producthunt.com/products/trustloopguard?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-trustloopguard"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="product-hunt-badge"
+              aria-label="View TrustLoopGuard on Product Hunt"
+            >
+              <img
+                src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1195728&theme=light&t=1783984627137"
+                alt="TrustLoopGuard - Control AI agents before irreversible actions | Product Hunt"
+                width="250"
+                height="54"
+              />
+            </a>
+          </div>
         </div>
         <div className="grid gap-9 lg:grid-cols-[1fr_22rem]">
           <nav
