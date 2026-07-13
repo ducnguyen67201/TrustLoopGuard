@@ -114,12 +114,13 @@ input {
 .site-nav-links {
   display: none;
   align-items: center;
-  gap: 1.75rem;
+  gap: clamp(0.8rem, 1.5vw, 1.75rem);
   margin: 0;
   padding: 0;
   list-style: none;
   color: var(--color-muted);
   font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 .site-nav-links a {

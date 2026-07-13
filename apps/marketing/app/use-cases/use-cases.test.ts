@@ -63,6 +63,13 @@ test('the navigation dropdown exposes the overview and every detail page', () =>
   ]);
 });
 
+test('the main navigation links to the demo inside the marketing app', () => {
+  const component = readFileSync(new URL('../../components/nav.tsx', import.meta.url), 'utf8');
+
+  assert.match(component, /<Link href="\/demo">Demo<\/Link>/);
+  assert.doesNotMatch(component, /href="https:\/\/gettrustloop\.app\/demo"/);
+});
+
 test('the navigation mega-menu separates the overview from its four use-case columns', () => {
   assert.deepEqual(USE_CASE_NAV_GROUPS.overview, USE_CASE_NAV_ITEMS[0]);
   assert.deepEqual(
