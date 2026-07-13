@@ -150,6 +150,117 @@ describe('FinancialActionsContent', () => {
     });
   });
 
+  it('offers reusable approval directly from a held ledger row', async () => {
+    const fingerprint = `sha256:v1:${'b'.repeat(64)}`;
+    const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/approval-envelope')) {
+        return new Response(
+          JSON.stringify({
+            action_id: 'act_held',
+            action_fingerprint: fingerprint,
+            fingerprint_version: 1,
+            principal_id: 'refund-bot',
+            action_kind: 'refund',
+            operation: 'issue_refund',
+            rail: 'payment_http',
+            currency: 'USD',
+            counterparty_id: 'cust_1',
+            current_amount_minor: 7_500,
+            recommended_max_amount_minor: 7_500,
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.includes('/approve-matching')) {
+        const body = JSON.parse(String(init?.body)) as Record<string, string | number>;
+        expect(body['action_fingerprint']).toBe(fingerprint);
+        return new Response(
+          JSON.stringify({
+            action: apiAction('act_held', 'authorized', 7_500),
+            mandate: {
+              id: 'approval-reuse-1',
+              workspace_id: 'ws_1',
+              version: 1,
+              status: 'active',
+              principal_id: 'refund-bot',
+              scope: {},
+              metadata: {},
+              created_at: '2026-07-05T20:00:00Z',
+              updated_at: '2026-07-05T20:00:00Z',
+            },
+            approval_envelope: {
+              action_id: 'act_held',
+              action_fingerprint: fingerprint,
+              fingerprint_version: 1,
+              principal_id: 'refund-bot',
+              action_kind: 'refund',
+              operation: 'issue_refund',
+              rail: 'payment_http',
+              currency: 'USD',
+              counterparty_id: 'cust_1',
+              current_amount_minor: 7_500,
+              recommended_max_amount_minor: 7_500,
+            },
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.includes('/execute')) {
+        return new Response(JSON.stringify(apiAction('act_held', 'executed', 7_500)), {
+          status: 200,
+        });
+      }
+      return new Response(JSON.stringify({ error: 'unexpected' }), { status: 500 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <FinancialActionsContent
+        workspaceSlug="demo"
+        environmentId="production"
+        actions={[action('act_held', 'held', 7_500)]}
+        approvals={[
+          {
+            id: 'approval_1',
+            workspace_id: 'ws_1',
+            action_id: 'act_held',
+            status: 'pending',
+            reason: 'above threshold',
+            approver_roles: [],
+            metadata: {},
+            created_at: '2026-07-05T20:00:00Z',
+            updated_at: '2026-07-05T20:00:00Z',
+          },
+        ]}
+        outcomesByActionId={{}}
+        familyPolicies={[]}
+        mandatesCount={0}
+        mandates={[]}
+        providerConnections={[]}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /approve matching financial actions for act_held/i }),
+    );
+    expect(await screen.findByText(fingerprint)).toBeInTheDocument();
+    expect(screen.getByText(/live available budget/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /approve once and reuse/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/financial/actions/act_held/approve-matching?workspace=demo&environment=production',
+        expect.objectContaining({ method: 'POST' }),
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/financial/actions/act_held/execute?workspace=demo&environment=production',
+        { method: 'POST' },
+      );
+    });
+  });
+
   it('links financial controls to the policy registry', () => {
     render(
       <FinancialActionsContent
