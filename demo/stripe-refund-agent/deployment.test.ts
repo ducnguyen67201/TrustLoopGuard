@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
+import { dirname, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { providerApiKey, providerBaseUrl } from './provider';
 import {
@@ -11,6 +14,16 @@ import {
 
 const PROVIDER_KEY = 'stripe-refund-provider-key-32-bytes-minimum';
 const PROXY_SECRET = 'refund-demo-proxy-secret-32-bytes-minimum';
+
+test('gives the non-root runtime a writable state directory', () => {
+  const dockerfile = readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), 'Dockerfile'),
+    'utf8',
+  );
+  assert.match(dockerfile, /mkdir -p \/app\/demo\/\.data/);
+  assert.match(dockerfile, /chown -R node:node \/app\/demo\/\.data/);
+  assert.ok(dockerfile.indexOf('chown -R node:node') < dockerfile.indexOf('USER node'));
+});
 
 test('accepts Railway host and port configuration', () => {
   assert.equal(refundAgentHost('0.0.0.0'), '0.0.0.0');
