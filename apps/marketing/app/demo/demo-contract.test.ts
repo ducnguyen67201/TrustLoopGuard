@@ -3,8 +3,10 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
+  parseRefundDemoActionId,
   parseRefundDemoPrompt,
   refundDemoServiceUrl,
+  sanitizeRefundDemoStatus,
   sanitizeRefundDemoResponse,
 } from './contract';
 
@@ -74,6 +76,26 @@ test('exposes only the public agent trace, order, refund, and decision fields', 
   assert.equal('logs' in response, false);
 });
 
+test('validates and redacts a public refund action status', () => {
+  const actionId = '019f5d63-f8ca-77c3-ae7f-07b122daa7b3';
+  assert.equal(parseRefundDemoActionId(actionId), actionId);
+  assert.throws(() => parseRefundDemoActionId('not-an-action-id'), /action/i);
+
+  const status = sanitizeRefundDemoStatus({
+    actionId,
+    status: 'executed',
+    orderId: 'ord_demo_1001',
+    amountMinor: 7_500,
+    currency: 'USD',
+    receiptId: actionId,
+    providerReference: 're_test_status_123',
+    updatedAt: '2026-07-13T21:31:00.000Z',
+    paymentIntentId: 'pi_private',
+  });
+  assert.equal(status.providerReference, 're_test_status_123');
+  assert.equal('paymentIntentId' in status, false);
+});
+
 test('the Product Hunt route shows a live chat, the control boundary, and Stripe outcome', () => {
   const page = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
   const demo = readFileSync(new URL('./refund-demo.tsx', import.meta.url), 'utf8');
@@ -83,4 +105,5 @@ test('the Product Hunt route shows a live chat, the control boundary, and Stripe
   assert.match(source, /TrustLoopGuard/i);
   assert.match(source, /Stripe test mode/i);
   assert.match(source, /not a scripted animation/i);
+  assert.match(source, /api\/demo\/refund\?actionId=/i);
 });

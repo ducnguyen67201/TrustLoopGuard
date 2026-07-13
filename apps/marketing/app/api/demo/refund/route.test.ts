@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { POST } from './route';
+import { GET, POST } from './route';
 
 const PROXY_SECRET = 'refund-demo-proxy-secret-32-bytes-minimum';
 const mutableEnv = process.env as Record<string, string | undefined>;
@@ -214,6 +214,39 @@ test('uses the platform-owned client address instead of a spoofable forwarded va
       responses.map((response) => response.status),
       [200, 200, 200, 200, 429],
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('proxies a demo action status without exposing upstream fields', async () => {
+  const originalFetch = globalThis.fetch;
+  const actionId = '019f5d63-f8ca-77c3-ae7f-07b122daa7b3';
+  globalThis.fetch = (async (input, init) => {
+    assert.equal(String(input), `http://127.0.0.1:9310/status/${actionId}`);
+    assert.equal(new Headers(init?.headers).get('authorization'), `Bearer ${PROXY_SECRET}`);
+    return Response.json({
+      actionId,
+      status: 'executed',
+      orderId: 'ord_demo_1001',
+      amountMinor: 7_500,
+      currency: 'USD',
+      receiptId: actionId,
+      providerReference: 're_test_status_123',
+      updatedAt: '2026-07-13T21:31:00.000Z',
+      internalProof: { paymentIntentId: 'pi_private' },
+    });
+  }) as typeof fetch;
+
+  try {
+    const response = await GET(
+      new Request(`http://localhost/api/demo/refund?actionId=${encodeURIComponent(actionId)}`),
+    );
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.status, 'executed');
+    assert.equal(body.providerReference, 're_test_status_123');
+    assert.equal(body.internalProof, undefined);
   } finally {
     globalThis.fetch = originalFetch;
   }
