@@ -21,6 +21,7 @@ const shell: Pick<
   | 'agents'
 > = {
   user: {
+    id: 'user_1',
     name: 'Duc',
     email: 'duc@example.com',
     avatar: '',

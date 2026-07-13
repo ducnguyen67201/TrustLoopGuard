@@ -57,6 +57,7 @@ function pageData(familyPolicies: FamilyPolicyRow[]): PoliciesPageDataForTest {
 function shellData(): DashboardShellData {
   return {
     user: {
+      id: 'user_1',
       name: 'Duc',
       email: 'duc@example.com',
       avatar: 'D',

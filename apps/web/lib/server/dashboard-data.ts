@@ -25,6 +25,7 @@ import {
 
 export interface DashboardShellData {
   user: {
+    id: string;
     name: string;
     email: string;
     avatar: string;
@@ -1113,6 +1114,7 @@ async function buildDashboardShell(
 
   return {
     user: {
+      id: user.id,
       name: user.name,
       email: user.email,
       avatar: user.image,

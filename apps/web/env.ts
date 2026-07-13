@@ -33,6 +33,9 @@ const publicUrlOrPath = z
   .refine((value) => value.startsWith('/') || URL.canParse(value), {
     message: 'Must be an absolute URL or root-relative path',
   });
+const postHogProjectToken = z
+  .string()
+  .regex(/^phc_[A-Za-z0-9]+$/, 'Must be a PostHog project token');
 
 export function checkEnv(): AppEnv {
   const envName = getEnv();
@@ -81,6 +84,8 @@ export const env = createEnv({
     NEXT_PUBLIC_TL_SERVER_URL: z.string().url().default('http://localhost:8080'),
     NEXT_PUBLIC_APP_ENV: appEnvSchema.optional(),
     NEXT_PUBLIC_DOCS_URL: publicUrlOrPath.default(getDocsUrl()),
+    NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: postHogProjectToken.optional(),
+    NEXT_PUBLIC_POSTHOG_HOST: z.url().default('https://us.i.posthog.com'),
   },
   // Next inlines NEXT_PUBLIC_* at build time, so we cannot destructure
   // process.env (the build-time substitution only works on direct
@@ -98,6 +103,8 @@ export const env = createEnv({
     NEXT_PUBLIC_TL_SERVER_URL: process.env['NEXT_PUBLIC_TL_SERVER_URL'],
     NEXT_PUBLIC_APP_ENV: process.env['NEXT_PUBLIC_APP_ENV'],
     NEXT_PUBLIC_DOCS_URL: process.env['NEXT_PUBLIC_DOCS_URL'],
+    NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: process.env['NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN'],
+    NEXT_PUBLIC_POSTHOG_HOST: process.env['NEXT_PUBLIC_POSTHOG_HOST'],
   },
   // Treat empty strings as undefined so a blank .env entry falls back
   // to the schema default instead of failing the URL validator.

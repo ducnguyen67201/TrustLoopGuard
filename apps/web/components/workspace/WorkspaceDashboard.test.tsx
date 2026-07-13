@@ -58,7 +58,7 @@ function makeData(): WorkspaceDashboardData {
     isDefault: true,
   };
   return {
-    user: { name: 'Ada', email: 'ada@example.com', avatar: '' },
+    user: { id: 'user_1', name: 'Ada', email: 'ada@example.com', avatar: '' },
     organization: { id: 'org_1', name: 'Acme', slug: 'acme' },
     activeWorkspace: workspace,
     workspaces: [workspace],

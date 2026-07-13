@@ -27,6 +27,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 | Financial authorization | [financial-authorization.md](financial-authorization.md) | Typed financial actions, financial policies, eligibility evidence, outcomes, and reversal semantics. |
 | Policies | [policies.md](policies.md) | Unified Rust policy registry, policy families, environment deployment, and domain wrappers. |
 | Environments | [environments.md](environments.md) | Runtime keys, policy deployments, runs, traces, and analytics are scoped by environment. |
+| Product usage analytics | [product-analytics.md](product-analytics.md) | PostHog observes marketing and dashboard use without owning guardrail/runtime data. |
 | Policy authoring | [../policies/README.md](../policies/README.md) | YAML policies are validated, saved, evaluated, and then surfaced in traces. |
 | Customer integration | [../INTEGRATION.md](../INTEGRATION.md) | Teams install an SDK, register an agent, write policies, call `guard()`, then tune from traces. |
 
@@ -54,6 +55,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 - Added or changed execution grouping? → update `runs.md`.
 - Changed the SDK release workflow or npm package process? → update `sdk-publishing.md`.
 - Changed the raw-vs-guarded comparison concept or the agent adapter contract? → update `agent-breakaway-arena.md`.
+- Changed PostHog initialization, identity, or product event names? → update `product-analytics.md`.
 
 ## Diagram workflow
 
