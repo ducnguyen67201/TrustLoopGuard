@@ -130,10 +130,6 @@ input {
   color: var(--color-ink);
 }
 
-.nav-demo-compact {
-  display: flex;
-}
-
 .site-nav-dropdown {
   position: static;
 }
@@ -335,7 +331,7 @@ input {
     display: flex;
   }
 
-  .nav-demo-compact {
+  .button-secondary.nav-demo-compact {
     display: none;
   }
 }
