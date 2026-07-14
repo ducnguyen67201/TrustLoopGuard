@@ -130,6 +130,10 @@ input {
   color: var(--color-ink);
 }
 
+.nav-demo-compact {
+  display: flex;
+}
+
 .site-nav-dropdown {
   position: static;
 }
@@ -329,6 +333,10 @@ input {
 @media (min-width: 940px) {
   .site-nav-links {
     display: flex;
+  }
+
+  .nav-demo-compact {
+    display: none;
   }
 }
 
