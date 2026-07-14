@@ -8,5 +8,5 @@ test('the marketing header links to the live demo on desktop and compact layouts
 
   assert.match(desktopNav, /href="\/demo"[^>]*>Demo</);
   assert.match(compactNav, /href="\/demo"/);
-  assert.match(compactNav, /min-\[940px\]:hidden/);
+  assert.match(compactNav, /min-\[940px\]:!hidden/);
 });
