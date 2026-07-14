@@ -348,6 +348,82 @@ diesel::table! {
 }
 
 diesel::table! {
+    github_installation_states (state_hash) {
+        state_hash -> Bytea,
+        workspace_id -> Text,
+        user_id -> Uuid,
+        expires_at -> Timestamptz,
+        consumed_at -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    github_installations (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        installation_id -> Int8,
+        account_login -> Text,
+        account_type -> Text,
+        repository_selection -> Text,
+        status -> Text,
+        installed_by_user_id -> Uuid,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    github_repository_connections (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        installation_id -> Uuid,
+        repository_id -> Int8,
+        owner -> Text,
+        name -> Text,
+        default_branch -> Text,
+        root_path -> Text,
+        agent_id -> Text,
+        environment_id -> Text,
+        status -> Text,
+        recipe_version -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    github_integration_jobs (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        connection_id -> Uuid,
+        status -> Text,
+        risk_statement -> Text,
+        base_branch -> Text,
+        base_sha -> Nullable<Text>,
+        recipe_version -> Text,
+        analysis_summary -> Nullable<Jsonb>,
+        proposed_changes -> Jsonb,
+        manual_steps -> Jsonb,
+        branch_name -> Nullable<Text>,
+        commit_sha -> Nullable<Text>,
+        pull_request_number -> Nullable<Int8>,
+        pull_request_url -> Nullable<Text>,
+        error_code -> Nullable<Text>,
+        error_message -> Nullable<Text>,
+        attempt_count -> Int4,
+        installation_connected_at -> Nullable<Timestamptz>,
+        repository_connected_at -> Nullable<Timestamptz>,
+        analysis_completed_at -> Nullable<Timestamptz>,
+        pr_opened_at -> Nullable<Timestamptz>,
+        pr_merged_at -> Nullable<Timestamptz>,
+        first_verified_trace_at -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     redteam_jobs (workspace_id, id) {
         workspace_id -> Text,
         id -> Uuid,
@@ -718,6 +794,10 @@ diesel::joinable!(counterparties -> workspaces (workspace_id));
 diesel::allow_tables_to_appear_in_same_query!(
     analytics_dashboard_views,
     agents,
+    github_installation_states,
+    github_installations,
+    github_repository_connections,
+    github_integration_jobs,
     workspace_environments,
     policy_environment_deployments,
     policies,

@@ -61,6 +61,17 @@ pub trait TraceStore: Send + Sync {
     ) -> Result<Option<TraceSummary>, TraceStoreError> {
         Ok(None)
     }
+
+    async fn find_github_integration_marker(
+        &self,
+        _workspace_id: &str,
+        _environment_id: &str,
+        _agent_id: &str,
+        _integration_id: &str,
+        _min_created_at: DateTime<Utc>,
+    ) -> Result<Option<TraceSummary>, TraceStoreError> {
+        Ok(None)
+    }
 }
 
 fn verdict_text(v: tl_core::Verdict) -> &'static str {
@@ -181,6 +192,39 @@ impl TraceStore for MemoryTraceStore {
                     && t.summary.trace_id == trace_id
             })
             .map(|t| t.summary.clone()))
+    }
+
+    async fn find_github_integration_marker(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        agent_id: &str,
+        integration_id: &str,
+        min_created_at: DateTime<Utc>,
+    ) -> Result<Option<TraceSummary>, TraceStoreError> {
+        let traces = self.traces.lock().expect("trace store lock");
+        let mut rows = traces
+            .iter()
+            .filter(|trace| {
+                trace.workspace_id == workspace_id
+                    && trace.summary.environment_id == environment_id
+                    && trace.created_at >= min_created_at
+                    && trace
+                        .summary
+                        .payload
+                        .pointer("/event/principal/agent_id")
+                        .and_then(|value| value.as_str())
+                        == Some(agent_id)
+                    && trace
+                        .summary
+                        .payload
+                        .pointer("/event/context/tlg_integration_id")
+                        .and_then(|value| value.as_str())
+                        == Some(integration_id)
+            })
+            .collect::<Vec<_>>();
+        rows.sort_by_key(|trace| trace.created_at);
+        Ok(rows.first().map(|trace| trace.summary.clone()))
     }
 }
 

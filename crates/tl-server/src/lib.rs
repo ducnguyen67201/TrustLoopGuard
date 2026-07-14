@@ -13,6 +13,7 @@ pub mod environments;
 pub mod escalation;
 pub mod financial;
 pub mod gateway;
+pub mod github_integration;
 pub mod human_review;
 pub mod jwt;
 pub mod knowledge_sources;
@@ -55,6 +56,10 @@ pub use financial::{
     MemoryFinancialStore,
 };
 pub use gateway::{build_seal_key, GatewayState, GatewayStore, MemoryGatewayStore};
+pub use github_integration::{
+    GitHubIntegrationState, GitHubIntegrationStore, GitHubIntegrationStoreError,
+    MemoryGitHubIntegrationStore,
+};
 pub use human_review::{HumanReviewStore, HumanReviewStoreError, MemoryHumanReviewStore};
 pub use label_policy::{
     LabelPolicyState, LabelPolicyStore, LabelPolicyStoreError, MemoryLabelPolicyStore,

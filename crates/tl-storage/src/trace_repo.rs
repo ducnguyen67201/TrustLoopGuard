@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
+use diesel::sql_types::Bool;
 use diesel_async::RunQueryDsl;
 use tl_core::HumanReviewOutcome;
 use uuid::Uuid;
@@ -159,6 +160,73 @@ impl TraceRepo {
             .await
             .optional()
             .map_err(|e| StorageError::Internal(format!("trace get: {e}")))?;
+        Ok(row.map(
+            |(
+                trace_id,
+                run_id,
+                run_event_id,
+                session_id,
+                environment_id,
+                domain,
+                decision,
+                elapsed_ms,
+                payload,
+                created_at,
+            )| TraceRow {
+                trace_id,
+                run_id,
+                run_event_id,
+                session_id,
+                environment_id,
+                domain,
+                decision,
+                elapsed_ms,
+                latest_review_outcome: None,
+                latest_reviewed_at: None,
+                payload,
+                created_at,
+            },
+        ))
+    }
+
+    pub async fn find_github_integration_marker(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        agent_id: &str,
+        integration_id: &str,
+        min_created_at: DateTime<Utc>,
+    ) -> Result<Option<TraceRow>, StorageError> {
+        let mut conn = self.connection().await?;
+        let row = traces::table
+            .filter(traces::workspace_id.eq(workspace_id))
+            .filter(traces::environment_id.eq(environment_id))
+            .filter(traces::created_at.ge(min_created_at))
+            .filter(
+                diesel::dsl::sql::<Bool>("(payload #>> '{event,principal,agent_id}') = ")
+                    .bind::<diesel::sql_types::Text, _>(agent_id),
+            )
+            .filter(
+                diesel::dsl::sql::<Bool>("(payload #>> '{event,context,tlg_integration_id}') = ")
+                    .bind::<diesel::sql_types::Text, _>(integration_id),
+            )
+            .select((
+                traces::trace_id,
+                traces::run_id,
+                traces::run_event_id,
+                traces::session_id,
+                traces::environment_id,
+                traces::domain,
+                traces::decision,
+                traces::elapsed_ms,
+                traces::payload,
+                traces::created_at,
+            ))
+            .order(traces::created_at.asc())
+            .first::<TraceReviewLookupRow>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("trace github marker lookup: {e}")))?;
         Ok(row.map(
             |(
                 trace_id,

@@ -50,6 +50,7 @@ That boundary keeps one source of truth:
 2. **Gateway** — provider-compatible proxy endpoints under `/v1/gateway/*`. The customer routes AI traffic through TrustLoopGuard, and the Rust gateway applies the same composed `Decision` as `/v1/events` before returning a provider-shaped response. See [gateway.md](gateway.md).
 3. **Local MCP adapter** — stdio tools in `apps/mcp-server` for agent workbenches and coding assistants. The adapter uses the TypeScript SDK and calls the same Rust `/v1/*` API for guard events, setup, runs, traces, policies, agents, and tool metadata.
 4. **Embedded** — for users who want zero network hop, they pull `tl-engine` directly as a Rust dependency and call `Engine::check(&req)` in-process. Same types, no HTTP.
+5. **GitHub-assisted installation** — a dashboard owner/admin connects a selected GitHub repository to an existing agent/environment and reviews a Rust-generated draft PR that adds the SDK call. It is onboarding control-plane work, not a runtime path; see [github-assisted-installation.md](github-assisted-installation.md).
 
 All runtime paths use the **same engine contracts**. The server crate is a thin axum wrapper around the engine and Rust-owned storage.
 

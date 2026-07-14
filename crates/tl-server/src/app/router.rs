@@ -71,6 +71,7 @@ pub fn router(
         ))
         .merge(route_groups::run_routes(&state))
         .merge(route_groups::redteam_routes(&state))
+        .merge(route_groups::github_integration_routes(&state))
         .merge(route_groups::trace_routes(&state))
         .merge(route_groups::analytics_routes(&state))
         .merge(route_groups::human_review_routes(&state))

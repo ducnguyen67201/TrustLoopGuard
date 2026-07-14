@@ -88,6 +88,51 @@ pub(crate) async fn authorize_workspace_admin(
     Ok((workspace_id, Some(user_id)))
 }
 
+pub(crate) async fn authorize_workspace_admin_for_workspace(
+    team_store: &Arc<dyn TeamStore>,
+    workspace_id: &str,
+    headers: &HeaderMap,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
+    action: &str,
+) -> Result<Uuid, Response> {
+    if runtime_key.is_some() {
+        return Err(api_error_response(
+            StatusCode::FORBIDDEN,
+            ApiErrorCode::Forbidden,
+            format!("workspace runtime keys cannot {action}"),
+        ));
+    }
+
+    let user_id = match user {
+        Some(Extension(ctx)) => ctx.user_id,
+        None if internal.is_some() => match forwarded_user_id(headers) {
+            Some(user_id) => user_id,
+            None => {
+                return Err(api_error_response(
+                    StatusCode::FORBIDDEN,
+                    ApiErrorCode::Forbidden,
+                    format!("signed-in user context is required to {action}"),
+                ));
+            }
+        },
+        None => match forwarded_user_id(headers) {
+            Some(user_id) => user_id,
+            None => {
+                return Err(api_error_response(
+                    StatusCode::UNAUTHORIZED,
+                    ApiErrorCode::Unauthorized,
+                    format!("authenticated user is required to {action}"),
+                ));
+            }
+        },
+    };
+
+    require_admin_role(team_store, workspace_id, user_id, action).await?;
+    Ok(user_id)
+}
+
 async fn require_admin_role(
     team_store: &Arc<dyn TeamStore>,
     workspace_id: &str,

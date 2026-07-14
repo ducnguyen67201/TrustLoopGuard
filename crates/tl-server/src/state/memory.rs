@@ -33,6 +33,9 @@ use crate::financial::MemoryFinancialStore;
 use crate::gateway::GatewayStore;
 use crate::gateway::MemoryGatewayStore;
 #[cfg(not(feature = "postgres"))]
+use crate::github_integration::GitHubIntegrationStore;
+use crate::github_integration::MemoryGitHubIntegrationStore;
+#[cfg(not(feature = "postgres"))]
 use crate::human_review::HumanReviewStore;
 use crate::human_review::MemoryHumanReviewStore;
 #[cfg(not(feature = "postgres"))]
@@ -138,6 +141,8 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         redteam_plan_store: Arc::new(MemoryRedteamPlanStore::new()),
         redteam_report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         redteam_dispatch_tx: None,
+        github_integration_store: Arc::new(MemoryGitHubIntegrationStore::new()),
+        github_integration_tx: None,
     }
 }
 
@@ -171,6 +176,7 @@ pub(super) fn build_memory_layer(
     Arc<dyn RedteamJobStore>,
     Arc<dyn RedteamPlanStore>,
     Arc<dyn RedteamReportShareStore>,
+    Arc<dyn GitHubIntegrationStore>,
 ) {
     let mem = Arc::new(MemoryAgentStore::new());
     let tool_metadata = Arc::new(MemoryToolMetadataStore::new());
@@ -201,6 +207,7 @@ pub(super) fn build_memory_layer(
         Arc::new(MemoryRedteamJobStore::new()) as Arc<dyn RedteamJobStore>,
         Arc::new(MemoryRedteamPlanStore::new()) as Arc<dyn RedteamPlanStore>,
         Arc::new(MemoryRedteamReportShareStore::new()) as Arc<dyn RedteamReportShareStore>,
+        Arc::new(MemoryGitHubIntegrationStore::new()) as Arc<dyn GitHubIntegrationStore>,
     )
 }
 

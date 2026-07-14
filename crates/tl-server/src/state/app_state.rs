@@ -12,6 +12,7 @@ use crate::environments::EnvironmentStore;
 use crate::escalation::{EscalationPayload, WebhookDelivery};
 use crate::financial::FinancialStore;
 use crate::gateway::GatewayStore;
+use crate::github_integration::{GitHubIntegrationMessage, GitHubIntegrationStore};
 use crate::human_review::HumanReviewStore;
 use crate::knowledge_sources::KnowledgeStore;
 use crate::label_policy::LabelPolicyStore;
@@ -101,6 +102,11 @@ pub struct AppState {
     /// `REDTEAM_RUNNER_URL` is unset — `POST /v1/redteam/dispatch`
     /// returns `503`.
     pub redteam_dispatch_tx: Option<tokio_mpsc::Sender<DispatchJob>>,
+    /// Durable GitHub-assisted installation state and lifecycle.
+    pub github_integration_store: Arc<dyn GitHubIntegrationStore>,
+    /// Channel into the GitHub integration worker. `None` when GitHub App
+    /// config or the integration LLM is missing.
+    pub github_integration_tx: Option<tokio_mpsc::Sender<GitHubIntegrationMessage>>,
 }
 
 #[derive(Default)]

@@ -48,6 +48,27 @@ impl TraceStore for PostgresTraceAdapter {
             .map(|row| row.map(trace_summary_from_row))
     }
 
+    async fn find_github_integration_marker(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        agent_id: &str,
+        integration_id: &str,
+        min_created_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Option<tl_core::TraceSummary>, TraceStoreError> {
+        self.repo
+            .find_github_integration_marker(
+                workspace_id,
+                environment_id,
+                agent_id,
+                integration_id,
+                min_created_at,
+            )
+            .await
+            .map_err(|error| TraceStoreError::Internal(error.to_string()))
+            .map(|row| row.map(trace_summary_from_row))
+    }
+
     async fn record(&self, write: TraceWriteRequest) -> Result<(), TraceStoreError> {
         // Best-effort, matching the old inline try_send: a full or closed
         // writer channel drops the trace with a warning, never fails the

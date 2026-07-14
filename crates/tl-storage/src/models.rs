@@ -8,10 +8,12 @@ use crate::schema::{
     escalations, financial_action_events, financial_action_outcomes, financial_actions,
     financial_budget_principal_locks, financial_ledger_entries, financial_payment_reservations,
     financial_payment_sessions, financial_receipts, gateway_provider_connections, gateway_routes,
-    human_review_events, llm_budget_principal_locks, llm_budget_reservations, llm_model_prices,
-    llm_usage_events, mandates, oauth_identities, policies, policy_environment_deployments,
-    redteam_attack_sessions, redteam_jobs, redteam_plans, redteam_report_shares,
-    redteam_session_events, run_events, runs, tool_metadata, traces, users, workspace_environments,
+    github_installation_states, github_installations, github_integration_jobs,
+    github_repository_connections, human_review_events, llm_budget_principal_locks,
+    llm_budget_reservations, llm_model_prices, llm_usage_events, mandates, oauth_identities,
+    policies, policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
+    redteam_report_shares, redteam_session_events, run_events, runs, tool_metadata, traces, users,
+    workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -791,6 +793,142 @@ pub struct GatewayRouteRecord {
     pub display_name: String,
     pub provider_connection_id: String,
     pub agent_id: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = github_installation_states)]
+pub struct NewGitHubInstallationState {
+    pub state_hash: Vec<u8>,
+    pub workspace_id: String,
+    pub user_id: Uuid,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = github_installation_states)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct GitHubInstallationStateRecord {
+    pub state_hash: Vec<u8>,
+    pub workspace_id: String,
+    pub user_id: Uuid,
+    pub expires_at: DateTime<Utc>,
+    pub consumed_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = github_installations)]
+pub struct NewGitHubInstallation {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub installation_id: i64,
+    pub account_login: String,
+    pub account_type: String,
+    pub repository_selection: String,
+    pub status: String,
+    pub installed_by_user_id: Uuid,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = github_installations)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct GitHubInstallationRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub installation_id: i64,
+    pub account_login: String,
+    pub account_type: String,
+    pub repository_selection: String,
+    pub status: String,
+    pub installed_by_user_id: Uuid,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = github_repository_connections)]
+pub struct NewGitHubRepositoryConnection {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub installation_id: Uuid,
+    pub repository_id: i64,
+    pub owner: String,
+    pub name: String,
+    pub default_branch: String,
+    pub root_path: String,
+    pub agent_id: String,
+    pub environment_id: String,
+    pub status: String,
+    pub recipe_version: String,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = github_repository_connections)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct GitHubRepositoryConnectionRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub installation_id: Uuid,
+    pub repository_id: i64,
+    pub owner: String,
+    pub name: String,
+    pub default_branch: String,
+    pub root_path: String,
+    pub agent_id: String,
+    pub environment_id: String,
+    pub status: String,
+    pub recipe_version: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = github_integration_jobs)]
+pub struct NewGitHubIntegrationJob {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub connection_id: Uuid,
+    pub status: String,
+    pub risk_statement: String,
+    pub base_branch: String,
+    pub base_sha: Option<String>,
+    pub recipe_version: String,
+    pub proposed_changes: Value,
+    pub manual_steps: Value,
+    pub installation_connected_at: Option<DateTime<Utc>>,
+    pub repository_connected_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = github_integration_jobs)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct GitHubIntegrationJobRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub connection_id: Uuid,
+    pub status: String,
+    pub risk_statement: String,
+    pub base_branch: String,
+    pub base_sha: Option<String>,
+    pub recipe_version: String,
+    pub analysis_summary: Option<Value>,
+    pub proposed_changes: Value,
+    pub manual_steps: Value,
+    pub branch_name: Option<String>,
+    pub commit_sha: Option<String>,
+    pub pull_request_number: Option<i64>,
+    pub pull_request_url: Option<String>,
+    pub error_code: Option<String>,
+    pub error_message: Option<String>,
+    pub attempt_count: i32,
+    pub installation_connected_at: Option<DateTime<Utc>>,
+    pub repository_connected_at: Option<DateTime<Utc>>,
+    pub analysis_completed_at: Option<DateTime<Utc>>,
+    pub pr_opened_at: Option<DateTime<Utc>>,
+    pub pr_merged_at: Option<DateTime<Utc>>,
+    pub first_verified_trace_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

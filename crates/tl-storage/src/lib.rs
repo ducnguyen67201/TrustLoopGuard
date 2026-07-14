@@ -58,6 +58,8 @@ pub mod financial_repo;
 #[cfg(feature = "postgres")]
 pub mod gateway_repo;
 #[cfg(feature = "postgres")]
+pub mod github_integration_repo;
+#[cfg(feature = "postgres")]
 pub mod human_review_repo;
 #[cfg(feature = "postgres")]
 pub mod knowledge_repo;
@@ -116,6 +118,13 @@ pub use financial_repo::{
 #[cfg(feature = "postgres")]
 pub use gateway_repo::{
     GatewayProviderConnectionSecret, GatewayRepo, GatewayRoutePatch, ResolvedGatewayRoute,
+};
+#[cfg(feature = "postgres")]
+pub use github_integration_repo::{
+    CreateConnection as GitHubCreateConnection, CreateJob as GitHubCreateJob,
+    GitHubIntegrationRepo, JobTransition as GitHubJobTransition,
+    NewInstallationState as NewGitHubInstallationState,
+    UpsertInstallation as GitHubUpsertInstallation,
 };
 #[cfg(feature = "postgres")]
 pub use human_review_repo::{HumanReviewAnalyticsFilter, HumanReviewRepo};

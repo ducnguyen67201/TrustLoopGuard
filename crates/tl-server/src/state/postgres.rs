@@ -9,9 +9,10 @@ use tl_engine::ToolMetadataProvider;
 use tl_policy::Policy;
 use tl_storage::{
     connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, BudgetAlertRepo,
-    DashboardAdminRepo, EnvironmentRepo, EscalationRepo, FinancialRepo, GatewayRepo, KnowledgeRepo,
-    LlmPricingRepo, LlmUsageRepo, PolicyRepo, RedteamJobRepo, RedteamPlanRepo,
-    RedteamReportShareRepo, RunRepo, TeamRepo, ToolMetadataRepo, TraceRepo, UserRepo, WriterConfig,
+    DashboardAdminRepo, EnvironmentRepo, EscalationRepo, FinancialRepo, GatewayRepo,
+    GitHubIntegrationRepo, KnowledgeRepo, LlmPricingRepo, LlmUsageRepo, PolicyRepo, RedteamJobRepo,
+    RedteamPlanRepo, RedteamReportShareRepo, RunRepo, TeamRepo, ToolMetadataRepo, TraceRepo,
+    UserRepo, WriterConfig,
 };
 
 use crate::agents::{AgentStore, MemoryAgentStore};
@@ -22,6 +23,7 @@ use crate::dashboard_admin::{ApiKeyStore, MemoryApiKeyStore, MemorySettingsStore
 use crate::environments::{EnvironmentStore, MemoryEnvironmentStore};
 use crate::financial::{FinancialStore, MemoryFinancialStore};
 use crate::gateway::{GatewayStore, MemoryGatewayStore};
+use crate::github_integration::{GitHubIntegrationStore, MemoryGitHubIntegrationStore};
 use crate::human_review::{HumanReviewStore, MemoryHumanReviewStore};
 use crate::knowledge_sources::{KnowledgeStore, MemoryKnowledgeStore};
 use crate::label_policy::{LabelPolicyStore, MemoryLabelPolicyStore};
@@ -71,6 +73,7 @@ pub(super) async fn build_postgres_layer(
     Arc<dyn RedteamJobStore>,
     Arc<dyn RedteamPlanStore>,
     Arc<dyn RedteamReportShareStore>,
+    Arc<dyn GitHubIntegrationStore>,
 )> {
     let url = database_url.or_else(|| std::env::var("DATABASE_URL").ok());
 
@@ -108,6 +111,7 @@ pub(super) async fn build_postgres_layer(
             Arc::new(MemoryRedteamJobStore::new()) as Arc<dyn RedteamJobStore>,
             Arc::new(MemoryRedteamPlanStore::new()) as Arc<dyn RedteamPlanStore>,
             Arc::new(MemoryRedteamReportShareStore::new()) as Arc<dyn RedteamReportShareStore>,
+            Arc::new(MemoryGitHubIntegrationStore::new()) as Arc<dyn GitHubIntegrationStore>,
         ));
     };
 
@@ -163,6 +167,8 @@ pub(super) async fn build_postgres_layer(
         PostgresRedteamPlanAdapter::new(Arc::new(RedteamPlanRepo::new(pool.clone())));
     let redteam_share_adapter =
         PostgresRedteamReportShareAdapter::new(Arc::new(RedteamReportShareRepo::new(pool.clone())));
+    let github_integration_adapter =
+        PostgresGitHubIntegrationAdapter::new(Arc::new(GitHubIntegrationRepo::new(pool.clone())));
 
     let escalation_repo = Arc::new(EscalationRepo::new(pool));
 
@@ -193,5 +199,6 @@ pub(super) async fn build_postgres_layer(
         redteam_adapter as Arc<dyn RedteamJobStore>,
         redteam_plan_adapter as Arc<dyn RedteamPlanStore>,
         redteam_share_adapter as Arc<dyn RedteamReportShareStore>,
+        github_integration_adapter as Arc<dyn GitHubIntegrationStore>,
     ))
 }
