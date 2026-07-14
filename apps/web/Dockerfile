@@ -39,6 +39,8 @@ WORKDIR /app
 RUN corepack enable
 
 ARG NEXT_PUBLIC_DOCS_URL
+ARG NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN
+ARG NEXT_PUBLIC_POSTHOG_HOST
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
@@ -55,7 +57,9 @@ COPY sdks/typescript ./sdks/typescript
 # environment so the built app does not bake a local Rust/API URL.
 ENV NEXT_TELEMETRY_DISABLED=1 \
     SKIP_ENV_VALIDATION=true \
-    NEXT_PUBLIC_DOCS_URL=${NEXT_PUBLIC_DOCS_URL}
+    NEXT_PUBLIC_DOCS_URL=${NEXT_PUBLIC_DOCS_URL} \
+    NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=${NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN} \
+    NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST}
 RUN pnpm --filter web exec next build
 
 # -----------------------------------------------------------------------------
