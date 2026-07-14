@@ -326,7 +326,7 @@ input {
   color: var(--color-ink);
 }
 
-@media (min-width: 940px) {
+@media (min-width: 1100px) {
   .site-nav-links {
     display: flex;
   }
