@@ -24,6 +24,9 @@ export async function Nav() {
             <a href="/#product">Product</a>
           </li>
           <UseCaseNav />
+          <li>
+            <Link href="/demo">Demo</Link>
+          </li>
           {NAV_LINKS_AFTER_USE_CASES.map((link) => (
             <li key={link.href}>
               <a href={link.href}>{link.label}</a>
