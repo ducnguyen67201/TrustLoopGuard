@@ -10,9 +10,9 @@ mod gateway_routes;
 
 use crate::{
     agents, analytics, auth_user, budget_alerts, dashboard_admin, environments, financial,
-    human_review, knowledge_sources, label_policy, llm_pricing, llm_usage, policies, redteam, runs,
-    team, tool_metadata, traces, AgentState, AppState, AuthUserState, LabelPolicyState,
-    PolicyState, ToolMetadataState,
+    github_integration, human_review, knowledge_sources, label_policy, llm_pricing, llm_usage,
+    policies, redteam, runs, team, tool_metadata, traces, AgentState, AppState, AuthUserState,
+    LabelPolicyState, PolicyState, ToolMetadataState,
 };
 
 pub(super) fn public_routes(
@@ -47,10 +47,18 @@ pub(super) fn public_routes(
             rate_limiter: report_rate_limiter,
         });
 
+    let github_webhook_routes = Router::new()
+        .route(
+            "/v1/github-integration/webhooks",
+            post(github_integration::webhooks::github_webhook),
+        )
+        .with_state(github_integration_state(state));
+
     Router::new()
         .route("/health", get(crate::api::guard::health))
         .merge(auth_user_routes)
         .merge(public_report_routes)
+        .merge(github_webhook_routes)
 }
 
 pub(super) fn auth_identity_routes(
@@ -420,6 +428,69 @@ pub(super) fn redteam_routes(state: &AppState) -> Router {
             policy_store: state.policy_store.clone(),
             llm: state.handler_ctx.llm.clone(),
         })
+}
+
+pub(super) fn github_integration_routes(state: &AppState) -> Router {
+    Router::new()
+        .route(
+            "/v1/github-integration/install-url",
+            post(github_integration::handlers::install_url),
+        )
+        .route(
+            "/v1/github-integration/callback",
+            post(github_integration::handlers::callback),
+        )
+        .route(
+            "/v1/github-integration/repositories",
+            get(github_integration::handlers::repositories),
+        )
+        .route(
+            "/v1/github-integration/connections",
+            get(github_integration::handlers::list_connections)
+                .post(github_integration::handlers::create_connection),
+        )
+        .route(
+            "/v1/github-integration/connections/:id",
+            axum::routing::delete(github_integration::handlers::disconnect_connection),
+        )
+        .route(
+            "/v1/github-integration/jobs",
+            post(github_integration::handlers::create_job),
+        )
+        .route(
+            "/v1/github-integration/jobs/:id",
+            get(github_integration::handlers::get_job),
+        )
+        .route(
+            "/v1/github-integration/jobs/:id/approve",
+            post(github_integration::handlers::approve_job),
+        )
+        .route(
+            "/v1/github-integration/jobs/:id/cancel",
+            post(github_integration::handlers::cancel_job),
+        )
+        .with_state(github_integration_state(state))
+}
+
+fn github_integration_state(state: &AppState) -> github_integration::GitHubIntegrationState {
+    let github = github_integration::ReqwestGitHubClient::from_env()
+        .ok()
+        .map(|client| Arc::new(client) as Arc<dyn github_integration::GitHubClient>);
+    let llm = tl_llm::OpenAiClient::from_env()
+        .ok()
+        .map(|client| Arc::new(client) as Arc<dyn tl_llm::LlmClient>);
+    github_integration::GitHubIntegrationState {
+        store: state.github_integration_store.clone(),
+        team_store: state.team_store.clone(),
+        agent_store: state.agent_store.clone(),
+        environment_store: state.environment_store.clone(),
+        trace_store: state.trace_store.clone(),
+        github,
+        llm,
+        model: std::env::var("TL_GITHUB_INTEGRATION_MODEL")
+            .unwrap_or_else(|_| "gpt-4o-mini".to_string()),
+        worker_tx: state.github_integration_tx.clone(),
+    }
 }
 
 pub(super) fn dashboard_admin_routes(state: &AppState) -> Router {

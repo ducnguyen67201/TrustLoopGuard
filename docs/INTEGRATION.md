@@ -9,6 +9,7 @@ This document is the **fastest path** from "we have an agent in production" to "
 5. **Raw HTTP** for any other language.
 6. **Fail-open vs fail-closed**: what `guard()` does on transport errors and how to override.
 7. **Guard modes**: choose whether unsafe drafts are blocked, rewritten, or regenerated.
+8. **GitHub-assisted installation**: have TrustLoopGuard open a reviewable draft PR.
 
 For the protocol itself see [`docs/openapi.yaml`](openapi.yaml). For why the runtime is shaped the way it is see [`docs/concept/v0-design-decisions.md`](concept/v0-design-decisions.md).
 
@@ -20,6 +21,12 @@ The integration is intentionally small: install the SDK, register the agent's
 profile once, define policies, then call `guard()` before each draft leaves the
 agent. The SDK submits a `GuardEvent` to `/v1/events`; production traces become
 the feedback loop for improving policy quality.
+
+If you want TrustLoopGuard to prepare the repository edit, use the dashboard's
+GitHub-assisted path from an existing agent row. It installs a separate
+selected-repository GitHub App, asks for the business risk to guard, generates a
+bounded TypeScript/Next.js proposal, and opens a draft PR only after explicit
+approval. See [GitHub-assisted installation](concept/github-assisted-installation.md).
 
 ## The two-step model
 

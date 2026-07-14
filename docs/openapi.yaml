@@ -2305,6 +2305,125 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '503':
           description: No trusted price is configured for the requested model
+  /v1/github-integration/callback:
+    post:
+      tags:
+      - github-integration
+      operationId: callback
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GitHubCallbackRequest'
+        required: true
+      responses:
+        '200':
+          description: GitHub App installation connected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GitHubCallbackResponse'
+        '403':
+          description: Invalid installation proof or role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: GitHub App not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/github-integration/connections:
+    get:
+      tags:
+      - github-integration
+      operationId: list_connections
+      responses:
+        '200':
+          description: GitHub repository connections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GitHubConnectionListResponse'
+    post:
+      tags:
+      - github-integration
+      operationId: create_connection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GitHubConnectionCreateRequest'
+        required: true
+      responses:
+        '201':
+          description: Repository connection created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GitHubConnectionSummary'
+  /v1/github-integration/install-url:
+    post:
+      tags:
+      - github-integration
+      operationId: install_url
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GitHubInstallUrlRequest'
+        required: true
+      responses:
+        '200':
+          description: GitHub App installation URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GitHubInstallUrlResponse'
+        '403':
+          description: Workspace owner/admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: GitHub App not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/github-integration/jobs:
+    post:
+      tags:
+      - github-integration
+      operationId: create_job
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GitHubIntegrationJobCreateRequest'
+        required: true
+      responses:
+        '201':
+          description: Integration analysis job queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GitHubIntegrationJobSummary'
+  /v1/github-integration/repositories:
+    get:
+      tags:
+      - github-integration
+      operationId: repositories
+      responses:
+        '200':
+          description: Repositories available to the installation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GitHubRepositoryListResponse'
   /v1/identity/oauth-session:
     post:
       tags:
@@ -6489,6 +6608,395 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GatewayRoute'
+    GitHubCallbackRequest:
+      type: object
+      required:
+      - code
+      - state
+      - installation_id
+      properties:
+        code:
+          type: string
+        installation_id:
+          type: string
+        setup_action:
+          type:
+          - string
+          - 'null'
+        state:
+          type: string
+    GitHubCallbackResponse:
+      type: object
+      required:
+      - installation
+      properties:
+        installation:
+          $ref: '#/components/schemas/GitHubInstallationSummary'
+    GitHubConnectionCreateRequest:
+      type: object
+      required:
+      - repository_id
+      - root_path
+      - agent_id
+      - environment_id
+      properties:
+        agent_id:
+          type: string
+        environment_id:
+          type: string
+        repository_id:
+          type: string
+        root_path:
+          type: string
+    GitHubConnectionListResponse:
+      type: object
+      required:
+      - connections
+      properties:
+        connections:
+          type: array
+          items:
+            $ref: '#/components/schemas/GitHubConnectionSummary'
+    GitHubConnectionStatus:
+      type: string
+      enum:
+      - active
+      - access_removed
+      - disconnected
+    GitHubConnectionSummary:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - installation_id
+      - repository_id
+      - owner
+      - name
+      - default_branch
+      - root_path
+      - agent_id
+      - environment_id
+      - status
+      - recipe_version
+      - created_at
+      - updated_at
+      properties:
+        agent_id:
+          type: string
+        created_at:
+          type: string
+          description: RFC 3339 timestamp.
+        default_branch:
+          type: string
+        environment_id:
+          type: string
+        id:
+          type: string
+        installation_id:
+          type: string
+        name:
+          type: string
+        owner:
+          type: string
+        recipe_version:
+          type: string
+        repository_id:
+          type: string
+        root_path:
+          type: string
+        status:
+          $ref: '#/components/schemas/GitHubConnectionStatus'
+        updated_at:
+          type: string
+          description: RFC 3339 timestamp.
+        workspace_id:
+          type: string
+    GitHubInstallUrlRequest:
+      type: object
+      properties:
+        redirect_path:
+          type:
+          - string
+          - 'null'
+    GitHubInstallUrlResponse:
+      type: object
+      required:
+      - install_url
+      - expires_at
+      properties:
+        expires_at:
+          type: string
+          description: RFC 3339 timestamp.
+        install_url:
+          type: string
+    GitHubInstallationStatus:
+      type: string
+      enum:
+      - active
+      - suspended
+      - removed
+    GitHubInstallationSummary:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - installation_id
+      - account_login
+      - account_type
+      - repository_selection
+      - status
+      - created_at
+      - updated_at
+      properties:
+        account_login:
+          type: string
+        account_type:
+          type: string
+        created_at:
+          type: string
+          description: RFC 3339 timestamp.
+        id:
+          type: string
+        installation_id:
+          type: string
+        repository_selection:
+          $ref: '#/components/schemas/GitHubRepositorySelection'
+        status:
+          $ref: '#/components/schemas/GitHubInstallationStatus'
+        updated_at:
+          type: string
+          description: RFC 3339 timestamp.
+        workspace_id:
+          type: string
+    GitHubIntegrationAnalysisSummary:
+      type: object
+      required:
+      - detected_framework
+      - package_manager
+      - summary
+      properties:
+        detected_framework:
+          type: string
+        integration_points:
+          type: array
+          items:
+            type: string
+        package_manager:
+          type: string
+        summary:
+          type: string
+    GitHubIntegrationApproveResponse:
+      type: object
+      required:
+      - job
+      properties:
+        job:
+          $ref: '#/components/schemas/GitHubIntegrationJobSummary'
+    GitHubIntegrationCancelResponse:
+      type: object
+      required:
+      - job
+      properties:
+        job:
+          $ref: '#/components/schemas/GitHubIntegrationJobSummary'
+    GitHubIntegrationJobCreateRequest:
+      type: object
+      required:
+      - connection_id
+      - risk_statement
+      properties:
+        connection_id:
+          type: string
+        risk_statement:
+          type: string
+        source_processing_consent:
+          type: boolean
+    GitHubIntegrationJobListResponse:
+      type: object
+      required:
+      - jobs
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/GitHubIntegrationJobSummary'
+    GitHubIntegrationJobStatus:
+      type: string
+      enum:
+      - queued
+      - analyzing
+      - awaiting_approval
+      - applying
+      - draft_pr_open
+      - awaiting_verification
+      - verified
+      - closed_unmerged
+      - error
+      - cancelled
+    GitHubIntegrationJobSummary:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - connection_id
+      - status
+      - risk_statement
+      - base_branch
+      - recipe_version
+      - created_at
+      - updated_at
+      properties:
+        analysis_summary:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/GitHubIntegrationAnalysisSummary'
+        base_branch:
+          type: string
+        base_sha:
+          type:
+          - string
+          - 'null'
+        branch_name:
+          type:
+          - string
+          - 'null'
+        commit_sha:
+          type:
+          - string
+          - 'null'
+        connection_id:
+          type: string
+        created_at:
+          type: string
+          description: RFC 3339 timestamp.
+        error_code:
+          type:
+          - string
+          - 'null'
+        error_message:
+          type:
+          - string
+          - 'null'
+        first_verified_trace_at:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+        manual_steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/GitHubIntegrationManualStep'
+        pr_merged_at:
+          type:
+          - string
+          - 'null'
+        pr_opened_at:
+          type:
+          - string
+          - 'null'
+        proposed_changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/GitHubProposedFileChange'
+        pull_request_number:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        pull_request_url:
+          type:
+          - string
+          - 'null'
+        recipe_version:
+          type: string
+        risk_statement:
+          type: string
+        status:
+          $ref: '#/components/schemas/GitHubIntegrationJobStatus'
+        updated_at:
+          type: string
+          description: RFC 3339 timestamp.
+        workspace_id:
+          type: string
+    GitHubIntegrationManualStep:
+      type: object
+      required:
+      - label
+      - command
+      - reason
+      properties:
+        command:
+          type: string
+        label:
+          type: string
+        reason:
+          type: string
+    GitHubProposedFileChange:
+      type: object
+      required:
+      - path
+      - operation
+      - content_sha
+      - replacement
+      - rationale
+      properties:
+        content_sha:
+          type: string
+        operation:
+          $ref: '#/components/schemas/GitHubProposedFileOperation'
+        path:
+          type: string
+        rationale:
+          type: string
+        replacement:
+          type: string
+    GitHubProposedFileOperation:
+      type: string
+      enum:
+      - create
+      - update
+    GitHubRepositoryListResponse:
+      type: object
+      required:
+      - repositories
+      properties:
+        repositories:
+          type: array
+          items:
+            $ref: '#/components/schemas/GitHubRepositorySummary'
+    GitHubRepositorySelection:
+      type: string
+      enum:
+      - selected
+      - all
+    GitHubRepositorySummary:
+      type: object
+      required:
+      - repository_id
+      - owner
+      - name
+      - full_name
+      - default_branch
+      - private
+      - archived
+      properties:
+        archived:
+          type: boolean
+        connected:
+          type: boolean
+        default_branch:
+          type: string
+        full_name:
+          type: string
+        name:
+          type: string
+        owner:
+          type: string
+        private:
+          type: boolean
+        repository_id:
+          type: string
     GuardEvent:
       type: object
       required:
@@ -9700,6 +10208,8 @@ tags:
   description: Agent execution runs and grouped traces
 - name: redteam
   description: Red-team attack dispatch jobs and results
+- name: github-integration
+  description: GitHub-assisted agent installation jobs
 - name: traces
   description: Persisted guard decision traces
 - name: analytics

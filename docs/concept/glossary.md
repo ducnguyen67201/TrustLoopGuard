@@ -486,6 +486,22 @@ An injectable data path the static `workflow_analyzer` finds in an imported [wor
 
 An optional machine-readable agent definition (an n8n workflow export today) imported on an [agent profile](#agent-profile) alongside or instead of the chat `system_prompt`. The hardening loop analyses it for [`source → sink` paths](#sourcesink-path) to tailor attacks; absent ⇒ a plain chat agent. Kept verbatim as `{ source, definition }`.
 
+### GitHub installation
+
+A selected-repository TrustLoopGuard GitHub App installation linked to one workspace. It is separate from dashboard GitHub OAuth login and is used only for repository automation. See [github-assisted-installation.md](github-assisted-installation.md).
+
+### Repository connection
+
+A Rust-owned mapping from one GitHub repository/root to one TrustLoopGuard agent and environment. It records the integration recipe version and is the activation marker's durable identity. See [github-assisted-installation.md](github-assisted-installation.md).
+
+### Integration job
+
+A durable GitHub-assisted installation lifecycle record: analysis queued/running, awaiting approval, applying, draft PR open, awaiting verification, verified, closed unmerged, error, or cancelled. See [github-assisted-installation.md](github-assisted-installation.md).
+
+### Integration recipe
+
+A versioned set of constraints for generating repository edits. The first recipe, `typescript-nextjs-v1`, targets TypeScript/Next.js repositories and emits a marked SDK integration. See [github-assisted-installation.md](github-assisted-installation.md).
+
 ---
 
 ## Things that are NOT TrustLoopGuard

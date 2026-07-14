@@ -27,6 +27,7 @@ pub mod error;
 pub mod event;
 pub mod financial;
 pub mod gateway;
+pub mod github_integration;
 pub mod guard;
 pub mod human_review;
 pub mod knowledge;
@@ -97,6 +98,17 @@ pub use gateway::{
     GatewayProviderConnection, GatewayProviderConnectionListResponse, GatewayProviderKind,
     GatewayRoute, GatewayRouteListResponse, UpdateGatewayProviderConnectionRequest,
     UpdateGatewayRouteRequest,
+};
+pub use github_integration::{
+    GitHubCallbackRequest, GitHubCallbackResponse, GitHubConnectionCreateRequest,
+    GitHubConnectionListResponse, GitHubConnectionStatus, GitHubConnectionSummary,
+    GitHubInstallUrlRequest, GitHubInstallUrlResponse, GitHubInstallationStatus,
+    GitHubInstallationSummary, GitHubIntegrationAnalysisSummary, GitHubIntegrationApproveResponse,
+    GitHubIntegrationCancelResponse, GitHubIntegrationJobCreateRequest,
+    GitHubIntegrationJobListResponse, GitHubIntegrationJobStatus, GitHubIntegrationJobSummary,
+    GitHubIntegrationManualStep, GitHubProposedFileChange, GitHubProposedFileOperation,
+    GitHubRepositoryListResponse, GitHubRepositorySelection, GitHubRepositorySummary,
+    GITHUB_INTEGRATION_RECIPE_TYPESCRIPT_NEXTJS_V1,
 };
 pub use guard::{
     Channel, CheckRequest, Decision, RedactedEntity, RedactionInfo, RedactionMode, RedactionStatus,

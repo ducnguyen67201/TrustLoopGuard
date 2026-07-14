@@ -5,6 +5,7 @@ import {
   IconBook2,
   IconBuilding,
   IconExternalLink,
+  IconBrandGithub,
   IconGauge,
   IconId,
   IconLayoutGrid,
@@ -47,6 +48,7 @@ import { RunDetailLiveView } from '@/components/workspace/RunDetailLiveView';
 import { RunsLiveTable } from '@/components/workspace/RunsLiveTable';
 import { AnalyticsChartGrid } from '@/components/analytics/AnalyticsChartGrid';
 import { AgentEditDialog } from '@/components/workspace/AgentEditDialog';
+import { GitHubIntegrationDialog } from '@/components/workspace/GitHubIntegrationDialog';
 import { cn } from '@/lib/utils';
 import type { RunDetailSnapshot } from '@/lib/run-detail-live';
 import type {
@@ -159,44 +161,62 @@ export function WorkspacesPageContent({ data }: { data: DashboardShellData }) {
   );
 }
 
-const agentColumns: DataTableColumn<AgentRow>[] = [
-  { id: 'name', header: 'Agent', cell: (row) => <span className="font-medium">{row.name}</span> },
-  {
-    id: 'scope',
-    header: 'Scope',
-    cell: (row) => row.scope,
-    cellClassName: 'text-muted-foreground',
-  },
-  {
-    id: 'policies',
-    header: 'Policies',
-    align: 'right',
-    cell: (row) => row.policies,
-    cellClassName: 'font-data text-xs',
-  },
-  {
-    id: 'status',
-    header: 'Status',
-    align: 'right',
-    cell: (row) => (
-      <Badge variant="outline" className="font-data text-xs">
-        {row.status}
-      </Badge>
-    ),
-  },
-  {
-    id: 'actions',
-    header: <span className="sr-only">Actions</span>,
-    align: 'right',
-    cell: (row) => <AgentEditDialog agentId={row.id} agentName={row.name} />,
-  },
-];
-
 export function AgentsPageContent({
   data,
 }: {
   data: DashboardShellData & { agents: AgentRow[] };
 }) {
+  const agentColumns: DataTableColumn<AgentRow>[] = [
+    {
+      id: 'name',
+      header: 'Agent',
+      cell: (row) => <span className="font-medium">{row.name}</span>,
+    },
+    {
+      id: 'scope',
+      header: 'Scope',
+      cell: (row) => row.scope,
+      cellClassName: 'text-muted-foreground',
+    },
+    {
+      id: 'policies',
+      header: 'Policies',
+      align: 'right',
+      cell: (row) => row.policies,
+      cellClassName: 'font-data text-xs',
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      align: 'right',
+      cell: (row) => (
+        <Badge variant="outline" className="font-data text-xs">
+          {row.status}
+        </Badge>
+      ),
+    },
+    {
+      id: 'actions',
+      header: <span className="sr-only">Actions</span>,
+      align: 'right',
+      cell: (row) => (
+        <div className="flex justify-end gap-2">
+          <GitHubIntegrationDialog
+            agentId={row.id}
+            agentName={row.name}
+            environmentId={data.activeEnvironment.id}
+          >
+            <Button size="sm" variant="outline">
+              <IconBrandGithub />
+              Connect GitHub
+            </Button>
+          </GitHubIntegrationDialog>
+          <AgentEditDialog agentId={row.id} agentName={row.name} />
+        </div>
+      ),
+    },
+  ];
+
   return (
     <PageShell
       eyebrow={data.activeWorkspace.name}

@@ -20,6 +20,10 @@ use crate::escalation::{
     spawn_escalation_worker, spawn_webhook_delivery_worker, EscalationConfig, EscalationPayload,
     RetryPolicy,
 };
+use crate::github_integration::{
+    spawn_github_integration_worker, GitHubIntegrationMessage, GitHubIntegrationStore,
+    ReqwestGitHubClient,
+};
 use crate::redteam::{
     spawn_dispatch_worker, DispatchConfig, DispatchJob, RedteamJobStore, RedteamRunnerClient,
 };
@@ -89,6 +93,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         redteam_job_store,
         redteam_plan_store,
         redteam_report_share_store,
+        github_integration_store,
     ) = build_postgres_layer(opts.database_url, &policies).await?;
 
     #[cfg(not(feature = "postgres"))]
@@ -118,6 +123,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         redteam_job_store,
         redteam_plan_store,
         redteam_report_share_store,
+        github_integration_store,
     ) = build_memory_layer(&policies);
 
     // -- Tier 2 fuzzy: stub by default. PR 6 left a real HnswFuzzyChecker
@@ -158,6 +164,9 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
 
     // -- Red-team dispatch worker (optional) --
     let redteam_dispatch_tx = build_dispatch_worker(redteam_job_store.clone());
+
+    // -- GitHub-assisted installation worker (optional) --
+    let github_integration_tx = build_github_integration_worker(github_integration_store.clone());
 
     let jwt_signer = crate::jwt::JwtSigner::from_env();
     if jwt_signer.is_some() {
@@ -229,6 +238,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         redteam_plan_store,
         redteam_report_share_store,
         redteam_dispatch_tx,
+        github_integration_store,
+        github_integration_tx,
     })
 }
 
@@ -241,6 +252,36 @@ fn build_dispatch_worker(
     let runner = RedteamRunnerClient::from_env()?;
     let (tx, _handle) = spawn_dispatch_worker(Arc::new(runner), store, DispatchConfig::default());
     tracing::info!("redteam dispatch worker spawned");
+    Some(tx)
+}
+
+fn build_github_integration_worker(
+    store: Arc<dyn GitHubIntegrationStore>,
+) -> Option<tokio_mpsc::Sender<GitHubIntegrationMessage>> {
+    let github = match ReqwestGitHubClient::from_env() {
+        Ok(client) => Arc::new(client),
+        Err(error) => {
+            tracing::info!(
+                error = %error,
+                "github integration disabled; GitHub App config incomplete"
+            );
+            return None;
+        }
+    };
+    let llm = match tl_llm::OpenAiClient::from_env() {
+        Ok(client) => Arc::new(client),
+        Err(error) => {
+            tracing::info!(
+                error = %error,
+                "github integration disabled; control-plane LLM config incomplete"
+            );
+            return None;
+        }
+    };
+    let model =
+        std::env::var("TL_GITHUB_INTEGRATION_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
+    let tx = spawn_github_integration_worker(store, github, llm, model);
+    tracing::info!("github integration worker spawned");
     Some(tx)
 }
 

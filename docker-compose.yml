@@ -48,6 +48,13 @@ services:
       TL_LLM_CONFIG: ${TL_LLM_CONFIG:-}
       TL_ESCALATION_WEBHOOK_URL: ${TL_ESCALATION_WEBHOOK_URL:-}
       REDTEAM_RUNNER_URL: ${REDTEAM_RUNNER_URL:-}
+      TL_GITHUB_APP_ID: ${TL_GITHUB_APP_ID:-}
+      TL_GITHUB_APP_SLUG: ${TL_GITHUB_APP_SLUG:-}
+      TL_GITHUB_CLIENT_ID: ${TL_GITHUB_CLIENT_ID:-}
+      TL_GITHUB_CLIENT_SECRET: ${TL_GITHUB_CLIENT_SECRET:-}
+      TL_GITHUB_PRIVATE_KEY_BASE64: ${TL_GITHUB_PRIVATE_KEY_BASE64:-}
+      TL_GITHUB_WEBHOOK_SECRET: ${TL_GITHUB_WEBHOOK_SECRET:-}
+      TL_GITHUB_INTEGRATION_MODEL: ${TL_GITHUB_INTEGRATION_MODEL:-gpt-4o-mini}
     volumes:
       # Override the baked policies bundle so `edit YAML + restart` is
       # the dev loop. Read-only on purpose — the server never writes here.

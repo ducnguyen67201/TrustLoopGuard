@@ -490,6 +490,111 @@ class GatewayRouteListResponse(BaseModel):
     gateway_routes: list[GatewayRoute]
 
 
+class GitHubCallbackRequest(BaseModel):
+    code: str
+    installation_id: str
+    setup_action: str | None = None
+    state: str
+
+
+class GitHubConnectionCreateRequest(BaseModel):
+    agent_id: str
+    environment_id: str
+    repository_id: str
+    root_path: str
+
+
+class GitHubConnectionStatus(Enum):
+    active = 'active'
+    access_removed = 'access_removed'
+    disconnected = 'disconnected'
+
+
+class GitHubConnectionSummary(BaseModel):
+    agent_id: str
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    default_branch: str
+    environment_id: str
+    id: str
+    installation_id: str
+    name: str
+    owner: str
+    recipe_version: str
+    repository_id: str
+    root_path: str
+    status: GitHubConnectionStatus
+    updated_at: str = Field(..., description='RFC 3339 timestamp.')
+    workspace_id: str
+
+
+class GitHubInstallUrlRequest(BaseModel):
+    redirect_path: str | None = None
+
+
+class GitHubInstallUrlResponse(BaseModel):
+    expires_at: str = Field(..., description='RFC 3339 timestamp.')
+    install_url: str
+
+
+class GitHubInstallationStatus(Enum):
+    active = 'active'
+    suspended = 'suspended'
+    removed = 'removed'
+
+
+class GitHubIntegrationAnalysisSummary(BaseModel):
+    detected_framework: str
+    integration_points: list[str] | None = None
+    package_manager: str
+    summary: str
+
+
+class GitHubIntegrationJobCreateRequest(BaseModel):
+    connection_id: str
+    risk_statement: str
+    source_processing_consent: bool | None = None
+
+
+class GitHubIntegrationJobStatus(Enum):
+    queued = 'queued'
+    analyzing = 'analyzing'
+    awaiting_approval = 'awaiting_approval'
+    applying = 'applying'
+    draft_pr_open = 'draft_pr_open'
+    awaiting_verification = 'awaiting_verification'
+    verified = 'verified'
+    closed_unmerged = 'closed_unmerged'
+    error = 'error'
+    cancelled = 'cancelled'
+
+
+class GitHubIntegrationManualStep(BaseModel):
+    command: str
+    label: str
+    reason: str
+
+
+class GitHubProposedFileOperation(Enum):
+    create = 'create'
+    update = 'update'
+
+
+class GitHubRepositorySelection(Enum):
+    selected = 'selected'
+    all = 'all'
+
+
+class GitHubRepositorySummary(BaseModel):
+    archived: bool
+    connected: bool | None = None
+    default_branch: str
+    full_name: str
+    name: str
+    owner: str
+    private: bool
+    repository_id: str
+
+
 class HardenCandidateOperation(Enum):
     create = 'create'
     tighten = 'tighten'
@@ -1762,6 +1867,34 @@ class GatewayProviderConnectionListResponse(BaseModel):
     provider_connections: list[GatewayProviderConnection]
 
 
+class GitHubConnectionListResponse(BaseModel):
+    connections: list[GitHubConnectionSummary]
+
+
+class GitHubInstallationSummary(BaseModel):
+    account_login: str
+    account_type: str
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    id: str
+    installation_id: str
+    repository_selection: GitHubRepositorySelection
+    status: GitHubInstallationStatus
+    updated_at: str = Field(..., description='RFC 3339 timestamp.')
+    workspace_id: str
+
+
+class GitHubProposedFileChange(BaseModel):
+    content_sha: str
+    operation: GitHubProposedFileOperation
+    path: str
+    rationale: str
+    replacement: str
+
+
+class GitHubRepositoryListResponse(BaseModel):
+    repositories: list[GitHubRepositorySummary]
+
+
 class HardenRejection(BaseModel):
     evidence_seqs: list[int]
     message: str
@@ -2384,6 +2517,35 @@ class FinancialPolicyRecord(BaseModel):
     when: FinancialPolicySelector
 
 
+class GitHubCallbackResponse(BaseModel):
+    installation: GitHubInstallationSummary
+
+
+class GitHubIntegrationJobSummary(BaseModel):
+    analysis_summary: GitHubIntegrationAnalysisSummary | None = None
+    base_branch: str
+    base_sha: str | None = None
+    branch_name: str | None = None
+    commit_sha: str | None = None
+    connection_id: str
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    error_code: str | None = None
+    error_message: str | None = None
+    first_verified_trace_at: str | None = None
+    id: str
+    manual_steps: list[GitHubIntegrationManualStep] | None = None
+    pr_merged_at: str | None = None
+    pr_opened_at: str | None = None
+    proposed_changes: list[GitHubProposedFileChange] | None = None
+    pull_request_number: int | None = None
+    pull_request_url: str | None = None
+    recipe_version: str
+    risk_statement: str
+    status: GitHubIntegrationJobStatus
+    updated_at: str = Field(..., description='RFC 3339 timestamp.')
+    workspace_id: str
+
+
 class GuardrailGenerateResponse(BaseModel):
     generated: list[PolicyDocument]
 
@@ -2512,6 +2674,18 @@ class FinancialActionDecisionReceipt(BaseModel):
 
 class FinancialPolicyListResponse(BaseModel):
     policies: list[FinancialPolicyRecord]
+
+
+class GitHubIntegrationApproveResponse(BaseModel):
+    job: GitHubIntegrationJobSummary
+
+
+class GitHubIntegrationCancelResponse(BaseModel):
+    job: GitHubIntegrationJobSummary
+
+
+class GitHubIntegrationJobListResponse(BaseModel):
+    jobs: list[GitHubIntegrationJobSummary]
 
 
 class GuardEvent(BaseModel):

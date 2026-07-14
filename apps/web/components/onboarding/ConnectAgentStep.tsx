@@ -280,6 +280,21 @@ export function ConnectAgentStep({
           </TabsContent>
         </Tabs>
 
+        <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+          <div>
+            <p className="text-sm font-medium">Want TrustLoopGuard to open a PR?</p>
+            <p className="text-xs text-muted-foreground">
+              Connect GitHub from the agent row and review the generated draft PR.
+            </p>
+          </div>
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/agents${contextQuery}`}>
+              Agents
+              <IconArrowRight aria-hidden />
+            </Link>
+          </Button>
+        </div>
+
         <FirstEventStatus contextQuery={contextQuery} />
       </div>
     </div>
