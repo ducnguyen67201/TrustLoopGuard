@@ -21,12 +21,12 @@ test('runs the hosted refund workflow in-process and removes request state', asy
     createClient: () => client,
     createRequestId: () => 'request-123',
     temporaryDirectory: () => '/tmp/refund-demo-hosted-test',
-    seedOrder: async ({ dbPath }) => {
-      events.push(`seed:${dbPath}`);
+    seedOrder: async (options) => {
+      events.push(`seed:${options?.dbPath}`);
       return 'pi_test_123';
     },
     runAgent: async (prompt, receivedClient, options) => {
-      events.push(`agent:${prompt}:${options.dbPath}`);
+      events.push(`agent:${prompt}:${options?.dbPath}`);
       assert.equal(receivedClient, client);
       return {
         prompt,

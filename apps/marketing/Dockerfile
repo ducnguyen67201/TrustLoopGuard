@@ -9,6 +9,8 @@ RUN corepack enable
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY apps/marketing/package.json ./apps/marketing/
+COPY demo/package.json ./demo/
+COPY sdks/typescript/package.json ./sdks/typescript/
 
 RUN PNPM_HOME=/pnpm pnpm config set store-dir /pnpm/store \
  && pnpm install --frozen-lockfile --ignore-scripts
@@ -21,9 +23,13 @@ ARG NEXT_PUBLIC_BOOK_MEETING_URL
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/marketing/node_modules ./apps/marketing/node_modules
+COPY --from=deps /app/demo/node_modules ./demo/node_modules
+COPY --from=deps /app/sdks/typescript/node_modules ./sdks/typescript/node_modules
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY apps/marketing ./apps/marketing
+COPY demo ./demo
+COPY sdks/typescript ./sdks/typescript
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_BOOK_MEETING_URL=${NEXT_PUBLIC_BOOK_MEETING_URL}

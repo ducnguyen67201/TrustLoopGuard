@@ -5,7 +5,6 @@ import test from 'node:test';
 import {
   parseRefundDemoActionId,
   parseRefundDemoPrompt,
-  refundDemoServiceUrl,
   sanitizeRefundDemoStatus,
   sanitizeRefundDemoResponse,
 } from './contract';
@@ -23,13 +22,6 @@ test('accepts a concrete refund request and trims whitespace', () => {
 test('rejects empty and oversized chat input at the public boundary', () => {
   assert.throws(() => parseRefundDemoPrompt({ prompt: '   ' }), /prompt/i);
   assert.throws(() => parseRefundDemoPrompt({ prompt: 'x'.repeat(501) }), /500/);
-});
-
-test('only permits loopback HTTP or HTTPS demo-service URLs', () => {
-  assert.equal(refundDemoServiceUrl('http://127.0.0.1:9310'), 'http://127.0.0.1:9310');
-  assert.equal(refundDemoServiceUrl('https://demo-api.gettrustloop.app/'), 'https://demo-api.gettrustloop.app');
-  assert.throws(() => refundDemoServiceUrl('http://example.com'), /https/i);
-  assert.throws(() => refundDemoServiceUrl('file:///tmp/demo'), /https/i);
 });
 
 test('exposes only the public agent trace, order, refund, and decision fields', () => {

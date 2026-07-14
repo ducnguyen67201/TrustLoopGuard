@@ -5,6 +5,12 @@
   "description": "SDK-backed TrustLoopGuard demos for the dispute and LiveKit surfaces.",
   "license": "Apache-2.0",
   "type": "module",
+  "exports": {
+    "./stripe-refund-agent/hosted": "./stripe-refund-agent/hosted.ts",
+    "./stripe-refund-agent/provider-adapter": "./stripe-refund-agent/provider-adapter.ts",
+    "./stripe-refund-agent/provider": "./stripe-refund-agent/provider.ts",
+    "./stripe-refund-agent/types": "./stripe-refund-agent/types.ts"
+  },
   "scripts": {
     "dev": "sh -c 'trap \"kill 0\" EXIT INT TERM; pnpm run stripe-refund-agent:provider & pnpm run stripe-refund-agent:ui & wait'",
     "dispute": "pnpm run dispute:check",

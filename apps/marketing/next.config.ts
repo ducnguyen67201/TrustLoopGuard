@@ -8,6 +8,7 @@ const config: NextConfig = {
   },
   output: 'standalone',
   outputFileTracingRoot: path.resolve(import.meta.dirname, '../../'),
+  transpilePackages: ['@trustloopguard/demo', '@trustloopguard/sdk'],
 };
 
 export default config;

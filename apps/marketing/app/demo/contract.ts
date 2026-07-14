@@ -96,23 +96,3 @@ export function parseRefundDemoActionId(input: unknown): string {
 export function sanitizeRefundDemoStatus(input: unknown): RefundDemoStatus {
   return statusSchema.parse(input);
 }
-
-export function refundDemoServiceUrl(raw = process.env['REFUND_DEMO_SERVICE_URL']): string {
-  const url = new URL(raw?.trim() || 'http://127.0.0.1:9310');
-  const isLoopback = ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(url.hostname);
-  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && isLoopback)) {
-    throw new Error('REFUND_DEMO_SERVICE_URL must use HTTPS or loopback HTTP');
-  }
-  if (url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '') {
-    throw new Error('REFUND_DEMO_SERVICE_URL must be a plain service origin');
-  }
-  return url.toString().replace(/\/$/, '');
-}
-
-export function refundDemoProxySecret(raw = process.env['REFUND_DEMO_PROXY_SECRET']): string {
-  const secret = raw?.trim();
-  if (secret === undefined || secret.length < 32) {
-    throw new Error('REFUND_DEMO_PROXY_SECRET must contain at least 32 characters');
-  }
-  return secret;
-}

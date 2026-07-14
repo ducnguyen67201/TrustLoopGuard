@@ -3,6 +3,7 @@ import type {
   CreateFinancialPolicyRequest,
   GatewayProviderConnection,
   GatewayProviderConnectionListResponse,
+  UpdateGatewayProviderConnectionRequest,
 } from '@trustloopguard/sdk';
 
 import { createClient, API_KEY, SERVER_URL, WORKSPACE_ID } from '../shared/env';
@@ -71,15 +72,23 @@ const REFUND_CONTROL: CreateFinancialPolicyRequest = {
 
 async function ensureProviderConnection(): Promise<GatewayProviderConnection> {
   const existing = await listProviderConnections();
+  const targetBaseUrl = providerBaseUrl();
   const match = existing.provider_connections.find(
-    (connection) => connection.kind === 'payment_http' && connection.base_url === providerBaseUrl(),
+    (connection) => connection.kind === 'payment_http' && connection.base_url === targetBaseUrl,
   );
   if (match !== undefined) return match;
+
+  const currentPaymentConnection = existing.provider_connections.find(
+    (connection) => connection.kind === 'payment_http',
+  );
+  if (currentPaymentConnection !== undefined) {
+    return updateProviderConnection(currentPaymentConnection.id, targetBaseUrl);
+  }
 
   const body: CreateGatewayProviderConnectionRequest = {
     display_name: 'Stripe refund sandbox',
     kind: 'payment_http',
-    base_url: providerBaseUrl(),
+    base_url: targetBaseUrl,
     default_model: 'payment-http',
     provider_api_key: providerApiKey(),
   };
@@ -91,6 +100,31 @@ async function ensureProviderConnection(): Promise<GatewayProviderConnection> {
   const text = await res.text();
   if (!res.ok) {
     throw new Error(`provider connection setup failed: ${res.status} ${text}`);
+  }
+  return JSON.parse(text) as GatewayProviderConnection;
+}
+
+async function updateProviderConnection(
+  connectionId: string,
+  baseUrl: string,
+): Promise<GatewayProviderConnection> {
+  const body: UpdateGatewayProviderConnectionRequest = {
+    display_name: 'Stripe refund sandbox',
+    base_url: baseUrl,
+    default_model: 'payment-http',
+    provider_api_key: providerApiKey(),
+  };
+  const res = await fetch(
+    `${SERVER_URL}/v1/gateway/provider-connections/${encodeURIComponent(connectionId)}`,
+    {
+      method: 'PATCH',
+      headers: jsonHeaders(),
+      body: JSON.stringify(body),
+    },
+  );
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`provider connection update failed: ${res.status} ${text}`);
   }
   return JSON.parse(text) as GatewayProviderConnection;
 }
