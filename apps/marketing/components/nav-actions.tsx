@@ -15,7 +15,7 @@ export function NavActions({ bookMeetingUrl, githubUrl, stars }: NavActionsProps
 
   return (
     <div className="flex items-center gap-2">
-      <Link href="/demo" className="button-secondary h-10 px-3 text-sm min-[940px]:hidden">
+      <Link href="/demo" className="nav-demo-compact button-secondary h-10 px-3 text-sm">
         Demo
       </Link>
       <GitHubStarLink githubUrl={githubUrl} page={page} stars={stars} />
