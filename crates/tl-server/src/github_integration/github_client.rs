@@ -64,6 +64,19 @@ pub struct GitHubPullRequest {
 }
 
 #[derive(Debug, Clone)]
+pub struct GitHubDraftPrRequest {
+    pub installation_id: i64,
+    pub owner: String,
+    pub repo: String,
+    pub base_branch: String,
+    pub base_sha: String,
+    pub branch_name: String,
+    pub changes: Vec<tl_core::GitHubProposedFileChange>,
+    pub title: String,
+    pub body: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct GitHubInstallationProof {
     pub installation_id: i64,
     pub account_login: String,
@@ -99,15 +112,7 @@ pub trait GitHubClient: Send + Sync {
     ) -> Result<GitHubFile, GitHubClientError>;
     async fn create_draft_pr(
         &self,
-        installation_id: i64,
-        owner: &str,
-        repo: &str,
-        base_branch: &str,
-        base_sha: &str,
-        branch_name: &str,
-        changes: &[tl_core::GitHubProposedFileChange],
-        title: &str,
-        body: &str,
+        request: GitHubDraftPrRequest,
     ) -> Result<GitHubPullRequest, GitHubClientError>;
 }
 
@@ -454,16 +459,19 @@ impl GitHubClient for ReqwestGitHubClient {
 
     async fn create_draft_pr(
         &self,
-        installation_id: i64,
-        owner: &str,
-        repo: &str,
-        base_branch: &str,
-        base_sha: &str,
-        branch_name: &str,
-        changes: &[tl_core::GitHubProposedFileChange],
-        title: &str,
-        body: &str,
+        request: GitHubDraftPrRequest,
     ) -> Result<GitHubPullRequest, GitHubClientError> {
+        let GitHubDraftPrRequest {
+            installation_id,
+            owner,
+            repo,
+            base_branch,
+            base_sha,
+            branch_name,
+            changes,
+            title,
+            body,
+        } = request;
         #[derive(Deserialize)]
         struct RefResponse {
             object: RefObject,
@@ -561,7 +569,7 @@ impl GitHubClient for ReqwestGitHubClient {
             &token,
             &format!("https://api.github.com/repos/{owner}/{repo}/pulls"),
             &serde_json::json!({
-                "title": title,
+                    "title": title,
                 "head": branch_name,
                 "base": base_branch,
                 "body": body,
@@ -572,7 +580,7 @@ impl GitHubClient for ReqwestGitHubClient {
         Ok(GitHubPullRequest {
             number: pr.number,
             url: pr.html_url,
-            branch_name: branch_name.to_string(),
+            branch_name,
             commit_sha: new_commit.sha,
         })
     }

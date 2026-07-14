@@ -117,7 +117,7 @@ pub async fn callback(
 ) -> Response {
     let user_id = match request_user_id(&headers, user.clone(), internal) {
         Ok(user_id) => user_id,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     if runtime_key.is_some() {
         return api_error(
@@ -744,7 +744,7 @@ fn request_user_id(
     headers: &HeaderMap,
     user: Option<Extension<UserContext>>,
     internal: Option<Extension<InternalServiceContext>>,
-) -> Result<Uuid, Response> {
+) -> Result<Uuid, Box<Response>> {
     if let Some(Extension(user)) = user {
         return Ok(user.user_id);
     }
@@ -757,11 +757,11 @@ fn request_user_id(
             return Ok(value);
         }
     }
-    Err(api_error(
+    Err(Box::new(api_error(
         StatusCode::UNAUTHORIZED,
         ApiErrorCode::Unauthorized,
         "authenticated user is required to connect GitHub repositories",
-    ))
+    )))
 }
 
 fn random_state() -> String {
@@ -814,7 +814,7 @@ fn upstream_error(error: GitHubClientError) -> Response {
             ApiErrorCode::Invalid,
             "GitHub repository changed; rerun analysis",
         ),
-        GitHubClientError::Status { status } if status == 429 => api_error(
+        GitHubClientError::Status { status: 429 } => api_error(
             StatusCode::TOO_MANY_REQUESTS,
             ApiErrorCode::RateLimited,
             "GitHub rate limit exceeded",

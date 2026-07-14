@@ -4,7 +4,10 @@ use chrono::Utc;
 use tokio::sync::{mpsc, Semaphore};
 
 use super::recipe;
-use super::{GitHubClient, GitHubIntegrationStore, GitHubIntegrationStoreError, GitHubJobUpdate};
+use super::{
+    GitHubClient, GitHubDraftPrRequest, GitHubIntegrationStore, GitHubIntegrationStoreError,
+    GitHubJobUpdate,
+};
 use tl_core::GitHubIntegrationJobStatus;
 
 #[derive(Debug, Clone)]
@@ -316,17 +319,17 @@ async fn run_apply(
     );
     let body = pr_body(&job_before, &connection, &branch_name);
     match github
-        .create_draft_pr(
+        .create_draft_pr(GitHubDraftPrRequest {
             installation_id,
-            &connection.owner,
-            &connection.name,
-            &connection.default_branch,
-            base_sha,
-            &branch_name,
-            &job_before.proposed_changes,
-            "Integrate TrustLoopGuard",
-            &body,
-        )
+            owner: connection.owner.clone(),
+            repo: connection.name.clone(),
+            base_branch: connection.default_branch.clone(),
+            base_sha: base_sha.to_string(),
+            branch_name,
+            changes: job_before.proposed_changes.clone(),
+            title: "Integrate TrustLoopGuard".to_string(),
+            body,
+        })
         .await
     {
         Ok(pr) => {

@@ -102,12 +102,12 @@ pub async fn analyze(
         }
         let path = validate_candidate_path(&change.path)
             .map_err(GitHubIntegrationStoreError::Validation)?;
-        if change.replacement.as_bytes().len() > MAX_GENERATED_BYTES {
+        if change.replacement.len() > MAX_GENERATED_BYTES {
             return Err(GitHubIntegrationStoreError::Validation(
                 "proposal generated content exceeds size limit".into(),
             ));
         }
-        total_generated += change.replacement.as_bytes().len();
+        total_generated += change.replacement.len();
         if total_generated > MAX_GENERATED_BYTES {
             return Err(GitHubIntegrationStoreError::Validation(
                 "proposal generated content exceeds total size limit".into(),

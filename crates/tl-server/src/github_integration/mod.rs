@@ -16,8 +16,8 @@ use axum::response::IntoResponse;
 use chrono::{DateTime, Utc};
 pub use config::GitHubAppConfig;
 pub use github_client::{
-    GitHubClient, GitHubClientError, GitHubFile, GitHubPullRequest, GitHubRepository,
-    GitHubTreeEntry, ReqwestGitHubClient,
+    GitHubClient, GitHubClientError, GitHubDraftPrRequest, GitHubFile, GitHubPullRequest,
+    GitHubRepository, GitHubTreeEntry, ReqwestGitHubClient,
 };
 pub use memory_store::MemoryGitHubIntegrationStore;
 pub use orchestrator::{spawn_github_integration_worker, GitHubIntegrationMessage};
