@@ -44,8 +44,6 @@ const REFUND_CONTROL: CreateFinancialPolicyRequest = {
   },
   per_transaction_minor: 10_000n,
   approval_threshold_minor: 5_000n,
-  daily_minor: 50_000n,
-  monthly_minor: 500_000n,
   allowed_counterparty_ids: [],
   denied_counterparty_ids: [],
   require_approval_for_new_counterparty: false,
