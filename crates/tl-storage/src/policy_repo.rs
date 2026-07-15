@@ -68,12 +68,6 @@ impl PolicyRepo {
         &self.pool
     }
 
-    /// Resolve a policy by id. Disabled policies are still retrievable
-    /// for admin/editor views; soft-deleted rows return `NotFound`.
-    pub async fn get(&self, policy_id: &str) -> Result<Arc<Policy>, StorageError> {
-        self.get_in(tl_core::DEFAULT_WORKSPACE_ID, policy_id).await
-    }
-
     pub async fn get_in(
         &self,
         workspace_id: &str,

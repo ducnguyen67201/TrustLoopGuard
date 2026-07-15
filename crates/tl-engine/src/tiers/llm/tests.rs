@@ -104,11 +104,19 @@ fn failing_router() -> LlmRouter {
 }
 
 struct FixedResolver(Arc<AgentProfile>);
+struct PanicResolver;
 
 #[async_trait]
 impl crate::context::ProfileResolver for FixedResolver {
     async fn resolve(&self, _workspace_id: &str, _agent_id: &str) -> Option<Arc<AgentProfile>> {
         Some(self.0.clone())
+    }
+}
+
+#[async_trait]
+impl crate::context::ProfileResolver for PanicResolver {
+    async fn resolve(&self, _workspace_id: &str, _agent_id: &str) -> Option<Arc<AgentProfile>> {
+        panic!("missing workspace context must not fall back to profile resolution")
     }
 }
 
@@ -139,7 +147,7 @@ fn sample_profile() -> Arc<AgentProfile> {
 
 fn sample_req() -> CheckRequest {
     CheckRequest {
-        workspace_id: None,
+        workspace_id: Some("ws".into()),
         run_id: None,
         run_event_id: None,
         run_event: None,
@@ -167,6 +175,20 @@ fn ctx_with(router: LlmRouter) -> HandlerCtx {
 async fn no_profile_yields_skipped() {
     let context = HandlerCtx::no_op();
     let out = run(&sample_req(), &context, CancellationToken::new()).await;
+    assert_eq!(out.result.status, TierStatus::Skipped);
+    assert!(out.block.is_none());
+}
+
+#[tokio::test]
+async fn missing_workspace_yields_skipped_without_default_profile_lookup() {
+    let mut context = HandlerCtx::no_op();
+    context.profile_resolver = Arc::new(PanicResolver);
+    context.llm = Arc::new(router_returning(json!({})));
+    let mut request = sample_req();
+    request.workspace_id = None;
+
+    let out = run(&request, &context, CancellationToken::new()).await;
+
     assert_eq!(out.result.status, TierStatus::Skipped);
     assert!(out.block.is_none());
 }
