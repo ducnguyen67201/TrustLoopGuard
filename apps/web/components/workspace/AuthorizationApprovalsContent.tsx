@@ -1,7 +1,15 @@
 'use client';
 
-import { IconCheck, IconFingerprint, IconX } from '@tabler/icons-react';
+import {
+  IconCheck,
+  IconClockHour4,
+  IconFingerprint,
+  IconHistory,
+  IconShieldCheck,
+  IconX,
+} from '@tabler/icons-react';
 import type { AuthorizationApproval, AuthorizationDomain, GrantMode } from '@trustloopguard/sdk';
+import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -20,6 +28,8 @@ import {
 } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 type Props = {
   workspaceSlug: string;
@@ -28,10 +38,27 @@ type Props = {
 };
 
 const decisionResponseSchema = z.object({
-  approval: z.object({ id: z.string(), status: z.enum(['approved', 'denied']) }),
+  approval: z.object({
+    id: z.string(),
+    status: z.enum(['approved', 'denied']),
+    decided_by: z.string().optional(),
+    decided_at: z.string().optional(),
+    decision_reason: z.string().optional(),
+    grant_id: z.string().optional(),
+  }),
   grant: z.object({ id: z.string() }).nullable().optional(),
 });
 const domainFilterSchema = z.enum(['all', 'content', 'tool', 'financial']);
+const statusVariant: Record<
+  AuthorizationApproval['status'],
+  'outline' | 'permit' | 'deny' | 'defer'
+> = {
+  pending: 'outline',
+  approved: 'permit',
+  denied: 'deny',
+  canceled: 'defer',
+  expired: 'defer',
+};
 
 export function AuthorizationApprovalsContent({ workspaceSlug, environmentId, approvals }: Props) {
   const [rows, setRows] = useState(approvals);
@@ -46,6 +73,14 @@ export function AuthorizationApprovalsContent({ workspaceSlug, environmentId, ap
       ),
     [domain, rows],
   );
+  const history = useMemo(
+    () =>
+      rows.filter(
+        (row) => row.status !== 'pending' && (domain === 'all' || row.envelope.domain === domain),
+      ),
+    [domain, rows],
+  );
+  const summary = useMemo(() => buildSummary(rows), [rows]);
 
   async function decide(
     approval: AuthorizationApproval,
@@ -72,7 +107,7 @@ export function AuthorizationApprovalsContent({ workspaceSlug, environmentId, ap
       const result = decisionResponseSchema.parse(JSON.parse(body));
       setRows((current) =>
         current.map((row) =>
-          row.id === result.approval.id ? { ...row, status: result.approval.status } : row,
+          row.id === result.approval.id ? applyDecisionResult(row, result) : row,
         ),
       );
       setSelected(null);
@@ -92,7 +127,7 @@ export function AuthorizationApprovalsContent({ workspaceSlug, environmentId, ap
   const columns: DataTableColumn<AuthorizationApproval>[] = [
     {
       id: 'subject',
-      header: 'Intent',
+      header: 'Request',
       cell: (row) => (
         <div className="grid gap-1">
           <div className="flex items-center gap-2">
@@ -103,20 +138,34 @@ export function AuthorizationApprovalsContent({ workspaceSlug, environmentId, ap
         </div>
       ),
     },
-    { id: 'principal', header: 'Principal', cell: (row) => row.envelope.principal_id },
+    {
+      id: 'principal',
+      header: 'Principal',
+      cell: (row) => (
+        <div className="grid gap-1">
+          <span>{row.envelope.principal_id}</span>
+          <span className="font-mono text-xs text-muted-foreground">
+            {shortHash(row.envelope_hash)}
+          </span>
+        </div>
+      ),
+    },
     {
       id: 'scope',
-      header: 'Reviewed scope',
+      header: 'Reviewed boundary',
       cell: (row) => (
-        <pre className="max-w-md overflow-auto rounded-lg bg-muted p-3 text-xs">
-          {JSON.stringify(row.envelope.proposed_scope ?? { exact: true }, null, 2)}
-        </pre>
+        <div className="max-w-sm space-y-1">
+          <p className="text-sm">{scopeSummary(row)}</p>
+          <p className="font-mono text-xs text-muted-foreground">
+            {row.envelope.exact_fingerprint}
+          </p>
+        </div>
       ),
     },
     {
       id: 'expires',
       header: 'Expires',
-      cell: (row) => new Date(row.expires_at).toLocaleString(),
+      cell: (row) => <TimeCell date={row.expires_at} prefix="in" />,
     },
     {
       id: 'actions',
@@ -134,21 +183,76 @@ export function AuthorizationApprovalsContent({ workspaceSlug, environmentId, ap
       ),
     },
   ];
+  const historyColumns: DataTableColumn<AuthorizationApproval>[] = [
+    {
+      id: 'status',
+      header: 'Decision',
+      cell: (row) => (
+        <div className="grid gap-1">
+          <Badge variant={statusVariant[row.status]}>{row.status.replaceAll('_', ' ')}</Badge>
+          <span className="text-xs text-muted-foreground">
+            {row.decided_at ? formatDate(row.decided_at) : formatDate(row.updated_at)}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'subject',
+      header: 'Request',
+      cell: (row) => (
+        <div className="grid gap-1">
+          <span className="font-medium">{row.envelope.capability}</span>
+          <span className="font-mono text-xs text-muted-foreground">{row.envelope.subject_id}</span>
+        </div>
+      ),
+    },
+    {
+      id: 'principal',
+      header: 'Principal',
+      cell: (row) => row.envelope.principal_id,
+    },
+    {
+      id: 'authority',
+      header: 'Authority',
+      cell: (row) => (
+        <div className="grid gap-1">
+          <span>{row.grant_id ? 'Grant minted' : 'No grant'}</span>
+          <span className="font-mono text-xs text-muted-foreground">
+            {row.grant_id ? shortHash(row.grant_id) : shortHash(row.envelope_hash)}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'scope',
+      header: 'Reviewed boundary',
+      cell: (row) => scopeSummary(row),
+    },
+  ];
 
   return (
-    <div className="grid gap-4 px-4 lg:px-6">
+    <div className="grid gap-6 px-4 lg:px-6">
       <PageHeader
         eyebrow="Unified authorization"
         title="Approvals"
         description="The only queue that can authorize or deny a waiting action across tools, content workflows, and finance."
       />
-      <Card>
-        <CardHeader className="flex-row items-center justify-between gap-4">
-          <CardTitle>Pending decisions</CardTitle>
-          <label className="flex items-center gap-2 text-sm">
+      <div className="grid gap-3 md:grid-cols-4">
+        <MetricCard label="Pending" value={summary.pending} icon={<IconClockHour4 />} />
+        <MetricCard label="Expiring soon" value={summary.expiringSoon} icon={<IconShieldCheck />} />
+        <MetricCard label="Reusable scope" value={summary.scoped} icon={<IconFingerprint />} />
+        <MetricCard label="History" value={summary.history} icon={<IconHistory />} />
+      </div>
+      <Tabs defaultValue="pending">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <TabsList aria-label="Approval views">
+            <TabsTrigger value="pending">Pending</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
+          </TabsList>
+          <label className="flex w-fit items-center gap-2 text-sm">
             Domain
             <select
-              className="rounded-md border bg-background px-3 py-2"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs"
               value={domain}
               onChange={(event) => setDomain(domainFilterSchema.parse(event.target.value))}
             >
@@ -158,22 +262,58 @@ export function AuthorizationApprovalsContent({ workspaceSlug, environmentId, ap
               <option value="content">Content</option>
             </select>
           </label>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={columns}
-            rows={visible}
-            getRowKey={(row) => row.id}
-            caption="Unified authorization approval queue"
-            empty={
-              <EmptyState
-                title="No pending approvals"
-                description="Waiting intents will appear here."
+        </div>
+        <TabsContent value="pending">
+          <Card>
+            <CardHeader className="flex-row items-center justify-between gap-4">
+              <div className="grid gap-1">
+                <CardTitle>Pending decisions</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Immutable envelopes waiting for exact or bounded authority.
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={columns}
+                rows={visible}
+                getRowKey={(row) => row.id}
+                caption="Unified authorization approval queue"
+                empty={
+                  <EmptyState
+                    title="No pending approvals"
+                    description="Waiting intents will appear here."
+                  />
+                }
               />
-            }
-          />
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="history">
+          <Card>
+            <CardHeader>
+              <CardTitle>Approval history</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Recent resolved approvals from the Rust authorization ledger.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={historyColumns}
+                rows={history}
+                getRowKey={(row) => row.id}
+                caption="Unified authorization approval history"
+                empty={
+                  <EmptyState
+                    title="No approval history"
+                    description="Approved, denied, canceled, and expired requests will appear here."
+                  />
+                }
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
       {selected ? (
         <Dialog open onOpenChange={(open) => !open && !busy && setSelected(null)}>
           <DialogContent className="max-w-2xl">
@@ -222,6 +362,18 @@ export function AuthorizationApprovalsContent({ workspaceSlug, environmentId, ap
   );
 }
 
+function MetricCard({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
+  return (
+    <div className="grid gap-2 rounded-lg border bg-card p-4 shadow-xs">
+      <div className="flex items-center justify-between gap-3 text-muted-foreground">
+        <span className="text-xs font-medium uppercase tracking-label">{label}</span>
+        <span className="[&_svg]:size-4">{icon}</span>
+      </div>
+      <span className="font-data text-2xl font-semibold">{value}</span>
+    </div>
+  );
+}
+
 function Detail({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="grid gap-1">
@@ -237,4 +389,86 @@ function readError(body: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+function buildSummary(rows: AuthorizationApproval[]) {
+  const now = Date.now();
+  return rows.reduce(
+    (summary, row) => {
+      if (row.status === 'pending') {
+        summary.pending += 1;
+        if (new Date(row.expires_at).getTime() - now <= 30 * 60 * 1000) {
+          summary.expiringSoon += 1;
+        }
+        if (row.envelope.proposed_scope) summary.scoped += 1;
+      } else {
+        summary.history += 1;
+      }
+      return summary;
+    },
+    { pending: 0, expiringSoon: 0, scoped: 0, history: 0 },
+  );
+}
+
+function applyDecisionResult(
+  row: AuthorizationApproval,
+  result: z.infer<typeof decisionResponseSchema>,
+): AuthorizationApproval {
+  const updated: AuthorizationApproval = {
+    ...row,
+    status: result.approval.status,
+  };
+  if (result.approval.decided_by) updated.decided_by = result.approval.decided_by;
+  if (result.approval.decided_at) {
+    updated.decided_at = result.approval.decided_at;
+    updated.updated_at = result.approval.decided_at;
+  }
+  if (result.approval.decision_reason) {
+    updated.decision_reason = result.approval.decision_reason;
+  }
+  const grantId = result.approval.grant_id ?? result.grant?.id;
+  if (grantId) updated.grant_id = grantId;
+  return updated;
+}
+
+function scopeSummary(row: AuthorizationApproval): string {
+  const scope = row.envelope.proposed_scope;
+  if (!scope) return 'Exact action only';
+  if (scope.scope_type === 'action') {
+    const operations = scope.scope.operations.join(', ');
+    const destinations = scope.scope.allowed_destinations.join(', ');
+    return destinations ? `${operations} to ${destinations}` : operations;
+  }
+  if (scope.scope_type === 'financial') {
+    const operation = scope.scope.operation ?? scope.scope.action_kinds.join(', ');
+    const ceiling =
+      scope.scope.currency && scope.scope.maximum_amount_minor
+        ? ` ${scope.scope.currency} up to ${scope.scope.maximum_amount_minor}`
+        : '';
+    return `${operation}${ceiling}`;
+  }
+  return 'Scoped approval';
+}
+
+function TimeCell({ date, prefix }: { date: string; prefix?: string }) {
+  const expiry = new Date(date).getTime();
+  const minutes = Math.max(0, Math.round((expiry - Date.now()) / 60000));
+  const urgent = minutes <= 30;
+  return (
+    <div className="grid gap-1">
+      <span className={cn('font-data text-sm', urgent ? 'text-destructive' : undefined)}>
+        {prefix ? `${prefix} ` : null}
+        {minutes < 60 ? `${minutes}m` : `${Math.round(minutes / 60)}h`}
+      </span>
+      <span className="text-xs text-muted-foreground">{formatDate(date)}</span>
+    </div>
+  );
+}
+
+function formatDate(date: string): string {
+  return new Date(date).toLocaleString();
+}
+
+function shortHash(value: string): string {
+  return value.length > 18 ? `${value.slice(0, 12)}...${value.slice(-6)}` : value;
 }

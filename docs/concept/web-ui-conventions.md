@@ -43,7 +43,7 @@ The primary sidebar groups runtime monitoring separately from configuration:
 - **Monitor** — `/`, `/runs`, `/approvals`, `/financial`, `/analytics`, and `/attacks`.
 - **Configure** — `/policies`, `/grants`, `/agents`, `/knowledge-sources`, and `/gateway`.
 
-`/approvals` is the only actionable authorization queue. It reads pending common approvals from Rust, shows the immutable envelope and hash, and lets an Owner/Admin deny the request or mint exact/bounded authority. `/grants` lists and revokes that common authority. Historical human-review events remain analytics-only and cannot resume execution or mint grants. See [`authorization-kernel.md`](authorization-kernel.md) for the runtime contract.
+`/approvals` is the only actionable authorization queue. It reads common approvals from Rust, separates pending decisions from read-only history, shows the immutable envelope and hash, and lets an Owner/Admin deny pending requests or mint exact/bounded authority. `/grants` lists and revokes that common authority. Historical human-review events remain analytics-only and cannot resume execution or mint grants. See [`authorization-kernel.md`](authorization-kernel.md) for the runtime contract.
 
 Keep workspace/admin surfaces in the secondary section below the separator. Do not add new primary items as a flat list; choose the existing group that matches the workflow.
 
@@ -139,7 +139,7 @@ Always pass an `empty` message tailored to the page (e.g. `"No agents in this wo
 - `/` — recent decisions (`components/workspace/WorkspaceDashboard.tsx`).
 - `/policies` — workspace policies (`components/workspace/PoliciesPageContent.tsx`).
 - `/agents`, `/runs`, `/runs/[id]`, `/knowledge-sources`, `/api-keys`, `/team` — management tables in `components/workspace/ManagementPages.tsx`.
-- `/approvals` — pending common authorization envelopes (`components/workspace/AuthorizationApprovalsContent.tsx`).
+- `/approvals` — pending and historical common authorization envelopes (`components/workspace/AuthorizationApprovalsContent.tsx`).
 - `/grants` — active and historical common authority (`components/workspace/AuthorizationGrantsContent.tsx`).
 
 When adding a new page with a table, add an entry to this list in the same PR.
@@ -215,7 +215,7 @@ Current adopters: `/onboarding/connect` (SDK quick-start and assistant prompt).
 
 The five canonical effects are exposed as `Badge` variants: `permit`, `transform`, `deny`, `require_approval`, and `defer`. Use these variants instead of mapping colors at call sites. `AuthorizationEffectLegend` is the shared explanatory key for tables and charts.
 
-`/approvals` is the only actionable review queue. It renders the common approval envelope and domain evidence, always echoes `envelope_hash`, and offers scoped approval only when `proposed_scope` exists. `/grants` creates typed user-intent grants and revokes active authority. Financial pages show authorization and execution as separate read-only columns.
+`/approvals` is the only actionable review queue. Its pending tab renders the common approval envelope and domain evidence, always echoes `envelope_hash`, and offers scoped approval only when `proposed_scope` exists. Its history tab is read-only context for approved, denied, canceled, and expired approvals returned by the same Rust authorization list API; history cannot mint grants or resume execution. `/grants` creates typed user-intent grants and revokes active authority. Financial pages show authorization and execution as separate read-only columns.
 
 ## Plain-language help (glossary + InfoHint)
 
