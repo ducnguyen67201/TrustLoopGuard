@@ -382,6 +382,8 @@ async fn migrate_converts_legacy_policy_actions_to_authorization_effects() {
 
     let financial_yaml = "family: financial
 id: legacy-financial
+when:
+  action_kinds: [refund]
 hold_above_minor: 5000
 hold_new_counterparty: true
 mandate_required: true
@@ -397,6 +399,7 @@ on_breach: escalate
             policies::parsed_policy.eq(serde_json::json!({
                 "family": "financial",
                 "id": "legacy-financial",
+                "when": { "action_kinds": ["refund"] },
                 "hold_above_minor": 5000,
                 "hold_new_counterparty": true,
                 "mandate_required": true,
