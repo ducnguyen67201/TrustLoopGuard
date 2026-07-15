@@ -37,7 +37,10 @@ export async function runScriptedRefundAgent(
   }
 
   options.logger?.log('prepare_refund', 'submitting typed financial action to TrustLoopGuard');
-  const prepared = await prepareRefundTool(input, client, options.dbPath);
+  const prepared = await prepareRefundTool(input, client, options.dbPath, {
+    grantId: options.refundGrantId,
+    allowGrantProvisioning: options.allowGrantProvisioning,
+  });
   traces.push({
     tool: 'prepare_refund',
     summary: `${prepared.status}: ${prepared.message}`,
@@ -53,7 +56,10 @@ export async function runScriptedRefundAgent(
   }
 
   options.logger?.log('execute_refund', `executing action ${prepared.action.id}`);
-  const executed = await executeRefundTool(prepared.action.id, client, options.dbPath);
+  const executed = await executeRefundTool(prepared.action.id, client, options.dbPath, {
+    grantId: options.refundGrantId,
+    allowGrantProvisioning: options.allowGrantProvisioning,
+  });
   traces.push({
     tool: 'execute_refund',
     summary: `${executed.status}: ${executed.message}`,

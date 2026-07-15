@@ -15,7 +15,7 @@ public route redacts internal order, payment-intent, and provider-credential fie
 ## Run locally
 
 The `trustloopguard/dev_stripe_demo` Doppler config must contain `OPENAI_API_KEY`,
-`STRIPE_SECRET_KEY`, `TL_API_KEY`, `TL_SERVER_URL`, `DATABASE_URL`, and
+`STRIPE_SECRET_KEY`, `TL_API_KEY`, `TL_SERVER_URL`, `TL_ADMIN_USER_ID`, `DATABASE_URL`, and
 `TL_GATEWAY_CREDENTIAL_KEY`. It must also contain a dedicated, randomly generated
 `REFUND_DEMO_PROXY_SECRET` of at least 32 characters. Do not reuse another application key.
 
@@ -31,6 +31,11 @@ In a second terminal, install the refund policy, reusable authorization grant, a
 doppler run --project trustloopguard --config dev_stripe_demo -- \
   pnpm --filter @trustloopguard/demo stripe-refund-agent:setup
 ```
+
+The setup command prints the reusable refund grant id. Set that value as
+`TL_REFUND_GRANT_ID` anywhere the public `/demo` runtime runs. Public demo
+requests use this pre-provisioned grant and do not list or create authorization
+grants. `TL_ADMIN_USER_ID` is only needed while running setup.
 
 Start the Stripe provider adapter and refund-agent service:
 
@@ -65,7 +70,10 @@ or when an exact daily quota is required. The refund service separately retains 
 circuit breaker per 10-minute window.
 
 The deployed refund-agent service must read a production-scoped `TL_API_KEY` from Doppler and set
-`TL_SERVER_URL=https://api.gettrustloop.app`. The Rust `/v1` API lives on `api.gettrustloop.app`;
+`TL_SERVER_URL=https://api.gettrustloop.app` plus the setup-generated `TL_REFUND_GRANT_ID`.
+Run setup with `TL_ADMIN_USER_ID` set to a workspace owner/admin user id; do not set
+`TL_ADMIN_USER_ID` on the public runtime.
+The Rust `/v1` API lives on `api.gettrustloop.app`;
 `https://app.gettrustloop.app` is the authenticated dashboard and is used only for held-action review
 links. Do not copy either key into the marketing app or expose it through a `NEXT_PUBLIC_*` variable.
 

@@ -46,6 +46,8 @@ export async function runOpenAiRefundAgent(
           logger: options.logger,
           requestId: options.requestId,
           dbPath: options.dbPath,
+          refundGrantId: options.refundGrantId,
+          allowGrantProvisioning: options.allowGrantProvisioning,
         });
         state.recordToolResult(result);
         messages.push({
