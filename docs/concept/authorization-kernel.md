@@ -14,6 +14,17 @@ Every evaluation ends with one `AuthorizationEffect`:
 
 Composition is fail-closed: `deny > defer > require_approval > transform > permit`. The receipt retains every finding even when a stronger effect determines the result.
 
+## Lifecycle at a glance
+
+```text
+intent -> policy and live checks -> approval (only when authority is missing)
+       -> grant -> policy and live recheck -> one-attempt lease -> execution -> receipt
+```
+
+Only the [approval](glossary.md#authorization-approval) is a pending human decision. Approving it does not execute the action; it creates a revocable [grant](glossary.md#authorization-grant). The caller presents that authority as an [authorization claim](glossary.md#authorization-claim), then the kernel rechecks current policy and live state before issuing an [execution lease](glossary.md#execution-lease). The [authorization receipt](glossary.md#authorization-receipt) records why the attempt was permitted or stopped.
+
+The same lifecycle covers tool and financial work. A financial action remains a financial-domain record for execution and ledger history, but any human decision it needs appears in the common `/approvals` queue with the `financial` domain label.
+
 ## Authority flow
 
 1. A typed domain adapter normalizes the subject and computes a versioned fingerprint.

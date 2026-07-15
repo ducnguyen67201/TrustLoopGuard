@@ -20,6 +20,31 @@ externally visible action.
 | Agent profile          | Context about the agent's domain, authority, tone, and constraints.                                                                                     |
 | Trace                  | The persisted record that lets operators inspect what happened later.                                                                                   |
 
+## Approval And Execution Flow
+
+| Term                  | Plain-language meaning                                                                                                     |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Intent                | The durable record of the action the agent is proposing. It is not permission to execute.                                  |
+| Approval              | A pending human decision. Approving creates authority but does not execute the action.                                     |
+| Grant                 | Revocable authority for one exact action or a bounded reusable scope. It never overrides current policy.                   |
+| Authorization claim   | The grant and attempt identifiers the caller presents when retrying the action.                                            |
+| Lease                 | A one-attempt execution right issued only after TrustLoopGuard rechecks current policy and live state.                     |
+| Authorization receipt | Audit evidence explaining the decision and linking its intent, approval, grant, and lease. It carries no execution rights. |
+
+The complete flow is:
+
+1. The agent proposes an executable action and TrustLoopGuard records its intent.
+2. Policies and live checks evaluate the action.
+3. If authority is missing, one domain-labeled item appears in **Approvals**.
+4. Approval creates an exact-once or bounded scoped grant.
+5. The caller retries with that grant; TrustLoopGuard rechecks current policy and live state.
+6. A one-attempt lease prevents duplicate execution.
+7. TrustLoopGuard writes an authorization receipt, while the domain records its own result.
+
+Financial actions use this same approval flow. **Approvals** is the only place a
+person approves or denies them; **Financial actions** remains the ledger and
+execution-history view.
+
 ## Runtime Shape
 
 The Rust backend is the source of truth. SDKs call the Rust server directly for
