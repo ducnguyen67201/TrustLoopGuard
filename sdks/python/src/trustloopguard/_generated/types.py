@@ -488,6 +488,19 @@ class FinancialActionPrecondition(Enum):
     custom = 'custom'
 
 
+class FinancialActionState(Enum):
+    evaluating = 'evaluating'
+    authorized = 'authorized'
+    held_for_approval = 'held_for_approval'
+    blocked = 'blocked'
+    not_executable = 'not_executable'
+    executing = 'executing'
+    executed = 'executed'
+    failed = 'failed'
+    canceled = 'canceled'
+    reversed = 'reversed'
+
+
 class FinancialExecutionStatus(Enum):
     not_started = 'not_started'
     executing = 'executing'
@@ -2558,6 +2571,8 @@ class FinancialActionRecord(BaseModel):
     evidence: list[EvidenceRef] | None = None
     execution_status: FinancialExecutionStatus
     id: str
+    state: FinancialActionState | None = None
+    state_reason: str | None = None
     status_reason: str | None = None
     updated_at: str
     workspace_id: str

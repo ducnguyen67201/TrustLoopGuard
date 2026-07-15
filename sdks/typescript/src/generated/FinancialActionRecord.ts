@@ -4,6 +4,7 @@ import type { AuthorizationEffect } from "./AuthorizationEffect";
 import type { AuthorizationIntentStatus } from "./AuthorizationIntentStatus";
 import type { EvidenceRef } from "./EvidenceRef";
 import type { FinancialAction } from "./FinancialAction";
+import type { FinancialActionState } from "./FinancialActionState";
 import type { FinancialExecutionStatus } from "./FinancialExecutionStatus";
 
-export type FinancialActionRecord = { id: string, workspace_id: string, environment_id: string, authorization_intent_id?: string, authorization_receipt_id?: string, authorization_effect: AuthorizationEffect, authorization_status: AuthorizationIntentStatus, authorization?: AuthorizationDecision, execution_status: FinancialExecutionStatus, status_reason?: string, action: FinancialAction, evidence: Array<EvidenceRef>, created_at: string, updated_at: string, };
+export type FinancialActionRecord = { id: string, workspace_id: string, environment_id: string, authorization_intent_id?: string, authorization_receipt_id?: string, authorization_effect: AuthorizationEffect, authorization_status: AuthorizationIntentStatus, authorization?: AuthorizationDecision, execution_status: FinancialExecutionStatus, status_reason?: string, state: FinancialActionState, state_reason?: string, action: FinancialAction, evidence: Array<EvidenceRef>, created_at: string, updated_at: string, };

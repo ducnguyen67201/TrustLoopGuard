@@ -39,6 +39,7 @@ function demoAction(id: string): FinancialActionRecord {
     id, workspace_id: 'default', environment_id: 'production',
     authorization_intent_id: `intent_${id}`, authorization_receipt_id: `authorization_${id}`,
     authorization_effect: 'permit', authorization_status: 'authorized', execution_status: 'succeeded',
+    state: 'executed',
     action: {
       id, kind: 'refund', operation: 'issue_refund', principal_id: 'refund-bot',
       amount: { amount_minor: 7_500n, currency: 'USD' },

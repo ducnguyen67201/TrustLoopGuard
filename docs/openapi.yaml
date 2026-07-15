@@ -6293,6 +6293,12 @@ components:
           $ref: '#/components/schemas/FinancialExecutionStatus'
         id:
           type: string
+        state:
+          $ref: '#/components/schemas/FinancialActionState'
+        state_reason:
+          type:
+          - string
+          - 'null'
         status_reason:
           type:
           - string
@@ -6301,6 +6307,25 @@ components:
           type: string
         workspace_id:
           type: string
+    FinancialActionState:
+      type: string
+      description: |-
+        Dashboard-facing lifecycle state for a financial action.
+
+        This projection complements the lower-level authorization and execution
+        axes so callers do not have to infer whether an action is waiting, blocked,
+        in flight, or finished.
+      enum:
+      - evaluating
+      - authorized
+      - held_for_approval
+      - blocked
+      - not_executable
+      - executing
+      - executed
+      - failed
+      - canceled
+      - reversed
     FinancialExecutionStatus:
       type: string
       enum:

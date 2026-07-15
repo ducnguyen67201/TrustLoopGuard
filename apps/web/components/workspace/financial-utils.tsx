@@ -3,10 +3,14 @@ import type {
   AuthorizationEffect,
   FinancialActionOutcome,
   FinancialActionRecord,
+  FinancialActionState,
   FinancialExecutionStatus,
 } from '@trustloopguard/sdk';
 
 type BadgeVariant = 'permit' | 'deny' | 'require_approval' | 'outline' | 'secondary';
+type FinancialActionWithOptionalState = Omit<FinancialActionRecord, 'state'> & {
+  state?: FinancialActionState;
+};
 
 const STATUS_VARIANT: Record<FinancialExecutionStatus, BadgeVariant> = {
   not_started: 'outline',
@@ -23,6 +27,19 @@ const AUTHORIZATION_VARIANT: Record<AuthorizationEffect, BadgeVariant> = {
   transform: 'permit',
   require_approval: 'require_approval',
   defer: 'secondary',
+};
+
+const ACTION_STATE_VARIANT: Record<FinancialActionState, BadgeVariant> = {
+  evaluating: 'secondary',
+  authorized: 'permit',
+  held_for_approval: 'require_approval',
+  blocked: 'deny',
+  not_executable: 'deny',
+  executing: 'require_approval',
+  executed: 'permit',
+  failed: 'deny',
+  canceled: 'secondary',
+  reversed: 'secondary',
 };
 
 const OUTCOME_VARIANT: Record<FinancialActionOutcome['status'], BadgeVariant> = {
@@ -44,6 +61,10 @@ export function FinancialStatusBadge({ status }: { status: FinancialExecutionSta
 
 export function FinancialAuthorizationBadge({ effect }: { effect: AuthorizationEffect }) {
   return <Badge variant={AUTHORIZATION_VARIANT[effect]}>{titleLabel(effect)}</Badge>;
+}
+
+export function FinancialActionStateBadge({ state }: { state: FinancialActionState }) {
+  return <Badge variant={ACTION_STATE_VARIANT[state]}>{titleLabel(state)}</Badge>;
 }
 
 export function OutcomeBadge({ outcome }: { outcome: FinancialActionOutcome | undefined }) {
@@ -142,6 +163,51 @@ export function counterpartyLabel(action: FinancialActionRecord): string {
   return counterparty?.display_name ?? counterparty?.id ?? '—';
 }
 
+export function effectiveFinancialActionState(
+  action: FinancialActionWithOptionalState,
+): FinancialActionState {
+  if (action.state) return action.state;
+  if (action.execution_status === 'succeeded') return 'executed';
+  if (action.execution_status === 'failed') return 'failed';
+  if (action.execution_status === 'executing') return 'executing';
+  if (action.execution_status === 'canceled') return 'canceled';
+  if (action.execution_status === 'reversed') return 'reversed';
+  if (!action.authorization_intent_id && firstFailedFinancialEvidenceReason(action)) {
+    return 'not_executable';
+  }
+  if (action.authorization_effect === 'deny') return 'blocked';
+  if (action.authorization_effect === 'require_approval') return 'held_for_approval';
+  if (action.authorization_effect === 'permit' || action.authorization_effect === 'transform') {
+    return 'authorized';
+  }
+  return 'evaluating';
+}
+
+const EVIDENCE_FAILURE_LABELS = [
+  ['order_exists', 'Order not found'],
+  ['payment_captured', 'Payment was not captured'],
+  ['refund_window_open', 'Refund window closed'],
+  ['amount_lte_refundable_balance', 'Amount exceeds refundable balance'],
+  ['destination_is_original_payment_method', 'Not original payment method'],
+  ['no_duplicate_refund', 'Duplicate refund'],
+  ['invoice_matches_po', 'Invoice does not match PO'],
+  ['vendor_approved', 'Vendor not approved'],
+  ['grant_valid', 'Grant invalid'],
+] as const;
+
+export function firstFailedFinancialEvidenceReason(
+  action: Pick<FinancialActionRecord, 'evidence'>,
+): string | null {
+  for (const evidence of action.evidence) {
+    const metadata = evidence.metadata;
+    if (!isRecord(metadata)) continue;
+    for (const [key, label] of EVIDENCE_FAILURE_LABELS) {
+      if (metadata[key] === false) return label;
+    }
+  }
+  return null;
+}
+
 /** Extract a display message from an API error body (JSON `error`/`message` or plain text). */
 export function safeError(text: string): string | null {
   try {
@@ -150,4 +216,8 @@ export function safeError(text: string): string | null {
   } catch {
     return text.trim() === '' ? null : text;
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

@@ -136,6 +136,7 @@ class RuntimeOnlyRefundClient implements RefundAgentClient {
       authorization_effect: permitted ? 'permit' : held ? 'require_approval' : 'deny',
       authorization_status: permitted ? 'authorized' : held ? 'pending_approval' : 'denied',
       execution_status: 'not_started',
+      state: permitted ? 'authorized' : held ? 'held_for_approval' : 'blocked',
       action: { ...req.action, id },
       evidence: req.evidence,
       created_at: now,
@@ -163,6 +164,7 @@ class RuntimeOnlyRefundClient implements RefundAgentClient {
     const updated = {
       ...current,
       execution_status: 'succeeded' as const,
+      state: 'executed' as const,
       updated_at: '2026-07-06T10:00:01.000Z',
     };
     this.actions.set(id, updated);

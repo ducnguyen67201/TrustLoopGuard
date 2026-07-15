@@ -9,8 +9,8 @@ use chrono::{DateTime, Utc};
 use tl_core::{
     AgenticPaymentReservation, AuthorizationEffect, AuthorizationIntentStatus,
     CreateFinancialActionRequest, FinancialActionListResponse, FinancialActionOutcome,
-    FinancialActionRecord, FinancialExecutionStatus, FinancialOutcomeListResponse,
-    FinancialReceipt, MoneyAmount,
+    FinancialActionRecord, FinancialActionState, FinancialExecutionStatus,
+    FinancialOutcomeListResponse, FinancialReceipt, MoneyAmount,
 };
 
 mod executor;
@@ -37,6 +37,91 @@ pub use handlers::{
 };
 pub use memory_store::MemoryFinancialStore;
 pub use service::FinancialAuthorizationService;
+
+pub(crate) fn project_financial_action_state(action: &mut FinancialActionRecord) {
+    let failed_evidence_reason = first_failed_evidence_reason(action);
+    let authorization_reason = action
+        .authorization
+        .as_ref()
+        .map(|decision| decision.reason.trim())
+        .filter(|reason| !reason.is_empty())
+        .map(str::to_string);
+
+    let (state, reason) = match action.execution_status {
+        FinancialExecutionStatus::Succeeded => (FinancialActionState::Executed, None),
+        FinancialExecutionStatus::Failed => (
+            FinancialActionState::Failed,
+            action.status_reason.clone().or(authorization_reason),
+        ),
+        FinancialExecutionStatus::Executing => (FinancialActionState::Executing, None),
+        FinancialExecutionStatus::Canceled => (
+            FinancialActionState::Canceled,
+            action.status_reason.clone().or(authorization_reason),
+        ),
+        FinancialExecutionStatus::Reversed => (
+            FinancialActionState::Reversed,
+            action.status_reason.clone().or(authorization_reason),
+        ),
+        FinancialExecutionStatus::NotStarted
+            if action.authorization_intent_id.is_none() && failed_evidence_reason.is_some() =>
+        {
+            (FinancialActionState::NotExecutable, failed_evidence_reason)
+        }
+        FinancialExecutionStatus::NotStarted => match action.authorization_effect {
+            AuthorizationEffect::Deny => (
+                FinancialActionState::Blocked,
+                action
+                    .status_reason
+                    .clone()
+                    .or(failed_evidence_reason)
+                    .or(authorization_reason)
+                    .or_else(|| Some("Authorization denied".into())),
+            ),
+            AuthorizationEffect::RequireApproval => (
+                FinancialActionState::HeldForApproval,
+                authorization_reason.or_else(|| Some("Human authorization required".into())),
+            ),
+            AuthorizationEffect::Permit | AuthorizationEffect::Transform => {
+                (FinancialActionState::Authorized, None)
+            }
+            AuthorizationEffect::Defer => (FinancialActionState::Evaluating, authorization_reason),
+        },
+    };
+
+    action.state = state;
+    action.state_reason = reason;
+}
+
+fn first_failed_evidence_reason(action: &FinancialActionRecord) -> Option<String> {
+    const LABELS: [(&str, &str); 9] = [
+        ("order_exists", "Order not found"),
+        ("payment_captured", "Payment was not captured"),
+        ("refund_window_open", "Refund window closed"),
+        (
+            "amount_lte_refundable_balance",
+            "Amount exceeds refundable balance",
+        ),
+        (
+            "destination_is_original_payment_method",
+            "Not original payment method",
+        ),
+        ("no_duplicate_refund", "Duplicate refund"),
+        ("invoice_matches_po", "Invoice does not match PO"),
+        ("vendor_approved", "Vendor not approved"),
+        ("grant_valid", "Grant invalid"),
+    ];
+
+    action.evidence.iter().find_map(|evidence| {
+        LABELS.iter().find_map(|(key, label)| {
+            (evidence
+                .metadata
+                .get(key)
+                .and_then(serde_json::Value::as_bool)
+                == Some(false))
+            .then(|| (*label).to_string())
+        })
+    })
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum FinancialStoreError {

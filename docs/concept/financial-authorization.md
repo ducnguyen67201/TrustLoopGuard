@@ -10,15 +10,17 @@ Financial actions are typed domain commands for payments, refunds, payouts, purc
 - `crates/tl-storage`: actions, ledger entries, execution receipts, outcomes, reservations, and the common authorization repositories.
 - `apps/web`: thin proxies and ledger/history presentation. It has no approval mutation routes.
 
-## Two independent state axes
+## Product state and independent lifecycle axes
 
 Every `FinancialActionRecord` exposes:
 
+- `state`: the Rust-derived product state used by callers and the dashboard: `evaluating`, `authorized`, `held_for_approval`, `blocked`, `not_executable`, `executing`, `executed`, `failed`, `canceled`, or `reversed`.
+- `state_reason`: the product-facing explanation when a state needs one, such as `Amount exceeds refundable balance`.
 - `authorization_effect`: `permit`, `deny`, `require_approval`, or `defer`; financial actions cannot use `transform`.
 - `authorization_status`: the shared durable intent lifecycle.
 - `execution_status`: `not_started`, `executing`, `succeeded`, `failed`, `canceled`, or `reversed`.
 
-An approved action is not an executed action. Authorization answers whether execution may start now. Execution state records what the provider and ledger actually did.
+`state` is a projection of the existing evidence, authorization, and execution fields; it is not a fourth durable state machine and requires no separate storage. Failed trusted evidence before an authorization intent exists produces `not_executable`. An evaluated policy denial produces `blocked`. An approved action is not an executed action: authorization answers whether execution may start now, while execution state records what the provider and ledger actually did.
 
 ## Request flow
 
@@ -57,4 +59,4 @@ x402 authorization uses the same financial adapter and grant model, with scope f
 
 - `/approvals` is the only actionable decision queue for both financial and non-financial work.
 - `/grants` creates, lists, and revokes saved authority.
-- `/financial` is a ledger and execution-history surface. It displays authorization and execution separately and has no approve/deny controls.
+- `/financial` is a ledger and execution-history surface. It leads with the product state and reason while retaining the raw authorization and execution axes, and it has no approve/deny controls.

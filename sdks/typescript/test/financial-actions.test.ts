@@ -26,6 +26,7 @@ const action = {
   authorization_effect: 'permit',
   authorization_status: 'authorized',
   execution_status: 'not_started',
+  state: 'authorized',
   action: {
     ...request.action,
     id: 'action-1',
@@ -46,6 +47,7 @@ describe('financial actions', () => {
     expect(result.authorization_effect).toBe('permit');
     expect(result.authorization_status).toBe('authorized');
     expect(result.execution_status).toBe('not_started');
+    expect(result.state).toBe('authorized');
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 

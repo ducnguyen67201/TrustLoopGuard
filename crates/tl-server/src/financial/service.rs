@@ -18,10 +18,10 @@ use tl_core::{
 use tl_policy::{validate_family_policy, FamilyPolicy, FinancialPolicy, FinancialWhen};
 
 use super::{
-    validation::validate_create_action, x402, AgenticPaymentBudgetReservationRequest,
-    FinancialBudgetConstraint, FinancialBudgetReservationOutcome,
-    FinancialBudgetReservationRequest, FinancialBudgetWindow, FinancialExecutor,
-    FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
+    project_financial_action_state, validation::validate_create_action, x402,
+    AgenticPaymentBudgetReservationRequest, FinancialBudgetConstraint,
+    FinancialBudgetReservationOutcome, FinancialBudgetReservationRequest, FinancialBudgetWindow,
+    FinancialExecutor, FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
 };
 use crate::auth::WorkspaceKeyContext;
 use crate::authorization::{
@@ -154,6 +154,7 @@ impl FinancialAuthorizationService {
             )
             .await?;
         projected.authorization = Some(decision.clone());
+        project_financial_action_state(&mut projected);
         Ok((projected, decision))
     }
 
@@ -219,6 +220,7 @@ impl FinancialAuthorizationService {
             )
             .await?;
         action.authorization = Some(decision.clone());
+        project_financial_action_state(&mut action);
         if !decision.effect.is_executable() {
             return Ok(action);
         }

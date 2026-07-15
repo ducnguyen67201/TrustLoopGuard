@@ -215,6 +215,10 @@ A tenant-scoped execution proof for a financial action. It links the action and 
 
 The operational and risk result of a financial action after authorization or execution. Outcomes record provider status, provider reference, reversal capability, recovery status, dispute/loss metadata, and final loss amount when known. Outcomes do not replace ledger entries: ledger entries answer spend/reservation questions, while outcomes answer whether the action succeeded, failed, reversed, recovered, was disputed, or caused loss.
 
+### Financial action state
+
+The Rust-derived product projection of a financial action's trusted evidence, authorization, and execution lifecycle. It lets callers distinguish `not_executable` eligibility failures, policy `blocked` actions, `held_for_approval` actions, authorized work, active execution, and terminal outcomes without inferring meaning from raw `defer`, `evaluating`, or `not_started` fields. It is computed from existing records and is not a separate durable state machine.
+
 ### Agentic payment
 
 An agent-initiated typed [Financial action](#financial-action) that needs authorization before a payment credential, signature, or settlement attempt is released. In the x402 path, the agent submits the payment requirement to TrustLoopGuard first, receives an action-bound authorization/reservation, then either commits with settlement proof or rolls the reservation back before settlement.

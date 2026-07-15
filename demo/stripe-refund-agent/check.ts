@@ -105,6 +105,7 @@ class MockRefundClient implements RefundAgentClient {
       authorization_intent_id: `intent_${id}`, authorization_receipt_id: `authorization_${id}`,
       authorization_effect: permitted ? 'permit' : 'deny',
       authorization_status: permitted ? 'authorized' : 'denied', execution_status: 'not_started',
+      state: permitted ? 'authorized' : 'blocked',
       action: { ...req.action, id }, evidence: req.evidence, created_at: now, updated_at: now,
     };
     this.actions.set(id, record);
@@ -120,7 +121,12 @@ class MockRefundClient implements RefundAgentClient {
     const current = this.requireAction(id);
     if (request.authorization.grant_id !== this.grant?.id) return current;
     this.executions += 1;
-    const updated = { ...current, execution_status: 'succeeded' as const, updated_at: timestamp() };
+    const updated = {
+      ...current,
+      execution_status: 'succeeded' as const,
+      state: 'executed' as const,
+      updated_at: timestamp(),
+    };
     this.actions.set(id, updated);
     this.receipts.set(id, {
       id, action_id: id, authorization_receipt_id: current.authorization_receipt_id!,

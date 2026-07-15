@@ -23,8 +23,11 @@ import type { FamilyPolicyRow } from '@/lib/server/dashboard-data';
 import {
   counterpartyLabel,
   currentContextQuery,
+  effectiveFinancialActionState,
+  FinancialActionStateBadge,
   FinancialAuthorizationBadge,
   FinancialStatusBadge,
+  firstFailedFinancialEvidenceReason,
   formatDateTime,
   formatMoney,
   latestOutcome,
@@ -58,14 +61,15 @@ export function FinancialActionsContent({
   const contextQuery = currentContextQuery(workspaceSlug, environmentId);
   const [actionRows] = useState(actions);
   const heldCount = actionRows.filter(
-    (action) => action.authorization_effect === 'require_approval',
+    (action) => effectiveFinancialActionState(action) === 'held_for_approval',
   ).length;
   const executedCount = actionRows.filter(
-    (action) => action.execution_status === 'succeeded',
+    (action) => effectiveFinancialActionState(action) === 'executed',
   ).length;
-  const failedCount = actionRows.filter(
-    (action) => action.execution_status === 'failed' || action.authorization_effect === 'deny',
-  ).length;
+  const failedCount = actionRows.filter((action) => {
+    const state = effectiveFinancialActionState(action);
+    return state === 'blocked' || state === 'not_executable' || state === 'failed';
+  }).length;
   const x402Actions = actionRows.filter((action) => action.action.rail === 'x402');
   const x402ReservedCount = x402Actions.filter(
     (action) =>
@@ -80,6 +84,8 @@ export function FinancialActionsContent({
     focusActionId === null
       ? actionRows
       : actionRows.filter((action) => action.id === focusActionId);
+  const focusedAction =
+    focusActionId === null ? undefined : actionRows.find((action) => action.id === focusActionId);
 
   const columns: DataTableColumn<FinancialActionRecord>[] = [
     {
@@ -136,7 +142,15 @@ export function FinancialActionsContent({
     {
       id: 'outcome',
       header: 'Outcome',
-      cell: (row) => <OutcomeBadge outcome={latestOutcome(outcomesByActionId, row.id)} />,
+      cell: (row) => {
+        const outcome = latestOutcome(outcomesByActionId, row.id);
+        return (
+          <div className="grid gap-1">
+            <FinancialActionStateBadge state={effectiveFinancialActionState(row)} />
+            {outcome ? <OutcomeBadge outcome={outcome} /> : null}
+          </div>
+        );
+      },
     },
     {
       id: 'reason',
@@ -159,7 +173,7 @@ export function FinancialActionsContent({
       cell: (row) => {
         return (
           <div className="flex justify-end gap-1.5">
-            {row.authorization_effect === 'require_approval' ? (
+            {effectiveFinancialActionState(row) === 'held_for_approval' ? (
               <Button asChild variant="ghost" size="sm">
                 <Link href={`/approvals${contextQuery}`}>
                   <IconChecklist />
@@ -200,7 +214,7 @@ export function FinancialActionsContent({
           <strong>Reviewing this demo action</strong>
           <code className="break-all text-xs">{focusActionId}</code>
           <span className="text-muted-foreground">
-            Open Approvals to authorize it; this ledger cannot mutate authorization state.
+            {focusedActionMessage(focusedAction)}
           </span>
         </div>
       ) : null}
@@ -355,11 +369,19 @@ function actionReason(
   action: FinancialActionRecord,
   outcome: FinancialActionOutcome | undefined,
 ): { primary: string; secondary?: string } {
-  if (action.authorization_effect === 'require_approval') {
+  const state = effectiveFinancialActionState(action);
+  if (action.state_reason) {
+    return {
+      primary: cleanReason(action.state_reason),
+      secondary: stateReasonContext(state),
+    };
+  }
+
+  if (state === 'held_for_approval') {
     return { primary: 'Human authorization required', secondary: 'Open Approvals to decide' };
   }
 
-  if (action.authorization_effect === 'deny' || action.execution_status === 'failed') {
+  if (state === 'blocked' || state === 'not_executable' || state === 'failed') {
     if (action.status_reason) {
       return {
         primary: cleanReason(action.status_reason),
@@ -377,7 +399,7 @@ function actionReason(
       return { primary: cleanReason(outcome.provider_status), secondary: 'Provider status' };
     }
 
-    const evidenceFailure = firstFailedEvidenceReason(action);
+    const evidenceFailure = firstFailedFinancialEvidenceReason(action);
     if (evidenceFailure) return { primary: evidenceFailure, secondary: 'Eligibility failed' };
 
     return { primary: 'No failure reason recorded', secondary: 'Action could not proceed' };
@@ -389,40 +411,39 @@ function actionReason(
   return { primary: action.action.memo ?? 'No reason recorded' };
 }
 
-const EVIDENCE_FAILURE_LABELS = [
-  ['order_exists', 'Order not found'],
-  ['payment_captured', 'Payment was not captured'],
-  ['refund_window_open', 'Refund window closed'],
-  ['amount_lte_refundable_balance', 'Amount exceeds refundable balance'],
-  ['destination_is_original_payment_method', 'Not original payment method'],
-  ['no_duplicate_refund', 'Duplicate refund'],
-  ['invoice_matches_po', 'Invoice does not match PO'],
-  ['vendor_approved', 'Vendor not approved'],
-  ['grant_valid', 'Grant invalid'],
-] as const;
-
-function firstFailedEvidenceReason(action: FinancialActionRecord): string | null {
-  for (const evidence of action.evidence) {
-    const metadata = evidence.metadata;
-    if (!isRecord(metadata)) continue;
-    for (const [key, label] of EVIDENCE_FAILURE_LABELS) {
-      if (metadata[key] === false) return label;
-    }
-  }
-  return null;
-}
-
 function stringMetadata(metadata: Record<string, unknown> | null | undefined, key: string) {
   const value = metadata?.[key];
   return typeof value === 'string' && value.trim() !== '' ? value : null;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
 function cleanReason(reason: string): string {
   return titleLabel(reason.replaceAll(/[^a-zA-Z0-9]+/g, '_')).replaceAll('`', '');
+}
+
+function stateReasonContext(state: ReturnType<typeof effectiveFinancialActionState>): string {
+  if (state === 'held_for_approval') return 'Open Approvals to decide';
+  if (state === 'blocked') return 'Authorization blocked';
+  if (state === 'not_executable') return 'Eligibility failed before authorization';
+  if (state === 'failed') return 'Execution failed';
+  return titleLabel(state);
+}
+
+function focusedActionMessage(action: FinancialActionRecord | undefined): string {
+  if (!action) return 'This action is not available in the current workspace and environment.';
+  const state = effectiveFinancialActionState(action);
+  if (state === 'held_for_approval') {
+    return 'Open Approvals to authorize it; this ledger cannot mutate authorization state.';
+  }
+  if (state === 'blocked' || state === 'not_executable') {
+    return action.state_reason ?? 'This action was stopped before provider execution.';
+  }
+  if (state === 'executed') return 'Execution completed and its receipt is available.';
+  if (state === 'failed') return action.state_reason ?? 'Provider execution failed.';
+  if (state === 'canceled') return action.state_reason ?? 'Execution was canceled.';
+  if (state === 'reversed') return action.state_reason ?? 'Execution was reversed.';
+  if (state === 'authorized') return 'Authorization succeeded; provider execution has not started.';
+  if (state === 'executing') return 'Provider execution is in progress.';
+  return 'Authorization is still being evaluated.';
 }
 
 function SummaryTile({

@@ -93,11 +93,12 @@ pub use financial::{
     CreateFinancialActionRequest, CreateFinancialPolicyRequest, EvidenceRef,
     ExecuteFinancialActionRequest, FinancialAction, FinancialActionKind,
     FinancialActionListResponse, FinancialActionOutcome, FinancialActionOutcomeStatus,
-    FinancialActionPrecondition, FinancialActionRecord, FinancialEligibilityCheck,
-    FinancialEligibilityResult, FinancialEligibilityStatus, FinancialOutcomeListResponse,
-    FinancialPolicyListResponse, FinancialPolicyRecord, FinancialPolicySelector, FinancialRail,
-    FinancialReceipt, MoneyAmount, RecoveryStatus, ReversalCapability, SpendMeter,
-    X402NormalizedPaymentRequirement, X402PaymentRequirement, X402SettlementProof, USD,
+    FinancialActionPrecondition, FinancialActionRecord, FinancialActionState,
+    FinancialEligibilityCheck, FinancialEligibilityResult, FinancialEligibilityStatus,
+    FinancialOutcomeListResponse, FinancialPolicyListResponse, FinancialPolicyRecord,
+    FinancialPolicySelector, FinancialRail, FinancialReceipt, MoneyAmount, RecoveryStatus,
+    ReversalCapability, SpendMeter, X402NormalizedPaymentRequirement, X402PaymentRequirement,
+    X402SettlementProof, USD,
 };
 pub use gateway::{
     CreateGatewayProviderConnectionRequest, CreateGatewayRouteRequest, GatewayCredentialStatus,
