@@ -439,6 +439,8 @@ function focusedActionMessage(action: FinancialActionRecord | undefined): string
   }
   if (state === 'executed') return 'Execution completed and its receipt is available.';
   if (state === 'failed') return action.state_reason ?? 'Provider execution failed.';
+  if (state === 'canceled') return action.state_reason ?? 'Execution was canceled.';
+  if (state === 'reversed') return action.state_reason ?? 'Execution was reversed.';
   if (state === 'authorized') return 'Authorization succeeded; provider execution has not started.';
   if (state === 'executing') return 'Provider execution is in progress.';
   return 'Authorization is still being evaluated.';
