@@ -462,3 +462,143 @@ on_breach: escalate
     }
     tl_policy::load_any_str(financial_yaml).expect("migrated financial YAML parses");
 }
+
+#[tokio::test]
+async fn migrate_removes_only_financial_actions_without_unified_intents() {
+    let (database_url, _container) = fresh_database_url().await;
+    let mut conn = establish(&database_url);
+    run_migrations_before(&mut conn, "00000000000054");
+    conn.batch_execute(
+        "INSERT INTO organizations (id, name, slug)
+         VALUES ('org_financial_cleanup', 'Financial cleanup', 'financial-cleanup');
+
+         INSERT INTO workspaces (id, organization_id, name, slug)
+         VALUES (
+             'ws_financial_cleanup',
+             'org_financial_cleanup',
+             'Financial cleanup',
+             'financial-cleanup'
+         );
+
+         INSERT INTO authorization_intents (
+             workspace_id,
+             environment_id,
+             id,
+             domain,
+             subject_id,
+             idempotency_key,
+             principal_id,
+             operation,
+             fingerprint,
+             fingerprint_version,
+             subject_snapshot,
+             status,
+             current_effect,
+             reason
+         ) VALUES (
+             'ws_financial_cleanup',
+             'production',
+             '00000000-0000-7000-8000-000000000001',
+             'financial',
+             'current-action',
+             'current-intent',
+             'agent-current',
+             'payment',
+             'current-fingerprint',
+             1,
+             '{}',
+             'authorized',
+             'permit',
+             'current unified authorization'
+         );
+
+         INSERT INTO financial_actions (
+             workspace_id,
+             environment_id,
+             id,
+             idempotency_key,
+             principal_id,
+             action_kind,
+             operation,
+             amount_minor,
+             currency,
+             rail,
+             authorization_intent_id
+         ) VALUES
+         (
+             'ws_financial_cleanup',
+             'production',
+             '00000000-0000-7000-8000-000000000010',
+             'legacy-orphan-action',
+             'agent-legacy',
+             'payment',
+             'payment',
+             250,
+             'USD',
+             'x402',
+             NULL
+         ),
+         (
+             'ws_financial_cleanup',
+             'production',
+             '00000000-0000-7000-8000-000000000011',
+             'current-linked-action',
+             'agent-current',
+             'payment',
+             'payment',
+             250,
+             'USD',
+             'x402',
+             '00000000-0000-7000-8000-000000000001'
+         );
+
+         INSERT INTO financial_action_events (
+             workspace_id,
+             id,
+             action_id,
+             event_type
+         ) VALUES (
+             'ws_financial_cleanup',
+             '00000000-0000-7000-8000-000000000020',
+             '00000000-0000-7000-8000-000000000010',
+             'legacy_event'
+         );",
+    )
+    .expect("seed legacy and current financial actions");
+
+    conn.run_pending_migrations(MIGRATIONS)
+        .expect("run orphaned financial-action cleanup migration");
+    conn.batch_execute(
+        "DO $$
+         BEGIN
+             IF EXISTS (
+                 SELECT 1
+                 FROM financial_actions
+                 WHERE workspace_id = 'ws_financial_cleanup'
+                   AND id = '00000000-0000-7000-8000-000000000010'
+             ) THEN
+                 RAISE EXCEPTION 'legacy orphan action was preserved';
+             END IF;
+
+             IF NOT EXISTS (
+                 SELECT 1
+                 FROM financial_actions
+                 WHERE workspace_id = 'ws_financial_cleanup'
+                   AND id = '00000000-0000-7000-8000-000000000011'
+             ) THEN
+                 RAISE EXCEPTION 'current linked action was deleted';
+             END IF;
+
+             IF EXISTS (
+                 SELECT 1
+                 FROM financial_action_events
+                 WHERE workspace_id = 'ws_financial_cleanup'
+                   AND action_id = '00000000-0000-7000-8000-000000000010'
+             ) THEN
+                 RAISE EXCEPTION 'legacy dependent rows were preserved';
+             END IF;
+         END
+         $$;",
+    )
+    .expect("assert orphan cleanup and linked-action preservation");
+}
