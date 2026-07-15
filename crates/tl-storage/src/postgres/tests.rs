@@ -465,140 +465,140 @@ on_breach: escalate
 
 #[tokio::test]
 async fn migrate_removes_only_financial_actions_without_unified_intents() {
+    use crate::schema::{
+        authorization_intents, financial_action_events, financial_actions, organizations,
+        workspaces,
+    };
+    use diesel::RunQueryDsl as SyncRunQueryDsl;
+
     let (database_url, _container) = fresh_database_url().await;
     let mut conn = establish(&database_url);
     run_migrations_before(&mut conn, "00000000000054");
-    conn.batch_execute(
-        "INSERT INTO organizations (id, name, slug)
-         VALUES ('org_financial_cleanup', 'Financial cleanup', 'financial-cleanup');
-
-         INSERT INTO workspaces (id, organization_id, name, slug)
-         VALUES (
-             'ws_financial_cleanup',
-             'org_financial_cleanup',
-             'Financial cleanup',
-             'financial-cleanup'
-         );
-
-         INSERT INTO authorization_intents (
-             workspace_id,
-             environment_id,
-             id,
-             domain,
-             subject_id,
-             idempotency_key,
-             principal_id,
-             operation,
-             fingerprint,
-             fingerprint_version,
-             subject_snapshot,
-             status,
-             current_effect,
-             reason
-         ) VALUES (
-             'ws_financial_cleanup',
-             'production',
-             '00000000-0000-7000-8000-000000000001',
-             'financial',
-             'current-action',
-             'current-intent',
-             'agent-current',
-             'payment',
-             'current-fingerprint',
-             1,
-             '{}',
-             'authorized',
-             'permit',
-             'current unified authorization'
-         );
-
-         INSERT INTO financial_actions (
-             workspace_id,
-             environment_id,
-             id,
-             idempotency_key,
-             principal_id,
-             action_kind,
-             operation,
-             amount_minor,
-             currency,
-             rail,
-             authorization_intent_id
-         ) VALUES
-         (
-             'ws_financial_cleanup',
-             'production',
-             '00000000-0000-7000-8000-000000000010',
-             'legacy-orphan-action',
-             'agent-legacy',
-             'payment',
-             'payment',
-             250,
-             'USD',
-             'x402',
-             NULL
-         ),
-         (
-             'ws_financial_cleanup',
-             'production',
-             '00000000-0000-7000-8000-000000000011',
-             'current-linked-action',
-             'agent-current',
-             'payment',
-             'payment',
-             250,
-             'USD',
-             'x402',
-             '00000000-0000-7000-8000-000000000001'
-         );
-
-         INSERT INTO financial_action_events (
-             workspace_id,
-             id,
-             action_id,
-             event_type
-         ) VALUES (
-             'ws_financial_cleanup',
-             '00000000-0000-7000-8000-000000000020',
-             '00000000-0000-7000-8000-000000000010',
-             'legacy_event'
-         );",
+    SyncRunQueryDsl::execute(
+        diesel::insert_into(organizations::table).values((
+            organizations::id.eq("org_financial_cleanup"),
+            organizations::name.eq("Financial cleanup"),
+            organizations::slug.eq("financial-cleanup"),
+        )),
+        &mut conn,
     )
-    .expect("seed legacy and current financial actions");
+    .expect("insert cleanup organization");
+    SyncRunQueryDsl::execute(
+        diesel::insert_into(workspaces::table).values((
+            workspaces::id.eq("ws_financial_cleanup"),
+            workspaces::organization_id.eq("org_financial_cleanup"),
+            workspaces::name.eq("Financial cleanup"),
+            workspaces::slug.eq("financial-cleanup"),
+        )),
+        &mut conn,
+    )
+    .expect("insert cleanup workspace");
+
+    let intent_id = Uuid::parse_str("00000000-0000-7000-8000-000000000001").expect("intent id");
+    let orphan_action_id =
+        Uuid::parse_str("00000000-0000-7000-8000-000000000010").expect("orphan action id");
+    let linked_action_id =
+        Uuid::parse_str("00000000-0000-7000-8000-000000000011").expect("linked action id");
+    let event_id = Uuid::parse_str("00000000-0000-7000-8000-000000000020").expect("event id");
+
+    SyncRunQueryDsl::execute(
+        diesel::insert_into(authorization_intents::table).values((
+            authorization_intents::workspace_id.eq("ws_financial_cleanup"),
+            authorization_intents::environment_id.eq("production"),
+            authorization_intents::id.eq(intent_id),
+            authorization_intents::domain.eq("financial"),
+            authorization_intents::subject_id.eq("current-action"),
+            authorization_intents::idempotency_key.eq("current-intent"),
+            authorization_intents::principal_id.eq("agent-current"),
+            authorization_intents::operation.eq("payment"),
+            authorization_intents::fingerprint.eq("current-fingerprint"),
+            authorization_intents::fingerprint_version.eq(1),
+            authorization_intents::subject_snapshot.eq(serde_json::json!({})),
+            authorization_intents::status.eq("authorized"),
+            authorization_intents::current_effect.eq("permit"),
+            authorization_intents::reason.eq("current unified authorization"),
+        )),
+        &mut conn,
+    )
+    .expect("insert current authorization intent");
+
+    for (id, idempotency_key, principal_id, authorization_intent_id) in [
+        (
+            orphan_action_id,
+            "legacy-orphan-action",
+            "agent-legacy",
+            None,
+        ),
+        (
+            linked_action_id,
+            "current-linked-action",
+            "agent-current",
+            Some(intent_id),
+        ),
+    ] {
+        SyncRunQueryDsl::execute(
+            diesel::insert_into(financial_actions::table).values((
+                financial_actions::workspace_id.eq("ws_financial_cleanup"),
+                financial_actions::environment_id.eq("production"),
+                financial_actions::id.eq(id),
+                financial_actions::idempotency_key.eq(idempotency_key),
+                financial_actions::principal_id.eq(principal_id),
+                financial_actions::action_kind.eq("payment"),
+                financial_actions::operation.eq("payment"),
+                financial_actions::amount_minor.eq(250_i64),
+                financial_actions::currency.eq("USD"),
+                financial_actions::rail.eq("x402"),
+                financial_actions::authorization_intent_id.eq(authorization_intent_id),
+            )),
+            &mut conn,
+        )
+        .expect("insert financial action fixture");
+    }
+    SyncRunQueryDsl::execute(
+        diesel::insert_into(financial_action_events::table).values((
+            financial_action_events::workspace_id.eq("ws_financial_cleanup"),
+            financial_action_events::id.eq(event_id),
+            financial_action_events::action_id.eq(orphan_action_id),
+            financial_action_events::event_type.eq("legacy_event"),
+        )),
+        &mut conn,
+    )
+    .expect("insert legacy dependent event");
 
     conn.run_pending_migrations(MIGRATIONS)
         .expect("run orphaned financial-action cleanup migration");
-    conn.batch_execute(
-        "DO $$
-         BEGIN
-             IF EXISTS (
-                 SELECT 1
-                 FROM financial_actions
-                 WHERE workspace_id = 'ws_financial_cleanup'
-                   AND id = '00000000-0000-7000-8000-000000000010'
-             ) THEN
-                 RAISE EXCEPTION 'legacy orphan action was preserved';
-             END IF;
-
-             IF NOT EXISTS (
-                 SELECT 1
-                 FROM financial_actions
-                 WHERE workspace_id = 'ws_financial_cleanup'
-                   AND id = '00000000-0000-7000-8000-000000000011'
-             ) THEN
-                 RAISE EXCEPTION 'current linked action was deleted';
-             END IF;
-
-             IF EXISTS (
-                 SELECT 1
-                 FROM financial_action_events
-                 WHERE workspace_id = 'ws_financial_cleanup'
-                   AND action_id = '00000000-0000-7000-8000-000000000010'
-             ) THEN
-                 RAISE EXCEPTION 'legacy dependent rows were preserved';
-             END IF;
-         END
-         $$;",
+    let orphan_exists = SyncRunQueryDsl::first::<Uuid>(
+        financial_actions::table
+            .filter(financial_actions::workspace_id.eq("ws_financial_cleanup"))
+            .filter(financial_actions::id.eq(orphan_action_id))
+            .select(financial_actions::id),
+        &mut conn,
     )
-    .expect("assert orphan cleanup and linked-action preservation");
+    .optional()
+    .expect("query orphan action")
+    .is_some();
+    let linked_exists = SyncRunQueryDsl::first::<Uuid>(
+        financial_actions::table
+            .filter(financial_actions::workspace_id.eq("ws_financial_cleanup"))
+            .filter(financial_actions::id.eq(linked_action_id))
+            .select(financial_actions::id),
+        &mut conn,
+    )
+    .optional()
+    .expect("query linked action")
+    .is_some();
+    let dependent_exists = SyncRunQueryDsl::first::<Uuid>(
+        financial_action_events::table
+            .filter(financial_action_events::workspace_id.eq("ws_financial_cleanup"))
+            .filter(financial_action_events::action_id.eq(orphan_action_id))
+            .select(financial_action_events::id),
+        &mut conn,
+    )
+    .optional()
+    .expect("query dependent event")
+    .is_some();
+
+    assert!(!orphan_exists, "legacy orphan action was preserved");
+    assert!(linked_exists, "current linked action was deleted");
+    assert!(!dependent_exists, "legacy dependent rows were preserved");
 }
