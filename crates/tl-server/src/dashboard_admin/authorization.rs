@@ -54,7 +54,7 @@ pub(crate) async fn authorize_workspace_admin(
         ));
     }
 
-    let workspace_id = crate::policies::workspace_id_from_headers(headers);
+    let workspace_id = crate::policies::workspace_id_from_headers(headers)?;
     let user_id = match user {
         Some(Extension(ctx)) => ctx.user_id,
         None if internal.is_some() => match forwarded_user_id(headers) {

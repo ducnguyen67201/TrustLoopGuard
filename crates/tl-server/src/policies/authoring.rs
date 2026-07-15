@@ -38,7 +38,10 @@ pub async fn upsert_policy(
     headers: HeaderMap,
     body: bytes::Bytes,
 ) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,
@@ -99,7 +102,10 @@ pub async fn list_policies(
     headers: HeaderMap,
     uri: Uri,
 ) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,
@@ -156,7 +162,10 @@ pub async fn get_policy(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,
@@ -187,7 +196,10 @@ pub async fn set_policy_enabled(
     Path(id): Path<String>,
     body: bytes::Bytes,
 ) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,
@@ -230,7 +242,10 @@ pub async fn batch_set_policy_enabled(
     headers: HeaderMap,
     body: bytes::Bytes,
 ) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,
@@ -278,7 +293,10 @@ pub async fn delete_policy(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.delete(&workspace_id, &id).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => policy_store_error_response(e),

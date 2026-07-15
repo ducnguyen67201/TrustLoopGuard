@@ -164,11 +164,15 @@ async fn read_body(resp: axum::response::Response) -> serde_json::Value {
     }
 }
 
+fn workspace_request() -> axum::http::request::Builder {
+    Request::builder().header("x-tlg-workspace-id", "ws")
+}
+
 async fn upsert_agent(app: &Router, yaml: &str) {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/agents")
                 .header(header::CONTENT_TYPE, "application/yaml")
@@ -188,7 +192,7 @@ async fn generate_persists_each_draft_disabled_and_returns_them() {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/agents/baker-9000/guardrails/generate")
                 .body(Body::empty())
@@ -218,7 +222,7 @@ async fn list_returns_policies_scoped_to_agent() {
     let _ = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/agents/baker-9000/guardrails/generate")
                 .body(Body::empty())
@@ -230,7 +234,7 @@ async fn list_returns_policies_scoped_to_agent() {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("GET")
                 .uri("/v1/agents/baker-9000/guardrails")
                 .body(Body::empty())
@@ -252,7 +256,7 @@ async fn list_for_unknown_agent_returns_empty() {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("GET")
                 .uri("/v1/agents/ghost/guardrails")
                 .body(Body::empty())
@@ -272,7 +276,7 @@ async fn delete_agent_cascades_to_owned_policies() {
     let _ = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/agents/baker-9000/guardrails/generate")
                 .body(Body::empty())
@@ -285,7 +289,7 @@ async fn delete_agent_cascades_to_owned_policies() {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("DELETE")
                 .uri("/v1/agents/baker-9000")
                 .body(Body::empty())
@@ -299,7 +303,7 @@ async fn delete_agent_cascades_to_owned_policies() {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("GET")
                 .uri("/v1/agents/baker-9000/guardrails")
                 .body(Body::empty())
@@ -321,7 +325,7 @@ async fn generate_without_system_prompt_is_422() {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/agents/silent-agent/guardrails/generate")
                 .body(Body::empty())
@@ -338,7 +342,7 @@ async fn generate_for_missing_agent_is_404() {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/agents/ghost/guardrails/generate")
                 .body(Body::empty())

@@ -3,7 +3,7 @@ async fn malformed_yaml_yields_400() {
     let app = build_app();
     let resp = app
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/agents")
                 .header(header::CONTENT_TYPE, "application/yaml")
@@ -25,7 +25,7 @@ async fn yaml_missing_required_fields_yields_400() {
     let body = "agent_id: \"\"\ndisplay_name: x\nscope:\n  in_scope: [a]\nauthority: {}\ntone:\n  target: x\n";
     let resp = app
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/agents")
                 .header(header::CONTENT_TYPE, "application/yaml")
@@ -51,7 +51,7 @@ async fn json_with_empty_agent_id_yields_422() {
     });
     let resp = app
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/agents")
                 .header(header::CONTENT_TYPE, "application/json")

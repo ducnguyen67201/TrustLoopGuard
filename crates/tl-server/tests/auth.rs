@@ -97,7 +97,8 @@ fn event_request(token: Option<&str>) -> Request<Body> {
     let mut b = Request::builder()
         .method("POST")
         .uri("/v1/events")
-        .header(header::CONTENT_TYPE, "application/json");
+        .header(header::CONTENT_TYPE, "application/json")
+        .header("x-tlg-workspace-id", "ws");
     if let Some(t) = token {
         b = b.header(header::AUTHORIZATION, format!("Bearer {t}"));
     }

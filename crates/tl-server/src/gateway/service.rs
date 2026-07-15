@@ -43,7 +43,10 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
     runtime_key: Option<crate::auth::WorkspaceKeyContext>,
 ) -> Response {
     let gateway_request_id = Uuid::now_v7().to_string();
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match crate::environments::resolve_environment_id(
         &headers,
         state.app.environment_store.as_ref(),

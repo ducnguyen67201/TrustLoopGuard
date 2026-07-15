@@ -39,7 +39,10 @@ pub async fn create_run(
     if let Err(e) = validate_create_run(&input) {
         return run_error_response(e);
     }
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,
@@ -77,7 +80,10 @@ pub async fn list_runs(State(state): State<RunState>, headers: HeaderMap, uri: U
         Ok(filter) => filter,
         Err(e) => return run_error_response(e),
     };
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,
@@ -109,7 +115,10 @@ pub async fn get_run(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,
@@ -197,7 +206,10 @@ pub async fn update_run(
     if let Err(e) = validate_update_run(&input) {
         return run_error_response(e);
     }
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,
@@ -235,7 +247,10 @@ pub async fn create_run_event(
     if let Err(e) = validate_create_run_event(&input) {
         return run_error_response(e);
     }
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,
@@ -271,7 +286,10 @@ pub async fn list_run_events(
     Path(id): Path<String>,
     uri: Uri,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,
@@ -308,7 +326,10 @@ pub async fn list_run_traces(
     Path(id): Path<String>,
     uri: Uri,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,

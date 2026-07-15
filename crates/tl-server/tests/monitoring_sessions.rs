@@ -25,6 +25,7 @@ fn post_json(uri: &str, body: &serde_json::Value) -> Request<Body> {
         .method("POST")
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json")
+        .header("x-tlg-workspace-id", "ws")
         .body(Body::from(body.to_string()))
         .unwrap()
 }

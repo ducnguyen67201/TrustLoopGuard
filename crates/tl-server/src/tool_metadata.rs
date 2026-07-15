@@ -163,7 +163,10 @@ pub async fn get_tool_metadata(
     headers: HeaderMap,
     Path(tool): Path<String>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.get(&workspace_id, &tool).await {
         Ok(entry) => Json(entry).into_response(),
         Err(ToolMetadataStoreError::NotFound) => api_error_response(
@@ -234,7 +237,10 @@ pub async fn list_tool_metadata(
     State(state): State<ToolMetadataState>,
     headers: HeaderMap,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.list(&workspace_id).await {
         Ok(tools) => Json(ToolMetadataListResponse { tools }).into_response(),
         Err(e) => store_error_response("list", &e),

@@ -39,7 +39,10 @@ pub async fn create_review_event(
     if let Err(error) = validate_create_event(&input) {
         return review_error_response(error);
     }
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let reviewer_id = headers
         .get("x-tlg-user-id")
         .and_then(|value| value.to_str().ok())
@@ -73,7 +76,10 @@ pub async fn list_review_events(
     Path(trace_id): Path<String>,
     uri: Uri,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let limit = read_limit(uri.query()).unwrap_or(50).clamp(1, 100);
     match state
         .store
@@ -105,7 +111,10 @@ pub async fn human_review_analytics(
     headers: HeaderMap,
     uri: Uri,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let filter = read_filter(uri.query());
     match state.store.analytics(&workspace_id, filter).await {
         Ok(response) => Json(response).into_response(),

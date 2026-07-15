@@ -102,7 +102,10 @@ pub async fn upsert_agent(
         Err(e) => return e.into_response(),
     };
     let (profile, source) = profile_and_source;
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
 
     if let Err(msg) = validate_profile(&profile) {
         return api_error_response(
@@ -144,7 +147,10 @@ pub async fn get_agent(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.get(&workspace_id, &id).await {
         Ok(profile) => Json(profile.as_ref().clone()).into_response(),
         Err(AgentStoreError::NotFound) => api_error_response(
@@ -177,7 +183,10 @@ pub async fn delete_agent(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     // Soft-delete owned policies first. If this fails, leave the agent
     // intact — we'd rather refuse the request than orphan an agent
     // whose generated guardrails are still active. The two-step path
@@ -220,7 +229,10 @@ pub async fn delete_agent(
     ),
 )]
 pub async fn list_agents(State(state): State<AgentState>, headers: HeaderMap) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.list(&workspace_id).await {
         Ok(arcs) => {
             let agents = arcs.iter().map(|a| (**a).clone()).collect();

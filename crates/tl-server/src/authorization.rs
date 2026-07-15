@@ -842,7 +842,10 @@ pub async fn get_approval(
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = environment_id(&headers);
     match state
         .store
@@ -1022,7 +1025,10 @@ pub async fn complete_lease(
     headers: HeaderMap,
     Json(request): Json<CompleteAuthorizationLeaseRequest>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = environment_id(&headers);
     if let Some(Extension(key)) = runtime_key {
         let principal_id = key.principal_id.as_deref().unwrap_or(&key.api_key_id);
@@ -1070,7 +1076,10 @@ pub async fn get_receipt(
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = environment_id(&headers);
     if let Some(Extension(key)) = runtime_key {
         let principal_id = key.principal_id.as_deref().unwrap_or(&key.api_key_id);

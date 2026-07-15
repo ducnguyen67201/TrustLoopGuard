@@ -155,11 +155,15 @@ async fn read_body(resp: axum::response::Response) -> serde_json::Value {
     }
 }
 
+fn workspace_request() -> axum::http::request::Builder {
+    Request::builder().header("x-tlg-workspace-id", "ws")
+}
+
 async fn upsert_agent(app: &Router, yaml: &str) {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/agents")
                 .header(header::CONTENT_TYPE, "application/yaml")
@@ -174,7 +178,7 @@ async fn upsert_agent(app: &Router, yaml: &str) {
 async fn plan(app: &Router, agent_id: &str) -> axum::response::Response {
     app.clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri(format!("/v1/agents/{agent_id}/redteam/plan"))
                 .body(Body::empty())
@@ -216,7 +220,7 @@ async fn plans_are_saved_listed_and_deleted() {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/agents/invoice-flow/redteam/plan")
                 .header(header::CONTENT_TYPE, "application/json")
@@ -240,7 +244,7 @@ async fn plans_are_saved_listed_and_deleted() {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("DELETE")
                 .uri(format!("/v1/redteam/plans/{}", saved.id))
                 .body(Body::empty())
@@ -257,7 +261,7 @@ async fn plans_are_saved_listed_and_deleted() {
 async fn list_plans(app: &Router, agent_id: &str) -> axum::response::Response {
     app.clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("GET")
                 .uri(format!("/v1/agents/{agent_id}/redteam/plans"))
                 .body(Body::empty())
@@ -290,7 +294,7 @@ async fn static_policies_attach_disabled_preventive_guards() {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/agents/invoice-flow/redteam/static-policies")
                 .body(Body::empty())

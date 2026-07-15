@@ -28,7 +28,10 @@ pub async fn list_knowledge_sources(
     State(state): State<KnowledgeState>,
     headers: HeaderMap,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.list(&workspace_id).await {
         Ok(knowledge_sources) => {
             Json(KnowledgeSourceListResponse { knowledge_sources }).into_response()
@@ -57,7 +60,10 @@ pub async fn create_knowledge_source(
     if let Err(e) = validate_create_request(&input) {
         return knowledge_error_response(e);
     }
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.create(&workspace_id, input).await {
         Ok(source) => (StatusCode::CREATED, Json(source)).into_response(),
         Err(e) => knowledge_error_response(e),
@@ -81,7 +87,10 @@ pub async fn get_knowledge_source_file(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.get_file(&workspace_id, &id).await {
         Ok(file) => Json(file).into_response(),
         Err(e) => knowledge_error_response(e),

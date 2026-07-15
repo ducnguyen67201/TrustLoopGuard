@@ -1,5 +1,5 @@
-use axum::{http::HeaderMap, response::Response};
-use tl_core::DEFAULT_WORKSPACE_ID;
+use axum::{http::HeaderMap, http::StatusCode, response::Response};
+use tl_core::ApiErrorCode;
 
 use super::PolicyState;
 
@@ -17,12 +17,18 @@ pub(super) async fn resolve_environment_id(
     .map_err(crate::environments::environment_error_response)
 }
 
-pub(crate) fn workspace_id_from_headers(headers: &HeaderMap) -> String {
+pub(crate) fn workspace_id_from_headers(headers: &HeaderMap) -> Result<String, Response> {
     headers
         .get("x-tlg-workspace-id")
         .and_then(|value| value.to_str().ok())
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .unwrap_or(DEFAULT_WORKSPACE_ID)
-        .to_string()
+        .map(str::to_string)
+        .ok_or_else(|| {
+            crate::app::error::api_error_response(
+                StatusCode::BAD_REQUEST,
+                ApiErrorCode::Invalid,
+                "workspace id is required".into(),
+            )
+        })
 }

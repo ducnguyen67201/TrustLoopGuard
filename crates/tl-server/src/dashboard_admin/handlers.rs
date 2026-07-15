@@ -255,7 +255,10 @@ pub async fn get_settings(
     State(state): State<DashboardAdminState>,
     headers: HeaderMap,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.settings_store.get(&workspace_id).await {
         Ok(settings) => Json(settings).into_response(),
         Err(e) => {
@@ -341,7 +344,10 @@ pub async fn get_environment_checker_modes(
     Path(environment_id): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state
         .settings_store
         .get_environment_modes(&workspace_id, &environment_id)

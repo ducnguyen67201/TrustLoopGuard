@@ -280,6 +280,7 @@ tone: { target: neutral }
                 .method("POST")
                 .uri("/v1/agents")
                 .header(header::CONTENT_TYPE, "application/yaml")
+                .header("x-tlg-workspace-id", "ws")
                 .body(Body::from(yaml))
                 .unwrap(),
         )
@@ -300,6 +301,7 @@ severity: high
                 .method("POST")
                 .uri("/v1/policies")
                 .header(header::CONTENT_TYPE, "application/yaml")
+                .header("x-tlg-workspace-id", "ws")
                 .body(Body::from(policy_yaml))
                 .unwrap(),
         )
@@ -329,6 +331,7 @@ severity: high
                 .method("POST")
                 .uri("/v1/events")
                 .header(header::CONTENT_TYPE, "application/json")
+                .header("x-tlg-workspace-id", "ws")
                 .body(Body::from(body.to_string()))
                 .unwrap(),
         )

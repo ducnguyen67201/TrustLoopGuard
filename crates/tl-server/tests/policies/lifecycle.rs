@@ -13,7 +13,7 @@ async fn disable_policy_updates_document_but_get_still_works() {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("PATCH")
                 .uri("/v1/policies/refund-guarantee/enabled")
                 .header(header::CONTENT_TYPE, "application/json")
@@ -50,7 +50,7 @@ async fn batch_disable_updates_multiple_policies() {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("PATCH")
                 .uri("/v1/policies/batch/enabled")
                 .header(header::CONTENT_TYPE, "application/json")
@@ -95,7 +95,7 @@ async fn batch_disable_missing_policy_does_not_partially_update() {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("PATCH")
                 .uri("/v1/policies/batch/enabled")
                 .header(header::CONTENT_TYPE, "application/json")
@@ -134,7 +134,7 @@ async fn disable_policy_with_malformed_json_returns_api_error() {
 
     let resp = app
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("PATCH")
                 .uri("/v1/policies/refund-guarantee/enabled")
                 .header(header::CONTENT_TYPE, "application/json")

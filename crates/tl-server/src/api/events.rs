@@ -8,7 +8,7 @@ use axum::{
 };
 #[allow(unused_imports)]
 use tl_core::ApiError;
-use tl_core::{AuthorizationDecision, GuardEvent, DEFAULT_WORKSPACE_ID};
+use tl_core::{AuthorizationDecision, GuardEvent};
 
 use crate::{
     auth::WorkspaceKeyContext, environments, services::event_service::execute_event_submission,
@@ -36,7 +36,10 @@ pub async fn submit_event(
     Json(mut event): Json<GuardEvent>,
 ) -> Response {
     let start = std::time::Instant::now();
-    let workspace_id = workspace_id_for_event(&headers, &event);
+    let workspace_id = match workspace_id_for_event(&headers, &event) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match environments::resolve_environment_id(
         &headers,
         state.environment_store.as_ref(),
@@ -61,16 +64,6 @@ pub async fn submit_event(
 /// Header wins over the caller-claimed principal; the pipeline then
 /// overwrites the principal with the server-resolved values regardless,
 /// so the claimed workspace can never survive into evidence.
-fn workspace_id_for_event(headers: &HeaderMap, event: &GuardEvent) -> String {
-    headers
-        .get("x-tlg-workspace-id")
-        .and_then(|value| value.to_str().ok())
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .or_else(|| {
-            let claimed = event.principal.workspace_id.trim();
-            (!claimed.is_empty()).then(|| claimed.to_string())
-        })
-        .unwrap_or_else(|| DEFAULT_WORKSPACE_ID.to_string())
+fn workspace_id_for_event(headers: &HeaderMap, _event: &GuardEvent) -> Result<String, Response> {
+    crate::policies::workspace_id_from_headers(headers)
 }
