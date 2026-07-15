@@ -14,7 +14,6 @@ use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use tl_core::Decision;
 use uuid::Uuid;
 
-use crate::models::NewTrace;
 use crate::schema::traces;
 use crate::{DecisionStore, StorageError};
 
@@ -82,42 +81,11 @@ impl std::fmt::Debug for PostgresStore {
 
 #[async_trait::async_trait]
 impl DecisionStore for PostgresStore {
-    async fn put(&self, decision: &Decision) -> Result<(), StorageError> {
-        // The trace_id is a UUID string from the engine. Parse here so
-        // we get a real `uuid::Uuid` for the partitioned column type.
-        let trace_uuid = Uuid::parse_str(&decision.trace_id)
-            .map_err(|e| StorageError::Internal(format!("trace_id parse: {e}")))?;
-
-        // domain isn't on Decision today; default to customer_support to
-        // match the engine's default. PR 15 will plumb a real domain
-        // through once the request envelope carries it consistently.
-        let domain = "customer_support";
-        let effect = effect_text(&decision.effect);
-        let payload = serde_json::to_value(decision)
-            .map_err(|e| StorageError::Internal(format!("decision serialize: {e}")))?;
-        let new_trace = NewTrace {
-            workspace_id: tl_core::DEFAULT_WORKSPACE_ID.to_string(),
-            trace_id: trace_uuid,
-            run_id: None,
-            run_event_id: None,
-            session_id: None,
-            environment_id: tl_core::DEFAULT_ENVIRONMENT_ID.to_string(),
-            domain: domain.to_string(),
-            decision: effect.to_string(),
-            elapsed_ms: decision.latency_ms as i32,
-            payload,
-        };
-        let mut conn = self.connection().await?;
-
-        diesel::insert_into(traces::table)
-            .values(&new_trace)
-            .on_conflict((traces::trace_id, traces::created_at))
-            .do_nothing()
-            .execute(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("insert trace: {e}")))?;
-
-        Ok(())
+    async fn put(&self, _decision: &Decision) -> Result<(), StorageError> {
+        Err(StorageError::Internal(
+            "PostgresStore::put cannot infer workspace context; use workspace-scoped trace writer"
+                .into(),
+        ))
     }
 
     async fn get(&self, trace_id: &str) -> Result<Decision, StorageError> {
@@ -148,16 +116,6 @@ impl PostgresStore {
             .get()
             .await
             .map_err(|e| StorageError::Internal(format!("db pool: {e}")))
-    }
-}
-
-fn effect_text(v: &tl_core::AuthorizationEffect) -> &'static str {
-    match v {
-        tl_core::AuthorizationEffect::Permit => "permit",
-        tl_core::AuthorizationEffect::Deny => "deny",
-        tl_core::AuthorizationEffect::Transform => "transform",
-        tl_core::AuthorizationEffect::RequireApproval => "require_approval",
-        tl_core::AuthorizationEffect::Defer => "defer",
     }
 }
 

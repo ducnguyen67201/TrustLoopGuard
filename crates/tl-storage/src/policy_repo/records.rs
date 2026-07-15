@@ -9,12 +9,6 @@ use super::{AnyPolicyRow, PolicyRepo, PolicyRow};
 use crate::{models::PolicyRecord, schema::policies, StorageError};
 
 impl PolicyRepo {
-    /// Full authoring record for API/editor views.
-    pub async fn get_record(&self, policy_id: &str) -> Result<PolicyRow, StorageError> {
-        self.get_record_in(tl_core::DEFAULT_WORKSPACE_ID, policy_id)
-            .await
-    }
-
     pub async fn get_record_in(
         &self,
         workspace_id: &str,
@@ -42,12 +36,6 @@ impl PolicyRepo {
             .ok_or(StorageError::NotFound)
     }
 
-    /// All non-deleted policies. Bypasses the cache because this is an
-    /// admin/editor path, not the hot path.
-    pub async fn list(&self) -> Result<Vec<Arc<Policy>>, StorageError> {
-        self.list_in(tl_core::DEFAULT_WORKSPACE_ID).await
-    }
-
     pub async fn list_in(&self, workspace_id: &str) -> Result<Vec<Arc<Policy>>, StorageError> {
         let mut conn = self.connection().await?;
         let rows = policies::table
@@ -64,11 +52,6 @@ impl PolicyRepo {
             .await
             .map_err(|e| StorageError::Internal(format!("policy list: {e}")))?;
         rows.into_iter().map(policy_from_json).collect()
-    }
-
-    /// All non-deleted authoring records. Bypasses the cache.
-    pub async fn list_records(&self) -> Result<Vec<PolicyRow>, StorageError> {
-        self.list_records_in(tl_core::DEFAULT_WORKSPACE_ID).await
     }
 
     pub async fn list_records_in(
@@ -127,11 +110,6 @@ impl PolicyRepo {
             .await
             .map_err(|e| StorageError::Internal(format!("policy by-agent list: {e}")))?;
         rows.into_iter().map(policy_row_from_record).collect()
-    }
-
-    /// Runtime policy set: active, enabled policies only.
-    pub async fn list_enabled(&self) -> Result<Vec<Arc<Policy>>, StorageError> {
-        self.list_enabled_in(tl_core::DEFAULT_WORKSPACE_ID).await
     }
 
     pub async fn list_enabled_in(

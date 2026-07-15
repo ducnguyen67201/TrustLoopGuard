@@ -187,10 +187,9 @@ pub use tool::{
 };
 pub use trace::{new_trace_id, TraceListResponse, TraceSummary};
 
-/// Backwards-compatible workspace used when older clients do not send
-/// workspace context. New event clients may leave `principal.workspace_id`
-/// empty for runtime-key resolution, or send `X-TLG-Workspace-Id` on
-/// internal/admin calls.
+/// Historical workspace id used by migrations and explicit test fixtures.
+/// Request handling must resolve workspace context from auth/session/API-key
+/// state and must not fall back to this value when context is missing.
 pub const DEFAULT_WORKSPACE_ID: &str = "default";
 
 /// Backwards-compatible production environment used for existing runtime

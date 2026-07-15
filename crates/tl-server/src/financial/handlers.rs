@@ -17,8 +17,8 @@ use tl_core::{
 use super::{response::financial_error_response, FinancialState};
 use crate::auth::WorkspaceKeyContext;
 
-fn scope(headers: &HeaderMap) -> Result<(String, String), Response> {
-    let workspace_id = crate::policies::workspace_id_from_headers(headers)?;
+fn scope(headers: &HeaderMap) -> Result<(String, String), Box<Response>> {
+    let workspace_id = crate::policies::workspace_id_from_headers(headers).map_err(Box::new)?;
     Ok((
         workspace_id,
         crate::environments::environment_id_from_headers(headers)
@@ -44,7 +44,7 @@ pub async fn create_action(
 ) -> Response {
     let (workspace_id, environment_id) = match scope(&headers) {
         Ok(scope) => scope,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     match state
         .service
@@ -65,7 +65,7 @@ pub async fn create_action(
 pub async fn list_actions(State(state): State<FinancialState>, headers: HeaderMap) -> Response {
     let (workspace_id, environment_id) = match scope(&headers) {
         Ok(scope) => scope,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     match state
         .service
@@ -92,7 +92,7 @@ pub async fn get_action(
 ) -> Response {
     let (workspace_id, environment_id) = match scope(&headers) {
         Ok(scope) => scope,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     match state
         .service
@@ -119,7 +119,7 @@ pub async fn execute_action(
 ) -> Response {
     let (workspace_id, environment_id) = match scope(&headers) {
         Ok(scope) => scope,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     match state
         .service
@@ -146,7 +146,7 @@ pub async fn authorize_agentic_payment(
 ) -> Response {
     let (workspace_id, environment_id) = match scope(&headers) {
         Ok(scope) => scope,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     match state
         .service
@@ -177,7 +177,7 @@ pub async fn get_agentic_payment(
 ) -> Response {
     let (workspace_id, environment_id) = match scope(&headers) {
         Ok(scope) => scope,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     match state
         .service
@@ -206,7 +206,7 @@ pub async fn commit_agentic_payment(
 ) -> Response {
     let (workspace_id, environment_id) = match scope(&headers) {
         Ok(scope) => scope,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     match state
         .service
@@ -241,7 +241,7 @@ pub async fn rollback_agentic_payment(
 ) -> Response {
     let (workspace_id, environment_id) = match scope(&headers) {
         Ok(scope) => scope,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     match state
         .service
@@ -288,7 +288,7 @@ pub async fn get_receipt(
 ) -> Response {
     let (workspace_id, _) = match scope(&headers) {
         Ok(scope) => scope,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     match state.service.get_receipt(&workspace_id, &id).await {
         Ok(receipt) => Json(receipt).into_response(),
@@ -305,7 +305,7 @@ pub async fn get_receipt(
 pub async fn list_policies(State(state): State<FinancialState>, headers: HeaderMap) -> Response {
     let (workspace_id, environment_id) = match scope(&headers) {
         Ok(scope) => scope,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     match state
         .service
@@ -331,7 +331,7 @@ pub async fn create_policy(
 ) -> Response {
     let (workspace_id, environment_id) = match scope(&headers) {
         Ok(scope) => scope,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     match state
         .service
@@ -359,7 +359,7 @@ pub async fn record_action_outcome(
 ) -> Response {
     let (workspace_id, _) = match scope(&headers) {
         Ok(scope) => scope,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     match state
         .service
@@ -385,7 +385,7 @@ pub async fn list_action_outcomes(
 ) -> Response {
     let (workspace_id, _) = match scope(&headers) {
         Ok(scope) => scope,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     match state.service.list_action_outcomes(&workspace_id, &id).await {
         Ok(outcomes) => Json(outcomes).into_response(),

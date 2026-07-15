@@ -13,14 +13,6 @@ use crate::schema::{entity_versions, policies};
 use crate::StorageError;
 
 impl PolicyRepo {
-    /// Insert or update a policy. Upsert resurrects soft-deleted rows
-    /// and makes them enabled, which matches an author intentionally
-    /// publishing the policy again.
-    pub async fn upsert(&self, policy: &Policy, source_yaml: &str) -> Result<(), StorageError> {
-        self.upsert_in(tl_core::DEFAULT_WORKSPACE_ID, policy, source_yaml)
-            .await
-    }
-
     pub async fn upsert_in(
         &self,
         workspace_id: &str,
@@ -140,11 +132,6 @@ impl PolicyRepo {
         Ok(deleted_ids)
     }
 
-    pub async fn set_enabled(&self, policy_id: &str, enabled: bool) -> Result<(), StorageError> {
-        self.set_enabled_in(tl_core::DEFAULT_WORKSPACE_ID, policy_id, enabled)
-            .await
-    }
-
     pub async fn set_enabled_in(
         &self,
         workspace_id: &str,
@@ -229,12 +216,6 @@ impl PolicyRepo {
             self.cache.invalidate(&cache_key(workspace_id, &id)).await;
         }
         Ok(rows)
-    }
-
-    /// Soft delete: sets `deleted_at` and clears the cache.
-    pub async fn delete(&self, policy_id: &str) -> Result<(), StorageError> {
-        self.delete_in(tl_core::DEFAULT_WORKSPACE_ID, policy_id)
-            .await
     }
 
     pub async fn delete_in(&self, workspace_id: &str, policy_id: &str) -> Result<(), StorageError> {

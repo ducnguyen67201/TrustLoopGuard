@@ -22,7 +22,7 @@
 
 use std::time::Instant;
 
-use tl_core::{CheckRequest, DEFAULT_WORKSPACE_ID};
+use tl_core::CheckRequest;
 use tl_llm::prompts::{authority, hallucination, tone};
 use tl_llm::JudgeKind;
 use tokio_util::sync::CancellationToken;
@@ -50,7 +50,9 @@ pub async fn run(req: &CheckRequest, ctx: &HandlerCtx, cancel: CancellationToken
 
     // Resolve agent profile. Without it we have no grounding context to
     // give the judges, so we skip rather than running with empty inputs.
-    let workspace_id = req.workspace_id.as_deref().unwrap_or(DEFAULT_WORKSPACE_ID);
+    let Some(workspace_id) = req.workspace_id.as_deref() else {
+        return skipped(start);
+    };
     let profile = match ctx
         .profile_resolver
         .resolve(workspace_id, &req.agent_id)
