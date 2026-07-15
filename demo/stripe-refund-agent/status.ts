@@ -1,4 +1,5 @@
 import type {
+  AuthorizationApproval,
   Client,
   FinancialActionRecord,
   FinancialReceipt,
@@ -8,8 +9,9 @@ import { DEMO_ORDER_ID, REFUND_AGENT_ID } from './types';
 
 export type RefundDemoStatusClient = Pick<
   Client,
-  'getFinancialAction' | 'getReceipt'
+  'executeAction' | 'getApproval' | 'getAuthorizationReceipt' | 'getFinancialAction' | 'getReceipt'
 >;
+type ExecuteFinancialActionRequest = NonNullable<Parameters<Client['executeAction']>[1]>;
 
 export interface RefundDemoActionStatus {
   actionId: string;
@@ -27,7 +29,66 @@ export async function readRefundDemoActionStatus(
   client: RefundDemoStatusClient,
   actionId: string,
 ): Promise<RefundDemoActionStatus> {
-  const action = await client.getFinancialAction(actionId);
+  const action = await maybeExecuteApprovedAction(client, await client.getFinancialAction(actionId));
+  return statusFromAction(client, actionId, action);
+}
+
+async function maybeExecuteApprovedAction(
+  client: RefundDemoStatusClient,
+  action: FinancialActionRecord,
+): Promise<FinancialActionRecord> {
+  if (
+    action.authorization_effect !== 'require_approval' ||
+    action.execution_status !== 'not_started' ||
+    action.authorization_receipt_id === undefined
+  ) {
+    return action;
+  }
+
+  const grantId = await approvedGrantIdForAction(client, action);
+  if (grantId === undefined) return action;
+
+  const attemptId = `stripe-refund-agent:execute:${action.id}`;
+  const request: ExecuteFinancialActionRequest = {
+    authorization: { grant_id: grantId, attempt_id: attemptId },
+    attempt_id: attemptId,
+  };
+  return client.executeAction(action.id, request);
+}
+
+async function approvedGrantIdForAction(
+  client: RefundDemoStatusClient,
+  action: FinancialActionRecord,
+): Promise<string | undefined> {
+  try {
+    const receipt = await client.getAuthorizationReceipt(action.authorization_receipt_id!);
+    if (receipt.approval_id === undefined) return undefined;
+    const approval = await client.getApproval(receipt.approval_id);
+    if (!approvalBelongsToAction(approval, action)) return undefined;
+    return approval.status === 'approved' ? approval.grant_id : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function approvalBelongsToAction(
+  approval: AuthorizationApproval,
+  action: FinancialActionRecord,
+): boolean {
+  return (
+    approval.workspace_id === action.workspace_id &&
+    approval.environment_id === action.environment_id &&
+    approval.envelope.domain === 'financial' &&
+    approval.envelope.principal_id === REFUND_AGENT_ID &&
+    approval.envelope.subject_id === action.id
+  );
+}
+
+async function statusFromAction(
+  client: Pick<RefundDemoStatusClient, 'getReceipt'>,
+  actionId: string,
+  action: FinancialActionRecord,
+): Promise<RefundDemoActionStatus> {
   const metadata = action.action.metadata;
   const orderId = stringMetadata(metadata, 'order_id');
   const demoRequestId = stringMetadata(metadata, 'demo_request_id');
