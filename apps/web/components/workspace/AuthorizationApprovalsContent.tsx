@@ -128,22 +128,26 @@ export function AuthorizationApprovalsContent({ workspaceSlug, environmentId, ap
     {
       id: 'subject',
       header: 'Request',
+      cellClassName: 'min-w-64 max-w-80',
       cell: (row) => (
-        <div className="grid gap-1">
+        <div className="grid min-w-0 gap-1">
           <div className="flex items-center gap-2">
             <Badge variant="outline">{row.envelope.domain}</Badge>
-            <span className="font-medium">{row.envelope.capability}</span>
+            <span className="truncate font-medium">{row.envelope.capability}</span>
           </div>
-          <span className="font-mono text-xs text-muted-foreground">{row.envelope.subject_id}</span>
+          <span className="truncate font-mono text-xs text-muted-foreground">
+            {row.envelope.subject_id}
+          </span>
         </div>
       ),
     },
     {
       id: 'principal',
       header: 'Principal',
+      cellClassName: 'w-52 max-w-52',
       cell: (row) => (
-        <div className="grid gap-1">
-          <span>{row.envelope.principal_id}</span>
+        <div className="grid min-w-0 gap-1">
+          <span className="truncate">{row.envelope.principal_id}</span>
           <span className="font-mono text-xs text-muted-foreground">
             {shortHash(row.envelope_hash)}
           </span>
@@ -153,10 +157,11 @@ export function AuthorizationApprovalsContent({ workspaceSlug, environmentId, ap
     {
       id: 'scope',
       header: 'Reviewed boundary',
+      cellClassName: 'min-w-72 max-w-96',
       cell: (row) => (
-        <div className="max-w-sm space-y-1">
-          <p className="text-sm">{scopeSummary(row)}</p>
-          <p className="font-mono text-xs text-muted-foreground">
+        <div className="grid min-w-0 gap-1">
+          <p className="truncate text-sm">{scopeSummary(row)}</p>
+          <p className="truncate font-mono text-xs text-muted-foreground">
             {row.envelope.exact_fingerprint}
           </p>
         </div>
@@ -165,14 +170,16 @@ export function AuthorizationApprovalsContent({ workspaceSlug, environmentId, ap
     {
       id: 'expires',
       header: 'Expires',
+      cellClassName: 'w-32 max-w-32',
       cell: (row) => <TimeCell date={row.expires_at} prefix="in" />,
     },
     {
       id: 'actions',
       header: '',
       align: 'right',
+      cellClassName: 'w-52 max-w-52',
       cell: (row) => (
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 whitespace-nowrap">
           <Button size="sm" onClick={() => setSelected(row)}>
             <IconCheck /> Review
           </Button>
@@ -460,13 +467,22 @@ function TimeCell({ date, prefix }: { date: string; prefix?: string }) {
         {prefix ? `${prefix} ` : null}
         {minutes < 60 ? `${minutes}m` : `${Math.round(minutes / 60)}h`}
       </span>
-      <span className="text-xs text-muted-foreground">{formatDate(date)}</span>
+      <span className="truncate text-xs text-muted-foreground">{formatShortDate(date)}</span>
     </div>
   );
 }
 
 function formatDate(date: string): string {
   return new Date(date).toLocaleString();
+}
+
+function formatShortDate(date: string): string {
+  return new Date(date).toLocaleString(undefined, {
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 function shortHash(value: string): string {
