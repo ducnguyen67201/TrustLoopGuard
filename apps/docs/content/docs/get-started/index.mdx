@@ -39,7 +39,7 @@ cargo run -p tl-server
 
 The chat demo guards three scripted assistant turns through the TypeScript SDK.
 Each turn submits an output `GuardEvent` to `POST /v1/events` and prints the
-returned verdict, trace id, latency, and any triggered policies.
+returned authorization effect, trace id, latency, and findings.
 
 ```sh
 pnpm demo:chat
@@ -99,13 +99,12 @@ model response that matches it. Blocked gateway responses stay provider-shaped:
 
 - OpenAI-compatible responses return `finish_reason: "content_filter"`.
 - Anthropic responses return `stop_reason: "content_filter"`.
-- TrustLoopGuard adds `X-TrustLoopGuard-Verdict`,
+- TrustLoopGuard adds `X-TrustLoopGuard-Effect`,
   `X-TrustLoopGuard-Phase`, `X-TrustLoopGuard-Trace-Id`, and, when available,
   `X-TrustLoopGuard-Policy-Id`.
 
-Streaming gateway requests are currently rejected with a clear error.
-Non-streaming OpenAI-compatible chat completions and Anthropic messages are
-supported.
+Streaming OpenAI-compatible chat completions and Anthropic messages are buffered,
+checked as complete outputs, and then emitted as provider-native SSE.
 
 ## Try The Demo Surfaces
 

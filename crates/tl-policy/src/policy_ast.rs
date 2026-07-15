@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tl_core::{Channel, Severity};
+use tl_core::{AuthorizationEffect, Channel, Severity};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -15,7 +15,7 @@ pub struct Policy {
     #[serde(default)]
     pub when: WhenClause,
     pub r#match: MatchClause,
-    pub action: Action,
+    pub action: AuthorizationEffect,
     #[serde(default)]
     pub rewrite: Option<String>,
     #[serde(default = "default_severity")]
@@ -59,14 +59,4 @@ pub enum Matcher {
     Regex(String),
     Literal(String),
     Semantic(String),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-pub enum Action {
-    Allow,
-    Block,
-    Rewrite,
-    Escalate,
 }

@@ -4,7 +4,7 @@
 //! at write time. Retrieval-time, cross-session memory analysis is
 //! deliberately out of scope for v1.
 
-use tl_core::{EventKind, GuardEvent, SideEffectClass, Verdict};
+use tl_core::{AuthorizationEffect, EventKind, GuardEvent, SideEffectClass};
 
 use super::{contributing_sources, finding, has_unknown_trust, has_untrusted, FindingSpec};
 use crate::event_pipeline::{Checker, CheckerFinding};
@@ -39,11 +39,11 @@ impl Checker for MemoryChecker {
                 .collect();
             findings.push(finding(FindingSpec {
                 checker_id: MEMORY_CHECKER_ID,
-                verdict: Verdict::Block,
+                effect: AuthorizationEffect::Deny,
                 rule: RULE_MEMORY_WRITE_UNTRUSTED,
                 reason: "untrusted content would become authority-bearing memory".into(),
                 offending: &untrusted,
-                failure_mode: "memory_poisoning",
+                risk_code: "memory_poisoning",
                 harm_class: "integrity",
             }));
         }
@@ -55,11 +55,11 @@ impl Checker for MemoryChecker {
         if unverifiable {
             let mut spec_finding = finding(FindingSpec {
                 checker_id: MEMORY_CHECKER_ID,
-                verdict: Verdict::Escalate,
+                effect: AuthorizationEffect::Defer,
                 rule: RULE_MEMORY_WRITE_UNVERIFIED,
                 reason: "memory write has unverifiable content provenance".into(),
                 offending: &[],
-                failure_mode: "unverified_memory_write",
+                risk_code: "unverified_memory_write",
                 harm_class: "integrity",
             });
             spec_finding.source_chain = contributing
@@ -146,14 +146,14 @@ mod tests {
         let findings = MemoryChecker.check(&event);
         assert_eq!(findings.len(), 1);
         let finding = &findings[0];
-        assert_eq!(finding.verdict, Some(Verdict::Block));
+        assert_eq!(finding.effect, Some(AuthorizationEffect::Deny));
         assert_eq!(finding.source_chain, vec!["src.web"]);
         assert_eq!(finding.risk_source.as_deref(), Some("web"));
-        assert_eq!(finding.failure_mode.as_deref(), Some("memory_poisoning"));
+        assert_eq!(finding.risk_code.as_deref(), Some("memory_poisoning"));
     }
 
     #[test]
-    fn escalates_unverified_memory_write() {
+    fn defers_unverified_memory_write() {
         let event = event(
             EventKind::MemoryWriteProposed,
             None,
@@ -167,11 +167,11 @@ mod tests {
             findings[0].violated_rule.as_deref(),
             Some("memory-write-unverified")
         );
-        assert_eq!(findings[0].verdict, Some(Verdict::Escalate));
+        assert_eq!(findings[0].effect, Some(AuthorizationEffect::Defer));
     }
 
     #[test]
-    fn escalates_unattributed_provenance_paths() {
+    fn defers_unattributed_provenance_paths() {
         let event = event(
             EventKind::MemoryWriteProposed,
             None,

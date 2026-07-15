@@ -7,7 +7,7 @@ import type {
 } from '@trustloopguard/sdk';
 
 import { createClient, API_KEY, SERVER_URL, WORKSPACE_ID } from '../shared/env';
-import { ensureRefundMandate } from './core';
+import { ensureRefundGrant } from './core';
 import { orderDatabasePath, resetOrderDatabase } from './order-db';
 import { providerApiKey, providerBaseUrl } from './provider';
 
@@ -16,8 +16,8 @@ async function main(): Promise<void> {
   process.stdout.write(`SQLite order DB ready: ${orderDatabasePath()}\n`);
 
   const client = createClient();
-  const mandate = await ensureRefundMandate(client);
-  process.stdout.write(`refund mandate ready: ${mandate.id} v${mandate.version}\n`);
+  const grant = await ensureRefundGrant(client);
+  process.stdout.write(`refund grant ready: ${grant.id}\n`);
 
   const policy = await ensureFinancialControl();
   process.stdout.write(`financial control ready: ${policy.id}\n`);
@@ -48,13 +48,13 @@ const REFUND_CONTROL: CreateFinancialPolicyRequest = {
     rails: ['payment_http'],
   },
   per_transaction_minor: 10_000n,
-  hold_above_minor: 5_000n,
+  approval_threshold_minor: 5_000n,
   daily_minor: 50_000n,
   monthly_minor: 500_000n,
   allowed_counterparty_ids: [],
   denied_counterparty_ids: [],
-  hold_new_counterparty: false,
-  mandate_required: false,
+  require_approval_for_new_counterparty: false,
+  grant_required: true,
   approver_roles: [],
   refund_original_method_only: false,
   required_preconditions: [
@@ -65,9 +65,9 @@ const REFUND_CONTROL: CreateFinancialPolicyRequest = {
     'destination_is_original_payment_method',
     'no_duplicate_refund',
   ],
-  missing_evidence_action: 'escalate',
-  failed_precondition_action: 'block',
-  on_breach: 'block',
+  missing_evidence_effect: 'defer',
+  failed_precondition_effect: 'deny',
+  on_breach: 'deny',
 };
 
 async function ensureProviderConnection(): Promise<GatewayProviderConnection> {

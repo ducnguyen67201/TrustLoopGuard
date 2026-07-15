@@ -7,7 +7,7 @@
 //!   block, the cancellation token fires and tiers 2 and 3 short-circuit.
 //! - Otherwise, Tier 2 is awaited. If it blocks, Tier 3 is cancelled.
 //! - Otherwise, Tier 3 is awaited subject to a deadline. Timeout maps to
-//!   `Verdict::Escalate` rather than `Block` — when the judge is silent
+//!   `AuthorizationEffect::Defer` rather than `Deny` — when the judge is silent
 //!   we don't have grounds to refuse, but we shouldn't auto-allow either.
 //!
 //! For PR 3, Tiers 2 and 3 are stubs returning `Skipped`. The orchestrator
@@ -20,7 +20,8 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use tl_core::{
-    new_trace_id, CheckRequest, Decision, Tier, TierResult, TierStatus, TriggeredPolicy, Verdict,
+    new_trace_id, AuthorizationEffect, CheckRequest, Decision, Tier, TierResult, TierStatus,
+    TriggeredPolicy,
 };
 use tl_policy::Policy;
 use tokio::time::sleep;
@@ -36,13 +37,13 @@ pub struct TierOutput {
     pub result: TierResult,
     /// If `Some`, the orchestrator should treat this tier as a hard stop:
     /// fire the cancellation token, skip later tiers, and use this signal's
-    /// verdict in the final `Decision`.
+    /// effect in the final `Decision`.
     pub block: Option<BlockSignal>,
 }
 
 #[derive(Debug, Clone)]
 pub struct BlockSignal {
-    pub verdict: Verdict,
+    pub effect: AuthorizationEffect,
     pub reason: String,
     pub safe_output: Option<String>,
 }
@@ -119,7 +120,7 @@ pub async fn run(
 
     // -- Cache lookup --
     // Compute the cache key once and consult the cache before doing any
-    // tier work. On hit we return immediately with the original verdict
+    // tier work. On hit we return immediately with the original effect
     // but a fresh trace_id (callers can still correlate by request id).
     // `MokaCache::disabled()` always misses, so this is free in test /
     // no-op contexts.
@@ -188,7 +189,7 @@ fn aggregate(
     redaction: Option<tl_core::RedactionInfo>,
 ) -> Decision {
     // First non-None block wins. Tier ordering is deliberate: a tier 1
-    // verdict is more authoritative than tier 3 because it never depends
+    // effect is more authoritative than tier 3 because it never depends
     // on a probabilistic judgement.
     let blocking = r1
         .block
@@ -197,22 +198,25 @@ fn aggregate(
         .or(r3.block.as_ref())
         .cloned();
 
-    // A tier 3 timeout is itself an escalation signal — we can't auto-allow
-    // when the judge timed out, but we also can't block without grounds.
-    let timeout_escalate = blocking.is_none() && r3.result.status == TierStatus::TimedOut;
+    // A timeout is unresolved evaluator state; approval cannot replace it.
+    let timeout_defer = blocking.is_none() && r3.result.status == TierStatus::TimedOut;
 
     let mut triggered: Vec<TriggeredPolicy> = vec![];
     triggered.extend(r1.result.reasons.iter().cloned());
     triggered.extend(r2.result.reasons.iter().cloned());
     triggered.extend(r3.result.reasons.iter().cloned());
 
-    let (verdict, reason, safe_output) = if let Some(block) = blocking {
-        (block.verdict, block.reason, block.safe_output)
-    } else if timeout_escalate {
-        (Verdict::Escalate, "tier 3 LLM judge timed out".into(), None)
+    let (effect, reason, safe_output) = if let Some(block) = blocking {
+        (block.effect, block.reason, block.safe_output)
+    } else if timeout_defer {
+        (
+            AuthorizationEffect::Defer,
+            "tier 3 LLM judge timed out".into(),
+            None,
+        )
     } else {
         (
-            Verdict::Allow,
+            AuthorizationEffect::Permit,
             if triggered.is_empty() {
                 "no policies triggered".into()
             } else {
@@ -222,11 +226,11 @@ fn aggregate(
         )
     };
 
-    // Legacy async path: once the event decision composer owns async Decision
+    // Direct async path: once the event decision composer owns async Decision
     // construction, move these evidence defaults into that composer or builder.
     Decision {
         trace_id,
-        verdict,
+        effect,
         reason,
         triggered_policies: triggered,
         safe_output,
@@ -239,8 +243,12 @@ fn aggregate(
         remediation: None,
         source_chain: None,
         risk_source: None,
-        failure_mode: None,
+        risk_code: None,
         harm_class: None,
         constraints: None,
+        approval: None,
+        applied_grant: None,
+        lease: None,
+        authorization_receipt_id: None,
     }
 }

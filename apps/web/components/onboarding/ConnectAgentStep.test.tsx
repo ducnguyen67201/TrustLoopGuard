@@ -151,11 +151,11 @@ describe('ConnectAgentStep', () => {
 
     // SDK panel is active by default; its preview stays short.
     const sdkBlock = screen.getByText(/import \{ Client, guard \}/i).closest('div');
-    expect(sdkBlock?.textContent).not.toContain('onEscalate');
+    expect(sdkBlock?.textContent).not.toContain('onRequireApproval');
 
     await userEvent.click(screen.getAllByRole('button', { name: /show all/i })[0]!);
 
-    expect(sdkBlock?.textContent).toContain('onEscalate');
+    expect(sdkBlock?.textContent).toContain('onRequireApproval');
   });
 
   test('links carry workspace and the requested environment', async () => {
@@ -185,22 +185,18 @@ describe('ConnectAgentStep', () => {
   test('listens after key creation and flips to connected on the first event', async () => {
     const trace = {
       trace_id: 'tr_first_1',
-      decision: 'allow',
+      decision: 'permit',
       elapsed_ms: 12,
       created_at: '2026-07-03T00:00:00Z',
     };
     fetchMock.mockResolvedValueOnce(jsonResponse(CREATED));
     // Every subsequent call is the /api/traces poll.
-    fetchMock.mockImplementation(() =>
-      Promise.resolve(jsonResponse({ traces: [trace] }, 200)),
-    );
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ traces: [trace] }, 200)));
     renderStep();
 
     await userEvent.click(screen.getByRole('button', { name: /create my api key/i }));
 
-    expect(
-      await screen.findByText(/connected — we received your request/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/connected — we received your request/i)).toBeInTheDocument();
     const dashboardLink = screen.getByRole('link', { name: /continue to your dashboard/i });
     expect(dashboardLink.getAttribute('href')).toBe('/?workspace=acme');
     expect(screen.getByRole('link', { name: /see the event details/i }).getAttribute('href')).toBe(

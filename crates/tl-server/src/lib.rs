@@ -7,6 +7,7 @@ pub mod api;
 pub mod app;
 pub mod auth;
 pub mod auth_user;
+pub mod authorization;
 pub mod budget_alerts;
 pub mod dashboard_admin;
 pub mod environments;
@@ -49,8 +50,8 @@ pub use escalation::{
     RetryPolicy, WebhookDelivery,
 };
 pub use financial::{
-    AgenticPaymentBudgetReservationRequest, FinancialActionExecutionAttempt,
-    FinancialAuthorizationService, FinancialBudgetConstraint, FinancialBudgetReservationOutcome,
+    AgenticPaymentBudgetReservationRequest, FinancialAuthorizationService,
+    FinancialBudgetConstraint, FinancialBudgetReservationOutcome,
     FinancialBudgetReservationRequest, FinancialBudgetViolation, FinancialBudgetWindow,
     FinancialLedgerEntryKind, FinancialState, FinancialStore, FinancialStoreError,
     MemoryFinancialStore,

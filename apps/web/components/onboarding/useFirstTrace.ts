@@ -7,12 +7,12 @@ import { traceListSchema, type FirstTrace } from '@/lib/onboarding';
 
 const POLL_INTERVAL_MS = 4000;
 
-const VERDICT_VARIANTS = ['allow', 'rewrite', 'block', 'escalate'] as const;
-type VerdictVariant = (typeof VERDICT_VARIANTS)[number];
+const EFFECT_VARIANTS = ['permit', 'transform', 'deny', 'require_approval'] as const;
+type EffectVariant = (typeof EFFECT_VARIANTS)[number];
 
-export function verdictVariant(decision: string): VerdictVariant | 'secondary' {
-  return (VERDICT_VARIANTS as readonly string[]).includes(decision)
-    ? (decision as VerdictVariant)
+export function effectVariant(decision: string): EffectVariant | 'secondary' {
+  return (EFFECT_VARIANTS as readonly string[]).includes(decision)
+    ? (decision as EffectVariant)
     : 'secondary';
 }
 

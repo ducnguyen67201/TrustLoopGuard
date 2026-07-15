@@ -10,7 +10,7 @@ id: starter-pii-email
 description: Blocks drafts that expose an email address.
 match:
   regex: "(?i)[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}"
-action: block
+action: deny
 severity: high
 "#,
     r#"
@@ -18,7 +18,7 @@ id: starter-pii-phone
 description: Blocks drafts that expose a US-style phone number.
 match:
   regex: "\\b(?:\\+?1[-.\\s]?)?(?:\\(?\\d{3}\\)?[-.\\s]?)\\d{3}[-.\\s]?\\d{4}\\b"
-action: block
+action: deny
 severity: high
 "#,
     r#"
@@ -26,7 +26,7 @@ id: starter-pii-ssn
 description: Blocks drafts that expose a US Social Security number.
 match:
   regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
-action: block
+action: deny
 severity: critical
 "#,
     r#"
@@ -34,7 +34,7 @@ id: starter-pii-credit-card
 description: Blocks drafts that expose a likely payment card number.
 match:
   regex: "\\b(?:\\d[ -]*?){13,19}\\b"
-action: block
+action: deny
 severity: critical
 "#,
     r#"
@@ -42,7 +42,7 @@ id: starter-pii-ipv4
 description: Blocks drafts that expose an IPv4 address.
 match:
   regex: "\\b(?:(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\b"
-action: block
+action: deny
 severity: medium
 "#,
     r#"
@@ -50,7 +50,7 @@ id: starter-prompt-injection
 description: Escalates drafts that contain common prompt-injection phrases.
 match:
   regex: "(?i)(ignore previous instructions|ignore all previous instructions|ignore the above|disregard the above|reveal (the )?(system )?prompt|developer message)"
-action: escalate
+action: require_approval
 severity: high
 "#,
 ];

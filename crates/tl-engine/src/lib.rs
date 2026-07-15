@@ -8,6 +8,7 @@
 //!   orchestrator. Tiers 2 and 3 are stubs in PR 3 and get fleshed out
 //!   in PR 5/6 (`tl-fuzzy`) and PR 7-9 (`tl-llm`).
 
+pub mod authorization;
 pub mod context;
 pub mod engine;
 pub mod engine_match;
@@ -18,6 +19,7 @@ pub mod fuzzy;
 pub mod pipeline;
 pub mod tiers;
 
+pub use authorization::{compose_findings, grant_satisfies, FindingComposition};
 pub use context as handler;
 pub use context::{
     FuzzyChecker, FuzzyHit, HandlerCtx, NoOpFuzzyChecker, NoOpProfileResolver, ProfileResolver,
@@ -38,7 +40,7 @@ pub use event_policy::{
     SemanticPolicyJudgeInput, SemanticPolicyJudgeResult,
 };
 pub use financial_policy::{
-    evaluate_financial_policies, financial_matches, financial_windowed_verdict,
+    evaluate_financial_policies, financial_matches, financial_windowed_effect,
 };
 pub use fuzzy::{BuildError as FuzzyBuildError, HnswFuzzyChecker};
 pub use pipeline::orchestrator as orchestrate;

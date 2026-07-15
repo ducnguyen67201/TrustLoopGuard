@@ -1,10 +1,5 @@
 import { BOOK_MEETING_URL, DOCS_URL } from '@/lib/github';
-import {
-  faqJsonLd,
-  landingPageJsonLd,
-  serializeJsonLd,
-  type LandingPageData,
-} from '@/lib/seo';
+import { faqJsonLd, landingPageJsonLd, serializeJsonLd, type LandingPageData } from '@/lib/seo';
 import { Ascii } from './ascii-art';
 import { Footer } from './footer';
 import { Eyebrow } from './how';
@@ -50,7 +45,11 @@ export function SeoLandingPage({ page }: SeoLandingPageProps) {
                   href={DOCS_URL}
                   className="button-secondary h-11 px-5"
                   event="docs_click"
-                  eventParams={{ page: pagePath, location: 'landing_hero', label: page.secondaryCta }}
+                  eventParams={{
+                    page: pagePath,
+                    location: 'landing_hero',
+                    label: page.secondaryCta,
+                  }}
                 >
                   {page.secondaryCta}
                 </MarketingEventLink>
@@ -134,11 +133,11 @@ export function SeoLandingPage({ page }: SeoLandingPageProps) {
           <div className="cta-card p-8 md:p-10">
             <p className="eyebrow">Ship the check</p>
             <h2 className="mt-5 max-w-3xl text-3xl font-semibold leading-[1.08] tracking-tight md:text-5xl">
-              Put a verdict between the agent and the action.
+              Put a effect between the agent and the action.
             </h2>
             <p className="mt-5 max-w-2xl text-base leading-7 text-[var(--color-muted)]">
-              Bring a real checkout, refund, booking, or invoice flow. We will map the exact pre-action
-              check and the audit record it should leave behind.
+              Bring a real checkout, refund, booking, or invoice flow. We will map the exact
+              pre-action check and the audit record it should leave behind.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <MarketingEventLink
@@ -147,7 +146,11 @@ export function SeoLandingPage({ page }: SeoLandingPageProps) {
                 rel="noreferrer"
                 className="button-accent h-11 px-5"
                 event="landing_cta_click"
-                eventParams={{ page: pagePath, location: 'landing_bottom', label: 'Book a meeting' }}
+                eventParams={{
+                  page: pagePath,
+                  location: 'landing_bottom',
+                  label: 'Book a meeting',
+                }}
               >
                 Book a meeting
               </MarketingEventLink>

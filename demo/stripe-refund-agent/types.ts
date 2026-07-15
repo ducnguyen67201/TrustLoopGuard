@@ -1,13 +1,17 @@
 import type {
+  AuthorizationEffect,
   CreateFinancialActionRequest,
+  FinancialExecutionStatus,
   FinancialActionRecord,
-  FinancialActionStatus,
   FinancialReceipt,
 } from '@trustloopguard/sdk';
 
 export const REFUND_AGENT_ID = 'refund-bot';
-export const REFUND_MANDATE_ID = 'mandate_stripe_refund_demo_v1';
-export const REFUND_MANDATE_VERSION = 1;
+export const REFUND_GRANT_CAPABILITY = 'financial:issue_refund';
+export const REFUND_GRANT_REQUIREMENT_IDS = [
+  'financial:refund-bot-refund-controls:grant_required',
+  'financial:refund-bot-refund-controls:approval_threshold',
+];
 export const DEMO_ORDER_ID = 'ord_demo_1001';
 export const DEMO_CUSTOMER_ID = 'cust_demo_1001';
 export const DEMO_PAYMENT_METHOD_ID = 'pm_card_visa';
@@ -80,14 +84,14 @@ export interface PrepareRefundResult {
   action: FinancialActionRecord;
   request: CreateFinancialActionRequest;
   order: OrderRecord;
-  status: FinancialActionStatus;
+  status: AuthorizationEffect;
   message: string;
 }
 
 export interface ExecuteRefundResult {
   action: FinancialActionRecord;
   receipt?: FinancialReceipt;
-  status: FinancialActionStatus;
+  status: FinancialExecutionStatus | AuthorizationEffect;
   message: string;
 }
 

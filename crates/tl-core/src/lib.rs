@@ -20,6 +20,7 @@
 pub mod agent;
 pub mod analytics;
 pub mod auth;
+pub mod authorization;
 pub mod budget_alert;
 pub mod dashboard;
 pub mod enforcement;
@@ -58,6 +59,18 @@ pub use analytics::{
     UpdateAnalyticsDashboardViewRequest,
 };
 pub use auth::{AuthRequest, AuthResponse, ChangePasswordRequest, OAuthIdentityRequest};
+pub use authorization::{
+    ActionGrantScope, ApprovalDecision, ApprovalEnvelope, ApprovalStatus, AuthorityRequirement,
+    AuthorizationApproval, AuthorizationApprovalListResponse, AuthorizationApprovalSummary,
+    AuthorizationCapabilityId, AuthorizationClaim, AuthorizationDecision, AuthorizationDomain,
+    AuthorizationDomainEvidence, AuthorizationEffect, AuthorizationFinding, AuthorizationGrant,
+    AuthorizationGrantListResponse, AuthorizationGrantRef, AuthorizationGrantScope,
+    AuthorizationGrantSource, AuthorizationIntentStatus, AuthorizationLease, AuthorizationReceipt,
+    AuthorizationReceiptListResponse, AuthorizationSubject, CompleteAuthorizationLeaseRequest,
+    CreateAuthorizationGrantRequest, DecideAuthorizationApprovalRequest,
+    DecideAuthorizationApprovalResponse, FinancialExecutionStatus, FinancialGrantScope, GrantMode,
+    GrantStatus, LeaseStatus,
+};
 pub use budget_alert::{
     BudgetAlertConfig, BudgetAlertConfigListResponse, BudgetAlertFiring,
     BudgetAlertFiringListResponse, BudgetAlertThresholdType, BudgetAlertWindow,
@@ -75,22 +88,15 @@ pub use error::{ApiError, ApiErrorCode, TlError};
 pub use event::{Action, EventKind, GuardEvent, Principal, SideEffectClass};
 pub use financial::{
     AgenticPaymentAuthorizationResponse, AgenticPaymentAuthorizeRequest,
-    AgenticPaymentCommitRequest, AgenticPaymentDecision, AgenticPaymentMandateScope,
-    AgenticPaymentRecord, AgenticPaymentReservation, AgenticPaymentReservationStatus,
-    AgenticPaymentRollbackRequest, ApprovalRequirement, ApproveMatchingFinancialActionsRequest,
-    ApproveMatchingFinancialActionsResponse, CounterpartyRef, CreateFinancialActionRequest,
-    CreateFinancialMandateRequest, CreateFinancialPolicyRequest, EvidenceRef, FinancialAction,
-    FinancialActionDecision, FinancialActionDecisionReceipt, FinancialActionKind,
+    AgenticPaymentCommitRequest, AgenticPaymentRecord, AgenticPaymentReservation,
+    AgenticPaymentReservationStatus, AgenticPaymentRollbackRequest, CounterpartyRef,
+    CreateFinancialActionRequest, CreateFinancialPolicyRequest, EvidenceRef,
+    ExecuteFinancialActionRequest, FinancialAction, FinancialActionKind,
     FinancialActionListResponse, FinancialActionOutcome, FinancialActionOutcomeStatus,
-    FinancialActionPrecondition, FinancialActionRecord, FinancialActionStatus,
-    FinancialApprovalEnvelope, FinancialApprovalRequest, FinancialApprovalRequestListResponse,
-    FinancialApprovalRequestStatus, FinancialAuthorizationScopeProof, FinancialDecision,
-    FinancialDecisionRisk, FinancialDecisionRiskCode, FinancialEligibilityCheck,
-    FinancialEligibilityResult, FinancialEligibilityStatus, FinancialEvidenceProof,
-    FinancialExecutionProof, FinancialExecutionProofStatus, FinancialMandate,
-    FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
+    FinancialActionPrecondition, FinancialActionRecord, FinancialEligibilityCheck,
+    FinancialEligibilityResult, FinancialEligibilityStatus, FinancialOutcomeListResponse,
     FinancialPolicyListResponse, FinancialPolicyRecord, FinancialPolicySelector, FinancialRail,
-    FinancialReceipt, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability, SpendMeter,
+    FinancialReceipt, MoneyAmount, RecoveryStatus, ReversalCapability, SpendMeter,
     X402NormalizedPaymentRequirement, X402PaymentRequirement, X402SettlementProof, USD,
 };
 pub use gateway::{
@@ -112,7 +118,7 @@ pub use github_integration::{
 };
 pub use guard::{
     Channel, CheckRequest, Decision, RedactedEntity, RedactionInfo, RedactionMode, RedactionStatus,
-    Severity, TriggeredPolicy, Verdict,
+    Severity, TriggeredPolicy,
 };
 pub use human_review::{
     CreateHumanReviewEventRequest, HumanReviewAnalyticsResponse, HumanReviewAnalyticsSummary,
@@ -142,7 +148,7 @@ pub use llm_usage::{
 };
 pub use policy::{
     AiEditRequest, AiEditResponse, EntityVersionDetail, EntityVersionListResponse,
-    EntityVersionSummary, GuardrailGenerateResponse, GuardrailListResponse, PolicyAction,
+    EntityVersionSummary, GuardrailGenerateResponse, GuardrailListResponse,
     PolicyBatchSetEnabledRequest, PolicyBatchSetEnabledResponse, PolicyDocument, PolicyDraft,
     PolicyDraftRequest, PolicyDraftResponse, PolicyFamily, PolicyListResponse, PolicyMatchType,
     PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
@@ -175,8 +181,9 @@ pub use team::{
 };
 pub use tier::{Tier, TierResult, TierStatus};
 pub use tool::{
-    AllowedSource, ApprovalRule, LimitAction, ParamLimit, ParamRole, ParamSpec, ToolMetadata,
-    ToolMetadataEntry, ToolMetadataListResponse, ToolResolution, UpsertToolMetadataRequest,
+    AllowedSource, ApprovalRule, LimitAction, ParamLimit, ParamRole, ParamSpec, ToolIdentity,
+    ToolMetadata, ToolMetadataEntry, ToolMetadataListResponse, ToolResolution,
+    UpsertToolMetadataRequest,
 };
 pub use trace::{new_trace_id, TraceListResponse, TraceSummary};
 
@@ -195,9 +202,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn verdict_worst_with_ranks_block_over_escalate_over_rewrite_over_allow() {
-        use Verdict::{Allow, Block, Escalate, Rewrite};
-        let ordered = [Allow, Rewrite, Escalate, Block];
+    fn effect_worst_with_uses_canonical_precedence() {
+        use AuthorizationEffect::{Defer, Deny, Permit, RequireApproval, Transform};
+        let ordered = [Permit, Transform, RequireApproval, Defer, Deny];
         for (weaker_rank, weaker) in ordered.iter().enumerate() {
             for stronger in &ordered[weaker_rank..] {
                 assert_eq!(weaker.worst_with(*stronger), *stronger);
@@ -207,9 +214,9 @@ mod tests {
     }
 
     #[test]
-    fn allow_helper_sets_verdict() {
+    fn allow_helper_sets_permit_effect() {
         let d = Decision::allow("t-1");
-        assert_eq!(d.verdict, Verdict::Allow);
+        assert_eq!(d.effect, AuthorizationEffect::Permit);
         assert_eq!(d.trace_id, "t-1");
         assert!(d.tier_results.is_empty());
     }
@@ -318,30 +325,13 @@ mod tests {
     }
 
     #[test]
-    fn pre_v0_decision_still_deserializes() {
-        let json = r#"{
-            "trace_id": "t-1",
-            "verdict": "allow",
-            "reason": "ok",
-            "triggered_policies": [],
-            "safe_output": null,
-            "latency_ms": 1
-        }"#;
-        let d: Decision = serde_json::from_str(json).unwrap();
-        assert_eq!(d.verdict, Verdict::Allow);
-        assert!(d.tier_results.is_empty());
-        assert!(d.violated_rule.is_none());
-        assert!(d.source_chain.is_none());
-    }
-
-    #[test]
     fn decision_allow_omits_empty_event_evidence() {
         let serialized = serde_json::to_string(&Decision::allow("t-1")).unwrap();
         assert!(!serialized.contains("violated_rule"));
         assert!(!serialized.contains("remediation"));
         assert!(!serialized.contains("source_chain"));
         assert!(!serialized.contains("risk_source"));
-        assert!(!serialized.contains("failure_mode"));
+        assert!(!serialized.contains("risk_code"));
         assert!(!serialized.contains("harm_class"));
         assert!(!serialized.contains("constraints"));
     }

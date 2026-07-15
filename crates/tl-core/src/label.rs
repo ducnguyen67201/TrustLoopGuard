@@ -157,7 +157,7 @@ pub struct SourceLabelEvidence {
 
 /// Label resolution + propagation evidence attached by the event
 /// pipeline. `None` until the pipeline has run. Observe-only: no
-/// checker changes a verdict because of this value.
+/// checker changes an authorization effect because of this value.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]

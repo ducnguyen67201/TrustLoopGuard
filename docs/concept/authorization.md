@@ -1,6 +1,6 @@
-# Authorization
+# Runtime authentication
 
-How `tl-server` decides whether a request is allowed in.
+How `tl-server` authenticates callers and scopes their access. The shared approval, grant, and lease lifecycle is documented separately in [authorization-kernel.md](authorization-kernel.md).
 
 > Terms: [Workspace](glossary.md#workspace-member), [Workspace API key](#workspace-api-keys). For *user* authentication (NextAuth, signup/signin), see [web-dashboard-authentication.md](web-dashboard-authentication.md).
 

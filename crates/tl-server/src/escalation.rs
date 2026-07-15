@@ -1,6 +1,6 @@
 //! Escalation webhook worker.
 //!
-//! When `Decision::Escalate` lands, the request handler fires a payload
+//! When `AuthorizationEffect::Defer` lands, the request handler fires a payload
 //! into the escalation channel. This worker drains the channel,
 //! optionally persists the row in `escalations` (postgres feature),
 //! POSTs the JSON to the configured webhook with retries + backoff,
@@ -31,7 +31,7 @@ use tl_storage::EscalationRepo;
 use uuid::Uuid;
 
 /// One queued escalation. The check handler fills this in when a
-/// `Decision::Escalate` is produced.
+/// `AuthorizationEffect::Defer` is produced.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EscalationPayload {
     pub trace_id: String,

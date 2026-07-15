@@ -31,12 +31,17 @@ export function Hero() {
   return (
     <section id="product" className="hero" aria-labelledby="hero-heading">
       <div className="founder-proof-bar" aria-label="Founder production experience">
-        <p className="founder-proof-label"><span aria-hidden="true" />Founder proof</p>
+        <p className="founder-proof-label">
+          <span aria-hidden="true" />
+          Founder proof
+        </p>
         <p className="founder-proof-statement">
           <strong>Tested AI voice agents in production.</strong>
           <span>Saw how they failed every day.</span>
         </p>
-        <a href="#trust">Why this exists <span aria-hidden="true">↓</span></a>
+        <a href="#trust">
+          Why this exists <span aria-hidden="true">↓</span>
+        </a>
       </div>
       <div className="hero-inner">
         <div className="hero-copy">
@@ -46,9 +51,9 @@ export function Hero() {
             <span>Control what happens next.</span>
           </h1>
           <p className="hero-sub">
-            TrustLoopGuard sits between an agent&apos;s intent and execution. It returns an actionable
-            decision before the side effect—and gives money-bearing actions durable authorization
-            state and receipts.
+            TrustLoopGuard sits between an agent&apos;s intent and execution. It returns an
+            actionable decision before the side effect—and gives money-bearing actions durable
+            authorization state and receipts.
           </p>
           <div className="hero-actions">
             <MarketingEventLink
@@ -77,13 +82,21 @@ export function Hero() {
 
       <div className="proof-strip" aria-label="Inspectable product facts">
         {PROOF_POINTS.map((item, index) => (
-          <a key={item.label} href={item.href} target="_blank" rel="noreferrer" className="proof-item">
+          <a
+            key={item.label}
+            href={item.href}
+            target="_blank"
+            rel="noreferrer"
+            className="proof-item"
+          >
             <span className="proof-number">0{index + 1}</span>
             <span>
               <strong>{item.label}</strong>
               <small>{item.detail}</small>
             </span>
-            <span className="proof-arrow" aria-hidden="true">↗</span>
+            <span className="proof-arrow" aria-hidden="true">
+              ↗
+            </span>
           </a>
         ))}
       </div>
@@ -93,7 +106,10 @@ export function Hero() {
 
 function AuthorizationRecord() {
   return (
-    <article className="decision-record" aria-label="Example TrustLoopGuard financial authorization">
+    <article
+      className="decision-record"
+      aria-label="Example TrustLoopGuard financial authorization"
+    >
       <header className="record-header">
         <div>
           <p>Example authorization</p>
@@ -109,8 +125,14 @@ function AuthorizationRecord() {
             <p className="record-label">Proposed action</p>
             <strong>refund · issue_refund</strong>
             <dl className="record-fields">
-              <div><dt>principal</dt><dd>refund-bot</dd></div>
-              <div><dt>amount</dt><dd>$75.00 USD</dd></div>
+              <div>
+                <dt>principal</dt>
+                <dd>refund-bot</dd>
+              </div>
+              <div>
+                <dt>amount</dt>
+                <dd>$75.00 USD</dd>
+              </div>
             </dl>
           </div>
         </li>
@@ -118,7 +140,7 @@ function AuthorizationRecord() {
           <span className="record-step">02</span>
           <div>
             <p className="record-label">Authorization checks</p>
-            <strong>Mandate scope passed</strong>
+            <strong>Grant scope passed</strong>
             <p className="record-note">Financial policy requires approval above $50.</p>
           </div>
         </li>
@@ -126,8 +148,8 @@ function AuthorizationRecord() {
           <span className="record-step">03</span>
           <div>
             <p className="record-label">Authorization</p>
-            <div className="record-verdict-row">
-              <strong className="verdict-held">HELD</strong>
+            <div className="record-effect-row">
+              <strong className="effect-held">HELD</strong>
               <span>finance approval required</span>
             </div>
           </div>
@@ -155,7 +177,13 @@ function AuthorizationRecord() {
 function ArrowIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

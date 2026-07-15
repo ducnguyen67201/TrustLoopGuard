@@ -57,7 +57,7 @@ describe('/api/policies/generate', () => {
         description: 'Block password sharing',
         match_type: 'regex',
         match_value: 'password',
-        action: 'block',
+        action: 'deny',
         severity: 'high',
       },
     });
@@ -73,7 +73,7 @@ describe('/api/policies/generate', () => {
         description: 'Block password sharing',
         matchType: 'regex',
         matchValue: 'password',
-        action: 'block',
+        action: 'deny',
         severity: 'high',
       },
     });

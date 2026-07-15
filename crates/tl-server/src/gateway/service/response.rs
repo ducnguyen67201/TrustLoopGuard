@@ -9,7 +9,7 @@ use super::super::errors::api_error_response;
 use super::super::provider::GatewayProvider;
 
 pub(super) struct EnforcementHeaders<'a> {
-    pub verdict: &'static str,
+    pub effect: &'static str,
     pub trace_id: &'a str,
     pub phase: &'static str,
     pub policy_id: Option<&'a str>,
@@ -54,8 +54,8 @@ pub(super) fn handle_provider_failure(error: String) -> Response {
 fn apply_enforcement_headers(response: &mut Response, headers: &EnforcementHeaders<'_>) {
     let response_headers = response.headers_mut();
     response_headers.insert(
-        HeaderName::from_static("x-trustloopguard-verdict"),
-        HeaderValue::from_static(headers.verdict),
+        HeaderName::from_static("x-trustloopguard-effect"),
+        HeaderValue::from_static(headers.effect),
     );
     response_headers.insert(
         HeaderName::from_static("x-trustloopguard-trace-id"),

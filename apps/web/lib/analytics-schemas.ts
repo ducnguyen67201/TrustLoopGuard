@@ -2,10 +2,11 @@ import { z } from 'zod';
 
 const analyticsMetricSchema = z.enum([
   'trace_count',
-  'allow_count',
-  'block_count',
-  'rewrite_count',
-  'escalate_count',
+  'permit_count',
+  'deny_count',
+  'transform_count',
+  'require_approval_count',
+  'defer_count',
   'intervention_rate',
   'p95_latency_ms',
   'human_review_count',
@@ -18,21 +19,14 @@ const analyticsDimensionSchema = z.enum([
   'environment',
   'run_kind',
   'run_status',
-  'decision',
+  'authorization_effect',
   'policy_id',
   'workflow_step',
   'review_outcome',
   'external_id',
 ]);
 
-const analyticsChartTypeSchema = z.enum([
-  'big_number',
-  'bar',
-  'line',
-  'area',
-  'donut',
-  'table',
-]);
+const analyticsChartTypeSchema = z.enum(['big_number', 'bar', 'line', 'area', 'donut', 'table']);
 
 const analyticsFilterSchema = z.object({
   dimension: analyticsDimensionSchema,

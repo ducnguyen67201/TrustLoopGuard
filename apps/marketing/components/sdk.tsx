@@ -53,16 +53,17 @@ safe_reply = await protect(
 )
 
 return safe_reply`,
-  rust: `use tl_sdk_rust::{Client, Verdict};
+  rust: `use tl_sdk_rust::{AuthorizationEffect, Client};
 
 let client = Client::new(&std::env::var("TRUSTLOOP_URL")?);
 let decision = client.submit_event(&event).await?;
 
-match decision.verdict {
-    Verdict::Allow => execute(action).await,
-    Verdict::Rewrite => use_safe_output(decision.safe_output),
-    Verdict::Block => refuse(decision.reason),
-    Verdict::Escalate => request_review(decision.trace_id),
+match decision.effect {
+    AuthorizationEffect::Permit => execute(action).await,
+    AuthorizationEffect::Transform => use_safe_output(decision.transformed_value),
+    AuthorizationEffect::Deny => refuse(decision.reason),
+    AuthorizationEffect::RequireApproval => wait_for_approval(decision.approval),
+    AuthorizationEffect::Defer => wait_for_evidence(decision.reason),
 }`,
 } as const;
 
@@ -118,8 +119,8 @@ export function Sdk() {
             </h2>
           </div>
           <p className="section-copy">
-            Start with one SDK call or move enforcement to a provider-compatible gateway. Both
-            paths converge on the same Rust-owned decision contract.
+            Start with one SDK call or move enforcement to a provider-compatible gateway. Both paths
+            converge on the same Rust-owned decision contract.
           </p>
         </div>
 
@@ -139,7 +140,10 @@ export function Sdk() {
                     className={`integration-tab ${selected ? 'integration-tab-active' : ''}`}
                   >
                     <span>0{index + 1}</span>
-                    <div><strong>{item.label}</strong><small>{item.summary}</small></div>
+                    <div>
+                      <strong>{item.label}</strong>
+                      <small>{item.summary}</small>
+                    </div>
                   </button>
                 );
               })}
@@ -150,7 +154,10 @@ export function Sdk() {
               <p>{active.copy}</p>
               <dl>
                 {active.facts.map(([label, value]) => (
-                  <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
                 ))}
               </dl>
             </div>

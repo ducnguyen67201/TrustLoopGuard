@@ -20,7 +20,7 @@ from livekit.agents.beta import Instructions
 from livekit.plugins import openai, silero
 
 import trustloopguard as trustloop
-from trustloopguard import Channel, Decision, GuardLogEvent, OutputGuard, RetryConfig
+from trustloopguard import AuthorizationDecision, Channel, GuardLogEvent, OutputGuard, RetryConfig
 
 logger = logging.getLogger("TrustLoopGuardLiveKitDemo")
 load_dotenv()
@@ -30,21 +30,26 @@ TL_API_KEY = os.getenv("TL_API_KEY")
 TL_AGENT_ID = os.getenv("TL_AGENT_ID", "demo-healthcare-livekit")
 
 
-async def blocked_reply(decision: Decision) -> str:
+async def blocked_reply(decision: AuthorizationDecision) -> str:
     logger.warning("blocked LiveKit reply: %s", decision.reason)
     return "I cannot share that. I can connect you with a human teammate."
 
 
-async def escalated_reply(decision: Decision) -> str:
-    logger.warning("escalated LiveKit reply: %s", decision.reason)
+async def approval_required_reply(decision: AuthorizationDecision) -> str:
+    logger.warning("approval required for LiveKit reply: %s", decision.reason)
     return "A human teammate should review this before we continue."
+
+
+async def deferred_reply(decision: AuthorizationDecision) -> str:
+    logger.warning("deferred LiveKit reply: %s", decision.reason)
+    return "I need more verified information before continuing."
 
 
 def log_guardrail(event: GuardLogEvent) -> None:
     logger.info(
-        "trustloopguard decision trace=%s verdict=%s branch=%s latency_ms=%s",
+        "trustloopguard decision trace=%s effect=%s branch=%s latency_ms=%s",
         event.trace_id,
-        event.verdict,
+        event.effect,
         event.branch,
         event.latency_ms,
     )
@@ -93,7 +98,8 @@ async def entrypoint(ctx: JobContext) -> None:
         timeout=0.25,
         retry=RetryConfig(max_attempts=1, total_budget_s=0.25),
         on_block=blocked_reply,
-        on_escalate=escalated_reply,
+        on_require_approval=approval_required_reply,
+        on_defer=deferred_reply,
         log=log_guardrail,
     )
 

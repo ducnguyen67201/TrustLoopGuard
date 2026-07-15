@@ -1,39 +1,49 @@
 import { Badge } from '@/components/ui/badge';
 import type {
+  AuthorizationEffect,
   FinancialActionOutcome,
   FinancialActionRecord,
-  FinancialActionStatus,
-  FinancialMandate,
+  FinancialExecutionStatus,
 } from '@trustloopguard/sdk';
 
-type BadgeVariant = 'allow' | 'block' | 'escalate' | 'outline' | 'secondary';
+type BadgeVariant = 'permit' | 'deny' | 'require_approval' | 'outline' | 'secondary';
 
-const STATUS_VARIANT: Record<FinancialActionStatus, BadgeVariant> = {
-  proposed: 'outline',
-  authorized: 'outline',
-  held: 'escalate',
-  executed: 'allow',
-  denied: 'block',
-  failed: 'block',
+const STATUS_VARIANT: Record<FinancialExecutionStatus, BadgeVariant> = {
+  not_started: 'outline',
+  executing: 'require_approval',
+  succeeded: 'permit',
+  failed: 'deny',
+  canceled: 'secondary',
   reversed: 'secondary',
-  expired: 'secondary',
+};
+
+const AUTHORIZATION_VARIANT: Record<AuthorizationEffect, BadgeVariant> = {
+  permit: 'permit',
+  deny: 'deny',
+  transform: 'permit',
+  require_approval: 'require_approval',
+  defer: 'secondary',
 };
 
 const OUTCOME_VARIANT: Record<FinancialActionOutcome['status'], BadgeVariant> = {
   pending: 'outline',
-  succeeded: 'allow',
-  recovered: 'allow',
-  failed: 'block',
+  succeeded: 'permit',
+  recovered: 'permit',
+  failed: 'deny',
   canceled: 'secondary',
   reversed: 'secondary',
-  loss_recorded: 'block',
-  disputed: 'block',
-  recovery_started: 'escalate',
+  loss_recorded: 'deny',
+  disputed: 'deny',
+  recovery_started: 'require_approval',
   unknown: 'outline',
 };
 
-export function FinancialStatusBadge({ status }: { status: FinancialActionStatus }) {
+export function FinancialStatusBadge({ status }: { status: FinancialExecutionStatus }) {
   return <Badge variant={STATUS_VARIANT[status]}>{titleLabel(status)}</Badge>;
+}
+
+export function FinancialAuthorizationBadge({ effect }: { effect: AuthorizationEffect }) {
+  return <Badge variant={AUTHORIZATION_VARIANT[effect]}>{titleLabel(effect)}</Badge>;
 }
 
 export function OutcomeBadge({ outcome }: { outcome: FinancialActionOutcome | undefined }) {
@@ -47,12 +57,6 @@ export function OutcomeBadge({ outcome }: { outcome: FinancialActionOutcome | un
       <Badge variant="outline">{titleLabel(outcome.recovery_status)}</Badge>
     </span>
   );
-}
-
-export function MandateStatusBadge({ mandate }: { mandate: FinancialMandate }) {
-  const variant: BadgeVariant =
-    mandate.status === 'active' ? 'allow' : mandate.status === 'revoked' ? 'secondary' : 'escalate';
-  return <Badge variant={variant}>{titleLabel(mandate.status)}</Badge>;
 }
 
 export function formatMoney(action: FinancialActionRecord): string {

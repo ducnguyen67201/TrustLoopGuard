@@ -228,7 +228,7 @@ impl RunStore for MemoryRunStore {
         workspace_id: &str,
         environment_id: &str,
         run_id: &str,
-        verdict: &str,
+        effect: &str,
         elapsed_ms: i32,
     ) -> Result<(), RunStoreError> {
         {
@@ -238,10 +238,10 @@ impl RunStore for MemoryRunStore {
                 .filter(|r| r.workspace_id == workspace_id && r.environment_id == environment_id)
                 .ok_or(RunStoreError::NotFound)?;
             run.trace_count += 1;
-            match verdict {
-                "block" => run.blocked_count += 1,
-                "rewrite" => run.rewritten_count += 1,
-                "escalate" => run.escalated_count += 1,
+            match effect {
+                "deny" => run.blocked_count += 1,
+                "transform" => run.rewritten_count += 1,
+                "require_approval" | "defer" => run.escalated_count += 1,
                 _ => {}
             }
         }

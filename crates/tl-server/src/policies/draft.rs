@@ -1,8 +1,8 @@
 use serde_json::json;
-use tl_core::{PolicyAction, PolicyDraft, PolicyMatchType};
+use tl_core::{PolicyDraft, PolicyMatchType};
 use tl_llm::JsonSchema;
 use tl_policy::policy_ast::WhenClause;
-use tl_policy::{Action, MatchClause, Matcher, Policy};
+use tl_policy::{MatchClause, Matcher, Policy};
 
 /// System instructions prepended to every policy-draft prompt. Kept here
 /// rather than in a file so the OpenAPI surface fully describes the
@@ -15,9 +15,9 @@ pub(super) const POLICY_DRAFT_SYSTEM_PROMPT: &str = concat!(
     "- Prefer `match_type` = `literal` for specific phrases; `regex` for patterns; ",
     "`semantic` for meaning-based matches that must survive paraphrase or encoding ",
     "(the `match_value` is then a short natural-language description of what to catch).\n",
-    "- Default `action` is `block`. Use `rewrite` only when a clear safe replacement exists; ",
+    "- Default `action` is `deny`. Use `transform` only when a clear safe replacement exists; ",
     "in that case set `rewrite` to the replacement text. Otherwise leave `rewrite` null.\n",
-    "- Use `escalate` for ambiguous high-stakes cases the operator should review.\n",
+    "- Use `require_approval` only for explicit human authority; use `defer` for unresolved evidence.\n",
 );
 
 /// System instructions for `POST /v1/agents/{id}/guardrails:generate`.
@@ -42,10 +42,10 @@ pub(super) const POLICY_SET_DRAFT_SYSTEM_PROMPT: &str = concat!(
     "- Prefer `match_type` = `literal` for specific phrases; `regex` for patterns; ",
     "`semantic` for meaning-based matches that must survive paraphrase or encoding ",
     "(the `match_value` is then a short natural-language description of what to catch).\n",
-    "- Default `action` is `block`. Use `rewrite` only when a clear safe replacement ",
+    "- Default `action` is `deny`. Use `transform` only when a clear safe replacement ",
     "exists; in that case set `rewrite` to the replacement text. Otherwise leave ",
     "`rewrite` null.\n",
-    "- Use `escalate` for ambiguous high-stakes cases the operator should review.\n",
+    "- Use `require_approval` for explicit human authority and `defer` for unresolved evidence.\n",
     "- Do not emit near-duplicates: every entry should cover a distinct risk.\n",
 );
 
@@ -69,7 +69,7 @@ fn shared_policy_draft_item_schema() -> serde_json::Value {
             "description": { "type": "string" },
             "match_type": { "type": "string", "enum": ["literal", "regex", "semantic"] },
             "match_value": { "type": "string" },
-            "action": { "type": "string", "enum": ["block", "rewrite", "escalate"] },
+            "action": { "type": "string", "enum": ["deny", "transform", "require_approval", "defer"] },
             "severity": {
                 "type": "string",
                 "enum": ["low", "medium", "high", "critical"],
@@ -143,11 +143,7 @@ pub(super) fn policy_from_draft(draft: &PolicyDraft, agent_id: &str) -> Policy {
         PolicyMatchType::Regex => Matcher::Regex(draft.match_value.clone()),
         PolicyMatchType::Semantic => Matcher::Semantic(draft.match_value.clone()),
     };
-    let action = match draft.action {
-        PolicyAction::Block => Action::Block,
-        PolicyAction::Rewrite => Action::Rewrite,
-        PolicyAction::Escalate => Action::Escalate,
-    };
+    let action = draft.action;
     Policy {
         id: draft.id.clone(),
         description: Some(draft.description.clone()),

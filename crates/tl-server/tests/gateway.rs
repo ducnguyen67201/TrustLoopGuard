@@ -163,7 +163,7 @@ when:
   channels: [chat]
 match:
   literal: unsafe reply
-action: block
+action: deny
 "#;
     let resp = app
         .oneshot(

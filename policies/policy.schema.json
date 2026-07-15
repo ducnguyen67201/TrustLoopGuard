@@ -9,7 +9,7 @@
   ],
   "properties": {
     "action": {
-      "$ref": "#/definitions/Action"
+      "$ref": "#/definitions/AuthorizationEffect"
     },
     "description": {
       "default": null,
@@ -60,13 +60,15 @@
     }
   },
   "definitions": {
-    "Action": {
+    "AuthorizationEffect": {
+      "description": "The only runtime decision vocabulary.",
       "type": "string",
       "enum": [
-        "allow",
-        "block",
-        "rewrite",
-        "escalate"
+        "permit",
+        "deny",
+        "transform",
+        "require_approval",
+        "defer"
       ]
     },
     "Channel": {

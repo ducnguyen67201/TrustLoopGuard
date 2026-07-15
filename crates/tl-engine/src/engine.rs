@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use tl_core::{new_trace_id, CheckRequest, Decision, Verdict};
+use tl_core::{new_trace_id, AuthorizationEffect, CheckRequest, Decision};
 use tl_policy::Policy;
 
 use crate::context::HandlerCtx;
@@ -53,10 +53,10 @@ impl Engine {
 
         let out = deterministic::run(req, &self.policies);
 
-        let (verdict, reason, safe_output) = match out.block {
-            Some(b) => (b.verdict, b.reason, b.safe_output),
+        let (effect, reason, safe_output) = match out.block {
+            Some(b) => (b.effect, b.reason, b.safe_output),
             None => (
-                Verdict::Allow,
+                AuthorizationEffect::Permit,
                 if out.result.reasons.is_empty() {
                     "no policies triggered".to_string()
                 } else {
@@ -66,12 +66,12 @@ impl Engine {
             ),
         };
 
-        // Legacy sync path: once the event decision composer owns sync
+        // Direct sync path: once the event decision composer owns sync
         // Decision construction, move these evidence defaults into that
         // composer or builder.
         Decision {
             trace_id,
-            verdict,
+            effect,
             reason,
             triggered_policies: out.result.reasons,
             safe_output,
@@ -84,9 +84,13 @@ impl Engine {
             remediation: None,
             source_chain: None,
             risk_source: None,
-            failure_mode: None,
+            risk_code: None,
             harm_class: None,
             constraints: None,
+            approval: None,
+            applied_grant: None,
+            lease: None,
+            authorization_receipt_id: None,
         }
     }
 

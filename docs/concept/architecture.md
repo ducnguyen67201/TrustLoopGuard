@@ -2,7 +2,7 @@
 
 ## What TrustLoopGuard is, in one sentence
 
-A guardrail runtime that customers call **before** their AI agent's output reaches the outside world. It returns a verdict in milliseconds.
+A guardrail runtime that customers call **before** their AI agent's output reaches the outside world. It returns an authorization effect in milliseconds.
 
 ## The shape of one call
 
@@ -38,7 +38,7 @@ That boundary keeps one source of truth:
 
 | Data or behavior | Owner | Why |
 |---|---|---|
-| Runtime checks and verdicts | `crates/tl-server` + `crates/tl-engine` | The hot path must be shared by SDK, HTTP, and dashboard-visible traces. |
+| Runtime checks and authorization decisions | `crates/tl-server` + `crates/tl-engine` | The hot path must be shared by SDK, HTTP, and dashboard-visible traces. |
 | Environments, policies, agents, traces, API keys, knowledge sources | `crates/tl-storage` | Durable guardrail data must not split between Rust and the web app. |
 | Dashboard pages and browser-friendly proxy routes | `apps/web` | The web layer handles UI concerns, session context, and same-origin calls. |
 | Wire contracts | `crates/tl-core` | SDKs, OpenAPI, server handlers, and storage agree on one type vocabulary. |
@@ -86,7 +86,7 @@ GuardEvent
     │ one composed decision + event evidence
     ▼
 Decision {
-  verdict,
+  effect,
   reason,
   triggered_policies,
   safe_output,
@@ -115,7 +115,7 @@ Concrete trace of one `POST /v1/events`:
 | 8 | server | composes checker and policy outcomes into one `Decision`, serializes it as JSON, and returns it over HTTP |
 | 9 | (later) `tl-storage` | decision is persisted asynchronously with its environment id and event evidence |
 
-Steps 5–8 are the **hot path**. They must be allocation-light and lock-free for the tightest (streaming) latency budget. Runtime guardrail verdicts come from built-in safety checkers plus enabled policies loaded for the resolved environment, not hardcoded engine defaults. New workspaces receive disabled starter policies for common PII and prompt-injection patterns so operators can opt into them per environment. Customers with hard residency rules should redact inside their own environment before calling hosted `/v1/events`.
+Steps 5–8 are the **hot path**. They must be allocation-light and lock-free for the tightest (streaming) latency budget. Runtime authorization findings come from built-in safety checkers plus enabled policies loaded for the resolved environment, not hardcoded engine defaults. The common coordinator composes those findings and resolves only explicit authority requirements against matching grants. New workspaces receive disabled starter policies for common PII and prompt-injection patterns so operators can opt into them per environment. Customers with hard residency rules should redact inside their own environment before calling hosted `/v1/events`.
 
 ## Latency budget (committed)
 
@@ -134,9 +134,9 @@ Trace persistence is deliberately fire-and-forget in service of these budgets: w
 
 ## What is explicitly NOT in v1
 
-- **Tool/permission/credential layer** — Clawvisor's territory. We interoperate, we don't compete.
+- **Authorization authority** — TrustLoopGuard owns database-backed approvals, scoped grants, execution leases, and receipts. External identity or signature systems may supply future attestations, but no opaque bearer proof bypasses the kernel. See [authorization-kernel.md](authorization-kernel.md).
 - **Coding-agent diff review** — different product surface; defer.
-- **Browser-agent action approval** — defer.
+- **Browser-agent execution adapters** — defer; browser actions can use the generic exact-action approval contract when the caller owns the execution hook.
 - **Workflow / orchestration / agent platform** — never in scope.
 - **Non-engineer policy UI** — v1 ships YAML in Git. UI is v2 once shape stabilizes.
 
@@ -152,7 +152,7 @@ Some durable surfaces are dashboard-facing only — Rust still owns them, but th
 - **Red-team report shares** — durable, expiring, revocable capability tokens in `redteam_report_shares` that grant public, read-only access to one vulnerability report (a completed job, optionally a same-agent comparison). Rust owns the token and computes the report payload (`GET /v1/redteam/jobs/{id}/report`, public `GET /v1/redteam/reports/{token}`); the web layer renders the PDF. See [redteam-report-sharing.md](redteam-report-sharing.md).
 - **Custom analytics dashboards** — Rust-computed analytics queries and saved workspace dashboard views, surfaced through `/v1/analytics/catalog`, `/v1/analytics/query`, and `/v1/analytics/views/*`. The web dashboard may provide Datadog-style filters and widget controls, but saved views and query semantics are Rust-owned. See [analytics-dashboards.md](analytics-dashboards.md).
 - **Human review analytics** — append-only `human_review_events` linked to persisted traces, surfaced through `/v1/traces/{trace_id}/review-events` and `/v1/analytics/human-review`. They record customer review outcomes for monitoring and audit without turning TrustLoopGuard into a review queue. See [human-review-analytics.md](human-review-analytics.md).
-- **Financial authorization** — typed financial action contracts and `family: financial` policies for agent refunds, payments, payouts, invoice approvals, x402 agentic payments, and similar money-bearing actions. Financial actions are distinct from generic guard events: traces remain evidence, financial action records are the authorization source of truth, decision receipts explain per-action authorization before execution, and financial ledger/outcome records are the spend and risk-result source of truth. The Rust service also owns versioned approval fingerprints and the bounded reusable mandates derived from them; reuse satisfies only matching human review, while mandate, current hard policy, eligibility, and atomic live-budget reservation still run for each action. Ordinary financial and x402 actions reserve through the same action-ledger admission invariant before a provider or signer can commit money. The web only previews the server envelope and submits the approver's limits. x402 agentic payment endpoints add pre-signing reservation, commit, and rollback lifecycle over the same Rust-owned financial action and ledger state. Financial spending controls are authored through Rust `/v1/financial/policies` as a typed wrapper over the unified policy registry; the web dashboard only proxies and renders that state. See [financial-authorization.md](financial-authorization.md).
+- **Financial authorization and execution** — typed financial actions delegate authorization to the common kernel while financial code retains ledger admission, reservations, provider execution, execution receipts, outcomes, and reversals. `authorization_effect` and `authorization_status` are separate from `execution_status`. See [financial-authorization.md](financial-authorization.md) and [authorization-kernel.md](authorization-kernel.md).
 - **Workspace policies** — policy authoring, listing, editing, delete, and enablement changes are Rust-owned through `/v1/policies/*`. Policy definitions are workspace-level, carry a `family` discriminator, and use environment-scoped deployment state for runtime enablement. Runtime checks only load policies enabled in the resolved environment. Workspace creation seeds disabled starter policies that users can enable, edit, or delete like any other policy. See [policies.md](policies.md).
 - **Tool metadata registry** — workspace-scoped tool semantics in `tool_metadata`, surfaced via `/v1/tool-metadata` and `/v1/tool-metadata/{tool}`. The event pipeline reads the same registry for action resolution. See [event-engine.md](event-engine.md).
 - **Source label policies** — workspace-scoped per-origin label overrides are `family: source_label` policies in the unified registry. `/v1/label-policies` remains an ergonomic compatibility wrapper, while the event pipeline reads the same registry-backed label policy state for label resolution. See [event-engine.md](event-engine.md) and [policies.md](policies.md).

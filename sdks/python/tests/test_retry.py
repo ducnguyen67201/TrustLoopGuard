@@ -146,12 +146,11 @@ def test_client_retries_503_until_success() -> None:
                 200,
                 json={
                     "trace_id": "t-1",
-                    "verdict": "allow",
+                    "domain": "content",
+                    "effect": "permit",
                     "reason": "ok",
-                    "triggered_policies": [],
-                    "safe_output": None,
+                    "findings": [],
                     "latency_ms": 1,
-                    "tier_results": [],
                 },
             ),
         ]

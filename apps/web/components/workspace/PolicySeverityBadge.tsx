@@ -27,7 +27,7 @@ const SEVERITY_HELP: Record<string, string> = {
 
 /**
  * Renders a policy severity as a tone-mapped badge. Severity is operator metadata,
- * not a guardrail verdict, so it never borrows the reserved verdict colors. The
+ * not a guardrail effect, so it never borrows the reserved effect colors. The
  * title attribute gives a plain-language meaning on hover.
  */
 export function PolicySeverityBadge({ severity }: { severity: string }) {

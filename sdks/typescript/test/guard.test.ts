@@ -9,7 +9,7 @@ import {
   guard,
   Transport,
   Unavailable,
-  type Decision,
+  type AuthorizationDecision,
   type GuardLogEvent,
   type RegenerateFeedback,
 } from '../src';
@@ -31,17 +31,16 @@ interface GuardWireEvent {
   };
 }
 
-function clientReturning(decision: Partial<Decision>): Client {
+function clientReturning(decision: Partial<AuthorizationDecision>): Client {
   const fetchImpl = mockFetch(async () => {
     return new Response(
       JSON.stringify({
         trace_id: 't-1',
-        verdict: 'allow',
+        effect: 'permit',
         reason: 'ok',
-        triggered_policies: [],
-        safe_output: null,
+        findings: [],
+        transformed_value: null,
         latency_ms: 1,
-        tier_results: [],
         ...decision,
       }),
       { status: 200, headers: { 'content-type': 'application/json' } },
@@ -50,7 +49,7 @@ function clientReturning(decision: Partial<Decision>): Client {
   return new Client({ baseUrl: 'http://x', fetchImpl });
 }
 
-function clientReturningSequence(decisions: Partial<Decision>[]): {
+function clientReturningSequence(decisions: Partial<AuthorizationDecision>[]): {
   client: Client;
   fetchSpy: ReturnType<typeof mockFetch>;
 } {
@@ -61,12 +60,11 @@ function clientReturningSequence(decisions: Partial<Decision>[]): {
     return new Response(
       JSON.stringify({
         trace_id: 't-1',
-        verdict: 'allow',
+        effect: 'permit',
         reason: 'ok',
-        triggered_policies: [],
-        safe_output: null,
+        findings: [],
+        transformed_value: null,
         latency_ms: 1,
-        tier_results: [],
         ...decision,
       }),
       { status: 200, headers: { 'content-type': 'application/json' } },
@@ -94,51 +92,62 @@ const DEFAULT_OPTS = {
   draft: 'hello there',
   agentId: 'a',
   onBlock: () => 'CANNED_BLOCK',
-  onEscalate: () => 'CANNED_ESCALATE',
+  onRequireApproval: () => 'CANNED_APPROVAL',
+  onDefer: () => 'CANNED_DEFER',
 };
 
 describe('guard()', () => {
-  it('returns the draft on allow by default', async () => {
-    const client = clientReturning({ verdict: 'allow' });
+  it('returns the draft on permit by default', async () => {
+    const client = clientReturning({ effect: 'permit' });
     const out = await guard({ ...DEFAULT_OPTS, client });
     expect(out).toBe('hello there');
   });
 
-  it('returns the safe_output on rewrite by default', async () => {
+  it('returns the transformed_value on transform by default', async () => {
     const client = clientReturning({
-      verdict: 'rewrite',
-      safe_output: 'I will connect you with a teammate.',
+      effect: 'transform',
+      transformed_value: 'I will connect you with a teammate.',
     });
     const out = await guard({ ...DEFAULT_OPTS, client });
     expect(out).toBe('I will connect you with a teammate.');
   });
 
-  it('falls back to draft on rewrite when no safe_output', async () => {
-    const client = clientReturning({ verdict: 'rewrite', safe_output: null });
+  it('falls back to draft on transform when no transformed_value', async () => {
+    const client = clientReturning({ effect: 'transform', transformed_value: null });
     const out = await guard({ ...DEFAULT_OPTS, client });
     expect(out).toBe('hello there');
   });
 
-  it('invokes onBlock on block verdict', async () => {
-    const client = clientReturning({ verdict: 'block' });
+  it('invokes onBlock on deny effect', async () => {
+    const client = clientReturning({ effect: 'deny' });
     const onBlock = vi.fn(() => 'BLOCKED');
     const out = await guard({ ...DEFAULT_OPTS, client, onBlock });
     expect(out).toBe('BLOCKED');
     expect(onBlock).toHaveBeenCalledOnce();
     const decision = onBlock.mock.calls[0]![0]!;
-    expect(decision.verdict).toBe('block');
+    expect(decision.effect).toBe('deny');
   });
 
-  it('invokes onEscalate on escalate verdict', async () => {
-    const client = clientReturning({ verdict: 'escalate' });
-    const onEscalate = vi.fn(() => 'ESCALATED');
-    const out = await guard({ ...DEFAULT_OPTS, client, onEscalate });
+  it('invokes onRequireApproval on require_approval effect', async () => {
+    const client = clientReturning({ effect: 'require_approval' });
+    const onRequireApproval = vi.fn(() => 'ESCALATED');
+    const out = await guard({ ...DEFAULT_OPTS, client, onRequireApproval });
     expect(out).toBe('ESCALATED');
-    expect(onEscalate).toHaveBeenCalledOnce();
+    expect(onRequireApproval).toHaveBeenCalledOnce();
+  });
+
+  it('invokes onDefer without treating missing evidence as approval', async () => {
+    const client = clientReturning({ effect: 'defer' });
+    const onDefer = vi.fn(() => 'RETRY_LATER');
+    const onRequireApproval = vi.fn(() => 'REVIEW');
+    const out = await guard({ ...DEFAULT_OPTS, client, onDefer, onRequireApproval });
+    expect(out).toBe('RETRY_LATER');
+    expect(onDefer).toHaveBeenCalledOnce();
+    expect(onRequireApproval).not.toHaveBeenCalled();
   });
 
   it('passes through onAllow when supplied', async () => {
-    const client = clientReturning({ verdict: 'allow' });
+    const client = clientReturning({ effect: 'permit' });
     const onAllow = vi.fn((draft: string) => `[audited] ${draft}`);
     const out = await guard({ ...DEFAULT_OPTS, client, onAllow });
     expect(out).toBe('[audited] hello there');
@@ -146,8 +155,8 @@ describe('guard()', () => {
 
   it('passes through onRevise when supplied', async () => {
     const client = clientReturning({
-      verdict: 'rewrite',
-      safe_output: 'sanitised',
+      effect: 'transform',
+      transformed_value: 'sanitised',
     });
     const onRevise = vi.fn((revised: string | null) => `${revised}!`);
     const out = await guard({ ...DEFAULT_OPTS, client, onRevise });
@@ -171,7 +180,7 @@ describe('guard()', () => {
   });
 
   it('emits a log event with the chosen branch', async () => {
-    const client = clientReturning({ verdict: 'block', trace_id: 'trace-x' });
+    const client = clientReturning({ effect: 'deny', trace_id: 'trace-x' });
     const events: GuardLogEvent[] = [];
     await guard({
       ...DEFAULT_OPTS,
@@ -180,8 +189,8 @@ describe('guard()', () => {
     });
     expect(events).toHaveLength(1);
     expect(events[0]!.trace_id).toBe('trace-x');
-    expect(events[0]!.verdict).toBe('block');
-    expect(events[0]!.branch).toBe('block');
+    expect(events[0]!.effect).toBe('deny');
+    expect(events[0]!.branch).toBe('deny');
   });
 
   it('logs branch="error" on transport failure', async () => {
@@ -201,12 +210,11 @@ describe('guard()', () => {
       return new Response(
         JSON.stringify({
           trace_id: 't',
-          verdict: 'allow',
+          effect: 'permit',
           reason: 'ok',
-          triggered_policies: [],
-          safe_output: null,
+          findings: [],
+          transformed_value: null,
           latency_ms: 1,
-          tier_results: [],
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
@@ -238,12 +246,11 @@ describe('guard()', () => {
       return new Response(
         JSON.stringify({
           trace_id: 't',
-          verdict: 'allow',
+          effect: 'permit',
           reason: 'ok',
-          triggered_policies: [],
-          safe_output: null,
+          findings: [],
+          transformed_value: null,
           latency_ms: 1,
-          tier_results: [],
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
@@ -265,10 +272,10 @@ describe('guard()', () => {
     expect(body.principal.agent_id).toBe('factory-agent');
   });
 
-  it('factory form uses default block reply', async () => {
+  it('factory form uses default deny reply', async () => {
     const guardrail = guard({
       agentId: 'factory-agent',
-      client: clientReturning({ verdict: 'block' }),
+      client: clientReturning({ effect: 'deny' }),
     });
 
     const out = await guardrail({ input: 'hi', draft: 'unsafe' });
@@ -278,8 +285,8 @@ describe('guard()', () => {
   it('factory form accepts string branch overrides', async () => {
     const guardrail = guard({
       agentId: 'factory-agent',
-      client: clientReturning({ verdict: 'escalate' }),
-      onEscalate: 'A human should review this.',
+      client: clientReturning({ effect: 'require_approval' }),
+      onRequireApproval: 'A human should review this.',
     });
 
     const out = await guardrail({ input: 'hi', draft: 'needs review' });
@@ -297,10 +304,10 @@ describe('guard()', () => {
     expect(out).toBe("I can't help with that request.");
   });
 
-  it('factory strict mode blocks rewrite verdicts', async () => {
+  it('factory strict mode blocks transform effects', async () => {
     const guardrail = guard({
       agentId: 'factory-agent',
-      client: clientReturning({ verdict: 'rewrite', safe_output: 'sanitised' }),
+      client: clientReturning({ effect: 'transform', transformed_value: 'sanitised' }),
       mode: GuardMode.Strict,
     });
 
@@ -308,10 +315,10 @@ describe('guard()', () => {
     expect(out).toBe("I can't help with that request.");
   });
 
-  it('factory rewrite mode blocks rewrite verdicts without safe output', async () => {
+  it('factory transform mode blocks transform effects without safe output', async () => {
     const guardrail = guard({
       agentId: 'factory-agent',
-      client: clientReturning({ verdict: 'rewrite', safe_output: null }),
+      client: clientReturning({ effect: 'transform', transformed_value: null }),
       mode: GuardMode.Rewrite,
     });
 
@@ -323,7 +330,7 @@ describe('guard()', () => {
     const regenerate = vi.fn((_feedback: RegenerateFeedback) => 'regenerated');
     const guardrail = guard({
       agentId: 'factory-agent',
-      client: clientReturning({ verdict: 'rewrite', safe_output: 'sanitised' }),
+      client: clientReturning({ effect: 'transform', transformed_value: 'sanitised' }),
       mode: GuardMode.RewriteOrRegenerate,
       regenerate,
     });
@@ -336,12 +343,12 @@ describe('guard()', () => {
   it('factory regenerate mode asks the model to retry and checks again', async () => {
     const { client, fetchSpy } = clientReturningSequence([
       {
-        verdict: 'rewrite',
-        safe_output: null,
+        effect: 'transform',
+        transformed_value: null,
         reason: 'contains confidential data',
         trace_id: 't-1',
       },
-      { verdict: 'allow', trace_id: 't-2' },
+      { effect: 'permit', trace_id: 't-2' },
     ]);
     const seen: RegenerateFeedback[] = [];
     const regenerate = vi.fn((feedback: RegenerateFeedback) => {
@@ -365,8 +372,8 @@ describe('guard()', () => {
 
   it('factory regenerate mode caps retries', async () => {
     const { client, fetchSpy } = clientReturningSequence([
-      { verdict: 'rewrite', safe_output: null, trace_id: 't-1' },
-      { verdict: 'rewrite', safe_output: null, trace_id: 't-2' },
+      { effect: 'transform', transformed_value: null, trace_id: 't-1' },
+      { effect: 'transform', transformed_value: null, trace_id: 't-2' },
     ]);
     const regenerate = vi.fn(() => 'still unsafe');
     const guardrail = guard({
@@ -384,9 +391,7 @@ describe('guard()', () => {
   });
 
   it('stream() buffers a chunk stream then guards the full output', async () => {
-    const { client, fetchSpy } = clientReturningSequence([
-      { verdict: 'allow', trace_id: 't-1' },
-    ]);
+    const { client, fetchSpy } = clientReturningSequence([{ effect: 'permit', trace_id: 't-1' }]);
     const guardrail = guard({ agentId: 'stream-agent', client });
 
     async function* chunks(): AsyncGenerator<string> {
@@ -397,7 +402,7 @@ describe('guard()', () => {
 
     const out = await guardrail.stream({ input: 'when are you open?', draft: chunks() });
 
-    // The full buffered draft is what gets guarded and returned on allow.
+    // The full buffered draft is what gets guarded and returned on permit.
     expect(out).toBe('Our hours are 9 to 5.');
     expect(fetchSpy).toHaveBeenCalledOnce();
     const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as GuardWireEvent;
@@ -405,7 +410,7 @@ describe('guard()', () => {
   });
 
   it('stream() returns the safe message when the buffered output is blocked', async () => {
-    const { client } = clientReturningSequence([{ verdict: 'block', trace_id: 't-1' }]);
+    const { client } = clientReturningSequence([{ effect: 'deny', trace_id: 't-1' }]);
     const guardrail = guard({ agentId: 'stream-agent', client });
 
     async function* chunks(): AsyncGenerator<string> {

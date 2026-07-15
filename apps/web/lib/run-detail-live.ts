@@ -22,7 +22,7 @@ const triggeredPolicySchema = z
 const runtimeDecisionPayloadSchema = z
   .object({
     trace_id: z.string().optional(),
-    verdict: z.string().optional(),
+    effect: z.string().optional(),
     reason: z.string().optional(),
     triggered_policies: z.array(triggeredPolicySchema).optional(),
     safe_output: z.string().nullable().optional(),
@@ -175,7 +175,7 @@ export type RunDetailSnapshot = {
     runEventId: string | null;
     side: TraceSide;
     phase: string;
-    verdict: string;
+    effect: string;
     outcome: string;
     triggered: boolean;
     severity: string | null;
@@ -282,7 +282,7 @@ function traceSnapshot(
     runEventId: trace.run_event_id ?? null,
     side: traceSide(trace.domain),
     phase: titleize(trace.domain),
-    verdict: titleize(trace.decision),
+    effect: titleize(trace.decision),
     outcome: trace.decision.toLowerCase(),
     triggered: (trace.payload.triggered_policies?.length ?? 0) > 0,
     severity: topPolicy?.severity?.trim() || null,

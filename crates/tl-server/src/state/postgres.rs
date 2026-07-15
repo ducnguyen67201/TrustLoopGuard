@@ -8,16 +8,17 @@ use tl_engine::ProfileResolver;
 use tl_engine::ToolMetadataProvider;
 use tl_policy::Policy;
 use tl_storage::{
-    connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, BudgetAlertRepo,
-    DashboardAdminRepo, EnvironmentRepo, EscalationRepo, FinancialRepo, GatewayRepo,
-    GitHubIntegrationRepo, KnowledgeRepo, LlmPricingRepo, LlmUsageRepo, PolicyRepo, RedteamJobRepo,
-    RedteamPlanRepo, RedteamReportShareRepo, RunRepo, TeamRepo, ToolMetadataRepo, TraceRepo,
-    UserRepo, WriterConfig,
+    connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, AuthorizationRepo,
+    BudgetAlertRepo, DashboardAdminRepo, EnvironmentRepo, EscalationRepo, FinancialRepo,
+    GatewayRepo, GitHubIntegrationRepo, KnowledgeRepo, LlmPricingRepo, LlmUsageRepo, PolicyRepo,
+    RedteamJobRepo, RedteamPlanRepo, RedteamReportShareRepo, RunRepo, TeamRepo, ToolMetadataRepo,
+    TraceRepo, UserRepo, WriterConfig,
 };
 
 use crate::agents::{AgentStore, MemoryAgentStore};
 use crate::analytics::{AnalyticsStore, MemoryAnalyticsStore};
 use crate::auth_user::{MemoryUserStore, UserStore};
+use crate::authorization::{AuthorizationStore, MemoryAuthorizationStore};
 use crate::budget_alerts::{BudgetAlertStore, MemoryBudgetAlertStore};
 use crate::dashboard_admin::{ApiKeyStore, MemoryApiKeyStore, MemorySettingsStore, SettingsStore};
 use crate::environments::{EnvironmentStore, MemoryEnvironmentStore};
@@ -67,6 +68,7 @@ pub(super) async fn build_postgres_layer(
     Arc<dyn GatewayStore>,
     Arc<dyn ToolMetadataStore>,
     Arc<dyn ToolMetadataProvider>,
+    Arc<dyn AuthorizationStore>,
     Arc<dyn LabelPolicyStore>,
     Arc<dyn LabelPolicyProvider>,
     Option<Arc<EscalationRepo>>,
@@ -105,6 +107,7 @@ pub(super) async fn build_postgres_layer(
             Arc::new(MemoryGatewayStore::new()) as Arc<dyn GatewayStore>,
             tool_metadata.clone() as Arc<dyn ToolMetadataStore>,
             tool_metadata as Arc<dyn ToolMetadataProvider>,
+            Arc::new(MemoryAuthorizationStore::new()) as Arc<dyn AuthorizationStore>,
             label_policy.clone() as Arc<dyn LabelPolicyStore>,
             label_policy as Arc<dyn LabelPolicyProvider>,
             None,
@@ -159,6 +162,8 @@ pub(super) async fn build_postgres_layer(
     let gateway_adapter = PostgresGatewayAdapter::new(Arc::new(GatewayRepo::new(pool.clone())));
     let tool_metadata_adapter =
         PostgresToolMetadataAdapter::new(Arc::new(ToolMetadataRepo::new(pool.clone())));
+    let authorization_adapter =
+        PostgresAuthorizationAdapter::new(Arc::new(AuthorizationRepo::new(pool.clone())));
     let label_policy_adapter = PostgresLabelPolicyAdapter::new(policy_repo);
 
     let redteam_adapter =
@@ -193,6 +198,7 @@ pub(super) async fn build_postgres_layer(
         gateway_adapter as Arc<dyn GatewayStore>,
         tool_metadata_adapter.clone() as Arc<dyn ToolMetadataStore>,
         tool_metadata_adapter as Arc<dyn ToolMetadataProvider>,
+        authorization_adapter as Arc<dyn AuthorizationStore>,
         label_policy_adapter.clone() as Arc<dyn LabelPolicyStore>,
         label_policy_adapter as Arc<dyn LabelPolicyProvider>,
         Some(escalation_repo),

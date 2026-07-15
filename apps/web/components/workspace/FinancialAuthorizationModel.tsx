@@ -1,12 +1,12 @@
 'use client';
 
-import { IconFileCertificate, IconReceipt, IconShieldCheck } from '@tabler/icons-react';
+import { IconKey, IconReceipt, IconShieldCheck } from '@tabler/icons-react';
 import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
 
 type FinancialAuthorizationModelProps = {
-  active: 'policies' | 'mandates' | 'actions';
+  active: 'policies' | 'grants' | 'actions';
   contextQuery: string;
 };
 
@@ -20,12 +20,12 @@ const MODEL_STEPS = [
     href: '/policies',
   },
   {
-    id: 'mandates',
-    icon: <IconFileCertificate />,
-    title: 'Mandates',
-    detail: 'User intent boundary',
+    id: 'grants',
+    icon: <IconKey />,
+    title: 'Grants',
+    detail: 'User or reviewer authority',
     cadence: 'Per task',
-    href: '/financial/mandates',
+    href: '/grants',
   },
   {
     id: 'actions',
@@ -46,7 +46,7 @@ export function FinancialAuthorizationModel({
       <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
         <p className="text-sm font-medium">Authorization path</p>
         <p className="text-sm text-muted-foreground">
-          Payment signs only when action fits policy + mandate.
+          Payment signs only when request, active grant, and current policy intersect.
         </p>
       </div>
       <div className="grid gap-2 md:grid-cols-3">
@@ -61,7 +61,7 @@ export function FinancialAuthorizationModel({
             >
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground [&>svg]:size-4">{step.icon}</span>
-                <Badge variant={isActive ? 'allow' : 'outline'}>
+                <Badge variant={isActive ? 'permit' : 'outline'}>
                   {isActive ? 'Here' : step.cadence}
                 </Badge>
               </div>

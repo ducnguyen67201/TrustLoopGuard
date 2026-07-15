@@ -6,6 +6,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use async_trait::async_trait;
 use axum::{
     body::Body,
     http::{header, Request, StatusCode},
@@ -14,10 +15,12 @@ use chrono::Utc;
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tl_core::{
-    BudgetAlertThresholdType, BudgetAlertWindow, CreateBudgetAlertConfigRequest, SpendMeter,
+    BudgetAlertThresholdType, BudgetAlertWindow, CreateBudgetAlertConfigRequest,
+    FinancialActionRecord, RecoveryStatus, ReversalCapability, SpendMeter,
 };
 use tl_engine::Engine;
 use tl_server::budget_alerts::{process_spend, BudgetAlertRuntime, BudgetAlertStore, WindowSpend};
+use tl_server::financial::{FinancialExecutionError, FinancialExecutionResult, FinancialExecutor};
 use tl_server::{
     memory_app_state, router, spawn_webhook_delivery_worker, AppState, MemoryBudgetAlertStore,
     RetryPolicy,
@@ -28,6 +31,26 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 const SEAL_KEY: [u8; 32] = [0u8; 32];
+
+struct SuccessfulExecutor;
+
+#[async_trait]
+impl FinancialExecutor for SuccessfulExecutor {
+    async fn execute(
+        &self,
+        _workspace_id: &str,
+        _action: &FinancialActionRecord,
+        _idempotency_key: &str,
+    ) -> Result<FinancialExecutionResult, FinancialExecutionError> {
+        Ok(FinancialExecutionResult {
+            provider_status: Some("succeeded".into()),
+            provider_reference: Some("provider-1".into()),
+            provider_response: json!({"status": "succeeded"}),
+            reversal_capability: ReversalCapability::ProviderReversal,
+            recovery_status: RecoveryStatus::Available,
+        })
+    }
+}
 
 fn fast_retry() -> RetryPolicy {
     RetryPolicy { delays: vec![] }
@@ -47,6 +70,7 @@ fn delivery_tx() -> tokio::sync::mpsc::Sender<tl_server::WebhookDelivery> {
 /// workspace header alone.
 async fn app_with_owner() -> (axum::Router, AppState, String, Uuid) {
     let mut state = memory_app_state(Arc::new(Engine::empty()));
+    state.financial_executor = Some(Arc::new(SuccessfulExecutor));
     state.budget_alert_tx = Some(delivery_tx());
     let owner_id = Uuid::new_v4();
     let workspace = state
@@ -173,7 +197,10 @@ async fn spend(app: &axum::Router, workspace_id: &str, idempotency_key: &str, am
         .unwrap();
     assert_eq!(resp.status(), StatusCode::CREATED);
     let body = read_body(resp).await;
-    assert_eq!(body["status"], "executed", "spend did not execute: {body}");
+    assert_eq!(
+        body["execution_status"], "succeeded",
+        "spend did not execute: {body}"
+    );
 }
 
 async fn wait_for_requests(server: &MockServer, at_least: usize) -> Vec<wiremock::Request> {

@@ -5,8 +5,8 @@ import type { Severity } from "./Severity";
  * Advisory evidence from one LLM/classifier signal provider, attached
  * by the event pipeline.
  *
- * Signals never decide action verdicts: the composer ignores them for
- * verdict computation, and this evidence exists so traces and review
+ * Signals never decide authorization effects: the composer ignores them for
+ * effect composition, and this evidence exists so traces and review
  * show what advisory layers observed.
  */
 export type SignalEvidence = { provider_id: string, message: string, severity?: Severity, };

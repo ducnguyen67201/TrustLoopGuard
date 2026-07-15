@@ -157,7 +157,9 @@ check-schema-drift: ## Diff crates/tl-storage/src/schema.rs against the live dat
 
 .PHONY: backend-test
 backend-test: ## Run all fast Rust unit + component tests, excluding explicit live/DB feature gates
-	cargo test --locked --workspace --all-targets --no-fail-fast
+	@tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	TS_RS_EXPORT_DIR="$$tmp" cargo test --locked --workspace --all-targets --no-fail-fast
 
 .PHONY: backend-coverage
 backend-coverage: ## Run coverage over the fast Rust unit + component test set

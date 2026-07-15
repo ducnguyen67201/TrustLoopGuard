@@ -495,22 +495,136 @@ diesel::table! {
 diesel::table! {
     financial_actions (workspace_id, id) {
         workspace_id -> Text,
+        environment_id -> Text,
         id -> Uuid,
         idempotency_key -> Text,
         principal_id -> Text,
         action_kind -> Text,
         operation -> Text,
-        status -> Text,
         amount_minor -> Int8,
         currency -> Text,
         counterparty -> Nullable<Jsonb>,
-        mandate -> Nullable<Jsonb>,
         rail -> Text,
         memo -> Nullable<Text>,
         metadata -> Jsonb,
         evidence -> Jsonb,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        authorization_intent_id -> Nullable<Uuid>,
+        execution_status -> Text,
+    }
+}
+
+diesel::table! {
+    authorization_intents (workspace_id, environment_id, id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        id -> Uuid,
+        domain -> Text,
+        subject_id -> Text,
+        idempotency_key -> Text,
+        principal_id -> Text,
+        operation -> Text,
+        fingerprint -> Text,
+        fingerprint_version -> Int4,
+        subject_snapshot -> Jsonb,
+        status -> Text,
+        current_effect -> Text,
+        reason -> Text,
+        trace_id -> Nullable<Text>,
+        expires_at -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    authorization_approvals (workspace_id, environment_id, id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        id -> Uuid,
+        intent_id -> Uuid,
+        fingerprint -> Text,
+        status -> Text,
+        envelope -> Jsonb,
+        envelope_hash -> Text,
+        requirement_ids -> Jsonb,
+        approver_roles -> Jsonb,
+        decided_by -> Nullable<Text>,
+        decided_at -> Nullable<Timestamptz>,
+        decision_reason -> Nullable<Text>,
+        expires_at -> Timestamptz,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    authorization_grants (workspace_id, environment_id, id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        id -> Uuid,
+        principal_id -> Text,
+        domain -> Text,
+        capability -> Text,
+        mode -> Text,
+        status -> Text,
+        source -> Text,
+        scope_schema -> Text,
+        scope -> Nullable<Jsonb>,
+        exact_fingerprint -> Nullable<Text>,
+        fingerprint_version -> Int4,
+        source_approval_id -> Nullable<Uuid>,
+        requirement_ids -> Jsonb,
+        max_uses -> Nullable<Int4>,
+        use_count -> Int4,
+        starts_at -> Nullable<Timestamptz>,
+        expires_at -> Nullable<Timestamptz>,
+        revoked_at -> Nullable<Timestamptz>,
+        revoked_by -> Nullable<Text>,
+        created_by -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    authorization_leases (workspace_id, environment_id, id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        id -> Uuid,
+        intent_id -> Uuid,
+        grant_id -> Nullable<Uuid>,
+        attempt_id -> Text,
+        fingerprint -> Text,
+        status -> Text,
+        claimed_at -> Timestamptz,
+        consumed_at -> Nullable<Timestamptz>,
+        canceled_at -> Nullable<Timestamptz>,
+        expires_at -> Timestamptz,
+        outcome -> Jsonb,
+    }
+}
+
+diesel::table! {
+    authorization_receipts (workspace_id, environment_id, id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        id -> Uuid,
+        intent_id -> Nullable<Uuid>,
+        trace_id -> Nullable<Text>,
+        domain -> Text,
+        effect -> Text,
+        intent_status -> Nullable<Text>,
+        subject_hash -> Text,
+        reason -> Text,
+        findings -> Jsonb,
+        policy_versions -> Jsonb,
+        approval_id -> Nullable<Uuid>,
+        grant_id -> Nullable<Uuid>,
+        lease_id -> Nullable<Uuid>,
+        domain_evidence -> Jsonb,
+        created_at -> Timestamptz,
     }
 }
 
@@ -682,43 +796,12 @@ diesel::table! {
 }
 
 diesel::table! {
-    mandates (workspace_id, id, version) {
-        workspace_id -> Text,
-        id -> Text,
-        version -> Int4,
-        status -> Text,
-        principal_id -> Text,
-        scope -> Jsonb,
-        metadata -> Jsonb,
-        starts_at -> Nullable<Timestamptz>,
-        expires_at -> Nullable<Timestamptz>,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
-    approval_requests (workspace_id, id) {
-        workspace_id -> Text,
-        id -> Uuid,
-        action_id -> Uuid,
-        status -> Text,
-        reason -> Text,
-        approver_roles -> Jsonb,
-        decided_by -> Nullable<Text>,
-        decided_at -> Nullable<Timestamptz>,
-        expires_at -> Nullable<Timestamptz>,
-        metadata -> Jsonb,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
     financial_receipts (workspace_id, id) {
         workspace_id -> Text,
+        environment_id -> Text,
         id -> Uuid,
         action_id -> Uuid,
+        authorization_receipt_id -> Nullable<Uuid>,
         trace_id -> Nullable<Uuid>,
         ledger_event_ids -> Jsonb,
         proof -> Jsonb,
@@ -788,7 +871,6 @@ diesel::joinable!(analytics_dashboard_views -> workspaces (workspace_id));
 diesel::joinable!(financial_actions -> workspaces (workspace_id));
 diesel::joinable!(financial_action_outcomes -> workspaces (workspace_id));
 diesel::joinable!(financial_payment_sessions -> workspaces (workspace_id));
-diesel::joinable!(mandates -> workspaces (workspace_id));
 diesel::joinable!(counterparties -> workspaces (workspace_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
@@ -838,9 +920,12 @@ diesel::allow_tables_to_appear_in_same_query!(
     llm_budget_reservations,
     llm_model_prices,
     llm_usage_events,
-    mandates,
-    approval_requests,
     financial_receipts,
     financial_action_outcomes,
     counterparties,
+    authorization_intents,
+    authorization_approvals,
+    authorization_grants,
+    authorization_leases,
+    authorization_receipts,
 );

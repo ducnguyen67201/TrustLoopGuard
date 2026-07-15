@@ -710,7 +710,7 @@ async fn streaming_request_gets_sse_and_is_metered() {
     provider.verify().await;
 }
 
-/// Daily and monthly caps drive the same verdict path as weekly but
+/// Daily and monthly caps drive the same authorization-effect path as weekly but
 /// through their own window sums (spec: budget windows).
 #[tokio::test]
 async fn daily_budget_denies_after_spend_reaches_cap() {

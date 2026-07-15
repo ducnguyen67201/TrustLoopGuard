@@ -1,6 +1,11 @@
 'use client';
 
-import { IconBrandGithub, IconExternalLink, IconRefresh, IconShieldCheck } from '@tabler/icons-react';
+import {
+  IconBrandGithub,
+  IconExternalLink,
+  IconRefresh,
+  IconShieldCheck,
+} from '@tabler/icons-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
@@ -23,11 +28,7 @@ import {
   type GitHubIntegrationJob,
   type GitHubRepository,
 } from '@/lib/github-integration';
-import {
-  DialogShellHeader,
-  FieldHint,
-  FormRow,
-} from '@/components/workspace/dialog-scaffold';
+import { DialogShellHeader, FieldHint, FormRow } from '@/components/workspace/dialog-scaffold';
 
 type Props = {
   agentId: string;
@@ -36,7 +37,14 @@ type Props = {
   children: ReactNode;
 };
 
-const terminalStatuses = new Set(['awaiting_approval', 'draft_pr_open', 'verified', 'error', 'cancelled', 'closed_unmerged']);
+const terminalStatuses = new Set([
+  'awaiting_approval',
+  'draft_pr_open',
+  'verified',
+  'error',
+  'cancelled',
+  'closed_unmerged',
+]);
 
 export function GitHubIntegrationDialog({ agentId, agentName, environmentId, children }: Props) {
   const [open, setOpen] = useState(false);
@@ -195,7 +203,9 @@ export function GitHubIntegrationDialog({ agentId, agentName, environmentId, chi
               )}
             </select>
             <FieldHint>
-              {selectedRepository?.archived ? 'Archived repositories are not recommended.' : 'Root defaults to the repository root.'}
+              {selectedRepository?.archived
+                ? 'Archived repositories are not recommended.'
+                : 'Root defaults to the repository root.'}
             </FieldHint>
           </FormRow>
 
@@ -215,7 +225,7 @@ export function GitHubIntegrationDialog({ agentId, agentName, environmentId, chi
               id="github-risk"
               value={riskStatement}
               onChange={(event) => setRiskStatement(event.target.value)}
-              placeholder="Never send money or call a write API without an approved mandate."
+              placeholder="Never send money or call a write API without an approved grant."
               rows={4}
             />
           </FormRow>
@@ -223,8 +233,8 @@ export function GitHubIntegrationDialog({ agentId, agentName, environmentId, chi
           <label className="flex items-start gap-3 rounded-lg border p-3 text-sm">
             <Checkbox checked={consent} onCheckedChange={(value) => setConsent(value === true)} />
             <span>
-              I understand selected source excerpts are sent to the configured control-plane LLM
-              to generate a reviewable plan.
+              I understand selected source excerpts are sent to the configured control-plane LLM to
+              generate a reviewable plan.
             </span>
           </label>
 

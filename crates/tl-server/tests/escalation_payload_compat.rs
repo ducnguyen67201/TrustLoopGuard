@@ -4,7 +4,7 @@
 
 use std::time::Duration;
 
-use tl_core::{Decision, Verdict};
+use tl_core::{AuthorizationEffect, Decision};
 use tl_server::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -20,7 +20,7 @@ async fn escalation_webhook_body_is_byte_identical_to_the_payload_serialization(
         .await;
 
     let mut decision = Decision::allow("trace-compat".to_string());
-    decision.verdict = Verdict::Escalate;
+    decision.effect = AuthorizationEffect::RequireApproval;
     decision.reason = "tier 3 LLM judge timed out".into();
     let payload = EscalationPayload {
         trace_id: "trace-compat".into(),

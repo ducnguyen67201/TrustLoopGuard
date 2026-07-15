@@ -1,7 +1,7 @@
 use async_trait::async_trait;
-use tl_core::{GuardEvent, Severity, TriggeredPolicy, Verdict};
+use tl_core::{AuthorizationEffect, GuardEvent, Severity, TriggeredPolicy};
 use tl_llm::{prompts::semantic_policy, JudgeKind, LlmCallAudit, LlmRouter};
-use tl_policy::{Action, MatchClause, Matcher, Policy};
+use tl_policy::{MatchClause, Matcher, Policy};
 
 const SEMANTIC_MATCH_CONFIDENCE: f64 = 0.85;
 const SEMANTIC_AMBIGUOUS_CONFIDENCE: f64 = 0.55;
@@ -9,7 +9,7 @@ const SEMANTIC_AMBIGUOUS_CONFIDENCE: f64 = 0.55;
 #[derive(Debug, Clone)]
 pub struct EventPolicyOutcome {
     pub triggered: Vec<TriggeredPolicy>,
-    pub verdict: Option<Verdict>,
+    pub effect: Option<AuthorizationEffect>,
     pub reason: Option<String>,
     pub safe_output: Option<String>,
     pub semantic_invocations: Vec<LlmCallAudit>,
@@ -19,7 +19,7 @@ impl EventPolicyOutcome {
     pub fn empty() -> Self {
         Self {
             triggered: Vec::new(),
-            verdict: None,
+            effect: None,
             reason: None,
             safe_output: None,
             semantic_invocations: Vec::new(),
@@ -335,10 +335,10 @@ fn apply_semantic_policy_result(
             evidence,
         } if confidence >= SEMANTIC_AMBIGUOUS_CONFIDENCE && high_or_critical(policy.severity) => {
             let evidence = evidence_suffix(&evidence);
-            record_trigger_with_verdict(
+            record_trigger_with_effect(
                 outcome,
                 policy,
-                Verdict::Escalate,
+                AuthorizationEffect::Defer,
                 format!(
                     "semantic policy `{}` ambiguous (confidence={confidence:.2}): {reason}{evidence}",
                     policy.id
@@ -367,10 +367,10 @@ fn apply_semantic_policy_result(
             );
         }
         SemanticPolicyJudgeResult::Error(error) if high_or_critical(policy.severity) => {
-            record_trigger_with_verdict(
+            record_trigger_with_effect(
                 outcome,
                 policy,
-                Verdict::Escalate,
+                AuthorizationEffect::Defer,
                 format!(
                     "semantic policy judge unavailable for `{}`: {error}",
                     policy.id
@@ -390,8 +390,8 @@ fn apply_semantic_policy_result(
 }
 
 fn record_trigger(outcome: &mut EventPolicyOutcome, policy: &Policy, reason: String) {
-    if let Some(verdict) = verdict_from_action(policy.action) {
-        record_trigger_with_verdict(outcome, policy, verdict, reason, policy.rewrite.clone());
+    if let Some(effect) = effect_from_action(policy.action) {
+        record_trigger_with_effect(outcome, policy, effect, reason, policy.rewrite.clone());
     } else {
         outcome.triggered.push(TriggeredPolicy {
             id: policy.id.clone(),
@@ -401,10 +401,10 @@ fn record_trigger(outcome: &mut EventPolicyOutcome, policy: &Policy, reason: Str
     }
 }
 
-fn record_trigger_with_verdict(
+fn record_trigger_with_effect(
     outcome: &mut EventPolicyOutcome,
     policy: &Policy,
-    verdict: Verdict,
+    effect: AuthorizationEffect,
     reason: String,
     safe_output: Option<String>,
 ) {
@@ -415,25 +415,26 @@ fn record_trigger_with_verdict(
     });
 
     if outcome
-        .verdict
-        .map(|current| verdict_rank(verdict) > verdict_rank(current))
+        .effect
+        .map(|current| effect_rank(effect) > effect_rank(current))
         .unwrap_or(true)
     {
-        outcome.verdict = Some(verdict);
+        outcome.effect = Some(effect);
         outcome.reason = Some(reason);
-        outcome.safe_output = match verdict {
-            Verdict::Rewrite => safe_output,
+        outcome.safe_output = match effect {
+            AuthorizationEffect::Transform => safe_output,
             _ => None,
         };
     }
 }
 
-fn verdict_rank(verdict: Verdict) -> u8 {
-    match verdict {
-        Verdict::Allow => 0,
-        Verdict::Rewrite => 1,
-        Verdict::Escalate => 2,
-        Verdict::Block => 3,
+fn effect_rank(effect: AuthorizationEffect) -> u8 {
+    match effect {
+        AuthorizationEffect::Permit => 0,
+        AuthorizationEffect::Transform => 1,
+        AuthorizationEffect::RequireApproval => 2,
+        AuthorizationEffect::Defer => 3,
+        AuthorizationEffect::Deny => 4,
     }
 }
 
@@ -558,12 +559,13 @@ fn matcher_decision(matcher: &Matcher, text: &str) -> ClauseDecision {
     }
 }
 
-fn verdict_from_action(action: Action) -> Option<Verdict> {
+fn effect_from_action(action: AuthorizationEffect) -> Option<AuthorizationEffect> {
     match action {
-        Action::Allow => None,
-        Action::Block => Some(Verdict::Block),
-        Action::Rewrite => Some(Verdict::Rewrite),
-        Action::Escalate => Some(Verdict::Escalate),
+        AuthorizationEffect::Permit => None,
+        AuthorizationEffect::Deny => Some(AuthorizationEffect::Deny),
+        AuthorizationEffect::Transform => Some(AuthorizationEffect::Transform),
+        AuthorizationEffect::RequireApproval => Some(AuthorizationEffect::RequireApproval),
+        AuthorizationEffect::Defer => Some(AuthorizationEffect::Defer),
     }
 }
 
@@ -756,6 +758,9 @@ mod tests {
                 operation: "output".into(),
                 parameters: serde_json::json!({ "text": text }),
                 side_effect: Some(tl_core::SideEffectClass::None),
+                invocation_id: None,
+                tool_identity: None,
+                authorization: None,
             },
             sources: vec![],
             provenance: Default::default(),
@@ -872,7 +877,7 @@ mod tests {
 id: refund-guarantee
 match:
   literal: guaranteed refund
-action: block
+action: deny
 severity: high
 "#,
         )
@@ -885,7 +890,7 @@ severity: high
         )
         .await;
 
-        assert_eq!(outcome.verdict, Some(Verdict::Block));
+        assert_eq!(outcome.effect, Some(AuthorizationEffect::Deny));
         assert_eq!(outcome.triggered[0].id, "refund-guarantee");
     }
 
@@ -896,7 +901,7 @@ severity: high
 id: rewrite-risky
 match:
   literal: risky claim
-action: rewrite
+action: transform
 rewrite: safer reply
 severity: medium
 "#,
@@ -907,7 +912,7 @@ severity: medium
 id: block-risky
 match:
   literal: risky claim
-action: block
+action: deny
 severity: high
 "#,
         )
@@ -920,7 +925,7 @@ severity: high
         )
         .await;
 
-        assert_eq!(outcome.verdict, Some(Verdict::Block));
+        assert_eq!(outcome.effect, Some(AuthorizationEffect::Deny));
         assert!(outcome.reason.unwrap().contains("block-risky"));
         assert_eq!(outcome.safe_output, None);
         assert_eq!(outcome.triggered.len(), 2);
@@ -935,7 +940,7 @@ when:
   channels: [email]
 match:
   literal: guaranteed refund
-action: block
+action: deny
 "#,
         )
         .unwrap();
@@ -948,7 +953,7 @@ action: block
         .await;
 
         assert!(outcome.triggered.is_empty());
-        assert_eq!(outcome.verdict, None);
+        assert_eq!(outcome.effect, None);
     }
 
     #[tokio::test]
@@ -958,7 +963,7 @@ action: block
 id: respectful-tone
 match:
   semantic: "the agent insults or demeans the user"
-action: block
+action: deny
 severity: high
 "#,
         )
@@ -976,7 +981,7 @@ severity: high
         )
         .await;
 
-        assert_eq!(outcome.verdict, Some(Verdict::Block));
+        assert_eq!(outcome.effect, Some(AuthorizationEffect::Deny));
         assert_eq!(outcome.triggered[0].id, "respectful-tone");
         assert!(outcome.triggered[0].reason.contains("confidence=0.94"));
         assert_eq!(judge.calls(), 1);
@@ -989,7 +994,7 @@ severity: high
 id: no-insults
 match:
   semantic: "the agent insults or demeans the user"
-action: block
+action: deny
 severity: high
 "#,
         )
@@ -999,7 +1004,7 @@ severity: high
 id: no-legal-advice
 match:
   semantic: "the agent gives legal advice"
-action: escalate
+action: require_approval
 severity: high
 "#,
         )
@@ -1035,7 +1040,7 @@ severity: high
         assert_eq!(inputs[0].policies.len(), 2);
         assert_eq!(inputs[0].policies[0].policy_id, "no-insults");
         assert_eq!(inputs[0].policies[1].policy_id, "no-legal-advice");
-        assert_eq!(outcome.verdict, Some(Verdict::Block));
+        assert_eq!(outcome.effect, Some(AuthorizationEffect::Deny));
         assert_eq!(outcome.triggered.len(), 1);
         assert_eq!(outcome.triggered[0].id, "no-insults");
     }
@@ -1047,7 +1052,7 @@ severity: high
 id: respectful-tone
 match:
   semantic: "the agent insults or demeans the user"
-action: block
+action: deny
 severity: high
 "#,
         )
@@ -1057,7 +1062,7 @@ severity: high
             evaluate_event_policies(&output_event("you are dumb"), &[policy], eval_ctx(None)).await;
 
         assert!(outcome.triggered.is_empty());
-        assert_eq!(outcome.verdict, None);
+        assert_eq!(outcome.effect, None);
     }
 
     #[tokio::test]
@@ -1067,7 +1072,7 @@ severity: high
 id: respectful-tone
 match:
   semantic: "the agent insults or demeans the user"
-action: block
+action: deny
 severity: high
 "#,
         )
@@ -1086,7 +1091,7 @@ severity: high
         .await;
 
         assert!(outcome.triggered.is_empty());
-        assert_eq!(outcome.verdict, None);
+        assert_eq!(outcome.effect, None);
         assert_eq!(judge.calls(), 1);
     }
 
@@ -1097,7 +1102,7 @@ severity: high
 id: legal-advice
 match:
   semantic: "the agent gives legal advice"
-action: block
+action: deny
 severity: high
 "#,
         )
@@ -1115,7 +1120,7 @@ severity: high
         )
         .await;
 
-        assert_eq!(outcome.verdict, Some(Verdict::Escalate));
+        assert_eq!(outcome.effect, Some(AuthorizationEffect::Defer));
         assert_eq!(outcome.triggered[0].id, "legal-advice");
         assert!(outcome.reason.unwrap().contains("ambiguous"));
     }
@@ -1127,7 +1132,7 @@ severity: high
 id: legal-advice
 match:
   semantic: "the agent gives legal advice"
-action: block
+action: deny
 severity: critical
 "#,
         )
@@ -1143,7 +1148,7 @@ severity: critical
         )
         .await;
 
-        assert_eq!(outcome.verdict, Some(Verdict::Escalate));
+        assert_eq!(outcome.effect, Some(AuthorizationEffect::Defer));
         assert_eq!(outcome.triggered[0].id, "legal-advice");
         assert!(outcome.reason.unwrap().contains("judge unavailable"));
     }
@@ -1167,7 +1172,7 @@ match:
   any:
     - literal: guaranteed refund
     - semantic: "the agent guarantees an outcome"
-action: block
+action: deny
 severity: high
 "#,
         )
@@ -1183,7 +1188,7 @@ severity: high
         )
         .await;
 
-        assert_eq!(outcome.verdict, Some(Verdict::Block));
+        assert_eq!(outcome.effect, Some(AuthorizationEffect::Deny));
         assert_eq!(judge.calls(), 0);
     }
 
@@ -1196,7 +1201,7 @@ match:
   all:
     - literal: refund
     - semantic: "the agent guarantees an outcome"
-action: block
+action: deny
 severity: high
 "#,
         )
@@ -1213,7 +1218,7 @@ severity: high
         .await;
 
         assert!(outcome.triggered.is_empty());
-        assert_eq!(outcome.verdict, None);
+        assert_eq!(outcome.effect, None);
         assert_eq!(judge.calls(), 0);
     }
 
@@ -1224,7 +1229,7 @@ severity: high
 id: respectful-tone
 match:
   semantic: "the agent insults or demeans the user"
-action: block
+action: deny
 severity: high
 "#,
         )
@@ -1239,7 +1244,7 @@ severity: high
             evaluate_event_policies(&tool_event(), &[policy], eval_ctx(Some(&judge))).await;
 
         assert!(outcome.triggered.is_empty());
-        assert_eq!(outcome.verdict, None);
+        assert_eq!(outcome.effect, None);
         assert_eq!(judge.calls(), 0);
     }
 }

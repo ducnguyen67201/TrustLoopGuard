@@ -126,7 +126,7 @@ describe('Client policy authoring methods', () => {
     );
     const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
 
-    const result = await client.validatePolicy('action: block');
+    const result = await client.validatePolicy('action: deny');
 
     expect(result.valid).toBe(false);
     expect(result.errors[0]!.path).toBe('id');

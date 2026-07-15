@@ -6,8 +6,8 @@ use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{
-    CreateHumanReviewEventRequest, CreateRunEventRequest, CreateRunRequest, HumanReviewOutcome,
-    RunEventKind, RunKind, Verdict,
+    AuthorizationEffect, CreateHumanReviewEventRequest, CreateRunEventRequest, CreateRunRequest,
+    HumanReviewOutcome, RunEventKind, RunKind,
 };
 use tl_storage::{
     connect_postgres, migrate_postgres,
@@ -68,15 +68,16 @@ async fn insert_trace(
     trace_id: Uuid,
     run_id: Option<Uuid>,
     run_event_id: Option<Uuid>,
-    verdict: Verdict,
+    effect: AuthorizationEffect,
     policy_id: &str,
     agent_id: &str,
 ) {
-    let decision = match verdict {
-        Verdict::Allow => "allow",
-        Verdict::Block => "block",
-        Verdict::Rewrite => "rewrite",
-        Verdict::Escalate => "escalate",
+    let decision = match effect {
+        AuthorizationEffect::Permit => "permit",
+        AuthorizationEffect::Transform => "transform",
+        AuthorizationEffect::RequireApproval => "require_approval",
+        AuthorizationEffect::Defer => "defer",
+        AuthorizationEffect::Deny => "deny",
     };
     let mut conn = pool.get().await.expect("connection");
     diesel::insert_into(traces::table)
@@ -91,7 +92,7 @@ async fn insert_trace(
             traces::elapsed_ms.eq(42),
             traces::payload.eq(serde_json::json!({
                 "trace_id": trace_id.to_string(),
-                "verdict": decision,
+                "effect": decision,
                 "agent_id": agent_id,
                 "triggered_policies": [{ "id": policy_id, "severity": "high", "reason": "test" }]
             })),
@@ -113,7 +114,7 @@ async fn review_events_are_append_only_and_latest_is_queryable() {
         trace_id,
         None,
         None,
-        Verdict::Escalate,
+        AuthorizationEffect::RequireApproval,
         "tax-sensitive-data",
         "tax-agent",
     )
@@ -210,7 +211,7 @@ async fn analytics_distinguishes_guardrail_and_human_interventions() {
         allow,
         Some(run_id),
         Some(run_event_id),
-        Verdict::Allow,
+        AuthorizationEffect::Permit,
         "baseline",
         "tax-agent",
     )
@@ -221,7 +222,7 @@ async fn analytics_distinguishes_guardrail_and_human_interventions() {
         block,
         Some(run_id),
         Some(run_event_id),
-        Verdict::Block,
+        AuthorizationEffect::Deny,
         "tax-sensitive-data",
         "tax-agent",
     )
@@ -232,7 +233,7 @@ async fn analytics_distinguishes_guardrail_and_human_interventions() {
         rewrite,
         Some(run_id),
         Some(run_event_id),
-        Verdict::Rewrite,
+        AuthorizationEffect::Transform,
         "tax-sensitive-data",
         "tax-agent",
     )
@@ -243,7 +244,7 @@ async fn analytics_distinguishes_guardrail_and_human_interventions() {
         escalate,
         Some(run_id),
         Some(run_event_id),
-        Verdict::Escalate,
+        AuthorizationEffect::RequireApproval,
         "tax-sensitive-data",
         "tax-agent",
     )

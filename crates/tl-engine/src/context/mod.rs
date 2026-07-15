@@ -10,9 +10,9 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 use tl_cache::MokaCache;
+use tl_core::AuthorizationEffect;
 use tl_core::{AgentProfile, Severity};
 use tl_llm::LlmRouter;
-use tl_policy::Action;
 
 /// Resolves an `agent_id` to its parsed profile. The real implementation
 /// will live in `tl-server` (PR 14/15) backed by `AgentRepo` + Postgres,
@@ -37,7 +37,7 @@ pub trait FuzzyChecker: Send + Sync {
 pub struct FuzzyHit {
     pub policy_id: String,
     pub severity: Severity,
-    pub action: Action,
+    pub action: AuthorizationEffect,
     pub message: String,
     pub safe_output: Option<String>,
 }

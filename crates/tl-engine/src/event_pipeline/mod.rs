@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 use tl_core::{
-    CheckerFindingEvidence, CheckerRun, Decision, EnforcementMode, GuardEvent, Severity,
-    SignalEvidence, ToolMetadata, ToolResolution, Verdict,
+    AuthorizationEffect, CheckerFindingEvidence, CheckerRun, Decision, EnforcementMode, GuardEvent,
+    Severity, SignalEvidence, ToolMetadata, ToolResolution,
 };
 
 pub mod checkers;
@@ -108,13 +108,13 @@ pub trait TracePersister: Send + Sync {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CheckerFinding {
     pub checker_id: String,
-    pub verdict: Option<Verdict>,
+    pub effect: Option<AuthorizationEffect>,
     pub reason: String,
     pub violated_rule: Option<String>,
     pub remediation: Option<String>,
     pub source_chain: Vec<String>,
     pub risk_source: Option<String>,
-    pub failure_mode: Option<String>,
+    pub risk_code: Option<String>,
     pub harm_class: Option<String>,
 }
 
@@ -225,12 +225,12 @@ impl CheckerModes {
     }
 }
 
-/// Folds enforced checker findings into the decision: worst verdict wins
+/// Folds enforced checker findings into the decision: the strongest effect wins
 /// and the winning finding's evidence is copied onto the decision.
 ///
-/// Shadow findings reach this composer with `verdict: None` (the pipeline
+/// Shadow findings reach this composer with `effect: None` (the pipeline
 /// strips them), so they can never change the decision. Signals are
-/// deliberately ignored for verdict computation: LLM/classifier output
+/// deliberately ignored for effect composition: LLM/classifier output
 /// never decides action safety.
 pub struct ModeAwareDecisionComposer;
 
@@ -241,34 +241,34 @@ impl DecisionComposer for ModeAwareDecisionComposer {
         findings: &[CheckerFinding],
         _signals: &[Signal],
     ) -> Decision {
-        let mut worst: Option<(&CheckerFinding, Verdict)> = None;
+        let mut worst: Option<(&CheckerFinding, AuthorizationEffect)> = None;
         for finding in findings {
-            let Some(verdict) = finding.verdict else {
+            let Some(effect) = finding.effect else {
                 continue;
             };
             let more_severe = match worst {
                 Some((_, current_worst)) => {
-                    current_worst.worst_with(verdict) == verdict && current_worst != verdict
+                    current_worst.worst_with(effect) == effect && current_worst != effect
                 }
                 None => true,
             };
             if more_severe {
-                worst = Some((finding, verdict));
+                worst = Some((finding, effect));
             }
         }
 
         let Some((finding, finding_verdict)) = worst else {
             return current;
         };
-        let composed_verdict = current.verdict.worst_with(finding_verdict);
-        if composed_verdict == current.verdict {
+        let composed_verdict = current.effect.worst_with(finding_verdict);
+        if composed_verdict == current.effect {
             // The seeded decision is already at least as severe; keep its
             // reason and evidence (an engine block survives untouched).
             return current;
         }
 
         let mut decision = current;
-        decision.verdict = composed_verdict;
+        decision.effect = composed_verdict;
         decision.reason = format!(
             "{}: {}: {}",
             finding.checker_id,
@@ -280,7 +280,7 @@ impl DecisionComposer for ModeAwareDecisionComposer {
         decision.source_chain =
             (!finding.source_chain.is_empty()).then(|| finding.source_chain.clone());
         decision.risk_source = finding.risk_source.clone();
-        decision.failure_mode = finding.failure_mode.clone();
+        decision.risk_code = finding.risk_code.clone();
         decision.harm_class = finding.harm_class.clone();
         decision
     }
@@ -398,11 +398,11 @@ impl EventPipelineCtx {
                 .checks
                 .push(checker_run_evidence(checker.id(), mode, &checker_findings));
             if mode == EnforcementMode::Shadow {
-                // Evidence above keeps the full hypothetical verdicts; the
+                // Evidence above keeps the full hypothetical effects; the
                 // findings handed to the composer carry none, so shadow can
                 // never change the decision.
                 for finding in &mut checker_findings {
-                    finding.verdict = None;
+                    finding.effect = None;
                 }
             }
             findings.extend(checker_findings);
@@ -423,7 +423,7 @@ impl EventPipelineCtx {
                 }
             };
         // Signals are advisory: they become trace-visible evidence here
-        // but the composer never lets them decide action verdicts.
+        // but the composer never lets them decide authorization effects.
         event.signals = signals
             .iter()
             .map(|signal| SignalEvidence {
@@ -439,7 +439,7 @@ impl EventPipelineCtx {
 }
 
 /// Wire-shaped evidence for one checker evaluation, captured before any
-/// shadow-mode verdict stripping.
+/// shadow-mode effect stripping.
 fn checker_run_evidence(
     checker_id: &str,
     mode: EnforcementMode,
@@ -456,10 +456,10 @@ fn checker_run_evidence(
                     .clone()
                     .unwrap_or_else(|| "unspecified".to_string()),
                 reason: finding.reason.clone(),
-                recommended_verdict: finding.verdict,
+                recommended_effect: finding.effect,
                 source_chain: finding.source_chain.clone(),
                 risk_source: finding.risk_source.clone(),
-                failure_mode: finding.failure_mode.clone(),
+                risk_code: finding.risk_code.clone(),
                 harm_class: finding.harm_class.clone(),
             })
             .collect(),
@@ -496,6 +496,9 @@ mod tests {
                 operation: "output".into(),
                 parameters: serde_json::json!({ "text": "safe reply" }),
                 side_effect: Some(SideEffectClass::None),
+                invocation_id: None,
+                tool_identity: None,
+                authorization: None,
             },
             sources: vec![],
             provenance: ProvenanceMap::default(),
@@ -542,7 +545,7 @@ mod tests {
             )
             .await;
 
-        assert_eq!(after.verdict, Verdict::Allow);
+        assert_eq!(after.effect, AuthorizationEffect::Permit);
         assert_eq!(serde_json::to_value(after).unwrap(), before);
     }
 
@@ -653,6 +656,9 @@ mod tests {
                 operation: "send_email".into(),
                 parameters: serde_json::json!({ "recipient": "a@b.c" }),
                 side_effect: Some(SideEffectClass::ExternalCommunication),
+                invocation_id: None,
+                tool_identity: None,
+                authorization: None,
             },
             sources: vec![
                 Source {
@@ -1007,7 +1013,10 @@ mod tests {
         assert_eq!(run.checker_id, "information_flow");
         assert_eq!(run.mode, EnforcementMode::Shadow);
         assert_eq!(run.findings.len(), 1);
-        assert_eq!(run.findings[0].recommended_verdict, Some(Verdict::Block));
+        assert_eq!(
+            run.findings[0].recommended_effect,
+            Some(AuthorizationEffect::Deny)
+        );
         assert_eq!(run.findings[0].rule, "action-integrity");
     }
 
@@ -1029,7 +1038,7 @@ mod tests {
             )
             .await;
 
-        assert_eq!(decision.verdict, Verdict::Block);
+        assert_eq!(decision.effect, AuthorizationEffect::Deny);
         assert!(decision
             .reason
             .starts_with("information_flow: action-integrity:"));
@@ -1089,7 +1098,7 @@ mod tests {
                 Decision::allow("trace-1"),
             )
             .await;
-        assert_eq!(decision.verdict, Verdict::Allow);
+        assert_eq!(decision.effect, AuthorizationEffect::Permit);
         // The memory checker never ran; only the (clean) flow run recorded.
         assert!(processed
             .checks
@@ -1110,7 +1119,7 @@ mod tests {
                 Decision::allow("trace-1"),
             )
             .await;
-        assert_eq!(decision.verdict, Verdict::Block);
+        assert_eq!(decision.effect, AuthorizationEffect::Deny);
         assert_eq!(processed.checks.len(), 1);
         assert_eq!(processed.checks[0].checker_id, "memory");
     }
@@ -1139,16 +1148,16 @@ mod tests {
         assert!(processed.checks.is_empty());
     }
 
-    fn finding_with(verdict: Option<Verdict>, rule: &str) -> CheckerFinding {
+    fn finding_with(effect: Option<AuthorizationEffect>, rule: &str) -> CheckerFinding {
         CheckerFinding {
             checker_id: "information_flow".into(),
-            verdict,
+            effect,
             reason: "reason".into(),
             violated_rule: Some(rule.into()),
             remediation: None,
             source_chain: vec!["src.web".into()],
             risk_source: Some("web".into()),
-            failure_mode: Some("untrusted_control".into()),
+            risk_code: Some("untrusted_control".into()),
             harm_class: Some("integrity".into()),
         }
     }
@@ -1167,36 +1176,42 @@ mod tests {
     #[test]
     fn composer_applies_worst_finding_and_copies_evidence_fields() {
         let findings = vec![
-            finding_with(Some(Verdict::Escalate), "missing-provenance"),
-            finding_with(Some(Verdict::Block), "action-integrity"),
+            finding_with(
+                Some(AuthorizationEffect::RequireApproval),
+                "missing-provenance",
+            ),
+            finding_with(Some(AuthorizationEffect::Deny), "action-integrity"),
         ];
 
         let composed =
             ModeAwareDecisionComposer.compose(Decision::allow("trace-1"), &findings, &[]);
 
-        assert_eq!(composed.verdict, Verdict::Block);
+        assert_eq!(composed.effect, AuthorizationEffect::Deny);
         assert_eq!(
             composed.reason,
             "information_flow: action-integrity: reason"
         );
         assert_eq!(composed.violated_rule.as_deref(), Some("action-integrity"));
         assert_eq!(composed.source_chain, Some(vec!["src.web".to_string()]));
-        assert_eq!(composed.failure_mode.as_deref(), Some("untrusted_control"));
+        assert_eq!(composed.risk_code.as_deref(), Some("untrusted_control"));
         assert_eq!(composed.harm_class.as_deref(), Some("integrity"));
     }
 
     #[test]
     fn composer_never_downgrades_the_seeded_verdict() {
         let mut current = Decision::allow("trace-1");
-        current.verdict = Verdict::Block;
+        current.effect = AuthorizationEffect::Deny;
         current.reason = "engine block".into();
-        let findings = vec![finding_with(Some(Verdict::Escalate), "missing-provenance")];
+        let findings = vec![finding_with(
+            Some(AuthorizationEffect::RequireApproval),
+            "missing-provenance",
+        )];
 
         let composed = ModeAwareDecisionComposer.compose(current, &findings, &[]);
 
         // The engine's block survives with its own reason; the less severe
         // checker finding does not overwrite it.
-        assert_eq!(composed.verdict, Verdict::Block);
+        assert_eq!(composed.effect, AuthorizationEffect::Deny);
         assert_eq!(composed.reason, "engine block");
     }
 
@@ -1205,22 +1220,25 @@ mod tests {
         // Rewrite sits between Allow and Escalate in the severity ranking;
         // exercise both directions around it.
         let mut current = Decision::allow("trace-1");
-        current.verdict = Verdict::Rewrite;
+        current.effect = AuthorizationEffect::Transform;
         current.reason = "engine rewrite".into();
 
         let upgraded = ModeAwareDecisionComposer.compose(
             current.clone(),
-            &[finding_with(Some(Verdict::Block), "action-integrity")],
+            &[finding_with(
+                Some(AuthorizationEffect::Deny),
+                "action-integrity",
+            )],
             &[],
         );
-        assert_eq!(upgraded.verdict, Verdict::Block);
+        assert_eq!(upgraded.effect, AuthorizationEffect::Deny);
 
         let preserved = ModeAwareDecisionComposer.compose(
             current,
             &[finding_with(None, "action-integrity")],
             &[],
         );
-        assert_eq!(preserved.verdict, Verdict::Rewrite);
+        assert_eq!(preserved.effect, AuthorizationEffect::Transform);
         assert_eq!(preserved.reason, "engine rewrite");
     }
 
@@ -1243,13 +1261,13 @@ mod tests {
     fn deterministic_block_wins_over_advisory_allow_signal() {
         let finding = CheckerFinding {
             checker_id: "information_flow".into(),
-            verdict: Some(Verdict::Block),
+            effect: Some(AuthorizationEffect::Deny),
             reason: "sensitive data flows to an external sink".into(),
             violated_rule: Some("destination-permission".into()),
             remediation: None,
             source_chain: vec!["src.web".into()],
             risk_source: Some("web".into()),
-            failure_mode: Some("data_exfiltration".into()),
+            risk_code: Some("data_exfiltration".into()),
             harm_class: Some("confidentiality".into()),
         };
         let advisory_allow = vec![Signal {
@@ -1264,7 +1282,7 @@ mod tests {
             &advisory_allow,
         );
 
-        assert_eq!(composed.verdict, Verdict::Block);
+        assert_eq!(composed.effect, AuthorizationEffect::Deny);
         assert_eq!(
             composed.violated_rule.as_deref(),
             Some("destination-permission")

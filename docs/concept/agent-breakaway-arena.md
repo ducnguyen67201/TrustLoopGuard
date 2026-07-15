@@ -53,28 +53,29 @@ Field meaning:
 ```json
 {
   "agent": "Proxy demo support agent",
-  "content": "Blocked by TrustLoopGuard proxy demo.",
+  "content": "Denied by TrustLoopGuard proxy demo.",
   "finishReason": "content_filter",
-  "verdict": "blocked",
+  "effect": "deny",
   "phase": "output",
   "traceId": "trace_123",
   "latencyMs": 180
 }
 ```
 
-Clean or raw responses normally use `finishReason: "stop"` with `verdict`, `phase`, and `traceId`
-set to `null`. Guarded output blocks use `finishReason: "content_filter"`, `verdict: "blocked"`,
-`phase: "output"`, and a non-empty `traceId`.
+Clean or raw responses normally use `finishReason: "stop"` with `effect`, `phase`, and `traceId`
+set to `null`. A suppressed guarded output uses `finishReason: "content_filter"`, a canonical
+non-permit effect, `phase: "output"`, and a non-empty `traceId`.
 
 The top-level arena adapter fields model what the app sees in gateway mode:
 
-- `verdict: null` means the gateway did not add an enforcement header.
-- `verdict: "blocked"` maps to `X-TrustLoopGuard-Verdict: blocked`.
-- `verdict: "escalated"` maps to `X-TrustLoopGuard-Verdict: escalated`.
+- `effect: null` means the gateway did not add an enforcement header.
+- `effect: "deny"` maps to `X-TrustLoopGuard-Effect: deny`.
+- `effect: "transform"` maps to `X-TrustLoopGuard-Effect: transform`.
+- `effect: "require_approval"` maps to `X-TrustLoopGuard-Effect: require_approval`.
+- `effect: "defer"` maps to `X-TrustLoopGuard-Effect: defer`.
 - `phase` is `null`, `"input"`, or `"output"`.
 
-This is intentionally different from the SDK `/v1/events` decision verdicts, which are
-`allow`, `block`, `rewrite`, and `escalate`.
+These values are the same authorization-effect vocabulary returned by SDK `/v1/events` decisions.
 
 ## What The Agent Receives
 
@@ -97,13 +98,13 @@ Clean gateway response:
 
 No TrustLoopGuard enforcement headers are attached to clean responses.
 
-Blocked gateway response:
+Denied gateway response:
 
 ```json
 {
   "choices": [
     {
-      "message": { "role": "assistant", "content": "Blocked by TrustLoopGuard proxy demo." },
+      "message": { "role": "assistant", "content": "Denied by TrustLoopGuard proxy demo." },
       "finish_reason": "content_filter"
     }
   ]
@@ -113,7 +114,7 @@ Blocked gateway response:
 The agent can also inspect the HTTP response headers:
 
 ```text
-X-TrustLoopGuard-Verdict: blocked
+X-TrustLoopGuard-Effect: deny
 X-TrustLoopGuard-Phase: output
 X-TrustLoopGuard-Trace-Id: trace_123
 X-TrustLoopGuard-Policy-Id: policy_123
@@ -124,16 +125,16 @@ SDK mode is different. An SDK-integrated agent submits a `GuardEvent` to `/v1/ev
 ```json
 {
   "trace_id": "trace_123",
-  "verdict": "block",
-  "reason": "Policy blocked protected output.",
-  "triggered_policies": [{ "id": "policy_123", "name": "Block private reply" }],
+  "effect": "deny",
+  "reason": "Policy denied protected output.",
+  "triggered_policies": [{ "id": "policy_123", "name": "Deny private reply" }],
   "safe_output": null,
   "latency_ms": 12
 }
 ```
 
 Use gateway mode when the agent should keep speaking provider SDK language. Use SDK mode when the
-agent code should branch on `allow`, `block`, `rewrite`, or `escalate` directly.
+agent code should branch on `permit`, `transform`, `require_approval`, `defer`, or `deny` directly.
 
 ## Flow
 
@@ -148,7 +149,7 @@ Attacks tab -> Rust orchestrator -> runner -> POST /arena/chat -> agent adapter
 ```
 
 The guarded path is unchanged from gateway mode: the guarded adapter calls the TrustLoopGuard
-gateway, which applies policy and returns `verdict`/`phase`/`traceId` as described above.
+gateway, which applies policy and returns `effect`/`phase`/`traceId` as described above.
 
 ## Hardening Loop
 

@@ -209,7 +209,7 @@ describe('AttacksPanel — stale result clearing', () => {
     expect(screen.getByText(/before\/raw comparison row/i)).toBeInTheDocument();
   });
 
-  it('shows a resisted replay verdict for blocked attacks', async () => {
+  it('shows a resisted replay effect for blocked attacks', async () => {
     const blockedGoal = 'prevent unauthorized refund';
     mockState.getJob.mockResolvedValue({
       job: { ...QUEUED, status: 'complete', attacks: 2, landed: 1, blocked: 1 },

@@ -26,7 +26,7 @@ import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InfoHint } from '@/components/ui/info-hint';
 import { Skeleton } from '@/components/ui/skeleton';
-import { VerdictLegend } from '@/components/ui/verdict-legend';
+import { AuthorizationEffectLegend } from '@/components/ui/authorization-effect-legend';
 import {
   RefreshControls,
   useAutoRefresh,
@@ -102,7 +102,11 @@ export function RunsLiveTable({
 
       <CardContent className="pt-6">
         {error && !hasRuns ? (
-          <RunsErrorState message={error} onRetry={() => void refresh()} isRetrying={isRefreshing} />
+          <RunsErrorState
+            message={error}
+            onRetry={() => void refresh()}
+            isRetrying={isRefreshing}
+          />
         ) : showSkeleton ? (
           <RunsTableSkeleton />
         ) : hasRuns ? (
@@ -118,7 +122,7 @@ export function RunsLiveTable({
               <p className="mb-2.5 text-xs font-medium text-muted-foreground">
                 What the colored counts mean
               </p>
-              <VerdictLegend />
+              <AuthorizationEffectLegend />
             </div>
           </div>
         ) : (
@@ -164,13 +168,33 @@ function RunsSummary({ totals }: { totals: RunTotals }) {
   const stats: ReadonlyArray<{
     label: string;
     value: number;
-    tone: 'neutral' | 'block' | 'escalate';
+    tone: 'neutral' | 'deny' | 'require_approval';
     hint: string;
   }> = [
-    { label: 'Requests', value: totals.runs, tone: 'neutral', hint: 'Requests shown below — every one your agents sent through the guardrail.' },
-    { label: 'Checks', value: totals.traces, tone: 'neutral', hint: 'Total times the guardrail looked at a request, across all the requests below.' },
-    { label: 'Blocked', value: totals.blocked, tone: 'block', hint: 'Requests stopped because they broke one of your rules.' },
-    { label: 'Escalated', value: totals.escalated, tone: 'escalate', hint: 'Requests held for a person to review before continuing.' },
+    {
+      label: 'Requests',
+      value: totals.runs,
+      tone: 'neutral',
+      hint: 'Requests shown below — every one your agents sent through the guardrail.',
+    },
+    {
+      label: 'Checks',
+      value: totals.traces,
+      tone: 'neutral',
+      hint: 'Total times the guardrail looked at a request, across all the requests below.',
+    },
+    {
+      label: 'Denied',
+      value: totals.blocked,
+      tone: 'deny',
+      hint: 'Requests stopped because they broke one of your rules.',
+    },
+    {
+      label: 'Approval required',
+      value: totals.escalated,
+      tone: 'require_approval',
+      hint: 'Requests held for a person to review before continuing.',
+    },
   ];
 
   return (
@@ -246,8 +270,8 @@ function RunsErrorState({
   );
 }
 
-/** Counts that carry verdict meaning get the verdict color; zero stays muted. */
-function CountCell({ value, tone }: { value: number; tone: 'block' | 'escalate' }) {
+/** Counts that carry effect meaning get the effect color; zero stays muted. */
+function CountCell({ value, tone }: { value: number; tone: 'deny' | 'require_approval' }) {
   if (value === 0) {
     return <span className="font-data text-muted-foreground">0</span>;
   }
@@ -302,7 +326,7 @@ function RunIdCell({ row }: { row: RunRow }) {
           aria-label={copied ? 'Request ID copied' : `Copy full request ID ${row.id}`}
           className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&_svg]:size-3.5"
         >
-          {copied ? <IconCheck className="text-[var(--color-allow)]" /> : <IconCopy />}
+          {copied ? <IconCheck className="text-[var(--color-permit)]" /> : <IconCopy />}
         </button>
       </div>
       <span className="text-[11px] text-muted-foreground">{row.started}</span>
@@ -345,7 +369,10 @@ const runColumns: DataTableColumn<RunRow>[] = [
   {
     id: 'kind',
     header: (
-      <ColumnHead label="Type" hint="What kind of request this was — for example, a chat session or a one-off check." />
+      <ColumnHead
+        label="Type"
+        hint="What kind of request this was — for example, a chat session or a one-off check."
+      />
     ),
     cell: (row) => row.kind,
   },
@@ -374,7 +401,10 @@ const runColumns: DataTableColumn<RunRow>[] = [
   {
     id: 'traces',
     header: (
-      <ColumnHead label="Checks" hint="How many times the guardrail looked at this request — once per input and output it reviewed." />
+      <ColumnHead
+        label="Checks"
+        hint="How many times the guardrail looked at this request — once per input and output it reviewed."
+      />
     ),
     cell: (row) => row.traces,
     align: 'right',
@@ -383,23 +413,32 @@ const runColumns: DataTableColumn<RunRow>[] = [
   {
     id: 'blocked',
     header: (
-      <ColumnHead label="Blocked" hint="Stopped — this request broke one of your rules. See the legend below for the colors." />
+      <ColumnHead
+        label="Denied"
+        hint="Stopped — this request broke one of your rules. See the legend below for the colors."
+      />
     ),
-    cell: (row) => <CountCell value={row.blocked} tone="block" />,
+    cell: (row) => <CountCell value={row.blocked} tone="deny" />,
     align: 'right',
   },
   {
     id: 'escalated',
     header: (
-      <ColumnHead label="Escalated" hint="Held for a person to review before it continued. See the legend below for the colors." />
+      <ColumnHead
+        label="Approval required"
+        hint="Held for a person to review before it continued. See the legend below for the colors."
+      />
     ),
-    cell: (row) => <CountCell value={row.escalated} tone="escalate" />,
+    cell: (row) => <CountCell value={row.escalated} tone="require_approval" />,
     align: 'right',
   },
   {
     id: 'latency',
     header: (
-      <ColumnHead label="Speed" hint="How long the guardrail took to check this request, in milliseconds. Lower is faster." />
+      <ColumnHead
+        label="Speed"
+        hint="How long the guardrail took to check this request, in milliseconds. Lower is faster."
+      />
     ),
     cell: (row) => row.latency,
     align: 'right',

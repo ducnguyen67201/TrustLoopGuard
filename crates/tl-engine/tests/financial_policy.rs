@@ -1,17 +1,17 @@
 use serde_json::json;
 use tl_core::{
-    CounterpartyRef, FinancialAction, FinancialActionKind, FinancialRail, MandateRef, MoneyAmount,
-    Verdict,
+    AuthorizationEffect, CounterpartyRef, FinancialAction, FinancialActionKind, FinancialRail,
+    MoneyAmount,
 };
-use tl_engine::{evaluate_financial_policies, financial_windowed_verdict};
-use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
+use tl_engine::{evaluate_financial_policies, financial_windowed_effect};
+use tl_policy::{FamilyPolicy, FinancialPolicy, FinancialWhen};
 
 fn action(
     agent_id: &str,
     kind: FinancialActionKind,
     amount_minor: i64,
     counterparty_id: Option<&str>,
-    mandate_id: Option<&str>,
+    _authority: Option<&str>,
 ) -> FinancialAction {
     FinancialAction {
         id: None,
@@ -30,10 +30,6 @@ fn action(
             metadata: serde_json::Value::Null,
         }),
         rail: FinancialRail::PaymentHttp,
-        mandate: mandate_id.map(|id| MandateRef {
-            id: id.into(),
-            version: Some(1),
-        }),
         memo: None,
         metadata: json!({}),
     }
@@ -53,21 +49,20 @@ fn policy() -> FamilyPolicy {
         },
         meter: tl_core::SpendMeter::Actions,
         per_transaction_minor: Some(10_000),
-        hold_above_minor: Some(5_000),
+        approval_threshold_minor: Some(5_000),
         daily_minor: None,
         weekly_minor: None,
         monthly_minor: None,
         allowed_counterparty_ids: vec![],
         denied_counterparty_ids: vec!["blocked_customer".into()],
-        hold_new_counterparty: false,
-        mandate_required: true,
-        approval_threshold_minor: None,
+        require_approval_for_new_counterparty: false,
+        grant_required: true,
         approver_roles: vec![],
         refund_original_method_only: false,
         required_preconditions: vec![],
-        missing_evidence_action: Action::Escalate,
-        failed_precondition_action: Action::Block,
-        on_breach: Action::Block,
+        missing_evidence_effect: AuthorizationEffect::RequireApproval,
+        failed_precondition_effect: AuthorizationEffect::Deny,
+        on_breach: AuthorizationEffect::Deny,
     })
 }
 
@@ -81,12 +76,12 @@ fn financial_window_caps_use_supplied_ledger_spend() {
         approver_roles: vec![],
         ..policy
     };
-    let verdict = financial_windowed_verdict(&policy, 4_500, 4_500, 6_000, 750);
+    let effect = financial_windowed_effect(&policy, 4_500, 4_500, 6_000, 750);
 
     assert_eq!(
-        verdict,
+        effect,
         Some((
-            tl_core::Verdict::Block,
+            tl_core::AuthorizationEffect::Deny,
             "financial policy `refund-controls`: daily spend would exceed cap 5000".into()
         ))
     );
@@ -101,12 +96,12 @@ fn financial_weekly_cap_blocks_when_window_spend_would_exceed() {
         weekly_minor: Some(5_000),
         ..policy
     };
-    let verdict = financial_windowed_verdict(&policy, 0, 4_500, 4_500, 750);
+    let effect = financial_windowed_effect(&policy, 0, 4_500, 4_500, 750);
 
     assert_eq!(
-        verdict,
+        effect,
         Some((
-            tl_core::Verdict::Block,
+            tl_core::AuthorizationEffect::Deny,
             "financial policy `refund-controls`: weekly spend would exceed cap 5000".into()
         ))
     );
@@ -121,9 +116,9 @@ fn financial_weekly_cap_allows_spend_that_exactly_reaches_cap() {
         weekly_minor: Some(5_000),
         ..policy
     };
-    let verdict = financial_windowed_verdict(&policy, 0, 4_250, 4_250, 750);
+    let effect = financial_windowed_effect(&policy, 0, 4_250, 4_250, 750);
 
-    assert_eq!(verdict, None);
+    assert_eq!(effect, None);
 }
 
 #[test]
@@ -131,9 +126,9 @@ fn financial_weekly_cap_is_skipped_when_unset() {
     let FamilyPolicy::Financial(policy) = policy() else {
         unreachable!("financial policy")
     };
-    let verdict = financial_windowed_verdict(&policy, 0, i64::MAX, 0, 750);
+    let effect = financial_windowed_effect(&policy, 0, i64::MAX, 0, 750);
 
-    assert_eq!(verdict, None);
+    assert_eq!(effect, None);
 }
 
 #[test]
@@ -145,12 +140,12 @@ fn financial_weekly_cap_saturates_instead_of_overflowing() {
         weekly_minor: Some(5_000),
         ..policy
     };
-    let verdict = financial_windowed_verdict(&policy, 0, i64::MAX, 0, 750);
+    let effect = financial_windowed_effect(&policy, 0, i64::MAX, 0, 750);
 
     assert_eq!(
-        verdict,
+        effect,
         Some((
-            tl_core::Verdict::Block,
+            tl_core::AuthorizationEffect::Deny,
             "financial policy `refund-controls`: weekly spend would exceed cap 5000".into()
         ))
     );
@@ -183,7 +178,7 @@ fn llm_usage_meter_policy_never_matches_financial_actions() {
 
     let families = [FamilyPolicy::Financial(policy)];
     let outcome = evaluate_financial_policies(&candidate, families.iter());
-    assert_eq!(outcome.verdict, None);
+    assert_eq!(outcome.effect, None);
     assert!(outcome.triggered.is_empty());
 }
 
@@ -200,7 +195,7 @@ fn financial_policy_blocks_non_positive_amounts() {
         [&policy()],
     );
 
-    assert_eq!(outcome.verdict, Some(Verdict::Block));
+    assert_eq!(outcome.effect, Some(AuthorizationEffect::Deny));
     assert!(outcome.reason.unwrap().contains("non-positive amount"));
 }
 
@@ -217,7 +212,7 @@ fn financial_policy_holds_above_threshold_before_execution() {
         [&policy()],
     );
 
-    assert_eq!(outcome.verdict, Some(Verdict::Escalate));
+    assert_eq!(outcome.effect, Some(AuthorizationEffect::RequireApproval));
     assert_eq!(outcome.triggered[0].id, "refund-controls");
 }
 
@@ -235,7 +230,7 @@ fn financial_policy_uses_first_class_operation_selector() {
 
     let outcome = evaluate_financial_policies(&candidate, [&policy()]);
 
-    assert_eq!(outcome.verdict, None);
+    assert_eq!(outcome.effect, None);
     assert!(outcome.triggered.is_empty());
 }
 
@@ -252,13 +247,13 @@ fn financial_policy_blocks_per_transaction_breach() {
         [&policy()],
     );
 
-    assert_eq!(outcome.verdict, Some(Verdict::Block));
+    assert_eq!(outcome.effect, Some(AuthorizationEffect::Deny));
     assert!(outcome.reason.unwrap().contains("per-transaction cap"));
 }
 
 #[test]
-fn financial_policy_enforces_counterparty_and_mandate_controls() {
-    let missing_mandate = evaluate_financial_policies(
+fn financial_policy_enforces_counterparty_and_authority_controls() {
+    let missing_authority = evaluate_financial_policies(
         &action(
             "refund-bot",
             FinancialActionKind::Refund,
@@ -268,8 +263,14 @@ fn financial_policy_enforces_counterparty_and_mandate_controls() {
         ),
         [&policy()],
     );
-    assert_eq!(missing_mandate.verdict, Some(Verdict::Escalate));
-    assert!(missing_mandate.reason.unwrap().contains("mandate"));
+    assert_eq!(
+        missing_authority.effect,
+        Some(AuthorizationEffect::RequireApproval)
+    );
+    assert!(missing_authority
+        .reason
+        .unwrap()
+        .contains("delegated authority"));
 
     let denied_counterparty = evaluate_financial_policies(
         &action(
@@ -281,7 +282,7 @@ fn financial_policy_enforces_counterparty_and_mandate_controls() {
         ),
         [&policy()],
     );
-    assert_eq!(denied_counterparty.verdict, Some(Verdict::Block));
+    assert_eq!(denied_counterparty.effect, Some(AuthorizationEffect::Deny));
     assert!(denied_counterparty
         .reason
         .unwrap()
@@ -301,6 +302,6 @@ fn financial_policy_ignores_non_matching_actions() {
         [&policy()],
     );
 
-    assert_eq!(outcome.verdict, None);
+    assert_eq!(outcome.effect, None);
     assert!(outcome.triggered.is_empty());
 }

@@ -34,7 +34,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { VerdictLegend } from '@/components/ui/verdict-legend';
+import { AuthorizationEffectLegend } from '@/components/ui/authorization-effect-legend';
 import { generatePolicyDraft, getPolicy, upsertPolicy, validatePolicy } from '@/lib/policies';
 import {
   draftToYaml,
@@ -70,19 +70,19 @@ type ValidationState =
   | { kind: 'idle' }
   | { kind: 'ok' }
   | { kind: 'errors'; issues: ReadonlyArray<{ path: string; message: string }> };
-type VerdictVariant = 'allow' | 'rewrite' | 'block' | 'escalate';
+type EffectVariant = 'permit' | 'transform' | 'deny' | 'require_approval';
 
-function actionVariant(action: PolicyDraft['action']): VerdictVariant {
-  if (action === 'rewrite') return 'rewrite';
-  if (action === 'escalate') return 'escalate';
-  return 'block';
+function actionVariant(action: PolicyDraft['action']): EffectVariant {
+  if (action === 'transform') return 'transform';
+  if (action === 'require_approval') return 'require_approval';
+  return 'deny';
 }
 
 // Friendly, capitalized labels so the dropdowns read like English.
 const ACTION_LABEL: Record<PolicyDraft['action'], string> = {
-  block: 'Block it',
-  rewrite: 'Clean it up (rewrite)',
-  escalate: 'Send for review (escalate)',
+  deny: 'Deny it',
+  transform: 'Use a safe transformed value',
+  require_approval: 'Require approval',
 };
 
 const SEVERITY_LABEL: Record<PolicyDraft['severity'], string> = {
@@ -175,7 +175,7 @@ export function PolicyEditorDialog({
             description: doc.description ?? '',
             matchType: 'literal',
             matchValue: '',
-            action: 'block',
+            action: 'deny',
             severity: doc.severity,
           });
         }
@@ -293,7 +293,7 @@ export function PolicyEditorDialog({
     }
   }
 
-  const verdict = actionVariant(draft.action);
+  const effect = actionVariant(draft.action);
   // True when editing a rule whose structured match cannot be read back from its
   // YAML. The guided match fields and plain-language summary cannot honestly
   // describe such a rule, so we hide them and point to the raw definition.
@@ -430,9 +430,9 @@ export function PolicyEditorDialog({
                     role="note"
                   >
                     This rule&apos;s match was written in a form the guided editor can&apos;t show.
-                    Its match is shown unchanged under <span className="font-medium">Advanced</span> and
-                    is preserved exactly when you save. Edit the description, severity, or action here,
-                    or open the raw definition to change the match.
+                    Its match is shown unchanged under <span className="font-medium">Advanced</span>{' '}
+                    and is preserved exactly when you save. Edit the description, severity, or
+                    action here, or open the raw definition to change the match.
                   </p>
                 ) : null}
                 <div className="grid grid-cols-2 gap-3">
@@ -459,11 +459,7 @@ export function PolicyEditorDialog({
                       </Select>
                     </Field>
                   )}
-                  <Field
-                    label="Severity"
-                    htmlFor="severity"
-                    hint={<InfoHint term="severity" />}
-                  >
+                  <Field label="Severity" htmlFor="severity" hint={<InfoHint term="severity" />}>
                     <Select
                       value={draft.severity}
                       onValueChange={(v) => update('severity', v as PolicyDraft['severity'])}
@@ -507,7 +503,7 @@ export function PolicyEditorDialog({
                 <Field
                   label="When it matches, the guardrail will…"
                   htmlFor="action"
-                  hint={<InfoHint term="verdict" />}
+                  hint={<InfoHint term="effect" />}
                 >
                   <Select
                     value={draft.action}
@@ -525,14 +521,14 @@ export function PolicyEditorDialog({
                     </SelectContent>
                   </Select>
                 </Field>
-                {draft.action === 'rewrite' ? (
+                {draft.action === 'transform' ? (
                   <Field
                     label="Replace it with"
-                    htmlFor="rewrite"
+                    htmlFor="transform"
                     hint="The safe wording sent through instead of the flagged text."
                   >
                     <Textarea
-                      id="rewrite"
+                      id="transform"
                       rows={2}
                       value={draft.rewrite ?? ''}
                       onChange={(e) => update('rewrite', e.target.value)}
@@ -551,7 +547,7 @@ export function PolicyEditorDialog({
                   Here&apos;s what this rule will do
                 </span>
                 {validation.kind === 'ok' ? (
-                  <Badge variant="allow" className="gap-1">
+                  <Badge variant="permit" className="gap-1">
                     <CheckCircle2 className="size-3" aria-hidden />
                     Looks good
                   </Badge>
@@ -560,7 +556,7 @@ export function PolicyEditorDialog({
               {matchUnknown ? (
                 <p className="mt-3 text-sm leading-relaxed text-foreground [text-wrap:pretty]">
                   When this rule matches, the guardrail will{' '}
-                  <Badge variant={verdict} className="align-middle">
+                  <Badge variant={effect} className="align-middle">
                     {ACTION_LABEL[draft.action]}
                   </Badge>
                   . See <span className="font-medium">Advanced</span> below for exactly what it
@@ -569,7 +565,7 @@ export function PolicyEditorDialog({
               ) : (
                 <p className="mt-3 text-sm leading-relaxed text-foreground [text-wrap:pretty]">
                   When a request {matchSummary(draft)},{' '}
-                  <Badge variant={verdict} className="align-middle">
+                  <Badge variant={effect} className="align-middle">
                     {ACTION_LABEL[draft.action]}
                   </Badge>
                   .
@@ -579,8 +575,8 @@ export function PolicyEditorDialog({
                 <p className="mb-3 text-xs font-medium text-muted-foreground">
                   What each choice means
                 </p>
-                <VerdictLegend
-                  verdicts={['rewrite', 'escalate', 'block']}
+                <AuthorizationEffectLegend
+                  effects={['transform', 'require_approval', 'deny']}
                   className="sm:grid-cols-1 xl:grid-cols-1"
                 />
               </div>
@@ -647,15 +643,16 @@ function Field({ label, htmlFor, error, hint, children }: FieldProps) {
   const inlineHint = hint !== undefined && typeof hint !== 'string';
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={htmlFor} className="flex items-center gap-1 text-xs font-medium text-foreground">
+      <Label
+        htmlFor={htmlFor}
+        className="flex items-center gap-1 text-xs font-medium text-foreground"
+      >
         {label}
         {inlineHint ? hint : null}
       </Label>
       {children}
       {error !== undefined ? <p className="text-xs text-destructive">{error}</p> : null}
-      {typeof hint === 'string' ? (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      ) : null}
+      {typeof hint === 'string' ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }

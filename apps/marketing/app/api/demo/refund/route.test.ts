@@ -177,14 +177,15 @@ test('reads status in-process and redacts internal fields', async () => {
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.equal(receivedActionId, actionId);
-  assert.equal(body.status, 'executed');
+  assert.equal(body.executionStatus, 'succeeded');
   assert.equal(body.internalProof, undefined);
 });
 
 function statusPayload() {
   return {
     actionId: '019f5d63-f8ca-77c3-ae7f-07b122daa7b3',
-    status: 'executed',
+    authorizationEffect: 'permit',
+    executionStatus: 'succeeded',
     orderId: 'ord_demo_1001',
     amountMinor: 7_500,
     currency: 'USD',

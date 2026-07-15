@@ -86,6 +86,13 @@ pub(super) fn validate_metadata(metadata: &ToolMetadata) -> Result<(), String> {
         if approval.approver_roles.iter().any(|r| r.trim().is_empty()) {
             return Err("approval approver_roles must not contain blank entries".into());
         }
+        if approval
+            .approver_roles
+            .iter()
+            .any(|role| !matches!(role.trim(), "owner" | "admin"))
+        {
+            return Err("approval approver_roles may contain only `owner` or `admin`".into());
+        }
         // Roles and reason flow verbatim into decision remediation and
         // escalation webhook payloads; bound them like sandbox_hint.
         if approval
@@ -292,7 +299,7 @@ mod tests {
         let m = with_limit(ParamLimit {
             max: Some(500),
             min: Some(1),
-            on_breach: LimitAction::Block,
+            on_breach: LimitAction::Deny,
         });
         assert_eq!(validate_metadata(&m), Ok(()));
     }
@@ -302,7 +309,7 @@ mod tests {
         let m = with_limit(ParamLimit {
             max: Some(500),
             min: None,
-            on_breach: LimitAction::Block,
+            on_breach: LimitAction::Deny,
         });
         assert_eq!(validate_metadata(&m), Ok(()));
     }
@@ -312,7 +319,7 @@ mod tests {
         let m = with_limit(ParamLimit {
             max: None,
             min: None,
-            on_breach: LimitAction::Block,
+            on_breach: LimitAction::Deny,
         });
         assert!(validate_metadata(&m).unwrap_err().contains("at least one"));
     }
@@ -322,7 +329,7 @@ mod tests {
         let m = with_limit(ParamLimit {
             max: Some(100),
             min: Some(500),
-            on_breach: LimitAction::Block,
+            on_breach: LimitAction::Deny,
         });
         let err = validate_metadata(&m).unwrap_err();
         assert!(err.contains("min"));

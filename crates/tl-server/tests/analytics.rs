@@ -50,7 +50,7 @@ async fn analytics_catalog_query_and_saved_views_round_trip() {
                 .body(Body::from(
                     serde_json::json!({
                         "metric": "trace_count",
-                        "group_by": "decision",
+                        "group_by": "authorization_effect",
                         "filters": []
                     })
                     .to_string(),
@@ -82,7 +82,7 @@ async fn analytics_catalog_query_and_saved_views_round_trip() {
                                 "title": "Trace volume",
                                 "metric": "trace_count",
                                 "chart_type": "bar",
-                                "group_by": "decision"
+                                "group_by": "authorization_effect"
                             }]
                         }
                     })

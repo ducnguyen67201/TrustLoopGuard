@@ -207,7 +207,7 @@ when:
   channels: [chat]
 match:
   literal: system prompt
-action: block
+action: deny
 "#;
     let policy_resp = app
         .clone()

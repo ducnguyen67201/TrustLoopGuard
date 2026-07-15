@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{guard::Severity, policy::PolicyAction, Verdict};
+use crate::{
+    AuthorizationClaim, AuthorizationDecision, AuthorizationEffect, AuthorizationIntentStatus,
+    FinancialExecutionStatus, Severity,
+};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -59,37 +62,6 @@ pub enum FinancialActionKind {
     TreasuryTransfer,
     Consent,
     Other,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub enum FinancialActionStatus {
-    Proposed,
-    Authorized,
-    Held,
-    Executed,
-    Denied,
-    Failed,
-    Reversed,
-    Expired,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub enum FinancialApprovalRequestStatus {
-    Pending,
-    Approved,
-    Denied,
-    Expired,
-    Canceled,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -157,21 +129,6 @@ pub enum FinancialRail {
     Wire,
     Internal,
     Other,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub enum AgenticPaymentDecision {
-    Authorized,
-    Held,
-    Denied,
-    Committed,
-    RolledBack,
-    Failed,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -314,7 +271,7 @@ pub struct AgenticPaymentAuthorizeRequest {
     pub reservation_expires_at: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub mandate: Option<MandateRef>,
+    pub authorization: Option<AuthorizationClaim>,
     pub payment_requirement: X402PaymentRequirement,
     #[serde(default)]
     pub evidence: Vec<EvidenceRef>,
@@ -391,7 +348,7 @@ pub struct AgenticPaymentReservation {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct AgenticPaymentRecord {
     pub id: String,
-    pub decision: AgenticPaymentDecision,
+    pub authorization: AuthorizationDecision,
     pub action: FinancialActionRecord,
     pub normalized_requirement: X402NormalizedPaymentRequirement,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -411,13 +368,13 @@ pub struct AgenticPaymentRecord {
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct AgenticPaymentAuthorizationResponse {
-    pub decision: AgenticPaymentDecision,
+    pub authorization: AuthorizationDecision,
     pub signable: bool,
     pub reason: String,
     pub record: AgenticPaymentRecord,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub decision_receipt_id: Option<String>,
+    pub authorization_receipt_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -437,126 +394,6 @@ pub struct CounterpartyRef {
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
     pub metadata: serde_json::Value,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct MandateRef {
-    pub id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub version: Option<i32>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub enum FinancialMandateStatus {
-    Active,
-    Revoked,
-    Expired,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct AgenticPaymentMandateScope {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub intent_label: Option<String>,
-    #[serde(default)]
-    pub action_kinds: Vec<FinancialActionKind>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub operation: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub max_amount_minor: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub currency: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub rail: Option<FinancialRail>,
-    #[serde(default)]
-    pub allowed_counterparty_ids: Vec<String>,
-    #[serde(default)]
-    pub allowed_hosts: Vec<String>,
-    #[serde(default)]
-    pub allowed_resources: Vec<String>,
-    #[serde(default)]
-    pub allowed_networks: Vec<String>,
-    #[serde(default)]
-    pub allowed_assets: Vec<String>,
-    #[serde(default)]
-    pub allowed_pay_to: Vec<String>,
-    #[serde(default)]
-    pub required_preconditions: Vec<FinancialActionPrecondition>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct CreateFinancialMandateRequest {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub version: Option<i32>,
-    pub principal_id: String,
-    #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
-    pub scope: serde_json::Value,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub payment_scope: Option<AgenticPaymentMandateScope>,
-    #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
-    pub metadata: serde_json::Value,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub starts_at: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub expires_at: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct FinancialMandate {
-    pub id: String,
-    pub workspace_id: String,
-    pub version: i32,
-    pub status: FinancialMandateStatus,
-    pub principal_id: String,
-    #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
-    pub scope: serde_json::Value,
-    #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
-    pub metadata: serde_json::Value,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub starts_at: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub expires_at: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -591,7 +428,7 @@ pub enum FinancialActionPrecondition {
     NoDuplicateRefund,
     InvoiceMatchesPo,
     VendorApproved,
-    MandateValid,
+    GrantValid,
     Custom,
 }
 
@@ -640,9 +477,6 @@ pub struct CreateFinancialPolicyRequest {
     pub per_transaction_minor: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub hold_above_minor: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
     pub daily_minor: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
@@ -655,9 +489,9 @@ pub struct CreateFinancialPolicyRequest {
     #[serde(default)]
     pub denied_counterparty_ids: Vec<String>,
     #[serde(default)]
-    pub hold_new_counterparty: bool,
+    pub require_approval_for_new_counterparty: bool,
     #[serde(default)]
-    pub mandate_required: bool,
+    pub grant_required: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub approval_threshold_minor: Option<i64>,
@@ -669,13 +503,13 @@ pub struct CreateFinancialPolicyRequest {
     pub required_preconditions: Vec<FinancialActionPrecondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub missing_evidence_action: Option<PolicyAction>,
+    pub missing_evidence_effect: Option<AuthorizationEffect>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub failed_precondition_action: Option<PolicyAction>,
+    pub failed_precondition_effect: Option<AuthorizationEffect>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub on_breach: Option<PolicyAction>,
+    pub on_breach: Option<AuthorizationEffect>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -698,9 +532,6 @@ pub struct FinancialPolicyRecord {
     pub per_transaction_minor: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub hold_above_minor: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
     pub daily_minor: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
@@ -713,9 +544,9 @@ pub struct FinancialPolicyRecord {
     #[serde(default)]
     pub denied_counterparty_ids: Vec<String>,
     #[serde(default)]
-    pub hold_new_counterparty: bool,
+    pub require_approval_for_new_counterparty: bool,
     #[serde(default)]
-    pub mandate_required: bool,
+    pub grant_required: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub approval_threshold_minor: Option<i64>,
@@ -725,9 +556,9 @@ pub struct FinancialPolicyRecord {
     pub refund_original_method_only: bool,
     #[serde(default)]
     pub required_preconditions: Vec<FinancialActionPrecondition>,
-    pub missing_evidence_action: PolicyAction,
-    pub failed_precondition_action: PolicyAction,
-    pub on_breach: PolicyAction,
+    pub missing_evidence_effect: AuthorizationEffect,
+    pub failed_precondition_effect: AuthorizationEffect,
+    pub on_breach: AuthorizationEffect,
     pub enabled: bool,
 }
 
@@ -784,21 +615,6 @@ pub struct FinancialEligibilityResult {
     pub reason: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct ApprovalRequirement {
-    pub required: bool,
-    #[serde(default)]
-    pub approver_roles: Vec<String>,
-    pub reason: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub expires_at: Option<String>,
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -843,9 +659,6 @@ pub struct FinancialAction {
     pub rail: FinancialRail,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub mandate: Option<MandateRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
     pub memo: Option<String>,
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
@@ -861,9 +674,26 @@ pub struct CreateFinancialActionRequest {
     pub idempotency_key: String,
     #[serde(default)]
     pub execute: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub authorization: Option<AuthorizationClaim>,
     pub action: FinancialAction,
     #[serde(default)]
     pub evidence: Vec<EvidenceRef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct ExecuteFinancialActionRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub authorization: Option<AuthorizationClaim>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub attempt_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -874,264 +704,25 @@ pub struct CreateFinancialActionRequest {
 pub struct FinancialActionRecord {
     pub id: String,
     pub workspace_id: String,
-    pub status: FinancialActionStatus,
+    pub environment_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub authorization_intent_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub authorization_receipt_id: Option<String>,
+    pub authorization_effect: AuthorizationEffect,
+    pub authorization_status: AuthorizationIntentStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub authorization: Option<AuthorizationDecision>,
+    pub execution_status: FinancialExecutionStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub status_reason: Option<String>,
     pub action: FinancialAction,
     #[serde(default)]
     pub evidence: Vec<EvidenceRef>,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-/// A server-computed, versioned summary of the action identity that a human
-/// is about to authorize for reuse. Amount is intentionally represented as a
-/// separate bound so matching actions can vary in value without changing the
-/// fingerprint.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct FinancialApprovalEnvelope {
-    pub action_id: String,
-    pub action_fingerprint: String,
-    pub fingerprint_version: i32,
-    pub principal_id: String,
-    pub action_kind: FinancialActionKind,
-    pub operation: String,
-    pub rail: FinancialRail,
-    pub currency: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub counterparty_id: Option<String>,
-    pub current_amount_minor: i64,
-    pub recommended_max_amount_minor: i64,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct ApproveMatchingFinancialActionsRequest {
-    /// The fingerprint shown to the approver. The server recomputes it before
-    /// creating the mandate so an action cannot change underneath the dialog.
-    pub action_fingerprint: String,
-    pub max_amount_minor: i64,
-    pub expires_at: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct ApproveMatchingFinancialActionsResponse {
-    pub action: FinancialActionRecord,
-    pub mandate: FinancialMandate,
-    pub approval_envelope: FinancialApprovalEnvelope,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct FinancialDecision {
-    pub action_id: String,
-    pub status: FinancialActionStatus,
-    pub verdict: Verdict,
-    pub reason: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub approval: Option<ApprovalRequirement>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub receipt_id: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub enum FinancialActionDecision {
-    Allow,
-    Hold,
-    Block,
-    Escalate,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub enum FinancialDecisionRiskCode {
-    AmountAboveAutoApproveThreshold,
-    AmountOverPerTransactionCap,
-    MissingAuthorizationScope,
-    AuthorizationScopeInvalid,
-    CounterpartyDenied,
-    CounterpartyNotAllowed,
-    NewCounterparty,
-    MissingEvidence,
-    FailedEvidence,
-    DailyCapExceeded,
-    WeeklyCapExceeded,
-    MonthlyCapExceeded,
-    ProviderNotExecuted,
-    ProviderFailed,
-    Unknown,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct FinancialDecisionRisk {
-    pub code: FinancialDecisionRiskCode,
-    pub severity: Severity,
-    pub reason: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub policy_id: Option<String>,
-    pub source: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct FinancialAuthorizationScopeProof {
-    pub checked: bool,
-    pub result: FinancialEligibilityStatus,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub scope_ref: Option<MandateRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub scope_snapshot: Option<FinancialMandate>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub source: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub mandate_hash: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
-    pub normalized_scope: Option<serde_json::Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub reason: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct FinancialEvidenceProof {
-    pub precondition: FinancialActionPrecondition,
-    pub status: FinancialEligibilityStatus,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub evidence_source_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub reason: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub enum FinancialExecutionProofStatus {
-    NotStarted,
-    NotRequired,
-    Executed,
-    Failed,
-    ReceiptMissing,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct FinancialExecutionProof {
-    pub status: FinancialExecutionProofStatus,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub receipt_id: Option<String>,
-    #[serde(default)]
-    pub ledger_event_ids: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct FinancialActionDecisionReceipt {
-    pub schema: String,
-    pub action_id: String,
-    pub decision: FinancialActionDecision,
-    pub status: FinancialActionStatus,
-    pub reason: String,
-    pub amount: MoneyAmount,
-    pub operation: String,
-    pub principal_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub counterparty: Option<CounterpartyRef>,
-    pub authorization_scope: FinancialAuthorizationScopeProof,
-    #[serde(default)]
-    pub evidence: Vec<FinancialEvidenceProof>,
-    #[serde(default)]
-    pub risks: Vec<FinancialDecisionRisk>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub approval: Option<ApprovalRequirement>,
-    pub execution: FinancialExecutionProof,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct FinancialApprovalRequest {
-    pub id: String,
-    pub workspace_id: String,
-    pub action_id: String,
-    pub status: FinancialApprovalRequestStatus,
-    pub reason: String,
-    #[serde(default)]
-    pub approver_roles: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub decided_by: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub decided_at: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub expires_at: Option<String>,
-    #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
-    pub metadata: serde_json::Value,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -1144,6 +735,7 @@ pub struct FinancialApprovalRequest {
 pub struct FinancialReceipt {
     pub id: String,
     pub action_id: String,
+    pub authorization_receipt_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub trace_id: Option<String>,
@@ -1171,22 +763,4 @@ pub struct FinancialActionListResponse {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct FinancialOutcomeListResponse {
     pub outcomes: Vec<FinancialActionOutcome>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct FinancialApprovalRequestListResponse {
-    pub approval_requests: Vec<FinancialApprovalRequest>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct FinancialMandateListResponse {
-    pub mandates: Vec<FinancialMandate>,
 }

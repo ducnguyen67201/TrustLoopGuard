@@ -3,7 +3,7 @@ use std::future::Future;
 use tracing::instrument;
 
 use crate::{
-    Client, CreateRunEventRequest, CreateRunRequest, Decision, GuardEvent, RunDetail,
+    AuthorizationDecision, Client, CreateRunEventRequest, CreateRunRequest, GuardEvent, RunDetail,
     RunEventListResponse, RunEventSummary, RunStatus, RunSummary, SdkError, TraceListResponse,
     UpdateRunRequest,
 };
@@ -24,7 +24,10 @@ impl RunClient {
         self.run_event_id.as_deref()
     }
 
-    pub async fn submit_event(&self, event: &GuardEvent) -> Result<Decision, SdkError> {
+    pub async fn submit_event(
+        &self,
+        event: &GuardEvent,
+    ) -> Result<AuthorizationDecision, SdkError> {
         let mut event = event.clone();
         if event.principal.run_id.is_none() {
             event.principal.run_id = Some(self.run_id.clone());

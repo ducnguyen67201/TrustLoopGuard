@@ -19,7 +19,7 @@ const LOOP = [
   },
   {
     n: '03',
-    title: 'Your app handles the verdict',
+    title: 'Your app handles the effect',
     body: 'Allow, cap to the limit, block with a reason, or escalate for approval. Your agent still owns the action.',
   },
   {

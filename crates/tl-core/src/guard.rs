@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{CreateRunEventRequest, TierResult};
+use crate::{
+    AuthorizationApprovalSummary, AuthorizationEffect, AuthorizationGrantRef, AuthorizationLease,
+    CreateRunEventRequest, TierResult,
+};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -24,42 +27,6 @@ pub enum Channel {
     Voice,
     Chat,
     Email,
-}
-
-/// What TrustLoopGuard tells the caller to do with the proposed output.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub enum Verdict {
-    Allow,
-    Block,
-    Rewrite,
-    Escalate,
-}
-
-impl Verdict {
-    /// Severity rank for worst-verdict-wins composition:
-    /// `Block > Escalate > Rewrite > Allow`.
-    fn severity_rank(self) -> u8 {
-        match self {
-            Verdict::Allow => 0,
-            Verdict::Rewrite => 1,
-            Verdict::Escalate => 2,
-            Verdict::Block => 3,
-        }
-    }
-
-    /// The more severe of the two verdicts. Never downgrades.
-    pub fn worst_with(self, other: Verdict) -> Verdict {
-        if other.severity_rank() > self.severity_rank() {
-            other
-        } else {
-            self
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -222,7 +189,7 @@ pub struct TriggeredPolicy {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct Decision {
     pub trace_id: String,
-    pub verdict: Verdict,
+    pub effect: AuthorizationEffect,
     pub reason: String,
     pub triggered_policies: Vec<TriggeredPolicy>,
     pub safe_output: Option<String>,
@@ -254,7 +221,7 @@ pub struct Decision {
     pub risk_source: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub failure_mode: Option<String>,
+    pub risk_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub harm_class: Option<String>,
@@ -262,13 +229,25 @@ pub struct Decision {
     #[cfg_attr(feature = "ts-export", ts(optional))]
     #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
     pub constraints: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub approval: Option<AuthorizationApprovalSummary>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub applied_grant: Option<AuthorizationGrantRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub lease: Option<AuthorizationLease>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub authorization_receipt_id: Option<String>,
 }
 
 impl Decision {
     pub fn allow(trace_id: impl Into<String>) -> Self {
         Self {
             trace_id: trace_id.into(),
-            verdict: Verdict::Allow,
+            effect: AuthorizationEffect::Permit,
             reason: "no policies triggered".into(),
             triggered_policies: vec![],
             safe_output: None,
@@ -281,9 +260,13 @@ impl Decision {
             remediation: None,
             source_chain: None,
             risk_source: None,
-            failure_mode: None,
+            risk_code: None,
             harm_class: None,
             constraints: None,
+            approval: None,
+            applied_grant: None,
+            lease: None,
+            authorization_receipt_id: None,
         }
     }
 }

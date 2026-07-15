@@ -3,14 +3,11 @@ use tracing::instrument;
 use crate::{
     AgenticPaymentAuthorizationResponse, AgenticPaymentAuthorizeRequest,
     AgenticPaymentCommitRequest, AgenticPaymentRecord, AgenticPaymentRollbackRequest,
-    ApproveMatchingFinancialActionsRequest, ApproveMatchingFinancialActionsResponse, Client,
-    CounterpartyRef, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    CreateFinancialPolicyRequest, EvidenceRef, FinancialAction, FinancialActionDecisionReceipt,
+    AuthorizationClaim, Client, CounterpartyRef, CreateFinancialActionRequest,
+    CreateFinancialPolicyRequest, EvidenceRef, ExecuteFinancialActionRequest, FinancialAction,
     FinancialActionKind, FinancialActionListResponse, FinancialActionOutcome,
-    FinancialActionRecord, FinancialApprovalEnvelope, FinancialApprovalRequestListResponse,
-    FinancialMandate, FinancialMandateListResponse, FinancialOutcomeListResponse,
-    FinancialPolicyListResponse, FinancialPolicyRecord, FinancialRail, FinancialReceipt,
-    MandateRef, MoneyAmount, SdkError,
+    FinancialActionRecord, FinancialOutcomeListResponse, FinancialPolicyListResponse,
+    FinancialPolicyRecord, FinancialRail, FinancialReceipt, MoneyAmount, SdkError,
 };
 
 #[derive(Debug, Clone)]
@@ -19,7 +16,7 @@ pub struct FinancialOperation {
     kind: FinancialActionKind,
     principal_id: String,
     rail: FinancialRail,
-    mandate: Option<MandateRef>,
+    authorization: Option<AuthorizationClaim>,
 }
 
 impl FinancialOperation {
@@ -34,12 +31,12 @@ impl FinancialOperation {
             kind,
             principal_id: principal_id.into(),
             rail,
-            mandate: None,
+            authorization: None,
         }
     }
 
-    pub fn with_mandate(mut self, mandate: MandateRef) -> Self {
-        self.mandate = Some(mandate);
+    pub fn with_authorization(mut self, authorization: AuthorizationClaim) -> Self {
+        self.authorization = Some(authorization);
         self
     }
 
@@ -56,6 +53,7 @@ impl FinancialOperation {
         CreateFinancialActionRequest {
             idempotency_key: idempotency_key.into(),
             execute,
+            authorization: self.authorization.clone(),
             action: FinancialAction {
                 id: None,
                 kind: self.kind,
@@ -64,7 +62,6 @@ impl FinancialOperation {
                 amount,
                 counterparty,
                 rail: self.rail,
-                mandate: self.mandate.clone(),
                 memo,
                 metadata,
             },
@@ -258,61 +255,6 @@ impl Client {
         .await
     }
 
-    /// Create a durable financial mandate.
-    #[instrument(
-        name = "tl_sdk_rust::create_mandate",
-        skip_all,
-        fields(principal_id = %req.principal_id, attempt = tracing::field::Empty),
-    )]
-    pub async fn create_mandate(
-        &self,
-        req: &CreateFinancialMandateRequest,
-    ) -> Result<FinancialMandate, SdkError> {
-        self.send_post_json("/v1/financial/mandates", req).await
-    }
-
-    /// List durable financial mandates visible to the authenticated workspace.
-    #[instrument(
-        name = "tl_sdk_rust::list_mandates",
-        skip_all,
-        fields(attempt = tracing::field::Empty),
-    )]
-    pub async fn list_mandates(&self) -> Result<FinancialMandateListResponse, SdkError> {
-        self.retry_loop("/v1/financial/mandates", || {
-            self.send_get("/v1/financial/mandates")
-        })
-        .await
-    }
-
-    /// List pending and decided financial approval requests visible to the authenticated workspace.
-    #[instrument(
-        name = "tl_sdk_rust::list_approval_requests",
-        skip_all,
-        fields(attempt = tracing::field::Empty),
-    )]
-    pub async fn list_approval_requests(
-        &self,
-    ) -> Result<FinancialApprovalRequestListResponse, SdkError> {
-        self.retry_loop("/v1/financial/approval-requests", || {
-            self.send_get("/v1/financial/approval-requests")
-        })
-        .await
-    }
-
-    /// Revoke a financial mandate.
-    #[instrument(
-        name = "tl_sdk_rust::revoke_mandate",
-        skip_all,
-        fields(mandate_id = %mandate_id, attempt = tracing::field::Empty),
-    )]
-    pub async fn revoke_mandate(&self, mandate_id: &str) -> Result<FinancialMandate, SdkError> {
-        let path = format!(
-            "/v1/financial/mandates/{}/revoke",
-            urlencoding::encode(mandate_id)
-        );
-        self.send_post_empty(&path).await
-    }
-
     /// Fetch a financial receipt/proof by id.
     #[instrument(
         name = "tl_sdk_rust::get_receipt",
@@ -321,23 +263,6 @@ impl Client {
     )]
     pub async fn get_receipt(&self, receipt_id: &str) -> Result<FinancialReceipt, SdkError> {
         let path = format!("/v1/financial/receipts/{}", urlencoding::encode(receipt_id));
-        self.retry_loop(&path, || self.send_get(&path)).await
-    }
-
-    /// Fetch the per-action decision receipt before or after execution.
-    #[instrument(
-        name = "tl_sdk_rust::get_financial_decision_receipt",
-        skip_all,
-        fields(action_id = %action_id, attempt = tracing::field::Empty),
-    )]
-    pub async fn get_financial_decision_receipt(
-        &self,
-        action_id: &str,
-    ) -> Result<FinancialActionDecisionReceipt, SdkError> {
-        let path = format!(
-            "/v1/financial/actions/{}/decision-receipt",
-            urlencoding::encode(action_id)
-        );
         self.retry_loop(&path, || self.send_get(&path)).await
     }
 
@@ -376,71 +301,21 @@ impl Client {
         self.retry_loop(&path, || self.send_get(&path)).await
     }
 
-    /// Approve a held or proposed financial action.
-    #[instrument(
-        name = "tl_sdk_rust::approve_action",
-        skip_all,
-        fields(action_id = %action_id, attempt = tracing::field::Empty),
-    )]
-    pub async fn approve_action(&self, action_id: &str) -> Result<FinancialActionRecord, SdkError> {
-        self.transition_financial_action(action_id, "approve").await
-    }
-
-    /// Preview the versioned identity and recommended bounds for reusable approval.
-    pub async fn get_financial_approval_envelope(
-        &self,
-        action_id: &str,
-    ) -> Result<FinancialApprovalEnvelope, SdkError> {
-        let path = format!(
-            "/v1/financial/actions/{}/approval-envelope",
-            urlencoding::encode(action_id)
-        );
-        self.retry_loop(&path, || self.send_get(&path)).await
-    }
-
-    /// Approve the held action and activate a mandate for matching fingerprints.
-    pub async fn approve_matching_financial_actions(
-        &self,
-        action_id: &str,
-        request: &ApproveMatchingFinancialActionsRequest,
-    ) -> Result<ApproveMatchingFinancialActionsResponse, SdkError> {
-        let path = format!(
-            "/v1/financial/actions/{}/approve-matching",
-            urlencoding::encode(action_id)
-        );
-        self.send_post_json(&path, request).await
-    }
-
-    /// Deny a pending financial action.
-    #[instrument(
-        name = "tl_sdk_rust::deny_action",
-        skip_all,
-        fields(action_id = %action_id, attempt = tracing::field::Empty),
-    )]
-    pub async fn deny_action(&self, action_id: &str) -> Result<FinancialActionRecord, SdkError> {
-        self.transition_financial_action(action_id, "deny").await
-    }
-
     /// Execute an authorized financial action.
     #[instrument(
         name = "tl_sdk_rust::execute_action",
         skip_all,
         fields(action_id = %action_id, attempt = tracing::field::Empty),
     )]
-    pub async fn execute_action(&self, action_id: &str) -> Result<FinancialActionRecord, SdkError> {
-        self.transition_financial_action(action_id, "execute").await
-    }
-
-    async fn transition_financial_action(
+    pub async fn execute_action(
         &self,
         action_id: &str,
-        transition: &str,
+        request: &ExecuteFinancialActionRequest,
     ) -> Result<FinancialActionRecord, SdkError> {
         let path = format!(
-            "/v1/financial/actions/{}/{}",
-            urlencoding::encode(action_id),
-            transition
+            "/v1/financial/actions/{}/execute",
+            urlencoding::encode(action_id)
         );
-        self.send_post_empty(&path).await
+        self.send_post_json(&path, request).await
     }
 }

@@ -142,7 +142,7 @@ export const USE_CASES = [
     failure:
       'Parallel discovery, duplicate retries, merchant drift, or a runaway tool loop consumes the session budget without a reliable pre-spend decision.',
     control:
-      'Normalize the payment requirement, verify the mandate, reserve session budget, and return a signable decision only when every boundary passes.',
+      'Normalize the payment requirement, verify the grant, reserve session budget, and return a signable decision only when every boundary passes.',
     flow: ['402 requirement', 'Authorize + reserve', 'Agent signs', 'Commit receipt'],
     steps: [
       {
@@ -152,7 +152,7 @@ export const USE_CASES = [
       },
       {
         label: 'Authorize',
-        title: 'Check mandate and standing policy',
+        title: 'Check grant and standing policy',
         body: 'TrustLoopGuard compares the request with the allowed host, resource, network, asset, counterparty, amount, and task scope.',
       },
       {
@@ -166,13 +166,13 @@ export const USE_CASES = [
         body: 'The settlement proof must match the normalized requirement. Commit closes the reservation and creates the execution receipt.',
       },
     ],
-    checks: ['Mandate scope', 'Endpoint and payee', 'Session budget', 'Duplicate requirement hash'],
+    checks: ['Grant scope', 'Endpoint and payee', 'Session budget', 'Duplicate requirement hash'],
     result: 'Allow, hold, or block before wallet signing.',
     resultDetail:
       'The payment rail still moves the money. TrustLoopGuard owns the pre-spend judgment, concurrent budget reservation, and proof of why the payment was authorized.',
     proof: [
       'Normalized requirement',
-      'Policy and mandate result',
+      'Policy and grant result',
       'Reservation state',
       'Settlement receipt',
     ],
@@ -199,7 +199,7 @@ export const USE_CASES = [
       {
         label: 'Describe',
         title: 'Make the action explicit',
-        body: 'Send the operation, amount, principal, counterparty, mandate, evidence references, and idempotency key as a typed action.',
+        body: 'Send the operation, amount, principal, counterparty, grant, evidence references, and idempotency key as a typed action.',
       },
       {
         label: 'Decide',

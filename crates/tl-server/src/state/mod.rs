@@ -87,6 +87,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         gateway_store,
         tool_metadata_store,
         tool_metadata_provider,
+        authorization_store,
         label_policy_store,
         label_policy_provider,
         escalation_repo,
@@ -118,6 +119,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         gateway_store,
         tool_metadata_store,
         tool_metadata_provider,
+        authorization_store,
         label_policy_store,
         label_policy_provider,
         redteam_job_store,
@@ -186,6 +188,12 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
     }
     tracing::info!("user approval gate enabled for authenticated dashboard users");
 
+    let authorization_coordinator = Arc::new(crate::authorization::AuthorizationCoordinator::new(
+        authorization_store.clone(),
+        policy_store.clone(),
+        Arc::new(crate::authorization::adapters::AuthorizationAdapterRegistry::new()),
+    ));
+
     Ok(AppState {
         engine,
         handler_ctx,
@@ -210,12 +218,15 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         agent_store,
         policy_store,
         tool_metadata_store,
+        authorization_store,
+        authorization_coordinator,
         label_policy_store,
         trace_store,
         run_store,
         analytics_store,
         human_review_store,
         financial_store,
+        financial_executor: None,
         llm_usage_store,
         llm_pricing_store,
         budget_alert_store,

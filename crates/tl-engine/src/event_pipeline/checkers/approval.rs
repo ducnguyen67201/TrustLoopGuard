@@ -1,12 +1,12 @@
 //! Approval checker: tools whose registry metadata requires human
-//! approval escalate instead of executing.
+//! approval return `require_approval` instead of executing.
 //!
 //! Reads the `ApprovalRule` already resolved onto the event by the tool
 //! metadata registry. Unregistered or unresolved tools emit nothing —
 //! unknown-tool conservatism is the flow/parameter checkers' job, and a
-//! second escalation here would only duplicate their evidence.
+//! second approval requirement here would only duplicate their evidence.
 
-use tl_core::{ApprovalRule, GuardEvent, ToolResolution, Verdict};
+use tl_core::{ApprovalRule, AuthorizationEffect, GuardEvent, ToolResolution};
 
 use crate::event_pipeline::{Checker, CheckerFinding};
 
@@ -31,10 +31,9 @@ impl Checker for ApprovalChecker {
         if !rule.required {
             return vec![];
         }
-
         vec![CheckerFinding {
             checker_id: APPROVAL_CHECKER_ID.to_string(),
-            verdict: Some(Verdict::Escalate),
+            effect: Some(AuthorizationEffect::RequireApproval),
             reason: format!(
                 "tool '{}' requires human approval before execution",
                 metadata.tool
@@ -43,7 +42,7 @@ impl Checker for ApprovalChecker {
             remediation: Some(remediation(rule)),
             source_chain: vec![],
             risk_source: None,
-            failure_mode: Some(FAILURE_APPROVAL_REQUIRED.to_string()),
+            risk_code: Some(FAILURE_APPROVAL_REQUIRED.to_string()),
             harm_class: Some("authorization".to_string()),
         }]
     }
@@ -111,7 +110,7 @@ mod tests {
         let findings = ApprovalChecker.check(&event);
         assert_eq!(findings.len(), 1);
         let finding = &findings[0];
-        assert_eq!(finding.verdict, Some(Verdict::Escalate));
+        assert_eq!(finding.effect, Some(AuthorizationEffect::RequireApproval));
         assert_eq!(
             finding.violated_rule.as_deref(),
             Some("approval.payment.transfer")
@@ -120,7 +119,7 @@ mod tests {
             finding.remediation.as_deref(),
             Some("request approval from roles: admin before retrying this action")
         );
-        assert_eq!(finding.failure_mode.as_deref(), Some("approval_required"));
+        assert_eq!(finding.risk_code.as_deref(), Some("approval_required"));
         assert_eq!(finding.harm_class.as_deref(), Some("authorization"));
         assert!(finding.source_chain.is_empty());
         assert!(finding.risk_source.is_none());

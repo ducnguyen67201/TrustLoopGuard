@@ -8,12 +8,13 @@ import { DEMO_ORDER_ID, REFUND_AGENT_ID } from './types';
 
 export type RefundDemoStatusClient = Pick<
   Client,
-  'getFinancialAction' | 'getFinancialDecisionReceipt' | 'getReceipt'
+  'getFinancialAction' | 'getReceipt'
 >;
 
 export interface RefundDemoActionStatus {
   actionId: string;
-  status: FinancialActionRecord['status'];
+  authorizationEffect: FinancialActionRecord['authorization_effect'];
+  executionStatus: FinancialActionRecord['execution_status'];
   orderId: string;
   amountMinor: number;
   currency: 'USD';
@@ -48,19 +49,17 @@ export async function readRefundDemoActionStatus(
   let receiptId: string | undefined;
   let providerReference: string | undefined;
   let updatedAt = action.updated_at;
-  if (action.status === 'executed') {
-    const decision = await client.getFinancialDecisionReceipt(actionId);
-    receiptId = decision.execution.receipt_id;
-    if (receiptId !== undefined) {
-      const receipt = await client.getReceipt(receiptId);
-      providerReference = providerReferenceFromReceipt(receipt);
-      updatedAt = receipt.created_at;
-    }
+  if (action.execution_status === 'succeeded') {
+    const receipt = await client.getReceipt(actionId);
+    receiptId = receipt.id;
+    providerReference = providerReferenceFromReceipt(receipt);
+    updatedAt = receipt.created_at;
   }
 
   return {
     actionId,
-    status: action.status,
+    authorizationEffect: action.authorization_effect,
+    executionStatus: action.execution_status,
     orderId,
     amountMinor,
     currency: 'USD',

@@ -7,5 +7,5 @@ match:
   any:
     - regex: "(?i)\\bssn\\b"
     - regex: "(?i)social security number"
-action: block
+action: deny
 

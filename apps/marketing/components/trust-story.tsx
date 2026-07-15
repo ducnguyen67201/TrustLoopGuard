@@ -9,7 +9,7 @@ const PRINCIPLES = [
   {
     number: '02',
     title: 'A reason, not a mystery',
-    body: 'Every decision returns the verdict, the policies that fired, and a human-readable reason.',
+    body: 'Every decision returns the effect, the policies that fired, and a human-readable reason.',
   },
   {
     number: '03',
@@ -31,20 +31,27 @@ export function TrustStory() {
       <div className="trust-grid">
         <figure className="founder-note">
           <blockquote>
-            “At an AI voice-testing company, I watched production find the failures demos missed.
-            I built TrustLoopGuard around that lesson: assume the edge case is coming, put policy
+            “At an AI voice-testing company, I watched production find the failures demos missed. I
+            built TrustLoopGuard around that lesson: assume the edge case is coming, put policy
             before action, and leave evidence behind.”
           </blockquote>
           <figcaption>
-            <span className="founder-avatar" aria-hidden="true">D</span>
-            <span><strong>Duc</strong><small>Founder, TrustLoopGuard</small></span>
+            <span className="founder-avatar" aria-hidden="true">
+              D
+            </span>
+            <span>
+              <strong>Duc</strong>
+              <small>Founder, TrustLoopGuard</small>
+            </span>
           </figcaption>
         </figure>
 
         <div className="principles" aria-label="TrustLoopGuard design principles">
           <div className="principles-intro">
             <span>Trust is evidence</span>
-            <a href={GITHUB_URL} target="_blank" rel="noreferrer">Review the repository ↗</a>
+            <a href={GITHUB_URL} target="_blank" rel="noreferrer">
+              Review the repository ↗
+            </a>
           </div>
           {PRINCIPLES.map((principle) => (
             <article key={principle.number} className="principle">

@@ -11,14 +11,14 @@ externally visible action.
 
 ## Core Ideas
 
-| Concept | Meaning |
-| --- | --- |
-| Check | One request asking whether a proposed output is safe to deliver. |
-| Decision | The typed response from TrustLoopGuard. It includes verdict, reason, latency, trace id, and triggered policies. |
-| Verdict | One of `allow`, `block`, `rewrite`, or `escalate`. |
-| Policy | A YAML rule that scopes when it applies, what it matches, and which action to take. |
-| Agent profile | Context about the agent's domain, authority, tone, and constraints. |
-| Trace | The persisted record that lets operators inspect what happened later. |
+| Concept                | Meaning                                                                                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Check                  | One request asking whether a proposed output is safe to deliver.                                                                                        |
+| Authorization decision | The typed response from TrustLoopGuard. It includes the effect, reason, findings, latency, trace id, and durable authority references when applicable.  |
+| Authorization effect   | One of `permit`, `deny`, `transform`, `require_approval`, or `defer`. Approval can satisfy only `require_approval`; it cannot bypass `deny` or `defer`. |
+| Policy                 | A YAML rule that scopes when it applies, what it matches, and which action to take.                                                                     |
+| Agent profile          | Context about the agent's domain, authority, tone, and constraints.                                                                                     |
+| Trace                  | The persisted record that lets operators inspect what happened later.                                                                                   |
 
 ## Runtime Shape
 
@@ -32,12 +32,12 @@ display data, but it does not own policy evaluation or trace storage.
 
 TrustLoopGuard is designed around channel budgets:
 
-| Channel | Target |
-| --- | --- |
-| Streaming chat | deterministic checks under the realtime budget |
-| Chat | synchronous guardrail decisions before the message is shown |
+| Channel        | Target                                                        |
+| -------------- | ------------------------------------------------------------- |
+| Streaming chat | deterministic checks under the realtime budget                |
+| Chat           | synchronous guardrail decisions before the message is shown   |
 | Email and jobs | slower checks are acceptable because delivery is asynchronous |
-| Replay | offline analysis can spend more time for richer evaluation |
+| Replay         | offline analysis can spend more time for richer evaluation    |
 
 The hot path starts with deterministic policies because that is the only layer
 that can be consistently fast enough for realtime streaming.

@@ -72,7 +72,7 @@ fn fifty_policies() -> Vec<Policy> {
 id: bench-pol-{i}
 match:
   literal: "needle-{i}-{i}-never-in-text"
-action: block
+action: deny
 severity: low
 "#
             );
@@ -175,7 +175,7 @@ fn bench_check_sync_policy_block_4kb(c: &mut Criterion) {
 id: phone-number-block
 match:
   regex: "\\b\\d{3}-\\d{3}-\\d{4}\\b"
-action: block
+action: deny
 severity: high
 "#,
     )

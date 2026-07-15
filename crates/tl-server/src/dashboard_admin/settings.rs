@@ -3,7 +3,7 @@ use tl_core::{DataHandlingMode, EnforcementMode, WorkspaceSettings};
 
 pub fn default_settings() -> WorkspaceSettings {
     WorkspaceSettings {
-        default_action: "allow".to_string(),
+        default_action: "permit".to_string(),
         escalation_webhook_url: None,
         telemetry_enabled: true,
         retention_days: "30".to_string(),

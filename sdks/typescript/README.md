@@ -26,7 +26,8 @@ const reply = await client.withRun({ agentId: 'my-agent', kind: 'chat_session' }
       input: userMessage,
       draft: agentDraft,
       onBlock: () => "I can't help with that.",
-      onEscalate: () => 'A human will follow up.',
+      onRequireApproval: () => 'A human must approve this action.',
+      onDefer: () => 'This action needs more evidence before it can proceed.',
     }),
   );
 });
@@ -62,8 +63,12 @@ import { guard } from '@trustloopguard/sdk';
 const guardrail = guard({
   agentId: 'my-agent',
   apiKey: process.env.TLG_API_KEY,
-  onBlock:    () => "I can't help with that.",
-  onEscalate: () => { humanQueue.push(draft); return 'A human will follow up.'; },
+  onBlock: () => "I can't help with that.",
+  onRequireApproval: () => {
+    humanQueue.push(draft);
+    return 'A human must approve this action.';
+  },
+  onDefer: () => 'This action needs more evidence before it can proceed.',
 });
 ```
 

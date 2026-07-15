@@ -1,6 +1,6 @@
 # Human Review Analytics
 
-Human review analytics record what a customer reviewer did after a guardrail decision. They measure customer-side intervention separately from TrustLoopGuard's automated verdicts.
+Human review analytics record what a customer reviewer did after a guardrail decision. They measure customer-side intervention separately from TrustLoopGuard's automated authorization effects.
 
 TrustLoopGuard stores review outcomes for audit and analytics only. It does not assign reviewers, own the customer's queue, or decide whether the customer's final artifact is correct.
 
@@ -36,6 +36,6 @@ Reviewer notes are potentially sensitive. They are stored as review-event detail
 
 ## Analytics
 
-`GET /v1/analytics/human-review` returns Rust-computed aggregates for the dashboard. Automated guardrail intervention is `block + rewrite + escalate`. Human intervention is `corrected + rejected + missed_issue`.
+`GET /v1/analytics/human-review` returns Rust-computed aggregates for the dashboard. Automated guardrail intervention is `deny + transform + require_approval + defer`. Human intervention is `corrected + rejected + missed_issue`.
 
 The human intervention rate uses total filtered traces as its denominator, so it can be compared with automated guardrail intervention rates without changing chart semantics.

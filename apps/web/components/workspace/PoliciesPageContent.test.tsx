@@ -3,10 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { PoliciesPageContent } from './PoliciesPageContent';
-import type {
-  DashboardShellData,
-  FamilyPolicyRow,
-} from '@/lib/server/dashboard-data';
+import type { DashboardShellData, FamilyPolicyRow } from '@/lib/server/dashboard-data';
 
 const getPolicy = vi.fn();
 
@@ -107,13 +104,13 @@ function financialPolicy(): FamilyPolicyRow {
       rails: ['payment_http'],
     },
     per_transaction_minor: 10_000,
-    hold_above_minor: 5_000,
+    approval_threshold_minor: 5_000,
     daily_minor: 50_000,
     monthly_minor: 500_000,
     required_preconditions: ['order_exists', 'amount_lte_refundable_balance'],
-    missing_evidence_action: 'escalate',
-    failed_precondition_action: 'block',
-    on_breach: 'block',
+    missing_evidence_effect: 'require_approval',
+    failed_precondition_effect: 'deny',
+    on_breach: 'deny',
     enabled: true,
   };
 }

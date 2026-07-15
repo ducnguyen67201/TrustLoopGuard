@@ -3,7 +3,7 @@ import { GITHUB_URL } from '@/lib/github';
 const ACTION_ID = '0195f2a4-7c31-7a4e-a50e-2d36fb38ec42';
 const DISPLAY_ACTION_ID = '0195f2a4…38ec42';
 const DECISION_FIELDS = [
-  ['decision', 'hold'],
+  ['effect', 'require_approval'],
   ['authority', 'passed'],
   ['risk', 'amount_above_threshold'],
   ['approval', 'required'],
@@ -21,7 +21,8 @@ export function Evidence() {
           </h2>
         </div>
         <p className="section-copy">
-          See what was requested, what passed, why approval is needed, and whether execution started.
+          See what was requested, what passed, why approval is needed, and whether execution
+          started.
         </p>
       </div>
 
@@ -32,18 +33,34 @@ export function Evidence() {
               <span>Example decision receipt</span>
               <code title={ACTION_ID}>{DISPLAY_ACTION_ID}</code>
             </div>
-            <span className="record-state record-state-held">Held</span>
+            <span className="record-state record-state-held">Approval required</span>
           </header>
 
           <div className="trace-event">
             <div className="trace-event-title">
               <span className="trace-dot" aria-hidden="true" />
-              <div><small>FinancialAction</small><strong>refund · issue_refund</strong></div>
+              <div>
+                <small>FinancialAction</small>
+                <strong>refund · issue_refund</strong>
+              </div>
             </div>
             <dl>
-              <div><dt>principal_id</dt><dd>refund-bot</dd></div>
-              <div><dt>amount</dt><dd>$75.00 USD</dd></div>
-              <div><dt>status</dt><dd>held</dd></div>
+              <div>
+                <dt>principal_id</dt>
+                <dd>refund-bot</dd>
+              </div>
+              <div>
+                <dt>amount</dt>
+                <dd>$75.00 USD</dd>
+              </div>
+              <div>
+                <dt>authorization_status</dt>
+                <dd>pending_approval</dd>
+              </div>
+              <div>
+                <dt>execution_status</dt>
+                <dd>not_started</dd>
+              </div>
             </dl>
           </div>
 
@@ -51,14 +68,18 @@ export function Evidence() {
             {DECISION_FIELDS.map(([field, value]) => (
               <div key={field}>
                 <dt>{field}</dt>
-                <dd className={field === 'decision' ? 'verdict-held' : undefined}>{value}</dd>
+                <dd className={field === 'effect' ? 'effect-held' : undefined}>{value}</dd>
               </div>
             ))}
           </dl>
 
           <footer>
             <span title="financial_action_decision_receipt.v1">decision_receipt.v1</span>
-            <a href={`${GITHUB_URL}/blob/main/crates/tl-core/src/financial.rs`} target="_blank" rel="noreferrer">
+            <a
+              href={`${GITHUB_URL}/blob/main/crates/tl-core/src/financial.rs`}
+              target="_blank"
+              rel="noreferrer"
+            >
               View types ↗
             </a>
           </footer>
@@ -66,13 +87,15 @@ export function Evidence() {
 
         <div className="evidence-notes">
           <EvidenceNote number="01" title="Authority is checked before policy">
-            Mandate scope proves what this principal may do for this specific action.
+            Grant scope proves what this principal may do for this specific action.
           </EvidenceNote>
           <EvidenceNote number="02" title="Execution is a separate state">
-            A held action cannot execute until approval moves it to authorized.
+            An approval-required action cannot execute until a matching grant and current policy
+            produce permit.
           </EvidenceNote>
           <EvidenceNote number="03" title="Proof exists on both sides">
-            A decision receipt explains authorization before execution; an execution receipt records what moved.
+            A decision receipt explains authorization before execution; an execution receipt records
+            what moved.
           </EvidenceNote>
         </div>
       </div>
@@ -92,7 +115,10 @@ function EvidenceNote({
   return (
     <article>
       <span>{number}</span>
-      <div><h3>{title}</h3><p>{children}</p></div>
+      <div>
+        <h3>{title}</h3>
+        <p>{children}</p>
+      </div>
     </article>
   );
 }

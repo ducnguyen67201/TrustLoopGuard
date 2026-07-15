@@ -7,11 +7,11 @@ const CAP = 5000;
 const PEAK = 6400;
 const CAP_MARK_PCT = (CAP / PEAK) * 100;
 
-type Phase = 'screening' | 'approach' | 'escalate' | 'block';
+type Phase = 'screening' | 'approach' | 'require_approval' | 'deny';
 
 function phaseFor(spend: number): Phase {
-  if (spend >= 6000) return 'block';
-  if (spend >= CAP) return 'escalate';
+  if (spend >= 6000) return 'deny';
+  if (spend >= CAP) return 'require_approval';
   if (spend >= 4000) return 'approach';
   return 'screening';
 }
@@ -19,11 +19,11 @@ function phaseFor(spend: number): Phase {
 const STATUS: Record<Phase, string> = {
   screening: 'screening · within cap',
   approach: 'approaching cap',
-  escalate: 'escalate · approval required',
-  block: 'block · declined',
+  require_approval: 'require approval',
+  deny: 'deny · exceeds hard cap',
 };
 
-export function SpendToVerdict() {
+export function SpendToEffect() {
   const trackRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
   const [reduced, setReduced] = useState(false);
@@ -58,7 +58,7 @@ export function SpendToVerdict() {
     };
   }, []);
 
-  // Reach the peak (and the BLOCK verdict) by 70% of the scroll, then dwell on it
+  // Reach the peak (and the BLOCK effect) by 70% of the scroll, then dwell on it
   // so the final state stays visible regardless of viewport height / sticky release.
   const spend = Math.min(PEAK, Math.round((progress / 0.7) * PEAK));
   const phase = phaseFor(spend);
@@ -70,7 +70,7 @@ export function SpendToVerdict() {
     <section id="live" aria-labelledby="live-heading" className="scrolly">
       <div ref={trackRef} className="scrolly-track" data-reduced={reduced}>
         <div className="scrolly-stage">
-          <Eyebrow>Live · spend &rarr; verdict</Eyebrow>
+          <Eyebrow>Live · spend &rarr; effect</Eyebrow>
           <h2 id="live-heading" className="section-title max-w-3xl">
             Watch the cap fire.
           </h2>
@@ -147,14 +147,14 @@ export function SpendToVerdict() {
                   approaching the daily cap, watching the next charge
                 </div>
               )}
-              {phase === 'escalate' && (
-                <div className="sv-line sv-verdict-escalate" key="escalate">
-                  <span className="sv-chip">escalate</span>
+              {phase === 'require_approval' && (
+                <div className="sv-line sv-effect-escalate" key="escalate">
+                  <span className="sv-chip">require approval</span>
                   over cap, routed to a human for approval
                 </div>
               )}
-              {phase === 'block' && (
-                <div className="sv-line sv-verdict-block" key="block">
+              {phase === 'deny' && (
+                <div className="sv-line sv-effect-block" key="block">
                   <span className="sv-stamp">
                     <svg
                       width="11"
@@ -170,8 +170,8 @@ export function SpendToVerdict() {
                     declined
                   </span>
                   <div>
-                    <strong>block</strong> &middot; exceeds ${CAP.toLocaleString('en-US')}/day cap
-                    by ${(spend - CAP).toLocaleString('en-US')}
+                    <strong>deny</strong> &middot; exceeds ${CAP.toLocaleString('en-US')}/day cap by
+                    ${(spend - CAP).toLocaleString('en-US')}
                     <div className="sv-trace">trace tr_9f3a71c4e2 &middot; &#10003; ed25519</div>
                   </div>
                 </div>

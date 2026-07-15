@@ -79,7 +79,7 @@ The Rust source of truth is `crates/tl-core/src/agent.rs`. The validation rules 
 | | |
 |---|---|
 | Required | ≥1 entry |
-| Used by | future Tier 2 out-of-scope embeddings (v0 boots indexes but doesn't yet enforce a verdict from them) |
+| Used by | future Tier 2 out-of-scope embeddings (v0 boots indexes but does not yet enforce an effect from them) |
 | Effect | Each entry is embedded once at boot and indexed by HNSW. At check time the draft is embedded and compared. |
 | Best practice | Topic phrases, not full sentences. `"billing questions"` beats `"the user is asking about billing"`. 3–10 entries is a healthy size. |
 
@@ -114,7 +114,7 @@ The Rust source of truth is `crates/tl-core/src/agent.rs`. The validation rules 
 
 | | |
 |---|---|
-| Required | no (but Tier 3 tone judge produces a meaningful verdict only when set) |
+| Required | no (but Tier 3 tone judge produces a meaningful effect only when set) |
 | Used by | Tier 3 **tone** judge |
 | Effect | Substituted into `{{TONE_TARGET}}`. The judge decides whether the draft "matches the target tone." |
 | Best practice | A short phrase the LLM will understand: `"warm-professional"`, `"warm, concise, factual"`, `"clinical-neutral"`. Don't write a paragraph — the judge needs a *label*, not an essay. |
@@ -208,7 +208,7 @@ match:
     - literal: "guaranteed"
     - literal: "definitely will"
     - literal: "I promise"
-action: rewrite
+action: transform
 rewrite: "Strip the guarantee, hedge the promise."
 severity: medium
 ```

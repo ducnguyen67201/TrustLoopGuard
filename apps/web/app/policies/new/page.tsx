@@ -28,10 +28,7 @@ export default async function NewPolicyPage({
     <AppLayout
       title="New protection rule"
       workspaceSlug={workspaceSlug}
-      breadcrumbs={[
-        { label: 'Protection rules', href: policiesHref },
-        { label: 'New rule' },
-      ]}
+      breadcrumbs={[{ label: 'Protection rules', href: policiesHref }, { label: 'New rule' }]}
     >
       <div className="grid gap-6 px-4 lg:px-6">
         <PageHeader
@@ -64,10 +61,7 @@ export default async function NewPolicyPage({
   );
 }
 
-async function createPolicy(
-  _state: PolicyFormState,
-  formData: FormData,
-): Promise<PolicyFormState> {
+async function createPolicy(_state: PolicyFormState, formData: FormData): Promise<PolicyFormState> {
   'use server';
 
   const workspaceSlug = readOptionalString(formData, 'workspaceSlug');
@@ -112,7 +106,7 @@ type ValidatedPolicyForm = {
   policyKey: string;
   description: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
-  action: 'block' | 'rewrite' | 'escalate';
+  action: 'deny' | 'transform' | 'require_approval';
   agentId: string | null;
 };
 
@@ -141,7 +135,11 @@ function validatePolicyForm(formData: FormData): PolicyValidationResult {
   ] as const);
   if (severity === null) fieldErrors.severity = 'Choose a severity.';
 
-  const action = readEnumOrNull(formData, 'action', ['block', 'rewrite', 'escalate'] as const);
+  const action = readEnumOrNull(formData, 'action', [
+    'deny',
+    'transform',
+    'require_approval',
+  ] as const);
   if (action === null) fieldErrors.action = 'Choose an action.';
 
   if (
@@ -212,7 +210,7 @@ function initialPolicyValues(params: Record<string, string | string[] | undefine
     policyKey?: string;
     sourceYaml?: string;
     severity?: 'low' | 'medium' | 'high' | 'critical';
-    action?: 'block' | 'rewrite' | 'escalate';
+    action?: 'deny' | 'transform' | 'require_approval';
     enabled?: boolean;
   } = {};
   const description = readSearchString(params['description']);
@@ -224,10 +222,16 @@ function initialPolicyValues(params: Record<string, string | string[] | undefine
   if (description !== undefined) values.description = description;
   if (policyKey !== undefined) values.policyKey = policyKey;
   if (sourceYaml !== undefined) values.sourceYaml = sourceYaml;
-  if (severity === 'low' || severity === 'medium' || severity === 'high' || severity === 'critical') {
+  if (
+    severity === 'low' ||
+    severity === 'medium' ||
+    severity === 'high' ||
+    severity === 'critical'
+  ) {
     values.severity = severity;
   }
-  if (action === 'block' || action === 'rewrite' || action === 'escalate') values.action = action;
+  if (action === 'deny' || action === 'transform' || action === 'require_approval')
+    values.action = action;
   if (enabled !== undefined) values.enabled = enabled === 'true';
   return values;
 }

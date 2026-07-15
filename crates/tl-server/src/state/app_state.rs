@@ -6,11 +6,12 @@ use tokio::sync::mpsc as tokio_mpsc;
 use crate::agents::AgentStore;
 use crate::analytics::AnalyticsStore;
 use crate::auth_user::UserStore;
+use crate::authorization::{AuthorizationCoordinator, AuthorizationStore};
 use crate::budget_alerts::BudgetAlertStore;
 use crate::dashboard_admin::{ApiKeyStore, SettingsStore};
 use crate::environments::EnvironmentStore;
 use crate::escalation::{EscalationPayload, WebhookDelivery};
-use crate::financial::FinancialStore;
+use crate::financial::{FinancialExecutor, FinancialStore};
 use crate::gateway::GatewayStore;
 use crate::github_integration::{GitHubIntegrationMessage, GitHubIntegrationStore};
 use crate::human_review::HumanReviewStore;
@@ -39,6 +40,12 @@ pub struct AppState {
     /// The event pipeline reads the same backing store through its
     /// `ToolMetadataProvider` seam.
     pub tool_metadata_store: Arc<dyn ToolMetadataStore>,
+    /// Canonical approval, grant, lease, and receipt state shared by every
+    /// authorization domain.
+    pub authorization_store: Arc<dyn AuthorizationStore>,
+    /// Orchestrates typed policy findings, grants, approvals, leases, and
+    /// receipts for every domain over the shared store.
+    pub authorization_coordinator: Arc<AuthorizationCoordinator>,
     /// Workspace source label policies (control-plane CRUD surface).
     /// The event pipeline reads the same backing store through its
     /// `LabelPolicyProvider` seam.
@@ -48,6 +55,10 @@ pub struct AppState {
     pub analytics_store: Arc<dyn AnalyticsStore>,
     pub human_review_store: Arc<dyn HumanReviewStore>,
     pub financial_store: Arc<dyn FinancialStore>,
+    /// Optional domain executor override. Production defaults to the
+    /// payment HTTP executor; tests and embedded deployments may supply a
+    /// deterministic executor without changing authorization behavior.
+    pub financial_executor: Option<Arc<dyn FinancialExecutor>>,
     /// LLM gateway metering log. The gateway budget hook writes one
     /// event per metered chat completion and sums spend windows here;
     /// `GET /v1/llm-usage` reads the same rows.
@@ -89,7 +100,7 @@ pub struct AppState {
     /// forwarding for identity.
     pub jwt_signer: Option<Arc<crate::jwt::JwtSigner>>,
     /// Channel into the escalation webhook worker. `None` when no
-    /// `TL_ESCALATION_WEBHOOK_URL` is configured — Escalate decisions
+    /// `TL_ESCALATION_WEBHOOK_URL` is configured — deferred decisions
     /// are still produced, just never delivered downstream.
     pub escalation_tx: Option<tokio_mpsc::Sender<EscalationPayload>>,
     /// Durable store for red-team dispatch jobs + per-attack results.

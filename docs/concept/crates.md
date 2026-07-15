@@ -42,7 +42,8 @@ TypeScript on one source of truth.
 
 **Exports:**
 - `GuardEvent` — what the customer sends in for runtime decisions
-- `Decision` — what TrustLoopGuard sends back
+- `AuthorizationDecision` — the common result returned for every authorization domain
+- `AuthorizationEffect`, `AuthorizationIntentStatus`, approvals, grants, leases, and receipts — the unified authorization contract
 - `EventKind` — dotted event taxonomy such as `output.proposed` and `tool.call.proposed`
 - `Principal`, `Action`, `SideEffectClass` — event identity and proposed operation vocabulary
 - `Source`, `Labels`, `ProvenanceMap` — source attribution and data classification vocabulary
@@ -50,7 +51,6 @@ TypeScript on one source of truth.
 - `AgentListResponse` — `GET /v1/agents` response
 - `PolicyValidateResponse` — `POST /v1/policies/validate` response
 - `PolicyValidationIssue` — one policy authoring parse/validation error
-- `Verdict` — the four possible outcomes (`Allow`, `Block`, `Rewrite`, `Escalate`)
 - `Channel` — `Voice`, `Chat`, `Email`
 - `Severity` — `Low`, `Medium`, `High`, `Critical`
 - `TriggeredPolicy` — record of which policies fired and why
@@ -97,7 +97,7 @@ match:
   any:
     - regex: "(?i)\\b(refund|guarantee)\\b"
     - literal: "I promise"
-action: rewrite
+action: transform
 rewrite: "I'll connect you with a teammate."
 severity: high
 ```
@@ -147,7 +147,7 @@ For token-by-token text agents: feed chunks in, get `Continue` or `Interrupt` ou
 
 **Exports:**
 - `StreamingChecker` — stateful buffer with a sliding window
-- `StreamDecision` — `Continue | Interrupt { verdict, reason }`
+- `StreamDecision` — `Continue | Interrupt { effect, reason }`
 
 **Why it's its own crate:** streaming has different state semantics from sync `check()`. Mixing them complicates `tl-engine`. Keeping them separate keeps the sync path uncluttered.
 
@@ -237,7 +237,7 @@ policies); storage accepts typed data and persists it.
 Re-runs stored decisions against a new engine snapshot. Lets customers tune policies confidently — "if I add policy X, what would have happened to yesterday's traffic?"
 
 **Exports:**
-- `ReplayDiff` — verdict before/after, plus a `changed: bool`
+- `ReplayDiff` — authorization effect before/after, plus a `changed: bool`
 - `diff(original, replayed)` — pure diff helper
 - `replay_against(engine, original, request)` — run the new engine, diff the result
 

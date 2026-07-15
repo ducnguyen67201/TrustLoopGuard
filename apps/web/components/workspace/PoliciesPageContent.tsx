@@ -43,7 +43,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { VerdictLegend } from '@/components/ui/verdict-legend';
+import { AuthorizationEffectLegend } from '@/components/ui/authorization-effect-legend';
 import { PolicyBuilderEditor } from '@/components/policies/PolicyBuilderEditor';
 import { PolicyYamlDiffEditor } from '@/components/policies/PolicyYamlDiffEditor';
 import type { VersionEntry } from '@/components/policies/VersionPicker';
@@ -78,24 +78,32 @@ type PoliciesPageData = DashboardShellData & {
 
 type DeleteTarget = { ids: string[]; label: string } | null;
 
-type VerdictVariant = 'allow' | 'rewrite' | 'block' | 'escalate';
+type EffectVariant = 'permit' | 'transform' | 'deny' | 'require_approval' | 'defer';
 
-const VERDICT_ACTIONS: ReadonlySet<string> = new Set(['allow', 'rewrite', 'block', 'escalate']);
+const EFFECT_ACTIONS: ReadonlySet<string> = new Set([
+  'permit',
+  'transform',
+  'deny',
+  'require_approval',
+  'defer',
+]);
 
 // Friendly, capitalized label + one-line meaning for each action so the table
-// reads like English rather than lowercase tokens. Mirrors lib/glossary verdicts.
+// reads like English rather than lowercase tokens. Mirrors lib/glossary effects.
 const ACTION_LABEL: Record<string, string> = {
-  allow: 'Allow',
-  rewrite: 'Rewrite',
-  block: 'Block',
-  escalate: 'Escalate',
+  permit: 'Permit',
+  transform: 'Transform',
+  deny: 'Deny',
+  require_approval: 'Require approval',
+  defer: 'Defer',
 };
 
 const ACTION_HELP: Record<string, string> = {
-  allow: 'Lets the request through unchanged.',
-  rewrite: 'Cleans up the request, then lets it through.',
-  block: 'Stops the request when this rule matches.',
-  escalate: 'Holds the request for a person to review.',
+  permit: 'Lets the request through unchanged.',
+  transform: 'Uses a safe transformed value.',
+  deny: 'Stops the request when this rule matches.',
+  require_approval: 'Holds the request for an authorized reviewer.',
+  defer: 'Stops until missing evidence or unavailable checks are resolved.',
 };
 
 const FAMILY_LABEL: Record<string, string> = {
@@ -107,9 +115,9 @@ const SUPPORTED_POLICY_FAMILIES = ['content', 'financial'] as const;
 
 function ActionBadge({ action }: { action: string }) {
   const key = action.toLowerCase();
-  if (VERDICT_ACTIONS.has(key)) {
+  if (EFFECT_ACTIONS.has(key)) {
     return (
-      <Badge variant={key as VerdictVariant} title={ACTION_HELP[key]}>
+      <Badge variant={key as EffectVariant} title={ACTION_HELP[key]}>
         {ACTION_LABEL[key] ?? action}
       </Badge>
     );
@@ -267,7 +275,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
       header: (
         <span className="inline-flex items-center gap-1">
           On a match
-          <InfoHint term="verdict" />
+          <InfoHint term="effect" />
         </span>
       ),
       cell: (row) => <ActionBadge action={row.action} />,
@@ -604,7 +612,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
                 <p className="mb-3 text-xs font-medium text-muted-foreground">
                   What the “On a match” column means
                 </p>
-                <VerdictLegend verdicts={['rewrite', 'escalate', 'block']} />
+                <AuthorizationEffectLegend effects={['transform', 'require_approval', 'deny']} />
               </div>
             </>
           ) : (
@@ -759,7 +767,8 @@ function mergeRegistryPolicies(
       family: 'financial',
       description: policy.description?.trim() || financialPolicyScope(policy),
       severity: policy.severity ?? 'high',
-      action: policy.hold_above_minor != null ? 'escalate' : (policy.on_breach ?? 'block'),
+      action:
+        policy.approval_threshold_minor != null ? 'require_approval' : (policy.on_breach ?? 'deny'),
       enabled: policy.enabled ?? true,
       agent: policy.when?.agents?.[0] ?? 'Global',
     }));
@@ -779,7 +788,7 @@ function FinancialPolicyDetails({ policy }: { policy: FamilyPolicyRow | undefine
       <FinancialCap label="per action" value={policy.per_transaction_minor} currency={currency} />
       <FinancialCap label="daily" value={policy.daily_minor} currency={currency} />
       <FinancialCap label="monthly" value={policy.monthly_minor} currency={currency} />
-      <FinancialCap label="hold" value={policy.hold_above_minor} currency={currency} />
+      <FinancialCap label="approval" value={policy.approval_threshold_minor} currency={currency} />
       {policy.required_preconditions?.length ? (
         <Badge variant="outline" className="text-xs">
           {policy.required_preconditions.length} evidence checks

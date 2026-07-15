@@ -7,6 +7,6 @@
  * - `Shadow`: the checker is evaluated and full hypothetical evidence is
  *   recorded, but the decision is never changed.
  * - `Enforce`: the checker is evaluated and its findings can change the
- *   decision (worst verdict wins).
+ *   decision (the strongest authorization effect wins).
  */
 export type EnforcementMode = "off" | "shadow" | "enforce";

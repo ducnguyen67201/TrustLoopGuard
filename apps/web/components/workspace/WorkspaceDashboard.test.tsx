@@ -68,7 +68,7 @@ function makeData(): WorkspaceDashboardData {
     metrics: [{ label: 'Requests', value: '120', delta: '+4%', detail: 'last 24h' }],
     recentDecisions: [],
     settings: {
-      defaultAction: 'allow',
+      defaultAction: 'permit',
       escalationWebhookUrl: null,
       telemetryEnabled: true,
       retentionDays: '30',

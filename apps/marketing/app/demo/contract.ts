@@ -60,15 +60,14 @@ const actionIdSchema = z.string().uuid('Action ID must be a UUID.');
 
 const statusSchema = z.object({
   actionId: actionIdSchema,
-  status: z.enum([
-    'proposed',
-    'authorized',
-    'held',
-    'executed',
-    'denied',
+  authorizationEffect: z.enum(['permit', 'deny', 'transform', 'require_approval', 'defer']),
+  executionStatus: z.enum([
+    'not_started',
+    'executing',
+    'succeeded',
     'failed',
+    'canceled',
     'reversed',
-    'expired',
   ]),
   orderId: z.string().max(100),
   amountMinor: z.number().int().positive(),

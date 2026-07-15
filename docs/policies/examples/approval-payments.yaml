@@ -7,4 +7,4 @@ when:
   side_effects: [api_mutation]
 approver_roles: [admin]
 reason: "Irreversible money movement."
-action: escalate
+action: require_approval

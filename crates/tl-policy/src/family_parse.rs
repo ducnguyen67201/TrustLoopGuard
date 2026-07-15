@@ -7,13 +7,12 @@
 
 use serde::Deserialize;
 
-use tl_core::SpendMeter;
+use tl_core::{AuthorizationEffect, SpendMeter};
 
 use crate::family_ast::{
     AnyPolicy, ApprovalPolicy, FamilyPolicy, FinancialPolicy, FinancialWhen, FlowPolicy, FlowRule,
     SourceLabelFamilyPolicy,
 };
-use crate::policy_ast::Action;
 use crate::policy_parse::{format_issues, load_str, PolicyError, ValidationIssue};
 
 /// Every recognized `family:` tag value. `content` selects the legacy
@@ -165,15 +164,14 @@ fn validate_financial(financial: &FinancialPolicy, issues: &mut Vec<ValidationIs
     }
 
     let has_amount_control = financial.per_transaction_minor.is_some()
-        || financial.hold_above_minor.is_some()
+        || financial.approval_threshold_minor.is_some()
         || financial.daily_minor.is_some()
         || financial.weekly_minor.is_some()
-        || financial.monthly_minor.is_some()
-        || financial.approval_threshold_minor.is_some();
+        || financial.monthly_minor.is_some();
     let has_rule_control = !financial.allowed_counterparty_ids.is_empty()
         || !financial.denied_counterparty_ids.is_empty()
-        || financial.hold_new_counterparty
-        || financial.mandate_required
+        || financial.require_approval_for_new_counterparty
+        || financial.grant_required
         || financial.refund_original_method_only
         || !financial.required_preconditions.is_empty();
     if !has_amount_control && !has_rule_control {
@@ -185,14 +183,13 @@ fn validate_financial(financial: &FinancialPolicy, issues: &mut Vec<ValidationIs
 
     for (field, value) in [
         ("per_transaction_minor", financial.per_transaction_minor),
-        ("hold_above_minor", financial.hold_above_minor),
-        ("daily_minor", financial.daily_minor),
-        ("weekly_minor", financial.weekly_minor),
-        ("monthly_minor", financial.monthly_minor),
         (
             "approval_threshold_minor",
             financial.approval_threshold_minor,
         ),
+        ("daily_minor", financial.daily_minor),
+        ("weekly_minor", financial.weekly_minor),
+        ("monthly_minor", financial.monthly_minor),
     ] {
         if matches!(value, Some(v) if v < 0) {
             issues.push(ValidationIssue::new(field, "amount must be non-negative"));
@@ -214,13 +211,13 @@ fn validate_financial(financial: &FinancialPolicy, issues: &mut Vec<ValidationIs
         issues,
     );
     validate_enforcing_action(
-        "missing_evidence_action",
-        financial.missing_evidence_action,
+        "missing_evidence_effect",
+        financial.missing_evidence_effect,
         issues,
     );
     validate_enforcing_action(
-        "failed_precondition_action",
-        financial.failed_precondition_action,
+        "failed_precondition_effect",
+        financial.failed_precondition_effect,
         issues,
     );
     validate_enforcing_action("on_breach", financial.on_breach, issues);
@@ -276,10 +273,22 @@ fn validate_non_empty_strings(path: &str, values: &[String], issues: &mut Vec<Va
 }
 
 /// Non-content families describe action safety: `allow` and `rewrite`
-/// are content-policy verdicts and make no sense here.
-fn validate_enforcing_action(path: &str, action: Action, issues: &mut Vec<ValidationIssue>) {
-    if !matches!(action, Action::Block | Action::Escalate) {
-        issues.push(ValidationIssue::new(path, "must be block or escalate"));
+/// are content-policy effects and make no sense here.
+fn validate_enforcing_action(
+    path: &str,
+    effect: AuthorizationEffect,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    if !matches!(
+        effect,
+        AuthorizationEffect::Deny
+            | AuthorizationEffect::RequireApproval
+            | AuthorizationEffect::Defer
+    ) {
+        issues.push(ValidationIssue::new(
+            path,
+            "must be deny, defer, or require_approval",
+        ));
     }
 }
 
@@ -302,7 +311,7 @@ mod tests {
 id: refund-promise
 match:
   literal: "refund"
-action: block
+action: deny
 "#;
         let via_any = match load_any_str(yaml).expect("parse") {
             AnyPolicy::Content(policy) => policy,
@@ -322,7 +331,7 @@ family: content
 id: refund-promise
 match:
   literal: "refund"
-action: block
+action: deny
 "#;
         assert!(matches!(
             load_any_str(yaml).expect("parse"),
@@ -335,7 +344,7 @@ action: block
         let yaml = r#"
 family: bananas
 id: nonsense
-action: block
+action: deny
 "#;
         let err = load_any_str(yaml).unwrap_err().to_string();
         assert!(err.contains("unknown policy family `bananas`"), "{err}");
@@ -351,7 +360,7 @@ description: Sensitive data must not reach external sinks.
 severity: critical
 rule: destination_permission
 sinks: [external_communication, network_call]
-action: block
+action: deny
 "#;
         let FamilyPolicy::Flow(flow) = family(yaml) else {
             panic!("expected flow");
@@ -375,7 +384,7 @@ action: block
 family: flow
 id: trusted-control-only
 rule: action_integrity
-action: escalate
+action: require_approval
 "#;
         let FamilyPolicy::Flow(flow) = family(yaml) else {
             panic!("expected flow");
@@ -390,7 +399,7 @@ family: flow
 id: empty-sinks
 rule: destination_permission
 sinks: []
-action: block
+action: deny
 "#;
         let err = load_any_str(yaml).unwrap_err().to_string();
         assert!(err.contains("rule.sinks"), "{err}");
@@ -407,7 +416,7 @@ allowed_sources:
   - origin: user
   - origin: tool
     kind: contact_lookup
-action: block
+action: deny
 "#;
         let FamilyPolicy::ParameterSource(param) = family(yaml) else {
             panic!("expected parameter_source");
@@ -430,7 +439,7 @@ id: incomplete
 tool: ""
 param: " "
 allowed_sources: []
-action: block
+action: deny
 "#;
         let err = load_any_str(yaml).unwrap_err().to_string();
         assert!(err.contains("tool: must not be empty"), "{err}");
@@ -462,22 +471,21 @@ when:
   currencies: [USD]
   rails: [payment_http]
 per_transaction_minor: 10000
-hold_above_minor: 5000
 daily_minor: 50000
 monthly_minor: 500000
 allowed_counterparty_ids: [cust_123]
 denied_counterparty_ids: [cust_blocked]
-hold_new_counterparty: true
-mandate_required: true
+require_approval_for_new_counterparty: true
+grant_required: true
 approval_threshold_minor: 5000
 approver_roles: [finance_admin]
 refund_original_method_only: true
 required_preconditions:
   - order_exists
   - amount_lte_refundable_balance
-missing_evidence_action: escalate
-failed_precondition_action: block
-on_breach: block
+missing_evidence_effect: defer
+failed_precondition_effect: deny
+on_breach: deny
 "#;
         let FamilyPolicy::Financial(financial) = family(yaml) else {
             panic!("expected financial");
@@ -494,13 +502,12 @@ on_breach: block
             vec![tl_core::FinancialRail::PaymentHttp]
         );
         assert_eq!(financial.per_transaction_minor, Some(10000));
-        assert_eq!(financial.hold_above_minor, Some(5000));
         assert_eq!(financial.daily_minor, Some(50000));
         assert_eq!(financial.monthly_minor, Some(500000));
         assert_eq!(financial.allowed_counterparty_ids, vec!["cust_123"]);
         assert_eq!(financial.denied_counterparty_ids, vec!["cust_blocked"]);
-        assert!(financial.hold_new_counterparty);
-        assert!(financial.mandate_required);
+        assert!(financial.require_approval_for_new_counterparty);
+        assert!(financial.grant_required);
         assert_eq!(financial.approval_threshold_minor, Some(5000));
         assert_eq!(financial.approver_roles, vec!["finance_admin"]);
         assert!(financial.refund_original_method_only);
@@ -511,9 +518,15 @@ on_breach: block
                 tl_core::FinancialActionPrecondition::AmountLteRefundableBalance,
             ]
         );
-        assert_eq!(financial.missing_evidence_action, Action::Escalate);
-        assert_eq!(financial.failed_precondition_action, Action::Block);
-        assert_eq!(financial.on_breach, Action::Block);
+        assert_eq!(
+            financial.missing_evidence_effect,
+            AuthorizationEffect::Defer
+        );
+        assert_eq!(
+            financial.failed_precondition_effect,
+            AuthorizationEffect::Deny
+        );
+        assert_eq!(financial.on_breach, AuthorizationEffect::Deny);
     }
 
     /// Every financial policy stored before the meter existed must keep
@@ -632,15 +645,15 @@ when:
   action_kinds: [refund]
 per_transaction_minor: -1
 approver_roles: [""]
-missing_evidence_action: allow
-failed_precondition_action: rewrite
-on_breach: allow
+missing_evidence_effect: permit
+failed_precondition_effect: transform
+on_breach: permit
 "#;
         let err = load_any_str(yaml).unwrap_err().to_string();
         assert!(err.contains("per_transaction_minor"), "{err}");
         assert!(err.contains("approver_roles"), "{err}");
-        assert!(err.contains("missing_evidence_action"), "{err}");
-        assert!(err.contains("failed_precondition_action"), "{err}");
+        assert!(err.contains("missing_evidence_effect"), "{err}");
+        assert!(err.contains("failed_precondition_effect"), "{err}");
         assert!(err.contains("on_breach"), "{err}");
     }
 
@@ -656,7 +669,7 @@ when:
   tools: [payment.transfer]
 approver_roles: [admin]
 reason: "Irreversible money movement."
-action: escalate
+action: require_approval
 "#;
         let FamilyPolicy::Approval(approval) = family(yaml) else {
             panic!("expected approval");
@@ -675,7 +688,7 @@ action: escalate
 family: approval
 id: unconditional
 when: {}
-action: escalate
+action: require_approval
 "#;
         let err = load_any_str(yaml).unwrap_err().to_string();
         assert!(
@@ -690,7 +703,7 @@ action: escalate
 family: memory
 id: no-untrusted-authority-writes
 deny_untrusted_authority_writes: true
-action: escalate
+action: require_approval
 "#;
         let FamilyPolicy::Memory(memory) = family(yaml) else {
             panic!("expected memory");
@@ -699,15 +712,18 @@ action: escalate
     }
 
     #[test]
-    fn non_content_families_reject_allow_and_rewrite_actions() {
+    fn non_content_families_reject_non_enforcing_effects() {
         let yaml = r#"
 family: memory
 id: allow-is-meaningless
 deny_untrusted_authority_writes: true
-action: allow
+action: permit
 "#;
         let err = load_any_str(yaml).unwrap_err().to_string();
-        assert!(err.contains("action: must be block or escalate"), "{err}");
+        assert!(
+            err.contains("action: must be deny, defer, or require_approval"),
+            "{err}"
+        );
     }
 
     #[test]
@@ -716,7 +732,7 @@ action: allow
 family: memory
 id: "Bad Id"
 deny_untrusted_authority_writes: true
-action: block
+action: deny
 "#;
         let err = load_any_str(yaml).unwrap_err().to_string();
         assert!(err.contains("lowercase letters"), "{err}");
@@ -731,7 +747,7 @@ tool: send_email
 param: to
 allowed_sources:
   - origin: user
-action: block
+action: deny
 "#;
         let parsed = family(yaml);
         let serialized = serde_yaml::to_string(&parsed).expect("serialize");

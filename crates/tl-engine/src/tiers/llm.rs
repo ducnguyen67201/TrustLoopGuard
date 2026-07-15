@@ -14,11 +14,11 @@
 //! tier also returns `Skipped` — judges need profile context to be
 //! grounded.
 //!
-//! Verdict aggregation:
-//! - Hallucination not grounded → Block
-//! - Authority not within → Block
-//! - Tone mismatch → Revise (or Escalate if no profile-level rewrite)
-//! - First non-Allow signal wins.
+//! AuthorizationEffect aggregation:
+//! - Hallucination not grounded → Deny
+//! - Authority not within → Deny
+//! - Tone mismatch → Transform
+//! - First non-Permit signal wins.
 
 use std::time::Instant;
 

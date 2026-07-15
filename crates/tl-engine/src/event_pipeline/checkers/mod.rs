@@ -110,18 +110,18 @@ pub(crate) fn origin_str(origin: Origin) -> &'static str {
 /// composer copies onto an enforced decision.
 pub(crate) struct FindingSpec<'a> {
     pub checker_id: &'static str,
-    pub verdict: tl_core::Verdict,
+    pub effect: tl_core::AuthorizationEffect,
     pub rule: &'static str,
     pub reason: String,
     pub offending: &'a [&'a Source],
-    pub failure_mode: &'static str,
+    pub risk_code: &'static str,
     pub harm_class: &'static str,
 }
 
 pub(crate) fn finding(spec: FindingSpec<'_>) -> CheckerFinding {
     CheckerFinding {
         checker_id: spec.checker_id.to_string(),
-        verdict: Some(spec.verdict),
+        effect: Some(spec.effect),
         reason: spec.reason,
         violated_rule: Some(spec.rule.to_string()),
         remediation: None,
@@ -134,7 +134,7 @@ pub(crate) fn finding(spec: FindingSpec<'_>) -> CheckerFinding {
             .offending
             .first()
             .map(|source| origin_str(source.origin).to_string()),
-        failure_mode: Some(spec.failure_mode.to_string()),
+        risk_code: Some(spec.risk_code.to_string()),
         harm_class: Some(spec.harm_class.to_string()),
     }
 }
@@ -192,6 +192,9 @@ pub(crate) mod test_support {
                 operation: "op".into(),
                 parameters: serde_json::Value::Null,
                 side_effect,
+                invocation_id: None,
+                tool_identity: None,
+                authorization: None,
             },
             sources,
             provenance,

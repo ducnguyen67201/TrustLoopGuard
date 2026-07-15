@@ -5,11 +5,12 @@
 
 use serde::{Deserialize, Serialize};
 use tl_core::{
-    AllowedSource, Confidentiality, FinancialActionKind, FinancialActionPrecondition,
-    FinancialRail, Integrity, Origin, PolicyFamily, Severity, SideEffectClass, SpendMeter, Trust,
+    AllowedSource, AuthorizationEffect, Confidentiality, FinancialActionKind,
+    FinancialActionPrecondition, FinancialRail, Integrity, Origin, PolicyFamily, Severity,
+    SideEffectClass, SpendMeter, Trust,
 };
 
-use crate::policy_ast::{Action, Policy, PolicyId};
+use crate::policy_ast::{Policy, PolicyId};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -53,7 +54,7 @@ impl AnyPolicy {
         }
     }
 
-    pub fn action(&self) -> Option<Action> {
+    pub fn action(&self) -> Option<AuthorizationEffect> {
         match self {
             AnyPolicy::Family(policy) => policy.action(),
             AnyPolicy::Content(policy) => Some(policy.action),
@@ -126,7 +127,7 @@ impl FamilyPolicy {
         }
     }
 
-    pub fn action(&self) -> Option<Action> {
+    pub fn action(&self) -> Option<AuthorizationEffect> {
         match self {
             FamilyPolicy::Flow(p) => Some(p.action),
             FamilyPolicy::ParameterSource(p) => Some(p.action),
@@ -138,12 +139,12 @@ impl FamilyPolicy {
     }
 }
 
-fn default_block_action() -> Action {
-    Action::Block
+fn default_deny_effect() -> AuthorizationEffect {
+    AuthorizationEffect::Deny
 }
 
-fn default_escalate_action() -> Action {
-    Action::Escalate
+fn default_defer_effect() -> AuthorizationEffect {
+    AuthorizationEffect::Defer
 }
 
 /// Scope for typed financial actions. Financial policies are meant for the
@@ -183,8 +184,6 @@ pub struct FinancialPolicy {
     #[serde(default)]
     pub per_transaction_minor: Option<i64>,
     #[serde(default)]
-    pub hold_above_minor: Option<i64>,
-    #[serde(default)]
     pub daily_minor: Option<i64>,
     #[serde(default)]
     pub weekly_minor: Option<i64>,
@@ -195,9 +194,9 @@ pub struct FinancialPolicy {
     #[serde(default)]
     pub denied_counterparty_ids: Vec<String>,
     #[serde(default)]
-    pub hold_new_counterparty: bool,
+    pub require_approval_for_new_counterparty: bool,
     #[serde(default)]
-    pub mandate_required: bool,
+    pub grant_required: bool,
     #[serde(default)]
     pub approval_threshold_minor: Option<i64>,
     #[serde(default)]
@@ -206,12 +205,12 @@ pub struct FinancialPolicy {
     pub refund_original_method_only: bool,
     #[serde(default)]
     pub required_preconditions: Vec<FinancialActionPrecondition>,
-    #[serde(default = "default_escalate_action")]
-    pub missing_evidence_action: Action,
-    #[serde(default = "default_block_action")]
-    pub failed_precondition_action: Action,
-    #[serde(default = "default_block_action")]
-    pub on_breach: Action,
+    #[serde(default = "default_defer_effect")]
+    pub missing_evidence_effect: AuthorizationEffect,
+    #[serde(default = "default_deny_effect")]
+    pub failed_precondition_effect: AuthorizationEffect,
+    #[serde(default = "default_deny_effect")]
+    pub on_breach: AuthorizationEffect,
 }
 
 /// Workspace source-label override, stored in the unified policy registry.
@@ -243,7 +242,7 @@ pub struct FlowPolicy {
     pub severity: Severity,
     #[serde(flatten)]
     pub rule: FlowRule,
-    pub action: Action,
+    pub action: AuthorizationEffect,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -268,7 +267,7 @@ pub struct ParameterSourcePolicy {
     pub tool: String,
     pub param: String,
     pub allowed_sources: Vec<AllowedSource>,
-    pub action: Action,
+    pub action: AuthorizationEffect,
 }
 
 /// Human/admin approval requirements for matching actions.
@@ -285,7 +284,7 @@ pub struct ApprovalPolicy {
     pub approver_roles: Vec<String>,
     #[serde(default)]
     pub reason: Option<String>,
-    pub action: Action,
+    pub action: AuthorizationEffect,
 }
 
 /// Conditions selecting which actions require approval. At least one of
@@ -310,7 +309,7 @@ pub struct MemoryPolicy {
     #[serde(default = "default_severity")]
     pub severity: Severity,
     pub deny_untrusted_authority_writes: bool,
-    pub action: Action,
+    pub action: AuthorizationEffect,
 }
 
 fn default_severity() -> Severity {

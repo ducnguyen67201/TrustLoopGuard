@@ -20,10 +20,11 @@ impl FinancialStore for PostgresFinancialAdapter {
     async fn create_action(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         input: tl_core::CreateFinancialActionRequest,
     ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
         self.0
-            .create_action(workspace_id, input)
+            .create_action(workspace_id, environment_id, input)
             .await
             .map(stored_action_record)
             .map_err(financial_store_error)
@@ -32,10 +33,11 @@ impl FinancialStore for PostgresFinancialAdapter {
     async fn get_action(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         action_id: &str,
     ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
         self.0
-            .get_action(workspace_id, action_id)
+            .get_action(workspace_id, environment_id, action_id)
             .await
             .map(stored_action_record)
             .map_err(financial_store_error)
@@ -44,10 +46,11 @@ impl FinancialStore for PostgresFinancialAdapter {
     async fn list_actions(
         &self,
         workspace_id: &str,
+        environment_id: Option<&str>,
     ) -> Result<tl_core::FinancialActionListResponse, FinancialStoreError> {
         let actions = self
             .0
-            .list_actions(workspace_id)
+            .list_actions(workspace_id, environment_id)
             .await
             .map_err(financial_store_error)?
             .into_iter()
@@ -56,55 +59,35 @@ impl FinancialStore for PostgresFinancialAdapter {
         Ok(tl_core::FinancialActionListResponse { actions })
     }
 
-    async fn create_mandate(
+    async fn update_authorization(
         &self,
         workspace_id: &str,
-        input: tl_core::CreateFinancialMandateRequest,
-    ) -> Result<tl_core::FinancialMandate, FinancialStoreError> {
+        environment_id: &str,
+        action_id: &str,
+        intent_id: Option<&str>,
+        _receipt_id: Option<&str>,
+        _effect: tl_core::AuthorizationEffect,
+        _status: tl_core::AuthorizationIntentStatus,
+    ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
         self.0
-            .create_mandate(workspace_id, input)
+            .update_authorization(workspace_id, environment_id, action_id, intent_id)
             .await
-            .map(Into::into)
+            .map(stored_action_record)
             .map_err(financial_store_error)
     }
 
-    async fn list_mandates(
+    async fn transition_execution(
         &self,
         workspace_id: &str,
-    ) -> Result<tl_core::FinancialMandateListResponse, FinancialStoreError> {
-        let mandates = self
-            .0
-            .list_mandates(workspace_id)
-            .await
-            .map_err(financial_store_error)?
-            .into_iter()
-            .map(Into::into)
-            .collect();
-        Ok(tl_core::FinancialMandateListResponse { mandates })
-    }
-
-    async fn get_mandate(
-        &self,
-        workspace_id: &str,
-        mandate_id: &str,
-        version: Option<i32>,
-    ) -> Result<tl_core::FinancialMandate, FinancialStoreError> {
+        environment_id: &str,
+        action_id: &str,
+        status: tl_core::FinancialExecutionStatus,
+        reason: Option<&str>,
+    ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
         self.0
-            .get_mandate(workspace_id, mandate_id, version)
+            .transition_execution(workspace_id, environment_id, action_id, status, reason)
             .await
-            .map(Into::into)
-            .map_err(financial_store_error)
-    }
-
-    async fn revoke_mandate(
-        &self,
-        workspace_id: &str,
-        mandate_id: &str,
-    ) -> Result<tl_core::FinancialMandate, FinancialStoreError> {
-        self.0
-            .revoke_mandate(workspace_id, mandate_id)
-            .await
-            .map(Into::into)
+            .map(stored_action_record)
             .map_err(financial_store_error)
     }
 
@@ -112,12 +95,20 @@ impl FinancialStore for PostgresFinancialAdapter {
         &self,
         workspace_id: &str,
         action_id: &str,
+        authorization_receipt_id: &str,
         trace_id: Option<&str>,
         ledger_event_ids: Vec<String>,
         proof: serde_json::Value,
     ) -> Result<tl_core::FinancialReceipt, FinancialStoreError> {
         self.0
-            .create_receipt(workspace_id, action_id, trace_id, ledger_event_ids, proof)
+            .create_receipt(
+                workspace_id,
+                action_id,
+                authorization_receipt_id,
+                trace_id,
+                ledger_event_ids,
+                proof,
+            )
             .await
             .map(Into::into)
             .map_err(financial_store_error)
@@ -162,113 +153,6 @@ impl FinancialStore for PostgresFinancialAdapter {
             .map(Into::into)
             .collect();
         Ok(tl_core::FinancialOutcomeListResponse { outcomes })
-    }
-
-    async fn create_approval_request(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-        approval: tl_core::ApprovalRequirement,
-    ) -> Result<tl_core::FinancialApprovalRequest, FinancialStoreError> {
-        let expires_at = approval
-            .expires_at
-            .as_deref()
-            .map(chrono::DateTime::parse_from_rfc3339)
-            .transpose()
-            .map_err(|e| FinancialStoreError::Validation(format!("expires_at: {e}")))?
-            .map(|dt| dt.with_timezone(&chrono::Utc));
-        self.0
-            .create_approval_request(
-                workspace_id,
-                action_id,
-                &approval.reason,
-                approval.approver_roles,
-                expires_at,
-                serde_json::json!({}),
-            )
-            .await
-            .map(stored_approval_request)
-            .map_err(financial_store_error)
-    }
-
-    async fn list_approval_requests(
-        &self,
-        workspace_id: &str,
-    ) -> Result<tl_core::FinancialApprovalRequestListResponse, FinancialStoreError> {
-        let approval_requests = self
-            .0
-            .list_approval_requests(workspace_id)
-            .await
-            .map_err(financial_store_error)?
-            .into_iter()
-            .map(stored_approval_request)
-            .collect();
-        Ok(tl_core::FinancialApprovalRequestListResponse { approval_requests })
-    }
-
-    async fn has_current_approved_request(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-    ) -> Result<bool, FinancialStoreError> {
-        self.0
-            .has_current_approved_request(workspace_id, action_id)
-            .await
-            .map_err(financial_store_error)
-    }
-
-    async fn resolve_pending_approval_requests(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-        status: tl_core::FinancialApprovalRequestStatus,
-        decided_by: Option<&str>,
-    ) -> Result<(), FinancialStoreError> {
-        self.0
-            .resolve_pending_approval_requests(workspace_id, action_id, status, decided_by)
-            .await
-            .map_err(financial_store_error)
-    }
-
-    async fn transition_action(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-        status: tl_core::FinancialActionStatus,
-        event_type: &str,
-    ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
-        self.0
-            .transition_status(
-                workspace_id,
-                action_id,
-                status,
-                event_type,
-                serde_json::json!({}),
-            )
-            .await
-            .map(stored_action_record)
-            .map_err(financial_store_error)
-    }
-
-    async fn transition_action_with_reason(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-        status: tl_core::FinancialActionStatus,
-        event_type: &str,
-        reason: &str,
-    ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
-        self.0
-            .transition_status(
-                workspace_id,
-                action_id,
-                status,
-                event_type,
-                serde_json::json!({ "reason": reason }),
-            )
-            .await
-            .map(stored_action_record)
-            .map_err(financial_store_error)
     }
 
     async fn record_ledger_entry(
@@ -463,30 +347,17 @@ fn server_budget_violation(
     }
 }
 
-fn stored_approval_request(
-    row: tl_storage::StoredFinancialApprovalRequest,
-) -> tl_core::FinancialApprovalRequest {
-    tl_core::FinancialApprovalRequest {
-        id: row.id,
-        workspace_id: row.workspace_id,
-        action_id: row.action_id,
-        status: row.status,
-        reason: row.reason,
-        approver_roles: row.approver_roles,
-        decided_by: row.decided_by,
-        decided_at: row.decided_at.map(|value| value.to_rfc3339()),
-        expires_at: row.expires_at.map(|value| value.to_rfc3339()),
-        metadata: row.metadata,
-        created_at: row.created_at.to_rfc3339(),
-        updated_at: row.updated_at.to_rfc3339(),
-    }
-}
-
 fn stored_action_record(row: tl_storage::StoredFinancialAction) -> tl_core::FinancialActionRecord {
     tl_core::FinancialActionRecord {
         id: row.id,
         workspace_id: row.workspace_id,
-        status: row.status,
+        environment_id: row.environment_id,
+        authorization_intent_id: row.authorization_intent_id,
+        authorization_receipt_id: row.authorization_receipt_id,
+        authorization_effect: row.authorization_effect,
+        authorization_status: row.authorization_status,
+        authorization: None,
+        execution_status: row.execution_status,
         status_reason: row.status_reason,
         action: row.action,
         evidence: row.evidence,

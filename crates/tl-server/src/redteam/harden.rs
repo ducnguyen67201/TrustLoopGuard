@@ -48,7 +48,7 @@ fn signal<'a>(session: &'a RedteamAttackSession, reply: &'a str) -> LandedSignal
         attack: &session.attack,
         goal: &session.goal,
         reply,
-        failure_modes: &[],
+        risk_codes: &[],
         harm_classes: &[],
     }
 }
@@ -173,7 +173,7 @@ pub async fn harden_job(
             attack: &group.rep_attack,
             goal: &group.rep_goal,
             reply: &group.replies[0],
-            failure_modes: &[],
+            risk_codes: &[],
             harm_classes: &[],
         };
         let candidate = match synthesize(

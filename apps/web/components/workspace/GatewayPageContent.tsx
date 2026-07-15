@@ -225,7 +225,7 @@ export function GatewayPageContent({
       cell: (row) => {
         const readiness = routeReadiness(data, row);
         return (
-          <Badge variant={readiness.tone === 'ready' ? 'allow' : 'escalate'}>
+          <Badge variant={readiness.tone === 'ready' ? 'permit' : 'require_approval'}>
             {readiness.tone === 'ready' ? <IconCircleCheck /> : <IconAlertTriangle />}
             {readiness.label}
           </Badge>
@@ -832,7 +832,7 @@ function StatCard({
         <div
           className={
             tone === 'warning'
-              ? 'flex size-9 shrink-0 items-center justify-center rounded-md bg-[color-mix(in_oklab,var(--color-escalate),transparent_88%)] text-[var(--color-escalate)] [&_svg]:size-5'
+              ? 'flex size-9 shrink-0 items-center justify-center rounded-md bg-[color-mix(in_oklab,var(--color-require-approval),transparent_88%)] text-[var(--color-require-approval)] [&_svg]:size-5'
               : 'flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground [&_svg]:size-5'
           }
         >
@@ -1123,7 +1123,7 @@ function CredentialBadge({ status }: { status: string | null | undefined }) {
   const normalized = status?.trim().toLowerCase();
   if (normalized === 'sealed' || normalized === 'valid' || normalized === 'active') {
     return (
-      <Badge variant="allow">
+      <Badge variant="permit">
         <IconCircleCheck />
         Saved securely
       </Badge>

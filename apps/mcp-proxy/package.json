@@ -1,0 +1,25 @@
+{
+  "name": "@trustloopguard/mcp-proxy",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Transparent approval-enforcing proxy for one downstream MCP server.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": { "trustloopguard-mcp-proxy": "./dist/index.js" },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "@trustloopguard/sdk": "workspace:*",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.2",
+    "typescript": "6.0.3",
+    "vitest": "^2.1.0"
+  }
+}

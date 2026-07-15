@@ -1,14 +1,14 @@
-// Bring-your-own-agent: gate YOUR money tool on a TrustLoopGuard verdict.
+// Bring-your-own-agent: gate YOUR money tool on a TrustLoopGuard authorization effect.
 //
 // This is the whole integration: (1) register your tool's controls once, then
-// (2) ask the guard before you execute and honor the verdict. Copy this shape
+// (2) ask the guard before you execute and honor the effect. Copy this shape
 // into your own agent. Run end-to-end against a local server with:
 //   make server && pnpm --filter @trustloopguard/demo dispute:byo
 //
 // Prefer not to wrap each call yourself? Point your OpenAI/Anthropic client's
-// baseURL at the gateway proxy instead — same verdicts, no per-call code.
+// baseURL at the gateway proxy instead — same effects, no per-call code.
 
-import type { Decision, GuardEvent } from '@trustloopguard/sdk';
+import type { AuthorizationDecision, GuardEvent } from '@trustloopguard/sdk';
 
 import { API_KEY, createClient, DEFAULT_AGENT_ID, SERVER_URL, WORKSPACE_ID } from '../shared/env';
 
@@ -31,7 +31,7 @@ async function registerTool(): Promise<void> {
       reversible: false,
       params: [
         { path: 'destination', role: 'authority_bearing', allowed_sources: [{ origin: 'tool', kind: 'account_registry' }] },
-        { path: 'amount', role: 'content_bearing', limit: { min: 1, max: 50_000, on_breach: 'block' } },
+        { path: 'amount', role: 'content_bearing', limit: { min: 1, max: 50_000, on_breach: 'deny' } },
       ],
       enabled: true,
     }),
@@ -39,7 +39,7 @@ async function registerTool(): Promise<void> {
   if (!res.ok) throw new Error(`register send_payout -> ${res.status} ${await res.text()}`);
 }
 
-// (2) Before executing your real payment, ask the guard and honor the verdict.
+// (2) Before executing your real payment, ask the guard and honor the effect.
 async function guardedPayout(amountCents: number, destination: string): Promise<void> {
   const client = createClient();
   const event: GuardEvent = {
@@ -50,19 +50,19 @@ async function guardedPayout(amountCents: number, destination: string): Promise<
     provenance: { amount: ['account_registry'], destination: ['account_registry'] },
     context: { product: 'your agent' },
   };
-  const decision: Decision = await client.submitEvent(event);
-  if (decision.verdict === 'allow') {
+  const decision: AuthorizationDecision = await client.submitEvent(event);
+  if (decision.effect === 'permit') {
     // await yourRealPaymentApi(amountCents, destination);
-    process.stdout.write(`allow    → would pay ${amountCents}¢ to ${destination}\n`);
+    process.stdout.write(`permit   → would pay ${amountCents}¢ to ${destination}\n`);
   } else {
-    process.stdout.write(`${decision.verdict.padEnd(8)} → held: ${decision.reason}\n`);
+    process.stdout.write(`${decision.effect.padEnd(18)} → stopped: ${decision.reason}\n`);
   }
 }
 
 async function main(): Promise<void> {
   await registerTool();
-  await guardedPayout(5_000, 'acct_registry_001'); // within cap  -> allow
-  await guardedPayout(900_000, 'acct_registry_001'); // over $500 cap -> block
+  await guardedPayout(5_000, 'acct_registry_001'); // within cap -> permit
+  await guardedPayout(900_000, 'acct_registry_001'); // over $500 cap -> deny
 }
 
 main().catch((error) => {

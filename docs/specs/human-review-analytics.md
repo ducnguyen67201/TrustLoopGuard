@@ -25,7 +25,7 @@ The existing dashboard already has an "intervention rate" chart, but that metric
 
 Automated intervention:
 
-- A TrustLoopGuard decision with verdict `block`, `rewrite`, or `escalate`.
+- A TrustLoopGuard decision with effect `deny`, `transform`, `require_approval`, or `defer`.
 - Derived from persisted traces.
 
 Human intervention:

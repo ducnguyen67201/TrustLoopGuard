@@ -17,6 +17,7 @@ use crate::analytics::MemoryAnalyticsStore;
 use crate::auth_user::MemoryUserStore;
 #[cfg(not(feature = "postgres"))]
 use crate::auth_user::UserStore;
+use crate::authorization::{AuthorizationStore, MemoryAuthorizationStore};
 #[cfg(not(feature = "postgres"))]
 use crate::budget_alerts::BudgetAlertStore;
 use crate::budget_alerts::MemoryBudgetAlertStore;
@@ -81,6 +82,13 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
     let profile_resolver: Arc<dyn ProfileResolver> = mem;
     let policy_store: Arc<dyn PolicyStore> =
         Arc::new(MemoryPolicyStore::with_policies(engine.policies()));
+    let authorization_store: Arc<dyn AuthorizationStore> =
+        Arc::new(MemoryAuthorizationStore::new());
+    let authorization_coordinator = Arc::new(crate::authorization::AuthorizationCoordinator::new(
+        authorization_store.clone(),
+        policy_store.clone(),
+        Arc::new(crate::authorization::adapters::AuthorizationAdapterRegistry::new()),
+    ));
     let cache: Arc<MokaCache> = Arc::new(MokaCache::with_defaults());
     let fuzzy: Arc<dyn FuzzyChecker> = Arc::new(NoOpFuzzyChecker);
     let llm = Arc::new(LlmRouter::empty());
@@ -114,12 +122,15 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         agent_store,
         policy_store,
         tool_metadata_store: tool_metadata,
+        authorization_store,
+        authorization_coordinator,
         label_policy_store: label_policy,
         trace_store: Arc::new(MemoryTraceStore::default()),
         run_store: Arc::new(MemoryRunStore::new()),
         analytics_store: Arc::new(MemoryAnalyticsStore::new()),
         human_review_store: Arc::new(MemoryHumanReviewStore::new()),
         financial_store: Arc::new(MemoryFinancialStore::new()),
+        financial_executor: None,
         llm_usage_store: Arc::new(MemoryLlmUsageStore::new()),
         // Empty workspace price store — metering falls back to the
         // built-in default prices until a workspace edits its own.
@@ -171,6 +182,7 @@ pub(super) fn build_memory_layer(
     Arc<dyn GatewayStore>,
     Arc<dyn ToolMetadataStore>,
     Arc<dyn tl_engine::ToolMetadataProvider>,
+    Arc<dyn AuthorizationStore>,
     Arc<dyn LabelPolicyStore>,
     Arc<dyn tl_engine::LabelPolicyProvider>,
     Arc<dyn RedteamJobStore>,
@@ -202,6 +214,7 @@ pub(super) fn build_memory_layer(
         Arc::new(MemoryGatewayStore::new()) as Arc<dyn GatewayStore>,
         tool_metadata.clone() as Arc<dyn ToolMetadataStore>,
         tool_metadata as Arc<dyn tl_engine::ToolMetadataProvider>,
+        Arc::new(MemoryAuthorizationStore::new()) as Arc<dyn AuthorizationStore>,
         label_policy.clone() as Arc<dyn LabelPolicyStore>,
         label_policy as Arc<dyn tl_engine::LabelPolicyProvider>,
         Arc::new(MemoryRedteamJobStore::new()) as Arc<dyn RedteamJobStore>,

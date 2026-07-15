@@ -40,10 +40,10 @@ Runtime/product pages carry the selected environment in the URL as `environment=
 
 The primary sidebar groups runtime monitoring separately from configuration:
 
-- **Monitor** — `/`, `/runs`, `/review-queue`, `/financial`, `/analytics`, and `/attacks`.
-- **Configure** — `/policies`, `/agents`, `/knowledge-sources`, and `/gateway`.
+- **Monitor** — `/`, `/runs`, `/approvals`, `/financial`, `/analytics`, and `/attacks`.
+- **Configure** — `/policies`, `/grants`, `/agents`, `/knowledge-sources`, and `/gateway`.
 
-`/review-queue` lists the traces the guard escalated or blocked (read from `GET /v1/traces`, filtered to those verdicts client-side) so a person can record a human-review decision via `POST /v1/traces/{trace_id}/review-events`. Recording an outcome is audit-only — it does **not** resume or re-run the stopped action (the agent owns re-issuing the call), matching the product's authorization-layer scope. The submit body is built with `lib/review-outcomes.ts` `buildReviewEventPayload`, the shared home for the review-event contract.
+`/approvals` is the only actionable authorization queue. It reads pending common approvals from Rust, shows the immutable envelope and hash, and lets an Owner/Admin deny the request or mint exact/bounded authority. `/grants` lists and revokes that common authority. Historical human-review events remain analytics-only and cannot resume execution or mint grants. See [`authorization-kernel.md`](authorization-kernel.md) for the runtime contract.
 
 Keep workspace/admin surfaces in the secondary section below the separator. Do not add new primary items as a flat list; choose the existing group that matches the workflow.
 
@@ -83,7 +83,7 @@ for `help` only when a single word in the title needs defining — pass
 
 ### Typography
 
-UI text and prose use the `Inter` sans face (the default). Data — IDs, hashes, metrics, code, and verdict labels — uses `font-mono` (IBM Plex Mono); pair numeric columns with `tabular-nums` (or the `.font-data` helper) for stable digits. Do not set monospace on prose.
+UI text and prose use the `Inter` sans face (the default). Data — IDs, hashes, metrics, code, and effect labels — uses `font-mono` (IBM Plex Mono); pair numeric columns with `tabular-nums` (or the `.font-data` helper) for stable digits. Do not set monospace on prose.
 
 ## DataTable
 
@@ -139,7 +139,8 @@ Always pass an `empty` message tailored to the page (e.g. `"No agents in this wo
 - `/` — recent decisions (`components/workspace/WorkspaceDashboard.tsx`).
 - `/policies` — workspace policies (`components/workspace/PoliciesPageContent.tsx`).
 - `/agents`, `/runs`, `/runs/[id]`, `/knowledge-sources`, `/api-keys`, `/team` — management tables in `components/workspace/ManagementPages.tsx`.
-- `/review-queue` — escalated/blocked actions awaiting human review (`components/workspace/ReviewQueueContent.tsx`).
+- `/approvals` — pending common authorization envelopes (`components/workspace/AuthorizationApprovalsContent.tsx`).
+- `/grants` — active and historical common authority (`components/workspace/AuthorizationGrantsContent.tsx`).
 
 When adding a new page with a table, add an entry to this list in the same PR.
 
@@ -210,13 +211,15 @@ Current adopters: `/onboarding/connect` (SDK quick-start and assistant prompt).
 
 `apps/web/components/onboarding/OnboardingProgress.tsx` renders the 3-segment progress rail for the first-run onboarding flow (`/onboarding/workspace` → `/onboarding/connect` → `/onboarding/verify`). Pass `current: 1 | 2 | 3`; segments up to `current` fill with `bg-primary`, the active one carries `aria-current="step"`. Onboarding progress is **derived, not stored**: no workspace → step 1, no API keys → step 2, no traces → step 3, traces exist → done. There is no durable onboarding flag.
 
-## Verdict badges
+## Authorization effect badges
 
-The guardrail verdict colors (`--color-allow`, `--color-rewrite`, `--color-block`, `--color-escalate`) are exposed as `Badge` variants: `<Badge variant="block">blocked</Badge>`. Use these instead of hand-mapping verdict strings to colors at call sites, so verdict color stays consistent and legible in both themes.
+The five canonical effects are exposed as `Badge` variants: `permit`, `transform`, `deny`, `require_approval`, and `defer`. Use these variants instead of mapping colors at call sites. `AuthorizationEffectLegend` is the shared explanatory key for tables and charts.
+
+`/approvals` is the only actionable review queue. It renders the common approval envelope and domain evidence, always echoes `envelope_hash`, and offers scoped approval only when `proposed_scope` exists. `/grants` creates typed user-intent grants and revokes active authority. Financial pages show authorization and execution as separate read-only columns.
 
 ## Plain-language help (glossary + InfoHint)
 
-The dashboard is full of domain words a non-technical teammate will not know on sight (verdict, policy, agent, gateway, escalate, trace…). Two pieces keep those explained consistently:
+The dashboard is full of domain words a non-technical teammate will not know on sight (effect, grant, policy, agent, gateway, trace). Two pieces keep those explained consistently:
 
 - `apps/web/lib/glossary.ts` — the **one** home for "what does this word mean?". Each entry is `{ label, short }` where `short` is a single jargon-free sentence. Add a term here once; never re-explain the same word with different wording at a call site.
 - `apps/web/components/ui/info-hint.tsx` — `<InfoHint term="policy" />` renders a small "?" affordance that reveals the glossary definition on hover/focus. It is a real, keyboard- and touch-accessible button. Pass `term` for a glossary word, or `children` for one-off help text.
@@ -224,12 +227,12 @@ The dashboard is full of domain words a non-technical teammate will not know on 
 ### When to use it
 
 - Beside a `PageHeader` title via the `help` prop, when the page's name is itself jargon.
-- Next to a table column header or form-field label whose meaning is not obvious (`Verdict`, `Severity`, `Scope`).
+- Next to a table column header or form-field label whose meaning is not obvious (`Effect`, `Severity`, `Scope`).
 - Do **not** scatter it on every label — only where a first-time user would genuinely pause. Over-hinting is as noisy as no hints.
 
-## VerdictLegend
+## AuthorizationEffectLegend
 
-`apps/web/components/ui/verdict-legend.tsx` renders the allow / rewrite / escalate / block key with each verdict's plain-language meaning, pulled from the glossary. Drop `<VerdictLegend />` near any table or chart that shows verdict badges (dashboard recent-decisions, runs, analytics) so a first-time viewer can read the colors without hunting. Keep one legend per surface, not one per table.
+`apps/web/components/ui/authorization-effect-legend.tsx` renders the canonical effect key from the glossary. Place one legend near a table or chart that displays effect badges; do not repeat one per row or card.
 
 ## Gateway setup surface
 

@@ -11,10 +11,13 @@ use axum::{
     http::{header, Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use tl_core::{Decision, ToolMetadataEntry, ToolMetadataListResponse, Verdict};
+use tl_core::{
+    AuthorizationDecision, AuthorizationEffect, ToolMetadataEntry, ToolMetadataListResponse,
+};
 use tl_engine::Engine;
 use tl_server::{memory_app_state, router};
 use tower::ServiceExt;
+use uuid::Uuid;
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
@@ -49,30 +52,42 @@ fn metadata_body(tool: &str) -> serde_json::Value {
     })
 }
 
-fn upsert_request(body: &serde_json::Value, workspace_id: Option<&str>) -> Request<Body> {
-    json_request("POST", "/v1/tool-metadata", workspace_id)
+fn upsert_request(body: &serde_json::Value, workspace_id: &str, owner_id: Uuid) -> Request<Body> {
+    json_request("POST", "/v1/tool-metadata", Some(workspace_id))
+        .header("x-tlg-user-id", owner_id.to_string())
         .body(Body::from(body.to_string()))
         .unwrap()
 }
 
-fn app() -> axum::Router {
-    router(memory_app_state(Arc::new(Engine::empty())), None, [0u8; 32])
+async fn app() -> (axum::Router, String, Uuid) {
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let owner_id = Uuid::new_v4();
+    let workspace = state
+        .team_store
+        .create_workspace(owner_id, "Tool Metadata Tests")
+        .await
+        .unwrap();
+    (router(state, None, [0u8; 32]), workspace.id, owner_id)
 }
 
 #[tokio::test]
 async fn upsert_then_get_round_trips() {
-    let app = app();
+    let (app, workspace_id, owner_id) = app().await;
 
     let resp = app
         .clone()
-        .oneshot(upsert_request(&metadata_body("send_email"), None))
+        .oneshot(upsert_request(
+            &metadata_body("send_email"),
+            &workspace_id,
+            owner_id,
+        ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::CREATED);
 
     let resp = app
         .oneshot(
-            json_request("GET", "/v1/tool-metadata/send_email", None)
+            json_request("GET", "/v1/tool-metadata/send_email", Some(&workspace_id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -88,16 +103,28 @@ async fn upsert_then_get_round_trips() {
 
 #[tokio::test]
 async fn list_scopes_to_workspace() {
-    let app = app();
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let owner_id = Uuid::new_v4();
+    let workspace_a = state
+        .team_store
+        .create_workspace(owner_id, "Tool Metadata A")
+        .await
+        .unwrap();
+    let workspace_b = state
+        .team_store
+        .create_workspace(owner_id, "Tool Metadata B")
+        .await
+        .unwrap();
+    let app = router(state, None, [0u8; 32]);
 
     for (tool, ws) in [
-        ("send_email", "ws_a"),
-        ("run_query", "ws_a"),
-        ("send_email", "ws_b"),
+        ("send_email", workspace_a.id.as_str()),
+        ("run_query", workspace_a.id.as_str()),
+        ("send_email", workspace_b.id.as_str()),
     ] {
         let resp = app
             .clone()
-            .oneshot(upsert_request(&metadata_body(tool), Some(ws)))
+            .oneshot(upsert_request(&metadata_body(tool), ws, owner_id))
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::CREATED);
@@ -105,7 +132,7 @@ async fn list_scopes_to_workspace() {
 
     let resp = app
         .oneshot(
-            json_request("GET", "/v1/tool-metadata", Some("ws_a"))
+            json_request("GET", "/v1/tool-metadata", Some(&workspace_a.id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -124,10 +151,14 @@ async fn list_scopes_to_workspace() {
 
 #[tokio::test]
 async fn invalid_param_path_returns_422() {
+    let (app, workspace_id, owner_id) = app().await;
     let mut body = metadata_body("send_email");
     body["params"][0]["path"] = serde_json::json!("");
 
-    let resp = app().oneshot(upsert_request(&body, None)).await.unwrap();
+    let resp = app
+        .oneshot(upsert_request(&body, &workspace_id, owner_id))
+        .await
+        .unwrap();
     assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
 
     let error = read_body(resp).await;
@@ -136,11 +167,15 @@ async fn invalid_param_path_returns_422() {
 
 #[tokio::test]
 async fn duplicate_param_path_returns_422() {
+    let (app, workspace_id, owner_id) = app().await;
     let mut body = metadata_body("send_email");
     let param = body["params"][0].clone();
     body["params"].as_array_mut().unwrap().push(param);
 
-    let resp = app().oneshot(upsert_request(&body, None)).await.unwrap();
+    let resp = app
+        .oneshot(upsert_request(&body, &workspace_id, owner_id))
+        .await
+        .unwrap();
     assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
 
     let error = read_body(resp).await;
@@ -151,19 +186,27 @@ async fn duplicate_param_path_returns_422() {
 /// well-formed-but-invalid JSON to 422 (400 is reserved for syntax errors).
 #[tokio::test]
 async fn unknown_side_effect_is_rejected_at_parse() {
+    let (app, workspace_id, owner_id) = app().await;
     let mut body = metadata_body("send_email");
     body["side_effect"] = serde_json::json!("nonsense");
 
-    let resp = app().oneshot(upsert_request(&body, None)).await.unwrap();
+    let resp = app
+        .oneshot(upsert_request(&body, &workspace_id, owner_id))
+        .await
+        .unwrap();
     assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 #[tokio::test]
 async fn delete_then_get_returns_404() {
-    let app = app();
+    let (app, workspace_id, owner_id) = app().await;
     let resp = app
         .clone()
-        .oneshot(upsert_request(&metadata_body("send_email"), None))
+        .oneshot(upsert_request(
+            &metadata_body("send_email"),
+            &workspace_id,
+            owner_id,
+        ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::CREATED);
@@ -171,9 +214,14 @@ async fn delete_then_get_returns_404() {
     let resp = app
         .clone()
         .oneshot(
-            json_request("DELETE", "/v1/tool-metadata/send_email", None)
-                .body(Body::empty())
-                .unwrap(),
+            json_request(
+                "DELETE",
+                "/v1/tool-metadata/send_email",
+                Some(&workspace_id),
+            )
+            .header("x-tlg-user-id", owner_id.to_string())
+            .body(Body::empty())
+            .unwrap(),
         )
         .await
         .unwrap();
@@ -182,7 +230,7 @@ async fn delete_then_get_returns_404() {
     let resp = app
         .clone()
         .oneshot(
-            json_request("GET", "/v1/tool-metadata/send_email", None)
+            json_request("GET", "/v1/tool-metadata/send_email", Some(&workspace_id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -192,9 +240,14 @@ async fn delete_then_get_returns_404() {
 
     let resp = app
         .oneshot(
-            json_request("DELETE", "/v1/tool-metadata/send_email", None)
-                .body(Body::empty())
-                .unwrap(),
+            json_request(
+                "DELETE",
+                "/v1/tool-metadata/send_email",
+                Some(&workspace_id),
+            )
+            .header("x-tlg-user-id", owner_id.to_string())
+            .body(Body::empty())
+            .unwrap(),
         )
         .await
         .unwrap();
@@ -205,17 +258,21 @@ async fn delete_then_get_returns_404() {
 /// as a single path segment.
 #[tokio::test]
 async fn dotted_tool_name_routes_in_path() {
-    let app = app();
+    let (app, workspace_id, owner_id) = app().await;
     let resp = app
         .clone()
-        .oneshot(upsert_request(&metadata_body("gmail.send"), None))
+        .oneshot(upsert_request(
+            &metadata_body("gmail.send"),
+            &workspace_id,
+            owner_id,
+        ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::CREATED);
 
     let resp = app
         .oneshot(
-            json_request("GET", "/v1/tool-metadata/gmail.send", None)
+            json_request("GET", "/v1/tool-metadata/gmail.send", Some(&workspace_id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -228,17 +285,33 @@ async fn dotted_tool_name_routes_in_path() {
 
 #[tokio::test]
 async fn get_is_isolated_by_workspace_header() {
-    let app = app();
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let owner_id = Uuid::new_v4();
+    let workspace_a = state
+        .team_store
+        .create_workspace(owner_id, "Tool Metadata A")
+        .await
+        .unwrap();
+    let workspace_b = state
+        .team_store
+        .create_workspace(owner_id, "Tool Metadata B")
+        .await
+        .unwrap();
+    let app = router(state, None, [0u8; 32]);
     let resp = app
         .clone()
-        .oneshot(upsert_request(&metadata_body("send_email"), Some("ws_a")))
+        .oneshot(upsert_request(
+            &metadata_body("send_email"),
+            &workspace_a.id,
+            owner_id,
+        ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::CREATED);
 
     let resp = app
         .oneshot(
-            json_request("GET", "/v1/tool-metadata/send_email", Some("ws_b"))
+            json_request("GET", "/v1/tool-metadata/send_email", Some(&workspace_b.id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -256,17 +329,17 @@ mod resolution_evidence {
     use tl_core::{SideEffectClass, ToolResolution};
     use tl_server::traces::ChannelTraceStore;
 
-    fn event_request(body: &serde_json::Value) -> Request<Body> {
-        json_request("POST", "/v1/events", None)
+    fn event_request(body: &serde_json::Value, workspace_id: &str) -> Request<Body> {
+        json_request("POST", "/v1/events", Some(workspace_id))
             .body(Body::from(body.to_string()))
             .unwrap()
     }
 
-    fn output_event_body() -> serde_json::Value {
+    fn output_event_body(workspace_id: &str) -> serde_json::Value {
         serde_json::json!({
             "kind": "output.proposed",
             "principal": {
-                "workspace_id": "default",
+                "workspace_id": workspace_id,
                 "environment_id": "production",
                 "agent_id": "anon"
             },
@@ -287,17 +360,27 @@ mod resolution_evidence {
     #[tokio::test]
     async fn event_trace_carries_unregistered_resolution() {
         let mut state = memory_app_state(Arc::new(Engine::empty()));
+        let owner_id = Uuid::new_v4();
+        let workspace = state
+            .team_store
+            .create_workspace(owner_id, "Tool Metadata Trace")
+            .await
+            .unwrap();
         let (capture, mut rx) = ChannelTraceStore::channel(8);
         state.trace_store = capture;
         let app = router(state, None, [0u8; 32]);
 
         let resp = app
-            .oneshot(event_request(&output_event_body()))
+            .oneshot(event_request(
+                &output_event_body(&workspace.id),
+                &workspace.id,
+            ))
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
-        let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-        assert_eq!(decision.verdict, Verdict::Allow);
+        let decision: AuthorizationDecision =
+            serde_json::from_value(read_body(resp).await).unwrap();
+        assert_eq!(decision.effect, AuthorizationEffect::Permit);
 
         let trace = rx.recv().await.expect("trace enqueued");
         let event = trace.event.expect("event evidence attached");
@@ -310,6 +393,12 @@ mod resolution_evidence {
     #[tokio::test]
     async fn event_trace_carries_resolved_metadata() {
         let mut state = memory_app_state(Arc::new(Engine::empty()));
+        let owner_id = Uuid::new_v4();
+        let workspace = state
+            .team_store
+            .create_workspace(owner_id, "Tool Metadata Trace")
+            .await
+            .unwrap();
         let (capture, mut rx) = ChannelTraceStore::channel(8);
         state.trace_store = capture;
         let app = router(state.clone(), None, [0u8; 32]);
@@ -318,18 +407,22 @@ mod resolution_evidence {
         body["side_effect"] = serde_json::json!("read");
         let resp = app
             .clone()
-            .oneshot(upsert_request(&body, None))
+            .oneshot(upsert_request(&body, &workspace.id, owner_id))
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::CREATED);
 
         let resp = app
-            .oneshot(event_request(&output_event_body()))
+            .oneshot(event_request(
+                &output_event_body(&workspace.id),
+                &workspace.id,
+            ))
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
-        let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-        assert_eq!(decision.verdict, Verdict::Allow);
+        let decision: AuthorizationDecision =
+            serde_json::from_value(read_body(resp).await).unwrap();
+        assert_eq!(decision.effect, AuthorizationEffect::Permit);
 
         let trace = rx.recv().await.expect("trace enqueued");
         let event = trace.event.expect("event evidence attached");
@@ -347,6 +440,12 @@ mod resolution_evidence {
     #[tokio::test]
     async fn disabled_tool_resolves_as_unregistered() {
         let mut state = memory_app_state(Arc::new(Engine::empty()));
+        let owner_id = Uuid::new_v4();
+        let workspace = state
+            .team_store
+            .create_workspace(owner_id, "Tool Metadata Trace")
+            .await
+            .unwrap();
         let (capture, mut rx) = ChannelTraceStore::channel(8);
         state.trace_store = capture;
         let app = router(state, None, [0u8; 32]);
@@ -355,13 +454,16 @@ mod resolution_evidence {
         body["enabled"] = serde_json::json!(false);
         let resp = app
             .clone()
-            .oneshot(upsert_request(&body, None))
+            .oneshot(upsert_request(&body, &workspace.id, owner_id))
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::CREATED);
 
         let resp = app
-            .oneshot(event_request(&output_event_body()))
+            .oneshot(event_request(
+                &output_event_body(&workspace.id),
+                &workspace.id,
+            ))
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);

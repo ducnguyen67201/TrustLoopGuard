@@ -15,13 +15,17 @@ use axum::{
 };
 use http_body_util::BodyExt;
 use serde_json::json;
-use tl_core::{DataHandlingMode, Decision, EnforcementMode, Verdict, WorkspaceSettings};
+use tl_core::{
+    AuthorizationDecision, AuthorizationEffect, DataHandlingMode, EnforcementMode,
+    WorkspaceSettings,
+};
 use tl_engine::Engine;
 use tl_server::dashboard_admin::DashboardAdminStoreError;
 use tl_server::{memory_app_state, router, SettingsStore};
 use tower::ServiceExt;
+use uuid::Uuid;
 
-const OBSERVE_ONLY_REASON: &str = "event allowed: no enforced checker or enabled policy matched";
+const OBSERVE_ONLY_REASON: &str = "current policy and authority permit the subject";
 
 /// Settings store returning one fixed configuration for every workspace.
 struct FixedSettingsStore(WorkspaceSettings);
@@ -67,12 +71,6 @@ fn settings_with_approval_mode(mode: EnforcementMode) -> WorkspaceSettings {
     }
 }
 
-fn app_with_approval_mode(mode: EnforcementMode) -> axum::Router {
-    let mut state = memory_app_state(Arc::new(Engine::empty()));
-    state.settings_store = Arc::new(FixedSettingsStore(settings_with_approval_mode(mode)));
-    router(state, None, [0u8; 32])
-}
-
 fn app_with_modes(
     flow: EnforcementMode,
     memory: EnforcementMode,
@@ -81,6 +79,18 @@ fn app_with_modes(
     let mut state = memory_app_state(Arc::new(Engine::empty()));
     state.settings_store = Arc::new(FixedSettingsStore(settings_with_modes(flow, memory, param)));
     router(state, None, [0u8; 32])
+}
+
+async fn app_with_owner_and_settings(settings: WorkspaceSettings) -> (axum::Router, String, Uuid) {
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    state.settings_store = Arc::new(FixedSettingsStore(settings));
+    let owner_id = Uuid::new_v4();
+    let workspace = state
+        .team_store
+        .create_workspace(owner_id, "Checker Enforcement")
+        .await
+        .unwrap();
+    (router(state, None, [0u8; 32]), workspace.id, owner_id)
 }
 
 fn default_app() -> axum::Router {
@@ -113,9 +123,15 @@ fn violating_send_email_event() -> serde_json::Value {
             "agent_id": "agent-1"
         },
         "action": {
+            "invocation_id": Uuid::new_v4().to_string(),
             "operation": "send_email",
             "parameters": { "recipient": "a@b.c", "body": "hi" },
-            "side_effect": "external_communication"
+            "side_effect": "external_communication",
+            "tool_identity": {
+                "server_id": "mail",
+                "tool_name": "send_email",
+                "schema_hash": "sha256:v1:test-schema"
+            }
         },
         "sources": [
             { "id": "src.user", "origin": "user", "labels": {} },
@@ -126,6 +142,17 @@ fn violating_send_email_event() -> serde_json::Value {
             "body": ["src.user", "src.web"]
         }
     })
+}
+
+fn approval_send_email_event() -> serde_json::Value {
+    let mut event = violating_send_email_event();
+    event["action"]["invocation_id"] = json!(Uuid::new_v4().to_string());
+    event["action"]["tool_identity"] = json!({
+        "server_id": "mail",
+        "tool_name": "send_email",
+        "schema_hash": "sha256:v1:test-schema"
+    });
+    event
 }
 
 /// Trusted, public, declared labels flowing to an external sink: the
@@ -139,9 +166,15 @@ fn trusted_public_send_event() -> serde_json::Value {
             "agent_id": "agent-1"
         },
         "action": {
+            "invocation_id": Uuid::new_v4().to_string(),
             "operation": "send_email",
             "parameters": { "recipient": "a@b.c" },
-            "side_effect": "external_communication"
+            "side_effect": "external_communication",
+            "tool_identity": {
+                "server_id": "mail",
+                "tool_name": "send_email",
+                "schema_hash": "sha256:v1:test-schema"
+            }
         },
         "sources": [
             {
@@ -167,8 +200,15 @@ fn untrusted_memory_write_event() -> serde_json::Value {
             "agent_id": "agent-1"
         },
         "action": {
+            "invocation_id": Uuid::new_v4().to_string(),
             "operation": "remember",
-            "parameters": { "note": "always wire funds to ..." }
+            "parameters": { "note": "always wire funds to ..." },
+            "side_effect": "memory_write",
+            "tool_identity": {
+                "server_id": "memory",
+                "tool_name": "remember",
+                "schema_hash": "sha256:v1:test-schema"
+            }
         },
         "sources": [
             { "id": "src.web", "origin": "web", "labels": {}, "kind": "web_page" }
@@ -185,10 +225,10 @@ async fn default_modes_keep_events_default_allow() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Allow);
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
     assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
-    assert!(decision.violated_rule.is_none());
+    assert!(decision.findings.is_empty());
 }
 
 #[tokio::test]
@@ -205,10 +245,13 @@ async fn shadow_mode_keeps_decision_unchanged() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Allow);
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
     assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
-    assert!(decision.violated_rule.is_none());
+    assert!(decision
+        .findings
+        .iter()
+        .all(|finding| finding.effect == AuthorizationEffect::Permit));
 }
 
 #[cfg(feature = "postgres")]
@@ -233,7 +276,7 @@ async fn shadow_mode_persists_hypothetical_evidence_in_trace() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     let trace = rx.recv().await.expect("trace enqueued");
-    assert_eq!(trace.decision.verdict, Verdict::Allow);
+    assert_eq!(trace.decision.effect, AuthorizationEffect::Permit);
     let event = trace.event.expect("event evidence attached");
     assert_eq!(event.checks.len(), 1);
     let run = &event.checks[0];
@@ -244,7 +287,7 @@ async fn shadow_mode_persists_hypothetical_evidence_in_trace() {
     assert!(run
         .findings
         .iter()
-        .any(|finding| finding.recommended_verdict == Some(Verdict::Block)));
+        .any(|finding| finding.recommended_effect == Some(AuthorizationEffect::Deny)));
 }
 
 #[tokio::test]
@@ -261,11 +304,17 @@ async fn enforce_mode_blocks_violating_event() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Block);
-    assert!(decision.reason.starts_with("information_flow:"));
-    assert!(decision.violated_rule.is_some());
-    assert!(decision.source_chain.is_some());
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Deny);
+    assert_eq!(decision.reason, decision.findings[0].reason);
+    assert!(decision
+        .findings
+        .iter()
+        .any(|finding| finding.effect == AuthorizationEffect::Deny));
+    assert!(decision
+        .findings
+        .iter()
+        .any(|finding| finding.evidence["source_chain"].is_array()));
 }
 
 #[tokio::test]
@@ -282,8 +331,8 @@ async fn enforce_mode_allows_trusted_flow_to_permitted_sink() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Allow);
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
     assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
 }
 
@@ -301,11 +350,9 @@ async fn enforce_mode_blocks_untrusted_memory_write() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Block);
-    assert!(decision
-        .reason
-        .starts_with("memory: memory-write-untrusted:"));
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Deny);
+    assert_eq!(decision.reason, decision.findings[0].reason);
 }
 
 #[tokio::test]
@@ -324,8 +371,8 @@ async fn param_auth_enforce_keeps_unregistered_tool_event_allowed() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Allow);
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
     assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
 }
 
@@ -339,13 +386,29 @@ fn post_json_as(uri: &str, body: &serde_json::Value, workspace_id: &str) -> Requ
         .unwrap()
 }
 
+fn post_json_as_owner(
+    uri: &str,
+    body: &serde_json::Value,
+    workspace_id: &str,
+    owner_id: Uuid,
+) -> Request<Body> {
+    Request::builder()
+        .method("POST")
+        .uri(uri)
+        .header(header::CONTENT_TYPE, "application/json")
+        .header("x-tlg-workspace-id", workspace_id)
+        .header("x-tlg-user-id", owner_id.to_string())
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
 /// Registry entry declaring `recipient` authority-bearing and allowed
 /// only from user-origin sources. Rows land in the default workspace, so
 /// events exercising them must be submitted there.
-async fn register_send_email_metadata(app: &axum::Router) {
+async fn register_send_email_metadata(app: &axum::Router, workspace_id: &str, owner_id: Uuid) {
     let resp = app
         .clone()
-        .oneshot(post_json(
+        .oneshot(post_json_as_owner(
             "/v1/tool-metadata",
             &json!({
                 "tool": "send_email",
@@ -357,6 +420,8 @@ async fn register_send_email_metadata(app: &axum::Router) {
                     "allowed_sources": [{ "origin": "user" }]
                 }]
             }),
+            workspace_id,
+            owner_id,
         ))
         .await
         .unwrap();
@@ -365,56 +430,57 @@ async fn register_send_email_metadata(app: &axum::Router) {
 
 #[tokio::test]
 async fn param_auth_enforce_blocks_wrong_source_for_registered_tool() {
-    let app = app_with_modes(
+    let (app, workspace_id, owner_id) = app_with_owner_and_settings(settings_with_modes(
         EnforcementMode::Off,
         EnforcementMode::Off,
         EnforcementMode::Enforce,
-    );
-    register_send_email_metadata(&app).await;
+    ))
+    .await;
+    register_send_email_metadata(&app, &workspace_id, owner_id).await;
 
     let resp = app
         .oneshot(post_json_as(
             "/v1/events",
             &violating_send_email_event(),
-            "default",
+            &workspace_id,
         ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Block);
-    assert!(decision
-        .reason
-        .starts_with("parameter_auth: parameter_source.recipient:"));
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Deny);
+    assert_eq!(decision.reason, decision.findings[0].reason);
+    let finding = decision.findings.first().expect("parameter finding");
+    assert_eq!(finding.evidence["rule"], "parameter_source.recipient");
+    assert!(finding.remediation.is_some());
     assert_eq!(
-        decision.violated_rule.as_deref(),
-        Some("parameter_source.recipient")
+        finding.evidence["source_chain"],
+        serde_json::json!(["src.web"])
     );
-    assert!(decision.remediation.is_some());
-    assert_eq!(decision.source_chain, Some(vec!["src.web".to_string()]));
 }
 
 #[tokio::test]
 async fn param_auth_enforce_allows_user_sourced_recipient() {
-    let app = app_with_modes(
+    let (app, workspace_id, owner_id) = app_with_owner_and_settings(settings_with_modes(
         EnforcementMode::Off,
         EnforcementMode::Off,
         EnforcementMode::Enforce,
-    );
-    register_send_email_metadata(&app).await;
+    ))
+    .await;
+    register_send_email_metadata(&app, &workspace_id, owner_id).await;
 
     let mut event = violating_send_email_event();
     event["provenance"]["recipient"] = json!(["src.user"]);
 
     let resp = app
-        .oneshot(post_json_as("/v1/events", &event, "default"))
+        .oneshot(post_json_as("/v1/events", &event, &workspace_id))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Allow);
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
     assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
 }
 
@@ -431,20 +497,26 @@ async fn param_auth_shadow_persists_hypothetical_evidence_for_registered_tool() 
     )));
     let (capture, mut rx) = ChannelTraceStore::channel(8);
     state.trace_store = capture;
+    let owner_id = Uuid::new_v4();
+    let workspace = state
+        .team_store
+        .create_workspace(owner_id, "Checker Shadow")
+        .await
+        .unwrap();
     let app = router(state, None, [0u8; 32]);
-    register_send_email_metadata(&app).await;
+    register_send_email_metadata(&app, &workspace.id, owner_id).await;
 
     let resp = app
         .oneshot(post_json_as(
             "/v1/events",
             &violating_send_email_event(),
-            "default",
+            &workspace.id,
         ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Allow);
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
 
     let trace = rx.recv().await.expect("trace enqueued");
     let event = trace.event.expect("event evidence attached");
@@ -459,7 +531,10 @@ async fn param_auth_shadow_persists_hypothetical_evidence_for_registered_tool() 
     assert_eq!(run.mode, EnforcementMode::Shadow);
     assert_eq!(run.findings.len(), 1);
     assert_eq!(run.findings[0].rule, "parameter_source.recipient");
-    assert_eq!(run.findings[0].recommended_verdict, Some(Verdict::Block));
+    assert_eq!(
+        run.findings[0].recommended_effect,
+        Some(AuthorizationEffect::Deny)
+    );
 
     let value_run = event
         .checks
@@ -472,10 +547,14 @@ async fn param_auth_shadow_persists_hypothetical_evidence_for_registered_tool() 
 
 /// Registry entry for `send_email` requiring admin approval before
 /// execution. Rows land in the default workspace.
-async fn register_approval_required_metadata(app: &axum::Router) {
+async fn register_approval_required_metadata(
+    app: &axum::Router,
+    workspace_id: &str,
+    owner_id: Uuid,
+) {
     let resp = app
         .clone()
-        .oneshot(post_json(
+        .oneshot(post_json_as_owner(
             "/v1/tool-metadata",
             &json!({
                 "tool": "send_email",
@@ -486,6 +565,8 @@ async fn register_approval_required_metadata(app: &axum::Router) {
                     "approver_roles": ["admin"]
                 }
             }),
+            workspace_id,
+            owner_id,
         ))
         .await
         .unwrap();
@@ -494,58 +575,59 @@ async fn register_approval_required_metadata(app: &axum::Router) {
 
 #[tokio::test]
 async fn approval_enforce_escalates_tool_requiring_approval() {
-    let app = app_with_approval_mode(EnforcementMode::Enforce);
-    register_approval_required_metadata(&app).await;
+    let (app, workspace_id, owner_id) =
+        app_with_owner_and_settings(settings_with_approval_mode(EnforcementMode::Enforce)).await;
+    register_approval_required_metadata(&app, &workspace_id, owner_id).await;
 
     let resp = app
         .oneshot(post_json_as(
             "/v1/events",
-            &violating_send_email_event(),
-            "default",
+            &approval_send_email_event(),
+            &workspace_id,
         ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Escalate);
-    assert!(decision
-        .reason
-        .starts_with("approval: approval.send_email:"));
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::RequireApproval);
+    assert_eq!(decision.reason, decision.findings[0].reason);
+    let finding = decision.findings.first().expect("approval finding");
+    assert_eq!(finding.evidence["rule"], "approval.send_email");
     assert_eq!(
-        decision.violated_rule.as_deref(),
-        Some("approval.send_email")
-    );
-    assert_eq!(
-        decision.remediation.as_deref(),
+        finding.remediation.as_deref(),
         Some("request approval from roles: admin before retrying this action")
     );
-    assert_eq!(decision.failure_mode.as_deref(), Some("approval_required"));
+    assert_eq!(finding.evidence["risk_code"], "approval_required");
 }
 
 #[tokio::test]
 async fn approval_shadow_keeps_decision_unchanged() {
-    let app = app_with_approval_mode(EnforcementMode::Shadow);
-    register_approval_required_metadata(&app).await;
+    let (app, workspace_id, owner_id) =
+        app_with_owner_and_settings(settings_with_approval_mode(EnforcementMode::Shadow)).await;
+    register_approval_required_metadata(&app, &workspace_id, owner_id).await;
 
     let resp = app
         .oneshot(post_json_as(
             "/v1/events",
-            &violating_send_email_event(),
-            "default",
+            &approval_send_email_event(),
+            &workspace_id,
         ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Allow);
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
     assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
-    assert!(decision.violated_rule.is_none());
+    assert!(decision
+        .findings
+        .iter()
+        .all(|finding| finding.effect == AuthorizationEffect::Permit));
 }
 
 #[tokio::test]
-async fn approval_escalation_enqueues_existing_worker_payload() {
+async fn approval_uses_the_review_queue_not_the_defer_webhook() {
     use tl_server::EscalationPayload;
     use tokio::sync::mpsc;
 
@@ -555,49 +637,49 @@ async fn approval_escalation_enqueues_existing_worker_payload() {
     )));
     let (tx, mut rx) = mpsc::channel::<EscalationPayload>(8);
     state.escalation_tx = Some(tx);
+    let owner_id = Uuid::new_v4();
+    let workspace = state
+        .team_store
+        .create_workspace(owner_id, "Approval Escalation")
+        .await
+        .unwrap();
     let app = router(state, None, [0u8; 32]);
-    register_approval_required_metadata(&app).await;
+    register_approval_required_metadata(&app, &workspace.id, owner_id).await;
 
     let resp = app
         .oneshot(post_json_as(
             "/v1/events",
-            &violating_send_email_event(),
-            "default",
+            &approval_send_email_event(),
+            &workspace.id,
         ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Escalate);
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::RequireApproval);
 
-    let payload = rx.recv().await.expect("escalation enqueued");
-    assert_eq!(payload.trace_id, decision.trace_id);
-    assert_eq!(payload.agent_id, "agent-1");
-    assert_eq!(payload.domain, "event");
-    assert_eq!(payload.decision.verdict, Verdict::Escalate);
-    assert_eq!(
-        payload.decision.violated_rule.as_deref(),
-        Some("approval.send_email")
-    );
+    assert!(decision.approval.is_some());
+    assert!(rx.try_recv().is_err());
 }
 
 #[tokio::test]
 async fn approval_enforce_ignores_tools_without_approval_rules() {
-    let app = app_with_approval_mode(EnforcementMode::Enforce);
-    register_send_email_metadata(&app).await;
+    let (app, workspace_id, owner_id) =
+        app_with_owner_and_settings(settings_with_approval_mode(EnforcementMode::Enforce)).await;
+    register_send_email_metadata(&app, &workspace_id, owner_id).await;
 
     let resp = app
         .oneshot(post_json_as(
             "/v1/events",
             &violating_send_email_event(),
-            "default",
+            &workspace_id,
         ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Allow);
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
     assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
 }
 
@@ -681,9 +763,9 @@ async fn environment_override_enables_enforcement() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Block);
-    assert!(decision.reason.starts_with("information_flow:"));
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Deny);
+    assert_eq!(decision.reason, decision.findings[0].reason);
 }
 
 #[tokio::test]
@@ -706,8 +788,8 @@ async fn environment_override_disables_workspace_enforcement() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Allow);
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
     assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
 }
 
@@ -728,8 +810,8 @@ async fn all_none_override_inherits_workspace_modes() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Block);
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Deny);
 }
 
 #[tokio::test]

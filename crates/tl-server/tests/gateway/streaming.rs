@@ -108,8 +108,8 @@ async fn openai_gateway_streams_blocked_output_as_sse() {
         "text/event-stream"
     );
     assert_eq!(
-        resp.headers().get("x-trustloopguard-verdict").unwrap(),
-        "blocked"
+        resp.headers().get("x-trustloopguard-effect").unwrap(),
+        "deny"
     );
     let body = read_text(resp).await;
     assert!(body.contains("content_filter"));

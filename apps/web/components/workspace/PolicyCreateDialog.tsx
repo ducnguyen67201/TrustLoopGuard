@@ -91,7 +91,8 @@ export function PolicyCreateDialog({
             >
               <span className="text-sm font-medium">Protection policy</span>
               <span className="text-sm text-muted-foreground">
-                Match content, requests, or tool traffic and allow, rewrite, block, or escalate.
+                Match content, requests, or tool traffic and permit, transform, require approval,
+                defer, or deny.
               </span>
             </button>
             <button

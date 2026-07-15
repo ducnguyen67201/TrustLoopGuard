@@ -14,4 +14,8 @@ EOF
   exit 127
 fi
 
-cargo llvm-cov --locked --workspace --all-targets --no-fail-fast "$@"
+ts_export_dir="$(mktemp -d)"
+trap 'rm -rf "$ts_export_dir"' EXIT
+
+TS_RS_EXPORT_DIR="$ts_export_dir" \
+  cargo llvm-cov --locked --workspace --all-targets --no-fail-fast "$@"

@@ -1,11 +1,13 @@
 import type {
+  AuthorizationEffect,
+  AuthorizationGrant,
+  AuthorizationGrantListResponse,
+  CreateAuthorizationGrantRequest,
   CreateFinancialActionRequest,
   FinancialOperation,
   FinancialOperationSpec,
   FinancialActionRecord,
-  FinancialActionStatus,
-  FinancialMandate,
-  FinancialMandateListResponse,
+  FinancialExecutionStatus,
   FinancialReceipt,
 } from '@trustloopguard/sdk';
 
@@ -14,8 +16,8 @@ import { recordRefundExecution } from './order-db';
 import {
   DEMO_PAYMENT_METHOD_ID,
   REFUND_AGENT_ID,
-  REFUND_MANDATE_ID,
-  REFUND_MANDATE_VERSION,
+  REFUND_GRANT_CAPABILITY,
+  REFUND_GRANT_REQUIREMENT_IDS,
   type ExecuteRefundResult,
   type OrderSearchQuery,
   type OrderSearchResult,
@@ -24,49 +26,51 @@ import {
 } from './types';
 
 export interface RefundAgentClient {
-  createMandate(req: {
-    id: string;
-    version: number;
-    principal_id: string;
-    scope: Record<string, string | number | string[]>;
-    metadata: Record<string, string>;
-  }): Promise<FinancialMandate>;
-  listMandates(): Promise<FinancialMandateListResponse>;
+  createGrant(req: CreateAuthorizationGrantRequest): Promise<AuthorizationGrant>;
+  listGrants(): Promise<AuthorizationGrantListResponse>;
   financialOperation<Input, Facts>(
     spec: FinancialOperationSpec<Input, Facts>,
   ): FinancialOperation<Input, Facts>;
   guardPayment(req: CreateFinancialActionRequest): Promise<FinancialActionRecord>;
   getFinancialAction(actionId: string): Promise<FinancialActionRecord>;
-  approveAction(actionId: string): Promise<FinancialActionRecord>;
-  executeAction(actionId: string): Promise<FinancialActionRecord>;
+  executeAction(
+    actionId: string,
+    request: { authorization: { grant_id: string; attempt_id: string }; attempt_id: string },
+  ): Promise<FinancialActionRecord>;
   getReceipt(receiptId: string): Promise<FinancialReceipt>;
 }
 
-export const REFUND_MANDATE_SCOPE = {
-  action_kinds: ['refund'],
-  rails: ['payment_http'],
-  max_amount_minor: 10_000,
-  currency: 'USD',
-};
-
-export async function ensureRefundMandate(client: RefundAgentClient): Promise<FinancialMandate> {
-  const existing = await client.listMandates();
-  const active = existing.mandates.find(
-    (mandate) =>
-      mandate.id === REFUND_MANDATE_ID &&
-      mandate.version === REFUND_MANDATE_VERSION &&
-      mandate.status === 'active',
+export async function ensureRefundGrant(client: RefundAgentClient): Promise<AuthorizationGrant> {
+  const existing = await client.listGrants();
+  const active = existing.grants.find(
+    (grant) =>
+      grant.principal_id === REFUND_AGENT_ID &&
+      grant.capability === REFUND_GRANT_CAPABILITY &&
+      grant.status === 'active',
   );
   if (active !== undefined) return active;
 
-  return client.createMandate({
-    id: REFUND_MANDATE_ID,
-    version: REFUND_MANDATE_VERSION,
+  return client.createGrant({
     principal_id: REFUND_AGENT_ID,
-    scope: REFUND_MANDATE_SCOPE,
-    metadata: {
-      source: 'stripe_refund_agent_demo',
-      workflow: 'support_refund',
+    domain: 'financial',
+    capability: REFUND_GRANT_CAPABILITY,
+    requirement_ids: REFUND_GRANT_REQUIREMENT_IDS,
+    scope: {
+      scope_type: 'financial',
+      scope: {
+        action_kinds: ['refund'],
+        operation: 'issue_refund',
+        rail: 'payment_http',
+        currency: 'USD',
+        maximum_amount_minor: 10_000n,
+        counterparties: [],
+        x402_hosts: [],
+        x402_resources: [],
+        x402_networks: [],
+        x402_assets: [],
+        x402_payees: [],
+        required_preconditions: [],
+      },
     },
   });
 }
@@ -89,16 +93,16 @@ export async function prepareRefundTool(
     throw new Error(`cannot prepare refund: ${search.reason ?? 'order not found'}`);
   }
 
-  await ensureRefundMandate(client);
-  const operation = refundOperation(client);
+  const grant = await ensureRefundGrant(client);
+  const operation = refundOperation(client, grant.id);
   const request = operation.buildRequest(input, search);
   const action = await operation.verify(input, search);
   return {
     action,
     request,
     order: search.order,
-    status: action.status,
-    message: messageForStatus(action.status, action.id),
+    status: action.authorization_effect,
+    message: messageForStatus(action.authorization_effect, action.execution_status, action.id),
   };
 }
 
@@ -108,27 +112,31 @@ export async function executeRefundTool(
   dbPath?: string,
 ): Promise<ExecuteRefundResult> {
   let current = await client.getFinancialAction(actionId);
-  if (current.status === 'proposed') {
-    current = await client.approveAction(actionId);
-  }
-  if (current.status === 'held') {
+  if (current.authorization_effect === 'require_approval') {
     return {
       action: current,
-      status: current.status,
+      status: current.authorization_effect,
       message: `refund ${actionId} is held for approval; no Stripe refund was created`,
     };
   }
-  if (current.status === 'denied' || current.status === 'failed' || current.status === 'expired') {
+  if (current.authorization_effect !== 'permit') {
     return {
       action: current,
-      status: current.status,
-      message: `refund ${actionId} is ${current.status}; no Stripe refund was created`,
+      status: current.authorization_effect,
+      message: `refund ${actionId} is ${current.authorization_effect}; no Stripe refund was created`,
     };
   }
 
-  const executed = current.status === 'executed' ? current : await client.executeAction(actionId);
-  const receipt = executed.status === 'executed' ? await client.getReceipt(executed.id) : undefined;
-  if (executed.status === 'executed') {
+  const grant = await ensureRefundGrant(client);
+  const attemptId = `stripe-refund-agent:execute:${actionId}`;
+  const executed = current.execution_status === 'succeeded'
+    ? current
+    : await client.executeAction(actionId, {
+        authorization: { grant_id: grant.id, attempt_id: attemptId },
+        attempt_id: attemptId,
+      });
+  const receipt = executed.execution_status === 'succeeded' ? await client.getReceipt(executed.id) : undefined;
+  if (executed.execution_status === 'succeeded') {
     recordRefundExecution(
       {
         orderId: stringMetadata(executed.action.metadata, 'order_id') ?? 'unknown_order',
@@ -144,11 +152,11 @@ export async function executeRefundTool(
   return {
     action: executed,
     receipt,
-    status: executed.status,
+    status: executed.execution_status,
     message:
-      executed.status === 'executed'
+      executed.execution_status === 'succeeded'
         ? `refund ${executed.id} executed through TrustLoopGuard`
-        : `refund ${executed.id} is ${executed.status}; no Stripe refund was created`,
+        : `refund ${executed.id} is ${executed.execution_status}; no Stripe refund was created`,
   };
 }
 
@@ -166,6 +174,7 @@ export function buildRefundActionRequest(
 
 function refundOperation(
   client: Pick<RefundAgentClient, 'financialOperation'>,
+  grantId?: string,
 ): FinancialOperation<PrepareRefundInput, OrderSearchResult> {
   return client.financialOperation<PrepareRefundInput, OrderSearchResult>({
     operation: 'issue_refund',
@@ -206,9 +215,9 @@ function refundOperation(
         },
       };
     },
-    mandate: () => ({
-      id: REFUND_MANDATE_ID,
-      version: REFUND_MANDATE_VERSION,
+    authorization: (input) => grantId === undefined ? undefined : ({
+      grant_id: grantId,
+      attempt_id: `stripe-refund-agent:prepare:${input.requestId ?? input.orderId}`,
     }),
     memo: (input, search) => {
       if (!search.found || search.order === undefined) {
@@ -269,11 +278,14 @@ function normalizeRequestId(requestId: string): string {
   return clean || 'manual';
 }
 
-function messageForStatus(status: FinancialActionStatus, actionId: string): string {
-  if (status === 'authorized') return `refund ${actionId} authorized`;
-  if (status === 'held') return `refund ${actionId} requires approval`;
-  if (status === 'denied') return `refund ${actionId} denied`;
-  return `refund ${actionId} is ${status}`;
+function messageForStatus(
+  effect: AuthorizationEffect,
+  execution: FinancialExecutionStatus,
+  actionId: string,
+): string {
+  if (effect === 'permit') return `refund ${actionId} authorized; execution is ${execution}`;
+  if (effect === 'require_approval') return `refund ${actionId} requires approval`;
+  return `refund ${actionId} authorization is ${effect}`;
 }
 
 function stringMetadata(metadata: Record<string, unknown> | null, key: string): string | undefined {

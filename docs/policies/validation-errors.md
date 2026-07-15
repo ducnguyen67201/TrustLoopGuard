@@ -25,13 +25,13 @@ TrustLoopGuard uses Rust regex syntax. Lookaround is not supported.
 ## Missing Rewrite
 
 ```text
-rewrite: rewrite is required when action is rewrite
+rewrite: rewrite is required when action is transform
 ```
 
 Fix:
 
 ```yaml
-action: rewrite
+action: transform
 rewrite: "I can help review eligibility, but I can't guarantee the outcome."
 ```
 
@@ -50,4 +50,3 @@ when.agents[0]: must not be empty
 ```
 
 Remove empty list values or replace them with a real scope value.
-

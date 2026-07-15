@@ -109,7 +109,7 @@ Code map:
 This is the financial-authorization wedge demo for support or fintech ops. It
 uses the typed `guardPayment` flow instead of converting generic guard events
 into finance. The demo is offline-safe by default: a mock SDK-shaped financial
-client creates a mandate, submits refund actions, applies cap/approval/mandate
+client creates a grant, submits refund actions, applies cap/approval/grant
 logic, executes only authorized actions, exports receipts, records outcomes, and
 proves duplicate idempotency does not execute twice.
 
@@ -119,7 +119,7 @@ proves duplicate idempotency does not execute twice.
 | refund $75 held, approved, then executed | `held` | `executed` | 1 |
 | refund $80 held, denied | `held` | `denied` | 0 |
 | duplicate retry | `executed` | `executed` | 1 total |
-| missing mandate | `denied` | `denied` | 0 |
+| missing grant | `denied` | `denied` | 0 |
 
 ```sh
 pnpm --filter @trustloopguard/demo financial-refund
@@ -130,15 +130,15 @@ pnpm --filter @trustloopguard/demo financial-refund:check
 
 An AI agent that moves money, guarded. One run sends a fixed set of money-move
 attempts through the guard; **each scenario trips exactly one control**, and a
-payment fires **only** when the verdict is `allow`. Amounts are integer cents.
+payment fires **only** when the effect is `permit`. Amounts are integer cents.
 
-| Scenario | Verdict | Control |
+| Scenario | Effect | Control |
 | --- | --- | --- |
-| legit refund $50 | `allow` → payment fires | — |
-| over-cap refund $750 | `block` | `value_limit` (amount cap) |
-| refund to an injected account | `block` | `parameter_auth` (destination source) |
-| ambiguous (non-integer) amount | `escalate` | `value_limit` (unverifiable) |
-| wire transfer | `escalate` | `approval` (human sign-off) |
+| legit refund $50 | `permit` → payment fires | — |
+| over-cap refund $750 | `deny` | `value_limit` (amount cap) |
+| refund to an injected account | `deny` | `parameter_auth` (destination source) |
+| ambiguous (non-integer) amount | `defer` | `value_limit` (unverifiable) |
+| wire transfer | `require_approval` | `approval` (human sign-off) |
 
 ```sh
 make server                                                   # 1. run the guard
@@ -147,7 +147,7 @@ pnpm --filter @trustloopguard/demo dispute:scenarios          # 3. simulated pay
 STRIPE_SECRET_KEY=sk_test_… pnpm --filter @trustloopguard/demo dispute:scenarios   # or real test-mode payments
 ```
 
-The runner prints a verdict table and fails loudly if every scenario was
+The runner prints a effect table and fails loudly if every scenario was
 allowed (which means the workspace's `param`/`approval` checkers are still
 `off` — set `TL_USER_ID` so setup can arm them, or enable them in Settings).
 
@@ -159,9 +159,9 @@ pnpm --filter @trustloopguard/demo dispute:scenarios:check
 
 ## Bring your own agent
 
-Gate your own money tool on a verdict — the whole integration is: register your
+Gate your own money tool on a effect — the whole integration is: register your
 tool's controls once, then ask the guard before you execute and honor the
-verdict. See [`dispute/byo.example.ts`](dispute/byo.example.ts):
+effect. See [`dispute/byo.example.ts`](dispute/byo.example.ts):
 
 ```sh
 make server
@@ -171,11 +171,11 @@ pnpm --filter @trustloopguard/demo dispute:byo
 
 ```ts
 const decision = await client.submitEvent(yourToolEvent);
-if (decision.verdict === 'allow') await yourRealPaymentApi(...);   // else: block/escalate, money never moves
+if (decision.effect === 'permit') await yourRealPaymentApi(...); // otherwise, money never moves
 ```
 
 Prefer not to wrap each call? Point your OpenAI/Anthropic client's `baseURL` at
-the gateway proxy instead — same verdicts, no per-call code.
+the gateway proxy instead — same effects, no per-call code.
 
 ## NorthPay dispute
 

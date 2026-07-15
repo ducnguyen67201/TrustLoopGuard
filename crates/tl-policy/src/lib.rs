@@ -16,5 +16,6 @@ pub use family_ast::{
     FlowPolicy, FlowRule, MemoryPolicy, ParameterSourcePolicy, SourceLabelFamilyPolicy,
 };
 pub use family_parse::{load_any_str, validate_family_policy, KNOWN_FAMILIES};
-pub use policy_ast::{Action, MatchClause, Matcher, Policy, PolicyId};
+pub use policy_ast::{MatchClause, Matcher, Policy, PolicyId};
 pub use policy_parse::{load_str, validate_policy, PolicyError, ValidationIssue};
+pub use tl_core::AuthorizationEffect;

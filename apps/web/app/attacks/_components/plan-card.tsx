@@ -191,9 +191,9 @@ export function PlanStep({
         <p
           className="rounded-md border px-3 py-2 text-xs"
           style={{
-            color: 'var(--color-allow)',
-            borderColor: 'color-mix(in oklab, var(--color-allow), transparent 65%)',
-            backgroundColor: 'color-mix(in oklab, var(--color-allow), transparent 90%)',
+            color: 'var(--color-permit)',
+            borderColor: 'color-mix(in oklab, var(--color-permit), transparent 65%)',
+            backgroundColor: 'color-mix(in oklab, var(--color-permit), transparent 90%)',
           }}
         >
           Attached {staticCount} preventive {staticCount === 1 ? 'policy' : 'policies'} to{' '}
@@ -232,9 +232,9 @@ function PlanSummary({ plan }: { plan: RedteamPlan }) {
           <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
             Where an attack could slip through
             <InfoHint label="What a weak spot means">
-              Each line shows a spot where something untrusted could reach a
-              sensitive action — read it as &ldquo;from here → to there.&rdquo; These
-              are the places we&apos;ll aim the attacks.
+              Each line shows a spot where something untrusted could reach a sensitive action — read
+              it as &ldquo;from here → to there.&rdquo; These are the places we&apos;ll aim the
+              attacks.
             </InfoHint>
           </span>
           <ul className="grid gap-1">
@@ -252,8 +252,8 @@ function PlanSummary({ plan }: { plan: RedteamPlan }) {
                 <span
                   className="rounded px-1.5 py-0.5"
                   style={{
-                    color: 'var(--color-block)',
-                    backgroundColor: 'color-mix(in oklab, var(--color-block), transparent 85%)',
+                    color: 'var(--color-deny)',
+                    backgroundColor: 'color-mix(in oklab, var(--color-deny), transparent 85%)',
                   }}
                 >
                   {humanizeToken(path.sink_category)}
@@ -268,8 +268,8 @@ function PlanSummary({ plan }: { plan: RedteamPlan }) {
         <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           A few parts couldn&apos;t be checked automatically
           <InfoHint label="Parts we couldn’t check">
-            We didn&apos;t recognize these pieces of the agent, so they weren&apos;t
-            included in this analysis: {plan.unmapped_node_types.join(', ')}.
+            We didn&apos;t recognize these pieces of the agent, so they weren&apos;t included in
+            this analysis: {plan.unmapped_node_types.join(', ')}.
           </InfoHint>
         </p>
       ) : null}
@@ -419,10 +419,7 @@ const TECHNIQUE_HINTS: Record<string, string> = {
 };
 
 function techniqueHint(technique: string): string {
-  return (
-    TECHNIQUE_HINTS[technique] ??
-    `An attack of type “${humanizeToken(technique)}.”`
-  );
+  return TECHNIQUE_HINTS[technique] ?? `An attack of type “${humanizeToken(technique)}.”`;
 }
 
 interface ThreatCardData {
@@ -478,8 +475,7 @@ export function PlanVectors({ plan }: { plan: RedteamPlan }) {
 
       <p className="border-b px-4 py-2 text-xs leading-relaxed text-muted-foreground">
         These are the attacks we&apos;ll try, built for this agent and sorted most dangerous first.
-        Press{' '}
-        <span className="font-medium text-foreground">Run test</span> on the left to send all{' '}
+        Press <span className="font-medium text-foreground">Run test</span> on the left to send all{' '}
         <span className="tabular-nums">{plan.vectors.length}</span> of them.
       </p>
 
@@ -500,7 +496,11 @@ export function PlanVectors({ plan }: { plan: RedteamPlan }) {
   );
 }
 
-function ThreatCard({ severity, vector, featured = false }: ThreatCardData & { featured?: boolean }) {
+function ThreatCard({
+  severity,
+  vector,
+  featured = false,
+}: ThreatCardData & { featured?: boolean }) {
   const style = SEVERITY_STYLE[severity];
   return (
     <article

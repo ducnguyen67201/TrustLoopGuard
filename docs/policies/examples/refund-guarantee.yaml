@@ -8,6 +8,6 @@ match:
   any:
     - literal: "guaranteed refund"
     - regex: "(?i)money[- ]back guarantee"
-action: rewrite
+action: transform
 rewrite: "I can help check refund eligibility, but I can't guarantee the outcome."
 

@@ -1,5 +1,16 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct ToolIdentity {
+    pub server_id: String,
+    pub tool_name: String,
+    pub schema_hash: String,
+}
+
 use crate::{Origin, SideEffectClass};
 
 #[cfg(feature = "schema")]
@@ -132,13 +143,13 @@ pub struct ParamLimit {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub min: Option<i64>,
-    /// Verdict to recommend when a bound is breached. Defaults to `Block`.
+    /// Authorization effect to recommend when a bound is breached. Defaults to `Deny`.
     #[serde(default)]
     pub on_breach: LimitAction,
 }
 
-/// The verdict a [`ParamLimit`] breach maps to. `Block` is the safe default
-/// for money movement; `Escalate` routes a breach to a human instead.
+/// The authorization effect a [`ParamLimit`] breach maps to. `Deny` is the safe
+/// default for money movement; `RequireApproval` routes a breach to review.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -147,8 +158,8 @@ pub struct ParamLimit {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub enum LimitAction {
     #[default]
-    Block,
-    Escalate,
+    Deny,
+    RequireApproval,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

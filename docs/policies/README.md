@@ -29,7 +29,7 @@ match:
     - literal: "guaranteed refund"
     - regex: "(?i)money[- ]back guarantee"
 
-action: rewrite
+action: transform
 rewrite: "I can help check refund eligibility, but I can't guarantee the outcome."
 ```
 
@@ -58,19 +58,20 @@ ok: policy `refund-guarantee` valid
 | `severity` | Risk level shown to operators: `low`, `medium`, `high`, `critical`. |
 | `when` | Optional scope. Use it when a rule only applies to some domains, channels, or agents. |
 | `match` | The text or meaning that triggers the rule. |
-| `action` | What TrustLoopGuard should do: `allow`, `block`, `rewrite`, or `escalate`. |
-| `rewrite` | Safe replacement text. Required for `action: rewrite`. |
+| `action` | The canonical finding effect: `permit`, `deny`, `transform`, `require_approval`, or `defer`. |
+| `rewrite` | Safe replacement text. Required for `action: transform`. |
 
 ## Choosing An Action
 
 | Action | Use When |
 | --- | --- |
-| `allow` | You want to log a match without stopping the output. |
-| `block` | The output should not be sent. |
-| `rewrite` | The user can still receive a safer version of the answer. |
-| `escalate` | A human should review before anything is sent. |
+| `permit` | You want to record a match without stopping the output. |
+| `deny` | The output should not be sent. |
+| `transform` | The user can receive the provided safer replacement. |
+| `require_approval` | A matching authenticated grant may satisfy the requirement. |
+| `defer` | Evidence or system state is unresolved; approval cannot bypass it. |
 
-For most first policies, use `rewrite` or `block`.
+For most first policies, use `transform` or `deny`.
 
 ## Choosing A Matcher
 
@@ -120,7 +121,7 @@ cargo run -p tl-cli -- policy pull refund-guarantee \
 ## Common Fixes
 
 - `id` failed: use lowercase letters, numbers, `-`, or `_`.
-- `rewrite` failed: add `rewrite` when `action` is `rewrite`.
+- `rewrite` failed: add `rewrite` when `action` is `transform`.
 - `regex` failed: simplify the pattern; Rust regex does not support lookaround.
 - rule does not fire: check `when.channels`, `when.agents`, `when.domains`, and
   the request's `policies` list.

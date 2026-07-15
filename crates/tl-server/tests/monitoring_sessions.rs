@@ -38,8 +38,15 @@ fn event_body(session_id: Option<&str>) -> serde_json::Value {
             "agent_id": "agent-1"
         },
         "action": {
+            "invocation_id": uuid::Uuid::new_v4().to_string(),
             "operation": "send_email",
-            "parameters": { "recipient": "a@b.c" }
+            "parameters": { "recipient": "a@b.c" },
+            "side_effect": "external_communication",
+            "tool_identity": {
+                "server_id": "mail",
+                "tool_name": "send_email",
+                "schema_hash": "sha256:v1:test-schema"
+            }
         }
     });
     if let Some(session_id) = session_id {

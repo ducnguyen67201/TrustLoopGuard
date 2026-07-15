@@ -10,7 +10,7 @@ when:
   channels: [chat]
 match:
   literal: unsafe system instruction
-action: block
+action: deny
 "#;
     let policy_resp = app
         .clone()

@@ -21,10 +21,9 @@ fn postgres_storage_exports_remain_available() {
         HumanReviewAnalyticsFilter, HumanReviewRepo, KnowledgeFileRow, KnowledgeRepo,
         KnowledgeSourceRow, LlmPricingRepo, NewKnowledgeFile, NewKnowledgeSource, PolicyRepo,
         PolicyRow, PostgresStore, ResolvedGatewayRoute, RunFilter, RunRepo, StoredFinancialAction,
-        StoredFinancialActionEvent, StoredFinancialActionOutcome, StoredFinancialApprovalRequest,
-        StoredFinancialMandate, StoredFinancialReceipt, StoredLlmModelPrice, StoredToolMetadata,
-        TeamRepo, ToolMetadataRepo, TraceRepo, TraceRow, TraceWrite, UserRecord, UserRepo,
-        WriterConfig,
+        StoredFinancialActionEvent, StoredFinancialActionOutcome, StoredFinancialReceipt,
+        StoredLlmModelPrice, StoredToolMetadata, TeamRepo, ToolMetadataRepo, TraceRepo, TraceRow,
+        TraceWrite, UserRecord, UserRepo, WriterConfig,
     };
 
     fn assert_type<T>() {}
@@ -57,8 +56,6 @@ fn postgres_storage_exports_remain_available() {
     assert_type::<StoredFinancialAction>();
     assert_type::<StoredFinancialActionEvent>();
     assert_type::<StoredFinancialActionOutcome>();
-    assert_type::<StoredFinancialApprovalRequest>();
-    assert_type::<StoredFinancialMandate>();
     assert_type::<StoredFinancialReceipt>();
     assert_type::<StoredToolMetadata>();
     assert_type::<TeamRepo>();

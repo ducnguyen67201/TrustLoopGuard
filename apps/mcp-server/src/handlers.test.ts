@@ -7,13 +7,11 @@ import { createToolHandlers, type TrustLoopClient } from './handlers';
 function decision() {
   return {
     trace_id: 'trace_1',
-    verdict: 'allow',
+    domain: 'tool',
+    effect: 'permit',
     reason: 'ok',
-    triggered_policies: [],
-    safe_output: null,
+    findings: [],
     latency_ms: 1n,
-    tier_results: [],
-    redaction: null,
   };
 }
 
@@ -106,7 +104,10 @@ function client(overrides: Partial<TrustLoopClient> = {}): TrustLoopClient {
       ...runSummary(),
       status: 'completed',
     })),
-    validatePolicy: vi.fn<TrustLoopClient['validatePolicy']>(async () => ({ valid: true, errors: [] })),
+    validatePolicy: vi.fn<TrustLoopClient['validatePolicy']>(async () => ({
+      valid: true,
+      errors: [],
+    })),
     listPolicies: vi.fn<TrustLoopClient['listPolicies']>(async () => ({ policies: [] })),
     getPolicy: vi.fn<TrustLoopClient['getPolicy']>(async () => policyDocument()),
     upsertPolicy: vi.fn<TrustLoopClient['upsertPolicy']>(async () => policyDocument()),
@@ -139,7 +140,7 @@ describe('createToolHandlers', () => {
 
     expect(fakeClient.submitEvent).toHaveBeenCalledWith(event());
     expect(result.isError).toBeUndefined();
-    expect(JSON.parse(result.content[0]!.text)).toMatchObject({ verdict: 'allow' });
+    expect(JSON.parse(result.content[0]!.text)).toMatchObject({ effect: 'permit' });
   });
 
   it('finishes runs as completed by default', async () => {

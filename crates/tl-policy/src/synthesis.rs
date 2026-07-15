@@ -1,7 +1,7 @@
 //! Attack-grounded policy synthesis (pure, no I/O).
 //!
 //! Given the signals extracted from one landed red-team attack — its text, the
-//! engine's checker-finding metadata (`failure_mode`/`harm_class`) — this module
+//! engine's checker-finding metadata (`risk_code`/`harm_class`) — this module
 //! classifies the *harm mechanism* and synthesizes a guardrail generalized to
 //! the leak's **class** rather than the exact string it leaked. The server-side
 //! orchestrator (`tl-server`) loads traces, calls the LLM, runs the verify loop,
@@ -12,7 +12,7 @@ use regex::Regex;
 use tl_core::{Severity, WorkflowRequirement};
 
 use crate::policy_ast::WhenClause;
-use crate::{validate_policy, Action, MatchClause, Matcher, Policy, ValidationIssue};
+use crate::{validate_policy, AuthorizationEffect, MatchClause, Matcher, Policy, ValidationIssue};
 
 /// Class regex for credential-shaped secrets. Matches the *class* (any
 /// `sk-`-prefixed key), never the single leaked token — that is what makes the
@@ -55,9 +55,9 @@ pub struct LandedSignal<'a> {
     pub attack: &'a str,
     pub goal: &'a str,
     pub reply: &'a str,
-    /// `failure_mode` values from the trace's checker findings (may be empty for
+    /// `risk_code` values from the trace's checker findings (may be empty for
     /// output-only chat traces).
-    pub failure_modes: &'a [String],
+    pub risk_codes: &'a [String],
     /// `harm_class` values from the trace's checker findings.
     pub harm_classes: &'a [String],
 }
@@ -127,7 +127,7 @@ pub fn classify(signal: &LandedSignal) -> HarmKind {
 }
 
 pub fn classify_with_context(signal: &LandedSignal, context: &SynthesisContext) -> HarmKind {
-    let failure = signal.failure_modes.join(" ").to_lowercase();
+    let failure = signal.risk_codes.join(" ").to_lowercase();
     let harm = signal.harm_classes.join(" ").to_lowercase();
     let metadata = format!("{failure} {harm}");
     let hay = format!("{} {} {}", signal.attack, signal.goal, signal.reply).to_lowercase();
@@ -339,7 +339,7 @@ pub fn synthesize(
         description: Some(description(harm, workflow)),
         when,
         r#match,
-        action: Action::Block,
+        action: AuthorizationEffect::Deny,
         rewrite: None,
         severity: severity(harm),
         owner_agent_id,
@@ -400,7 +400,7 @@ mod tests {
             attack,
             goal,
             reply,
-            failure_modes: &[],
+            risk_codes: &[],
             harm_classes: &[],
         }
     }
@@ -465,7 +465,7 @@ mod tests {
             attack: "x",
             goal: "y",
             reply: "done",
-            failure_modes: &failure,
+            risk_codes: &failure,
             harm_classes: &harm,
         };
         assert_eq!(classify(&s), HarmKind::ActionClaim);
@@ -485,7 +485,7 @@ mod tests {
                 attack: "x",
                 goal: "y",
                 reply: "done",
-                failure_modes: &[],
+                risk_codes: &[],
                 harm_classes: &harm_classes,
             };
             assert_eq!(classify(&s), expected);
@@ -538,7 +538,7 @@ mod tests {
         )
         .expect("synthesizes");
         assert_eq!(candidate.substrate, "semantic_output");
-        assert!(matches!(candidate.policy.action, Action::Block));
+        assert!(matches!(candidate.policy.action, AuthorizationEffect::Deny));
         let MatchClause::Any { any } = &candidate.policy.r#match else {
             panic!("action candidate should compose semantic + regex in an `any`");
         };

@@ -5,11 +5,11 @@ export function mergeRefundDemoStatus(
   status: RefundDemoStatus,
 ): RefundDemoResponse {
   if (response.result.actionId !== status.actionId) return response;
-  if (status.status === 'proposed' || status.status === 'authorized' || status.status === 'held') {
+  if (status.authorizationEffect === 'require_approval' || status.executionStatus === 'executing') {
     return response;
   }
 
-  if (status.status !== 'executed' || status.receiptId === undefined) {
+  if (status.executionStatus !== 'succeeded' || status.receiptId === undefined) {
     return {
       ...response,
       result: {
@@ -18,11 +18,11 @@ export function mergeRefundDemoStatus(
           trace.tool === 'prepare_refund'
             ? {
                 ...trace,
-                summary: `denied: refund ${status.actionId} ended as ${status.status}`,
+                summary: `${status.authorizationEffect}: refund ${status.actionId} ended as ${status.executionStatus}`,
               }
             : trace,
         ),
-        finalMessage: `The refund was not executed. TrustLoopGuard recorded it as ${status.status}.`,
+        finalMessage: `The refund was not executed. Authorization is ${status.authorizationEffect}; execution is ${status.executionStatus}.`,
       },
     };
   }

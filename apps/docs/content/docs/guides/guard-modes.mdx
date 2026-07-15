@@ -151,4 +151,4 @@ reply = await guardrail.stream(input=user_text, draft=tokens())
 
 `stream` accepts any async (or sync) iterable of string chunks. For Rust
 in-process pipelines, `tl-stream`'s `StreamingChecker` accumulates a sliding
-window and interrupts the moment an evaluator returns a non-`allow` verdict.
+window and interrupts the moment an evaluator returns a non-`permit` effect.

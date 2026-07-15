@@ -72,7 +72,7 @@ when:
   channels: [chat]
 match:
   literal: deny me
-action: block
+action: deny
 "#;
     let upsert_resp = app
         .clone()
@@ -121,7 +121,7 @@ action: block
         .unwrap();
     assert_eq!(event_resp.status(), StatusCode::OK);
     let decision = read_body(event_resp).await;
-    assert_eq!(decision["verdict"], serde_json::json!(Verdict::Allow));
+    assert_eq!(decision["effect"], serde_json::json!(AuthorizationEffect::Permit));
 }
 
 #[tokio::test]

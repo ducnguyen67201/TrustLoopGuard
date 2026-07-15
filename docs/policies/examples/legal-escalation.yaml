@@ -7,5 +7,5 @@ match:
   any:
     - regex: "(?i)you should sue"
     - semantic: "the agent gives legal advice or interprets a legal obligation"
-action: escalate
+action: require_approval
 

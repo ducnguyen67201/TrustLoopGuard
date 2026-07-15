@@ -6,6 +6,7 @@
 //! callers can swap in their own (voice-channel callers should usually
 //! disable retries with `max_attempts = 1`).
 
+mod authorization;
 mod error;
 mod events;
 mod financial;
@@ -17,6 +18,7 @@ mod runs;
 #[cfg(test)]
 mod tests;
 
+pub use authorization::AuthorizationResult;
 pub use error::SdkError;
 pub use financial::FinancialOperation;
 pub use retry::RetryConfig;
@@ -28,29 +30,28 @@ pub use runs::RunClient;
 // imports.
 pub use tl_core::{
     Action, AgenticPaymentAuthorizationResponse, AgenticPaymentAuthorizeRequest,
-    AgenticPaymentCommitRequest, AgenticPaymentDecision, AgenticPaymentMandateScope,
-    AgenticPaymentRecord, AgenticPaymentReservation, AgenticPaymentReservationStatus,
-    AgenticPaymentRollbackRequest, AllowedSource, ApiError, ApiErrorCode, ApprovalRequirement,
-    ApprovalRule, ApproveMatchingFinancialActionsRequest, ApproveMatchingFinancialActionsResponse,
-    Channel, Confidentiality, CounterpartyRef, CreateFinancialActionRequest,
-    CreateFinancialMandateRequest, CreateFinancialPolicyRequest, CreateRunEventRequest,
-    CreateRunRequest, Decision, EventKind, EvidenceRef, FinancialAction, FinancialActionDecision,
-    FinancialActionDecisionReceipt, FinancialActionKind, FinancialActionListResponse,
-    FinancialActionOutcome, FinancialActionOutcomeStatus, FinancialActionPrecondition,
-    FinancialActionRecord, FinancialActionStatus, FinancialApprovalEnvelope,
-    FinancialApprovalRequest, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
-    FinancialAuthorizationScopeProof, FinancialDecision, FinancialDecisionRisk,
-    FinancialDecisionRiskCode, FinancialEligibilityCheck, FinancialEligibilityResult,
-    FinancialEligibilityStatus, FinancialEvidenceProof, FinancialExecutionProof,
-    FinancialExecutionProofStatus, FinancialMandate, FinancialMandateListResponse,
-    FinancialMandateStatus, FinancialOutcomeListResponse, FinancialPolicyListResponse,
-    FinancialPolicyRecord, FinancialPolicySelector, FinancialRail, FinancialReceipt, GuardEvent,
-    GuardrailGenerateResponse, GuardrailListResponse, Integrity, Labels, MandateRef, MoneyAmount,
-    Origin, ParamRole, ParamSpec, PolicyAction, PolicyDocument, PolicyFamily, PolicyListResponse,
-    PolicySummary, Principal, ProvenanceMap, RecoveryStatus, ReversalCapability, RunDetail,
-    RunEventKind, RunEventListResponse, RunEventSummary, RunKind, RunListResponse, RunStatus,
-    RunSummary, Severity, SideEffectClass, Source, SpendMeter, ToolMetadata, TraceListResponse,
-    TriggeredPolicy, Trust, UpdateRunRequest, Verdict, X402NormalizedPaymentRequirement,
+    AgenticPaymentCommitRequest, AgenticPaymentRecord, AgenticPaymentReservation,
+    AgenticPaymentReservationStatus, AgenticPaymentRollbackRequest, AllowedSource, ApiError,
+    ApiErrorCode, ApprovalDecision, ApprovalRule, ApprovalStatus, AuthorizationApproval,
+    AuthorizationApprovalListResponse, AuthorizationApprovalSummary, AuthorizationClaim,
+    AuthorizationDecision, AuthorizationDomain, AuthorizationDomainEvidence, AuthorizationEffect,
+    AuthorizationFinding, AuthorizationGrant, AuthorizationGrantListResponse,
+    AuthorizationGrantRef, AuthorizationGrantScope, AuthorizationIntentStatus, AuthorizationLease,
+    AuthorizationReceipt, Channel, CompleteAuthorizationLeaseRequest, Confidentiality,
+    CounterpartyRef, CreateAuthorizationGrantRequest, CreateFinancialActionRequest,
+    CreateFinancialPolicyRequest, CreateRunEventRequest, CreateRunRequest,
+    DecideAuthorizationApprovalRequest, DecideAuthorizationApprovalResponse, EventKind,
+    EvidenceRef, ExecuteFinancialActionRequest, FinancialAction, FinancialActionKind,
+    FinancialActionListResponse, FinancialActionOutcome, FinancialActionOutcomeStatus,
+    FinancialActionPrecondition, FinancialActionRecord, FinancialExecutionStatus,
+    FinancialOutcomeListResponse, FinancialPolicyListResponse, FinancialPolicyRecord,
+    FinancialPolicySelector, FinancialRail, FinancialReceipt, GrantMode, GrantStatus, GuardEvent,
+    GuardrailGenerateResponse, GuardrailListResponse, Integrity, Labels, LeaseStatus, MoneyAmount,
+    Origin, ParamRole, ParamSpec, PolicyDocument, PolicyFamily, PolicyListResponse, PolicySummary,
+    Principal, ProvenanceMap, RecoveryStatus, ReversalCapability, RunDetail, RunEventKind,
+    RunEventListResponse, RunEventSummary, RunKind, RunListResponse, RunStatus, RunSummary,
+    Severity, SideEffectClass, Source, SpendMeter, ToolIdentity, ToolMetadata, TraceListResponse,
+    TriggeredPolicy, Trust, UpdateRunRequest, X402NormalizedPaymentRequirement,
     X402PaymentRequirement, X402SettlementProof,
 };
 

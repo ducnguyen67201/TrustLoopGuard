@@ -79,6 +79,23 @@
         "operation"
       ],
       "properties": {
+        "authorization": {
+          "description": "Opaque grant claim submitted only on a resumed attempt. The server extracts and clears it before trace persistence.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AuthorizationClaim"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "invocation_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "operation": {
           "type": "string"
         },
@@ -89,6 +106,16 @@
           "anyOf": [
             {
               "$ref": "#/definitions/SideEffectClass"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tool_identity": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ToolIdentity"
             },
             {
               "type": "null"
@@ -143,20 +170,40 @@
         }
       }
     },
+    "AuthorizationClaim": {
+      "type": "object",
+      "required": [
+        "attempt_id",
+        "grant_id"
+      ],
+      "properties": {
+        "attempt_id": {
+          "type": "string"
+        },
+        "grant_id": {
+          "type": "string"
+        }
+      }
+    },
+    "AuthorizationEffect": {
+      "description": "The only runtime decision vocabulary.",
+      "type": "string",
+      "enum": [
+        "permit",
+        "deny",
+        "transform",
+        "require_approval",
+        "defer"
+      ]
+    },
     "CheckerFindingEvidence": {
-      "description": "One rule violation observed by a checker.\n\n`recommended_verdict` is what enforce mode applies; in shadow mode it is the hypothetical outcome and the decision is left untouched. It is absent for verdict-free evidence findings (e.g. \"tool not registered, parameters unverifiable\") that never affect the decision in any mode.",
+      "description": "One rule violation observed by a checker.\n\n`recommended_effect` is what enforce mode applies; in shadow mode it is the hypothetical outcome and the decision is left untouched. It is absent for effect-free evidence findings (e.g. \"tool not registered, parameters unverifiable\") that never affect the decision in any mode.",
       "type": "object",
       "required": [
         "reason",
         "rule"
       ],
       "properties": {
-        "failure_mode": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
         "harm_class": {
           "type": [
             "string",
@@ -166,14 +213,20 @@
         "reason": {
           "type": "string"
         },
-        "recommended_verdict": {
+        "recommended_effect": {
           "anyOf": [
             {
-              "$ref": "#/definitions/Verdict"
+              "$ref": "#/definitions/AuthorizationEffect"
             },
             {
               "type": "null"
             }
+          ]
+        },
+        "risk_code": {
+          "type": [
+            "string",
+            "null"
           ]
         },
         "risk_source": {
@@ -231,7 +284,7 @@
       ]
     },
     "EnforcementMode": {
-      "description": "Rollout mode for one checker in one workspace.\n\n- `Off`: the checker is not evaluated; no evidence is recorded. - `Shadow`: the checker is evaluated and full hypothetical evidence is recorded, but the decision is never changed. - `Enforce`: the checker is evaluated and its findings can change the decision (worst verdict wins).",
+      "description": "Rollout mode for one checker in one workspace.\n\n- `Off`: the checker is not evaluated; no evidence is recorded. - `Shadow`: the checker is evaluated and full hypothetical evidence is recorded, but the decision is never changed. - `Enforce`: the checker is evaluated and its findings can change the decision (the strongest authorization effect wins).",
       "type": "string",
       "enum": [
         "off",
@@ -337,7 +390,7 @@
       ]
     },
     "LabelResolution": {
-      "description": "Label resolution + propagation evidence attached by the event pipeline. `None` until the pipeline has run. Observe-only: no checker changes a verdict because of this value.",
+      "description": "Label resolution + propagation evidence attached by the event pipeline. `None` until the pipeline has run. Observe-only: no checker changes an authorization effect because of this value.",
       "type": "object",
       "required": [
         "policy_status"
@@ -391,11 +444,11 @@
       }
     },
     "LimitAction": {
-      "description": "The verdict a [`ParamLimit`] breach maps to. `Block` is the safe default for money movement; `Escalate` routes a breach to a human instead.",
+      "description": "The authorization effect a [`ParamLimit`] breach maps to. `Deny` is the safe default for money movement; `RequireApproval` routes a breach to review.",
       "type": "string",
       "enum": [
-        "block",
-        "escalate"
+        "deny",
+        "require_approval"
       ]
     },
     "Origin": {
@@ -433,8 +486,8 @@
           "format": "int64"
         },
         "on_breach": {
-          "description": "Verdict to recommend when a bound is breached. Defaults to `Block`.",
-          "default": "block",
+          "description": "Authorization effect to recommend when a bound is breached. Defaults to `Deny`.",
+          "default": "deny",
           "allOf": [
             {
               "$ref": "#/definitions/LimitAction"
@@ -556,7 +609,7 @@
       ]
     },
     "SignalEvidence": {
-      "description": "Advisory evidence from one LLM/classifier signal provider, attached by the event pipeline.\n\nSignals never decide action verdicts: the composer ignores them for verdict computation, and this evidence exists so traces and review show what advisory layers observed.",
+      "description": "Advisory evidence from one LLM/classifier signal provider, attached by the event pipeline.\n\nSignals never decide authorization effects: the composer ignores them for effect composition, and this evidence exists so traces and review show what advisory layers observed.",
       "type": "object",
       "required": [
         "message",
@@ -630,6 +683,25 @@
           "$ref": "#/definitions/Labels"
         },
         "source_id": {
+          "type": "string"
+        }
+      }
+    },
+    "ToolIdentity": {
+      "type": "object",
+      "required": [
+        "schema_hash",
+        "server_id",
+        "tool_name"
+      ],
+      "properties": {
+        "schema_hash": {
+          "type": "string"
+        },
+        "server_id": {
+          "type": "string"
+        },
+        "tool_name": {
           "type": "string"
         }
       }
@@ -731,16 +803,6 @@
         "trusted",
         "untrusted",
         "unknown"
-      ]
-    },
-    "Verdict": {
-      "description": "What TrustLoopGuard tells the caller to do with the proposed output.",
-      "type": "string",
-      "enum": [
-        "allow",
-        "block",
-        "rewrite",
-        "escalate"
       ]
     }
   }

@@ -5,15 +5,15 @@ function printTable(rows: ScenarioResult[]): void {
   const line = '-'.repeat(112);
   process.stdout.write(`${line}\n`);
   process.stdout.write(
-    ` #  ${'scenario'.padEnd(42)}${'initial'.padEnd(12)}${'final'.padEnd(12)}${'provider'.padEnd(10)}${'receipt'.padEnd(10)}outcome\n`,
+    ` #  ${'scenario'.padEnd(52)}${'effect'.padEnd(20)}${'execution'.padEnd(14)}${'provider'.padEnd(10)}receipt\n`,
   );
   rows.forEach((row, i) => {
     process.stdout.write(
-      ` ${String(i + 1).padEnd(3)}${row.label.padEnd(42)}${row.initialStatus.padEnd(12)}${row.finalStatus.padEnd(12)}${String(row.providerCalls).padEnd(10)}${String(row.receiptExported).padEnd(10)}${row.outcomeRecorded}\n`,
+      ` ${String(i + 1).padEnd(3)}${row.label.padEnd(52)}${row.authorizationEffect.padEnd(20)}${row.executionStatus.padEnd(14)}${String(row.providerCalls).padEnd(10)}${row.executionReceiptExported}\n`,
     );
   });
   process.stdout.write(`${line}\n`);
-  const executed = rows.filter((row) => row.finalStatus === 'executed').length;
+  const executed = rows.filter((row) => row.executionStatus === 'succeeded').length;
   const stopped = rows.length - executed;
   process.stdout.write(
     `${executed} authorized refund(s) executed, ${stopped} stopped or held before provider execution.\n`,

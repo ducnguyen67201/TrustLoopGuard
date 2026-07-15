@@ -146,7 +146,7 @@ async fn flush(pool: &DbPool, buf: &mut Vec<TraceWrite>) -> Result<(), StorageEr
                 session_id: w.session_id,
                 environment_id: w.environment_id,
                 domain: w.domain,
-                decision: verdict_text(&w.decision.verdict).to_string(),
+                decision: effect_text(&w.decision.effect).to_string(),
                 elapsed_ms: w.decision.latency_ms as i32,
                 payload,
             }
@@ -190,12 +190,13 @@ fn build_trace_payload(decision: &Decision, event: Option<&GuardEvent>) -> serde
     payload
 }
 
-fn verdict_text(v: &tl_core::Verdict) -> &'static str {
+fn effect_text(v: &tl_core::AuthorizationEffect) -> &'static str {
     match v {
-        tl_core::Verdict::Allow => "allow",
-        tl_core::Verdict::Block => "block",
-        tl_core::Verdict::Rewrite => "rewrite",
-        tl_core::Verdict::Escalate => "escalate",
+        tl_core::AuthorizationEffect::Permit => "permit",
+        tl_core::AuthorizationEffect::Deny => "deny",
+        tl_core::AuthorizationEffect::Transform => "transform",
+        tl_core::AuthorizationEffect::RequireApproval => "require_approval",
+        tl_core::AuthorizationEffect::Defer => "defer",
     }
 }
 
@@ -203,7 +204,8 @@ fn verdict_text(v: &tl_core::Verdict) -> &'static str {
 mod tests {
     use super::*;
     use tl_core::{
-        Action, EventKind, GuardEvent, Principal, ProvenanceMap, SideEffectClass, Verdict,
+        Action, AuthorizationEffect, EventKind, GuardEvent, Principal, ProvenanceMap,
+        SideEffectClass,
     };
 
     fn event() -> GuardEvent {
@@ -226,6 +228,9 @@ mod tests {
                 operation: "output".into(),
                 parameters: serde_json::json!({ "text": "safe reply" }),
                 side_effect: Some(SideEffectClass::None),
+                invocation_id: None,
+                tool_identity: None,
+                authorization: None,
             },
             sources: vec![],
             provenance,
@@ -262,7 +267,7 @@ mod tests {
         // The enriched payload must still parse as a Decision for every
         // existing payload consumer.
         let parsed: Decision = serde_json::from_value(payload).unwrap();
-        assert_eq!(parsed.verdict, Verdict::Allow);
+        assert_eq!(parsed.effect, AuthorizationEffect::Permit);
         assert_eq!(parsed.trace_id, "trace-1");
     }
 }

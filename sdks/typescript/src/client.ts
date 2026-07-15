@@ -4,7 +4,17 @@
 // same `nextDelay` semantics. Voice callers should pass
 // `{ ...DEFAULT_RETRY, maxAttempts: 1 }` to opt out.
 
-import type { Decision } from './generated/Decision';
+import type { AuthorizationDecision } from './generated/AuthorizationDecision';
+import type { AuthorizationClaim } from './generated/AuthorizationClaim';
+import type { AuthorizationApproval } from './generated/AuthorizationApproval';
+import type { AuthorizationApprovalListResponse } from './generated/AuthorizationApprovalListResponse';
+import type { AuthorizationGrant } from './generated/AuthorizationGrant';
+import type { AuthorizationGrantListResponse } from './generated/AuthorizationGrantListResponse';
+import type { AuthorizationReceipt } from './generated/AuthorizationReceipt';
+import type { CompleteAuthorizationLeaseRequest } from './generated/CompleteAuthorizationLeaseRequest';
+import type { CreateAuthorizationGrantRequest } from './generated/CreateAuthorizationGrantRequest';
+import type { DecideAuthorizationApprovalRequest } from './generated/DecideAuthorizationApprovalRequest';
+import type { DecideAuthorizationApprovalResponse } from './generated/DecideAuthorizationApprovalResponse';
 import type { GuardEvent } from './generated/GuardEvent';
 import type { AgentListResponse } from './generated/AgentListResponse';
 import type { AgentProfile } from './generated/AgentProfile';
@@ -25,24 +35,16 @@ import type { AgenticPaymentAuthorizeRequest } from './generated/AgenticPaymentA
 import type { AgenticPaymentCommitRequest } from './generated/AgenticPaymentCommitRequest';
 import type { AgenticPaymentRecord } from './generated/AgenticPaymentRecord';
 import type { AgenticPaymentRollbackRequest } from './generated/AgenticPaymentRollbackRequest';
-import type { ApproveMatchingFinancialActionsRequest } from './generated/ApproveMatchingFinancialActionsRequest';
-import type { ApproveMatchingFinancialActionsResponse } from './generated/ApproveMatchingFinancialActionsResponse';
 import type { CreateFinancialActionRequest } from './generated/CreateFinancialActionRequest';
-import type { CreateFinancialMandateRequest } from './generated/CreateFinancialMandateRequest';
+import type { ExecuteFinancialActionRequest } from './generated/ExecuteFinancialActionRequest';
 import type { CreateFinancialPolicyRequest } from './generated/CreateFinancialPolicyRequest';
 import type { CounterpartyRef } from './generated/CounterpartyRef';
 import type { EvidenceRef } from './generated/EvidenceRef';
 import type { FinancialActionKind } from './generated/FinancialActionKind';
-import type { FinancialActionDecisionReceipt } from './generated/FinancialActionDecisionReceipt';
 import type { FinancialActionListResponse } from './generated/FinancialActionListResponse';
 import type { FinancialActionOutcome } from './generated/FinancialActionOutcome';
-import type { FinancialApprovalRequestListResponse } from './generated/FinancialApprovalRequestListResponse';
-import type { FinancialApprovalEnvelope } from './generated/FinancialApprovalEnvelope';
 import type { FinancialRail } from './generated/FinancialRail';
-import type { MandateRef } from './generated/MandateRef';
 import type { MoneyAmount } from './generated/MoneyAmount';
-import type { FinancialMandate } from './generated/FinancialMandate';
-import type { FinancialMandateListResponse } from './generated/FinancialMandateListResponse';
 import type { FinancialOutcomeListResponse } from './generated/FinancialOutcomeListResponse';
 import type { FinancialPolicyListResponse } from './generated/FinancialPolicyListResponse';
 import type { FinancialPolicyRecord } from './generated/FinancialPolicyRecord';
@@ -63,6 +65,7 @@ import type { Source } from './generated/Source';
 import type { TraceListResponse } from './generated/TraceListResponse';
 import type { ToolMetadataEntry } from './generated/ToolMetadataEntry';
 import type { ToolMetadataListResponse } from './generated/ToolMetadataListResponse';
+import type { ToolIdentity } from './generated/ToolIdentity';
 import type { UpdateRunRequest } from './generated/UpdateRunRequest';
 import type { UpsertToolMetadataRequest } from './generated/UpsertToolMetadataRequest';
 import { Decode, SdkError, Transport, fromResponse, parseRetryAfter } from './errors';
@@ -157,6 +160,19 @@ export interface GuardToolCallOptions {
   context?: Record<string, unknown> | null;
 }
 
+export interface AuthorizedActionOptions extends GuardToolCallOptions {
+  toolIdentity: ToolIdentity;
+  timeoutMs?: number;
+  pollIntervalMs?: number;
+  signal?: AbortSignal;
+}
+
+export interface AuthorizedActionResult<T> {
+  decision: AuthorizationDecision;
+  executed: boolean;
+  value?: T;
+}
+
 export interface FinancialOperationRunOptions {
   execute?: boolean;
   signal?: AbortSignal;
@@ -170,7 +186,7 @@ export interface FinancialOperationSpec<Input, Facts = undefined> {
   amount: (input: Input, facts: Facts) => MoneyAmount;
   idempotencyKey: (input: Input, facts: Facts) => string;
   counterparty?: (input: Input, facts: Facts) => CounterpartyRef | undefined;
-  mandate?: (input: Input, facts: Facts) => MandateRef | undefined;
+  authorization?: (input: Input, facts: Facts) => AuthorizationClaim | undefined;
   memo?: (input: Input, facts: Facts) => string | undefined;
   metadata?: (input: Input, facts: Facts) => Record<string, unknown> | null | undefined;
   evidence?: (input: Input, facts: Facts) => EvidenceRef[] | undefined;
@@ -215,11 +231,11 @@ export class Client {
    * decision. The `checks` and `signals` fields are server-populated;
    * client-supplied values are ignored.
    */
-  async submitEvent(event: GuardEvent, signal?: AbortSignal): Promise<Decision> {
+  async submitEvent(event: GuardEvent, signal?: AbortSignal): Promise<AuthorizationDecision> {
     const body = await this.withActiveContext(event);
     return this.withRetry(
       (signal) =>
-        this.sendJson<Decision>(
+        this.sendJson<AuthorizationDecision>(
           '/v1/events',
           {
             method: 'POST',
@@ -229,6 +245,115 @@ export class Client {
         ),
       signal,
     );
+  }
+
+  async getApproval(approvalId: string, signal?: AbortSignal): Promise<AuthorizationApproval> {
+    return this.withRetry(
+      (retrySignal) =>
+        this.sendJson<AuthorizationApproval>(
+          `/v1/authorization/approvals/${encodeURIComponent(approvalId)}`,
+          { method: 'GET' },
+          retrySignal,
+        ),
+      signal,
+    );
+  }
+
+  async resumeAuthorizedAction(
+    event: GuardEvent,
+    grantId: string,
+    attemptId: string,
+    signal?: AbortSignal,
+  ): Promise<AuthorizationDecision> {
+    const resumed = cloneEvent(event);
+    resumed.action.authorization = {
+      grant_id: grantId,
+      attempt_id: attemptId,
+    };
+    return this.submitEvent(resumed, signal);
+  }
+
+  async withAuthorizedAction<T>(
+    opts: AuthorizedActionOptions,
+    execute: (parameters: Readonly<Record<string, unknown>>) => Promise<T>,
+  ): Promise<AuthorizedActionResult<T>> {
+    const event = cloneEvent({
+      kind: 'tool.call.proposed',
+      principal: {
+        workspace_id: '',
+        environment_id: '',
+        agent_id: opts.agentId,
+      },
+      action: {
+        operation: opts.operation,
+        parameters: opts.parameters ?? {},
+        ...(opts.sideEffect ? { side_effect: opts.sideEffect } : {}),
+        invocation_id: newUuid(),
+        tool_identity: opts.toolIdentity,
+      },
+      sources: opts.sources ?? [],
+      provenance: opts.provenance ?? {},
+      context: opts.context ?? null,
+    });
+    const approvedParameters = event.action.parameters ?? {};
+    deepFreeze(approvedParameters);
+    const executePermitted = async (
+      permitted: AuthorizationDecision,
+    ): Promise<AuthorizedActionResult<T>> => {
+      try {
+        const value = await execute(approvedParameters);
+        if (permitted.lease) {
+          await this.completeLease(permitted.lease.id, {
+            status: 'consumed',
+            outcome: { success: true },
+          });
+        }
+        return { decision: permitted, executed: true, value };
+      } catch (error) {
+        if (permitted.lease) {
+          try {
+            await this.completeLease(permitted.lease.id, {
+              status: 'canceled',
+              outcome: { success: false },
+            });
+          } catch {
+            // Preserve the callback/completion error. A caller can reconcile
+            // the claimed lease without ever running the callback again.
+          }
+        }
+        throw error;
+      }
+    };
+    let decision = await this.submitEvent(event, opts.signal);
+    if (decision.effect === 'permit') {
+      return executePermitted(decision);
+    }
+    if (decision.effect !== 'require_approval' || !decision.approval) {
+      return { decision, executed: false };
+    }
+
+    const approvalId = decision.approval.id;
+    const attemptId = newUuid();
+    const deadline = Date.now() + (opts.timeoutMs ?? 60_000);
+    while (Date.now() < deadline) {
+      if (opts.signal?.aborted) throw opts.signal.reason;
+      const approval = await this.getApproval(approvalId, opts.signal);
+      if (approval.status === 'approved' && approval.grant_id) {
+        decision = await this.resumeAuthorizedAction(
+          event,
+          approval.grant_id,
+          attemptId,
+          opts.signal,
+        );
+        if (decision.effect === 'permit' && decision.lease) {
+          return executePermitted(decision);
+        }
+        return { decision, executed: false };
+      }
+      if (approval.status !== 'pending') return { decision, executed: false };
+      await abortableDelay(opts.pollIntervalMs ?? 1_000, opts.signal);
+    }
+    return { decision, executed: false };
   }
 
   async withRun<T>(opts: WithRunOptions, fn: (run: ActiveRun) => Promise<T>): Promise<T> {
@@ -280,7 +405,10 @@ export class Client {
     });
   }
 
-  async guardToolCall(opts: GuardToolCallOptions, signal?: AbortSignal): Promise<Decision> {
+  async guardToolCall(
+    opts: GuardToolCallOptions,
+    signal?: AbortSignal,
+  ): Promise<AuthorizationDecision> {
     return this.submitEvent(
       {
         kind: 'tool.call.proposed',
@@ -298,6 +426,88 @@ export class Client {
         provenance: opts.provenance ?? {},
         context: opts.context ?? null,
       },
+      signal,
+    );
+  }
+
+  async listApprovals(signal?: AbortSignal): Promise<AuthorizationApprovalListResponse> {
+    return this.withRetry(
+      (retrySignal) =>
+        this.sendJson<AuthorizationApprovalListResponse>(
+          '/v1/authorization/approvals',
+          { method: 'GET' },
+          retrySignal,
+        ),
+      signal,
+    );
+  }
+
+  async decideApproval(
+    approvalId: string,
+    request: DecideAuthorizationApprovalRequest,
+    signal?: AbortSignal,
+  ): Promise<DecideAuthorizationApprovalResponse> {
+    return this.sendJson<DecideAuthorizationApprovalResponse>(
+      `/v1/authorization/approvals/${encodeURIComponent(approvalId)}/decide`,
+      { method: 'POST', body: stringifyJson(request) },
+      signal,
+    );
+  }
+
+  async createGrant(
+    request: CreateAuthorizationGrantRequest,
+    signal?: AbortSignal,
+  ): Promise<AuthorizationGrant> {
+    return this.sendJson<AuthorizationGrant>(
+      '/v1/authorization/grants',
+      { method: 'POST', body: stringifyJson(request) },
+      signal,
+    );
+  }
+
+  async listGrants(signal?: AbortSignal): Promise<AuthorizationGrantListResponse> {
+    return this.withRetry(
+      (retrySignal) =>
+        this.sendJson<AuthorizationGrantListResponse>(
+          '/v1/authorization/grants',
+          { method: 'GET' },
+          retrySignal,
+        ),
+      signal,
+    );
+  }
+
+  async revokeGrant(grantId: string, signal?: AbortSignal): Promise<AuthorizationGrant> {
+    return this.sendJson<AuthorizationGrant>(
+      `/v1/authorization/grants/${encodeURIComponent(grantId)}/revoke`,
+      { method: 'POST', body: '{}' },
+      signal,
+    );
+  }
+
+  async completeLease(
+    leaseId: string,
+    request: CompleteAuthorizationLeaseRequest,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    await this.sendJson(
+      `/v1/authorization/leases/${encodeURIComponent(leaseId)}/complete`,
+      { method: 'POST', body: stringifyJson(request) },
+      signal,
+    );
+  }
+
+  async getAuthorizationReceipt(
+    receiptId: string,
+    signal?: AbortSignal,
+  ): Promise<AuthorizationReceipt> {
+    return this.withRetry(
+      (retrySignal) =>
+        this.sendJson<AuthorizationReceipt>(
+          `/v1/authorization/receipts/${encodeURIComponent(receiptId)}`,
+          { method: 'GET' },
+          retrySignal,
+        ),
       signal,
     );
   }
@@ -482,72 +692,11 @@ export class Client {
     );
   }
 
-  async createMandate(
-    req: CreateFinancialMandateRequest,
-    signal?: AbortSignal,
-  ): Promise<FinancialMandate> {
-    return this.sendJson<FinancialMandate>(
-      '/v1/financial/mandates',
-      {
-        method: 'POST',
-        body: stringifyJson(req),
-      },
-      signal,
-    );
-  }
-
-  async listMandates(signal?: AbortSignal): Promise<FinancialMandateListResponse> {
-    return this.withRetry(
-      (signal) =>
-        this.sendJson<FinancialMandateListResponse>(
-          '/v1/financial/mandates',
-          { method: 'GET' },
-          signal,
-        ),
-      signal,
-    );
-  }
-
-  async listApprovalRequests(signal?: AbortSignal): Promise<FinancialApprovalRequestListResponse> {
-    return this.withRetry(
-      (signal) =>
-        this.sendJson<FinancialApprovalRequestListResponse>(
-          '/v1/financial/approval-requests',
-          { method: 'GET' },
-          signal,
-        ),
-      signal,
-    );
-  }
-
-  async revokeMandate(mandateId: string, signal?: AbortSignal): Promise<FinancialMandate> {
-    return this.sendJson<FinancialMandate>(
-      `/v1/financial/mandates/${encodeURIComponent(mandateId)}/revoke`,
-      { method: 'POST', body: '{}' },
-      signal,
-    );
-  }
-
   async getReceipt(receiptId: string, signal?: AbortSignal): Promise<FinancialReceipt> {
     return this.withRetry(
       (signal) =>
         this.sendJson<FinancialReceipt>(
           `/v1/financial/receipts/${encodeURIComponent(receiptId)}`,
-          { method: 'GET' },
-          signal,
-        ),
-      signal,
-    );
-  }
-
-  async getFinancialDecisionReceipt(
-    actionId: string,
-    signal?: AbortSignal,
-  ): Promise<FinancialActionDecisionReceipt> {
-    return this.withRetry(
-      (signal) =>
-        this.sendJson<FinancialActionDecisionReceipt>(
-          `/v1/financial/actions/${encodeURIComponent(actionId)}/decision-receipt`,
           { method: 'GET' },
           signal,
         ),
@@ -585,53 +734,14 @@ export class Client {
     );
   }
 
-  async approveAction(actionId: string, signal?: AbortSignal): Promise<FinancialActionRecord> {
-    return this.transitionFinancialAction(actionId, 'approve', signal);
-  }
-
-  async getFinancialApprovalEnvelope(
+  async executeAction(
     actionId: string,
-    signal?: AbortSignal,
-  ): Promise<FinancialApprovalEnvelope> {
-    return this.withRetry(
-      (signal) =>
-        this.sendJson<FinancialApprovalEnvelope>(
-          `/v1/financial/actions/${encodeURIComponent(actionId)}/approval-envelope`,
-          { method: 'GET' },
-          signal,
-        ),
-      signal,
-    );
-  }
-
-  async approveMatchingFinancialActions(
-    actionId: string,
-    request: ApproveMatchingFinancialActionsRequest,
-    signal?: AbortSignal,
-  ): Promise<ApproveMatchingFinancialActionsResponse> {
-    return this.sendJson<ApproveMatchingFinancialActionsResponse>(
-      `/v1/financial/actions/${encodeURIComponent(actionId)}/approve-matching`,
-      { method: 'POST', body: stringifyJson(request) },
-      signal,
-    );
-  }
-
-  async denyAction(actionId: string, signal?: AbortSignal): Promise<FinancialActionRecord> {
-    return this.transitionFinancialAction(actionId, 'deny', signal);
-  }
-
-  async executeAction(actionId: string, signal?: AbortSignal): Promise<FinancialActionRecord> {
-    return this.transitionFinancialAction(actionId, 'execute', signal);
-  }
-
-  private async transitionFinancialAction(
-    actionId: string,
-    transition: 'approve' | 'deny' | 'execute',
+    request: ExecuteFinancialActionRequest = {},
     signal?: AbortSignal,
   ): Promise<FinancialActionRecord> {
     return this.sendJson<FinancialActionRecord>(
-      `/v1/financial/actions/${encodeURIComponent(actionId)}/${transition}`,
-      { method: 'POST', body: '{}' },
+      `/v1/financial/actions/${encodeURIComponent(actionId)}/execute`,
+      { method: 'POST', body: stringifyJson(request) },
       signal,
     );
   }
@@ -1159,6 +1269,41 @@ export class Client {
   }
 }
 
+function cloneEvent(event: GuardEvent): GuardEvent {
+  return JSON.parse(JSON.stringify(event)) as GuardEvent;
+}
+
+function deepFreeze(value: object): void {
+  Object.freeze(value);
+  for (const nested of Object.values(value)) {
+    if (nested !== null && typeof nested === 'object' && !Object.isFrozen(nested)) {
+      deepFreeze(nested);
+    }
+  }
+}
+
+function newUuid(): string {
+  return globalThis.crypto.randomUUID();
+}
+
+function abortableDelay(delayMs: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const timer = setTimeout(resolve, delayMs);
+    signal?.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer);
+        reject(signal.reason);
+      },
+      { once: true },
+    );
+  });
+}
+
 function stringifyJson(value: Parameters<typeof JSON.stringify>[0]): string {
   return JSON.stringify(value, (_key, nested) => {
     if (typeof nested !== 'bigint') return nested;
@@ -1189,12 +1334,10 @@ function buildFinancialOperationRequest<Input, Facts>(
   };
   const counterparty = spec.counterparty?.(input, facts);
   if (counterparty !== undefined) action.counterparty = counterparty;
-  const mandate = spec.mandate?.(input, facts);
-  if (mandate !== undefined) action.mandate = mandate;
   const memo = spec.memo?.(input, facts);
   if (memo !== undefined) action.memo = memo;
 
-  return {
+  const request: CreateFinancialActionRequest = {
     idempotency_key: cleanFinancialOperationField(
       'idempotencyKey',
       spec.idempotencyKey(input, facts),
@@ -1203,6 +1346,9 @@ function buildFinancialOperationRequest<Input, Facts>(
     action,
     evidence: spec.evidence?.(input, facts) ?? [],
   };
+  const authorization = spec.authorization?.(input, facts);
+  if (authorization !== undefined) request.authorization = authorization;
+  return request;
 }
 
 function cleanFinancialOperationField(name: string, value: string): string {

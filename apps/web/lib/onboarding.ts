@@ -46,7 +46,8 @@ const reply = await client.withRun({ agentId: '${opts.agentId}', kind: 'chat_ses
       input: userMessage,
       draft: agentDraft,
       onBlock: () => "I can't help with that.",
-      onEscalate: () => 'A human will follow up.',
+      onRequireApproval: () => 'A human will follow up.',
+      onDefer: () => 'I need more verified information before continuing.',
     }),
   );
 });`;
@@ -60,26 +61,29 @@ const client = new Client({
   apiKey: process.env.TLG_API_KEY,
 });
 
-// 1. Your customer app creates or selects a mandate after the user asks to buy.
-const mandate = await client.createMandate({
+// 1. After verified user intent, create a reusable grant with the exact payment scope.
+const grant = await client.createGrant({
   principal_id: '${opts.agentId}',
-  scope: {},
-  payment_scope: {
-    intent_label: 'Buy the requested paid resource',
-    action_kinds: ['payment'],
-    operation: 'x402_read_paid_resource',
-    max_amount_minor: 500n,
-    currency: 'USD',
-    rail: 'x402',
-    allowed_hosts: ['merchant.example'],
-    allowed_resources: ['/premium/article'],
-    allowed_networks: ['base-sepolia'],
-    allowed_assets: ['USDC'],
-    allowed_pay_to: ['0xmerchant'],
-    allowed_counterparty_ids: ['0xmerchant'],
-    required_preconditions: [],
+  domain: 'financial',
+  capability: 'financial:x402_read_paid_resource',
+  scope: {
+    scope_type: 'financial',
+    scope: {
+      action_kinds: ['payment'],
+      operation: 'x402_read_paid_resource',
+      maximum_amount_minor: 500n,
+      currency: 'USD',
+      rail: 'x402',
+      counterparties: ['0xmerchant'],
+      x402_hosts: ['merchant.example'],
+      x402_resources: ['/premium/article'],
+      x402_networks: ['base-sepolia'],
+      x402_assets: ['USDC'],
+      x402_payees: ['0xmerchant'],
+      required_preconditions: [],
+    },
   },
-  metadata: { source: 'customer_checkout' },
+  requirement_ids: ['financial:x402-agentic-payment-grant-required:grant_required'],
 });
 
 // 2. Your agent requests the resource and receives HTTP 402 from the merchant.
@@ -91,7 +95,7 @@ const auth = await client.authorizeAgenticPayment({
   principal_id: '${opts.agentId}',
   session_id: checkoutSessionId,
   operation: 'x402_read_paid_resource',
-  mandate: { id: mandate.id, version: mandate.version },
+  authorization: { grant_id: grant.id, attempt_id: crypto.randomUUID() },
   payment_requirement: requirement,
   evidence: [],
   metadata: { order_id: checkoutSessionId },
@@ -120,7 +124,7 @@ export function buildAssistantPrompt(opts: {
    TLG_URL=${opts.baseUrl}
    TLG_API_KEY=<the API key I just created — ask me to paste it into .env, do not hardcode it>
 3. Create a shared client: new Client({ baseUrl: process.env.TLG_URL, apiKey: process.env.TLG_API_KEY }) from '@trustloopguard/sdk'.
-4. Wrap my agent's LLM call with guard() using agentId '${opts.agentId}': pass the user input as \`input\` and the model's draft reply as \`draft\`, and handle onBlock and onEscalate with safe fallback messages. Group calls with client.withRun({ agentId: '${opts.agentId}', kind: 'chat_session' }, ...).
+4. Wrap my agent's LLM call with guard() using agentId '${opts.agentId}': pass the user input as \`input\` and the model's draft reply as \`draft\`, and handle onBlock, onRequireApproval, and onDefer separately with safe fallback messages. Group calls with client.withRun({ agentId: '${opts.agentId}', kind: 'chat_session' }, ...).
 5. Run the agent once end-to-end so a real request goes through the guard — I'm watching for the first event on my TrustLoopGuard dashboard.
 
 Assistant workflow: ${assistantInstructions[opts.assistant]}`;
@@ -130,8 +134,8 @@ Assistant workflow: ${assistantInstructions[opts.assistant]}`;
 // free of backticks and ${…} so it can live inside a template literal.
 const CLAUDE_HOOK_SCRIPT = `#!/usr/bin/env node
 // TrustLoopGuard PreToolUse hook: ask the guard before every tool call.
-// allow -> tool runs; block -> denied (reason shown to the model);
-// escalate/rewrite -> Claude Code asks the human. Guard unreachable -> fail open.
+// permit -> tool runs; deny -> denied (reason shown to the model);
+// require_approval/defer/transform -> Claude Code asks the human. Guard unreachable -> fail open.
 const chunks = [];
 for await (const chunk of process.stdin) chunks.push(chunk);
 let hook;
@@ -186,15 +190,15 @@ try {
   });
   if (!res.ok) process.exit(0);
   const decision = await res.json();
-  if (decision.verdict && decision.verdict !== 'allow') {
+  if (decision.effect && decision.effect !== 'permit') {
     const reason = decision.reason || decision.violated_rule || 'workspace policy';
     process.stdout.write(
       JSON.stringify({
         hookSpecificOutput: {
           hookEventName: 'PreToolUse',
-          permissionDecision: decision.verdict === 'block' ? 'deny' : 'ask',
+          permissionDecision: decision.effect === 'deny' ? 'deny' : 'ask',
           permissionDecisionReason:
-            'TrustLoopGuard ' + decision.verdict + ': ' + reason +
+            'TrustLoopGuard ' + decision.effect + ': ' + reason +
             ' (trace ' + (decision.trace_id || 'n/a') + ')',
         },
       }),

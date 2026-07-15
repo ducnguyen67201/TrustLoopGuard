@@ -5,7 +5,7 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tl_core::{Channel, CheckRequest, Tier, TierResult, TierStatus, Verdict};
+use tl_core::{AuthorizationEffect, Channel, CheckRequest, Tier, TierResult, TierStatus};
 use tl_policy::Policy;
 use tokio_util::sync::CancellationToken;
 
@@ -34,7 +34,7 @@ fn req() -> CheckRequest {
 fn empty_engine_allows() {
     let eng = Engine::empty();
     let d = eng.check(&req());
-    assert_eq!(d.verdict, Verdict::Allow);
+    assert_eq!(d.effect, AuthorizationEffect::Permit);
 }
 
 // -------- Async orchestrator tests --------
@@ -103,7 +103,7 @@ async fn three_allow_tiers_yield_allow_with_three_results() {
     });
     let eng = Engine::empty().with_runner(runner);
     let d = eng.check_async(&req(), &HandlerCtx::no_op()).await;
-    assert_eq!(d.verdict, Verdict::Allow);
+    assert_eq!(d.effect, AuthorizationEffect::Permit);
     assert_eq!(d.tier_results.len(), 3);
     assert_eq!(d.tier_results[0].tier, Tier::Deterministic);
     assert_eq!(d.tier_results[1].tier, Tier::Fuzzy);
@@ -126,7 +126,7 @@ async fn tier1_block_cancels_tiers_2_and_3() {
                 elapsed_ms: 0,
             },
             block: Some(BlockSignal {
-                verdict: Verdict::Block,
+                effect: AuthorizationEffect::Deny,
                 reason: "tier 1 hard block".into(),
                 safe_output: None,
             }),
@@ -177,7 +177,7 @@ async fn tier1_block_cancels_tiers_2_and_3() {
 
     let eng = Engine::empty().with_runner(runner);
     let d = eng.check_async(&req(), &HandlerCtx::no_op()).await;
-    assert_eq!(d.verdict, Verdict::Block);
+    assert_eq!(d.effect, AuthorizationEffect::Deny);
     assert!(t2_cancelled.load(Ordering::SeqCst), "tier 2 saw cancel");
     assert!(t3_cancelled.load(Ordering::SeqCst), "tier 3 saw cancel");
     assert_eq!(d.tier_results[1].status, TierStatus::Cancelled);
@@ -185,7 +185,7 @@ async fn tier1_block_cancels_tiers_2_and_3() {
 }
 
 #[tokio::test]
-async fn tier3_timeout_escalates() {
+async fn tier3_timeout_defers() {
     let runner = Arc::new(MockRunner {
         t1: Box::new(|| allow_output(Tier::Deterministic)),
         t2: Box::new(|_| Box::pin(async { allow_output(Tier::Fuzzy) })),
@@ -202,7 +202,7 @@ async fn tier3_timeout_escalates() {
             tier3_deadline: Duration::from_millis(20),
         });
     let d = eng.check_async(&req(), &HandlerCtx::no_op()).await;
-    assert_eq!(d.verdict, Verdict::Escalate);
+    assert_eq!(d.effect, AuthorizationEffect::Defer);
     assert_eq!(d.tier_results[2].status, TierStatus::TimedOut);
 }
 
@@ -220,7 +220,7 @@ async fn tier2_fuzzy_hit_blocks_through_real_orchestrator() {
 id: literal-bad
 match:
   literal: "refund"
-action: block
+action: deny
 severity: high
 "#;
     let policy = load_str(yaml).expect("policy");
@@ -235,7 +235,7 @@ severity: high
     r.proposed_output = "you can refunddd it any time".into();
     let eng = Engine::empty();
     let d = eng.check_async(&r, &ctx).await;
-    assert_eq!(d.verdict, Verdict::Block);
+    assert_eq!(d.effect, AuthorizationEffect::Deny);
     assert_eq!(d.tier_results[1].status, TierStatus::Completed);
     assert!(d.tier_results[1]
         .reasons
@@ -292,11 +292,11 @@ async fn second_identical_request_hits_cache() {
 
     let r = req();
     let d1 = eng.check_async(&r, &ctx).await;
-    assert_eq!(d1.verdict, Verdict::Allow);
+    assert_eq!(d1.effect, AuthorizationEffect::Permit);
     assert_eq!(calls.load(AtomicOrdering::SeqCst), 1);
 
     let d2 = eng.check_async(&r, &ctx).await;
-    assert_eq!(d2.verdict, Verdict::Allow);
+    assert_eq!(d2.effect, AuthorizationEffect::Permit);
     assert_eq!(
         calls.load(AtomicOrdering::SeqCst),
         1,
@@ -365,7 +365,7 @@ async fn default_runner_with_no_policies_yields_allow() {
     // tier2/tier3 returning Skipped.
     let eng = Engine::empty();
     let d = eng.check_async(&req(), &HandlerCtx::no_op()).await;
-    assert_eq!(d.verdict, Verdict::Allow);
+    assert_eq!(d.effect, AuthorizationEffect::Permit);
     assert_eq!(d.tier_results.len(), 3);
     assert_eq!(d.tier_results[0].status, TierStatus::Completed);
     assert_eq!(d.tier_results[1].status, TierStatus::Skipped);

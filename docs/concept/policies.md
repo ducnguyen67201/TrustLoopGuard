@@ -7,7 +7,7 @@ TrustLoopGuard has one Rust-owned policy registry. Every policy definition is st
 A policy has a `family`:
 
 - `content` — legacy protection rules for generic guard events.
-- `financial` — spending, approval, counterparty, mandate, and refund eligibility controls for typed financial actions.
+- `financial` — spending, approval requirements, counterparty, grant, and refund eligibility controls for typed financial actions.
 - `flow`, `parameter_source`, `approval`, `memory` — typed event-engine policy families.
 - `source_label` — per-origin label overrides used by event source-label resolution.
 
@@ -51,6 +51,6 @@ Domain endpoints can stay as ergonomic wrappers. For example, `POST /v1/financia
 
 The generic guard pipeline loads `family: content` policies for `GuardEvent` decisions.
 
-The financial authorization service loads `family: financial` policies for `FinancialAction` decisions, then combines policy verdicts with ledger windows, mandates, eligibility evidence, approvals, provider execution, and receipts.
+The financial adapter loads `family: financial` policies for `FinancialAction` subjects, emits typed findings and authority requirements, and passes them to the common authorization coordinator. Ledger windows, eligibility evidence, and current policy ceilings are still financial-domain inputs; grants, approvals, leases, and authorization receipts are common kernel concepts. Provider execution and the financial execution receipt remain separate downstream concerns.
 
 Source-label resolution reads `family: source_label` policies through the label-policy provider. The `/v1/label-policies` route remains for compatibility, but it is a wrapper over the same registry rather than a separate policy store.

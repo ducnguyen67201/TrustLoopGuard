@@ -9,10 +9,10 @@ use axum::{
 mod gateway_routes;
 
 use crate::{
-    agents, analytics, auth_user, budget_alerts, dashboard_admin, environments, financial,
-    github_integration, human_review, knowledge_sources, label_policy, llm_pricing, llm_usage,
-    policies, redteam, runs, team, tool_metadata, traces, AgentState, AppState, AuthUserState,
-    LabelPolicyState, PolicyState, ToolMetadataState,
+    agents, analytics, auth_user, authorization, budget_alerts, dashboard_admin, environments,
+    financial, github_integration, human_review, knowledge_sources, label_policy, llm_pricing,
+    llm_usage, policies, redteam, runs, team, tool_metadata, traces, AgentState, AppState,
+    AuthUserState, LabelPolicyState, PolicyState, ToolMetadataState,
 };
 
 pub(super) fn public_routes(
@@ -102,6 +102,44 @@ pub(super) fn tool_metadata_routes(state: &AppState) -> Router {
         )
         .with_state(ToolMetadataState {
             store: state.tool_metadata_store.clone(),
+            team_store: state.team_store.clone(),
+        })
+}
+
+pub(super) fn authorization_routes(state: &AppState) -> Router {
+    Router::new()
+        .route(
+            "/v1/authorization/approvals",
+            get(authorization::list_approvals),
+        )
+        .route(
+            "/v1/authorization/approvals/:id",
+            get(authorization::get_approval),
+        )
+        .route(
+            "/v1/authorization/approvals/:id/decide",
+            post(authorization::decide_approval),
+        )
+        .route(
+            "/v1/authorization/grants",
+            get(authorization::list_grants).post(authorization::create_grant),
+        )
+        .route(
+            "/v1/authorization/grants/:id/revoke",
+            post(authorization::revoke_grant),
+        )
+        .route(
+            "/v1/authorization/leases/:id/complete",
+            post(authorization::complete_lease),
+        )
+        .route(
+            "/v1/authorization/receipts/:id",
+            get(authorization::get_receipt),
+        )
+        .with_state(authorization::AuthorizationState {
+            store: state.authorization_store.clone(),
+            coordinator: state.authorization_coordinator.clone(),
+            team_store: state.team_store.clone(),
         })
 }
 
@@ -239,14 +277,18 @@ pub(super) fn financial_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> 
         .timeout(Duration::from_secs(30))
         .build()
         .expect("financial payment HTTP client configuration should be valid");
-    let executor = Arc::new(financial::PaymentHttpFinancialExecutor::new(
-        state.gateway_store.clone(),
-        gateway_seal_key,
-        payment_client,
-    ));
+    let executor: Arc<dyn financial::FinancialExecutor> =
+        state.financial_executor.clone().unwrap_or_else(|| {
+            Arc::new(financial::PaymentHttpFinancialExecutor::new(
+                state.gateway_store.clone(),
+                gateway_seal_key,
+                payment_client,
+            ))
+        });
     let service = financial::FinancialAuthorizationService::with_policy_store_and_executor(
         state.financial_store.clone(),
         state.policy_store.clone(),
+        state.authorization_coordinator.as_ref().clone(),
         executor,
     )
     .with_budget_alerts(budget_alerts::BudgetAlertRuntime {
@@ -283,43 +325,11 @@ pub(super) fn financial_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> 
             "/v1/financial/policies",
             post(financial::create_policy).get(financial::list_policies),
         )
-        .route(
-            "/v1/financial/approval-requests",
-            get(financial::list_approval_requests),
-        )
-        .route(
-            "/v1/financial/mandates",
-            post(financial::create_mandate).get(financial::list_mandates),
-        )
-        .route(
-            "/v1/financial/mandates/:id/revoke",
-            post(financial::revoke_mandate),
-        )
         .route("/v1/financial/receipts/:id", get(financial::get_receipt))
         .route("/v1/financial/actions/:id", get(financial::get_action))
         .route(
-            "/v1/financial/actions/:id/decision-receipt",
-            get(financial::get_decision_receipt),
-        )
-        .route(
             "/v1/financial/actions/:id/outcomes",
             post(financial::record_action_outcome).get(financial::list_action_outcomes),
-        )
-        .route(
-            "/v1/financial/actions/:id/approve",
-            post(financial::approve_action),
-        )
-        .route(
-            "/v1/financial/actions/:id/approval-envelope",
-            get(financial::get_approval_envelope),
-        )
-        .route(
-            "/v1/financial/actions/:id/approve-matching",
-            post(financial::approve_matching_actions),
-        )
-        .route(
-            "/v1/financial/actions/:id/deny",
-            post(financial::deny_action),
         )
         .route(
             "/v1/financial/actions/:id/execute",

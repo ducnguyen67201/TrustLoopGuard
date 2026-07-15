@@ -1,7 +1,7 @@
 # Gateway
 
 Gateway is TrustLoopGuard's provider-proxy integration. It lets an application send OpenAI-compatible
-or Anthropic traffic through the Rust runtime instead of applying a returned `Decision` itself.
+or Anthropic traffic through the Rust runtime instead of applying a returned `AuthorizationDecision` itself.
 
 ## Ownership
 
@@ -17,7 +17,7 @@ The Next.js app never forwards model traffic or evaluates policies.
 SDK mode returns a decision to customer code:
 
 ```text
-Customer app -> SDK -> POST /v1/events -> Decision -> customer applies verdict
+Customer app -> SDK -> POST /v1/events -> AuthorizationDecision -> customer applies effect
 ```
 
 Gateway mode applies that same decision to provider traffic:
@@ -84,19 +84,20 @@ Anthropic clients use:
 baseURL = https://<server>/v1/gateway/<route_id>/anthropic
 ```
 
-## Policy verdicts
+## Authorization effects
 
-Gateway applies the `Decision` from the shared event service directly:
+Gateway applies the `AuthorizationDecision` from the shared event service directly:
 
-| Verdict | Input | Output |
+| Effect | Input | Output |
 |---|---|---|
-| `allow` | Forward unchanged | Return unchanged |
-| `rewrite` | Replace the latest user message with `safe_output` | Replace provider content with `safe_output` |
-| `block` | Do not call the provider | Suppress provider content |
-| `escalate` | Do not call the provider; escalation is queued | Suppress provider content; escalation is queued |
+| `permit` | Forward unchanged | Return unchanged |
+| `transform` | Replace the latest user message with `transformed_value` | Replace provider content with `transformed_value` |
+| `deny` | Do not call the provider | Suppress provider content |
+| `require_approval` | Do not call the provider until authority is supplied | Suppress provider content |
+| `defer` | Do not call the provider until evidence/system state changes | Suppress provider content |
 
-A rewrite without `safe_output` fails closed. Blocked responses use the stable message
-`Blocked by TrustLoopGuard.` and the provider's normal content-filter shape. Gateway does not call
+A transform without `transformed_value` fails closed. Denied responses use the stable message
+`Denied by TrustLoopGuard.` and the provider's normal content-filter shape. Gateway does not call
 the provider again to regenerate a response.
 
 Provider failures are availability failures, not policy decisions. They return a sanitized
@@ -104,15 +105,15 @@ Provider failures are availability failures, not policy decisions. They return a
 
 ## Response signals
 
-Blocked and escalated responses include:
+Non-permit responses include:
 
 - provider-native `content_filter` finish/stop reason
-- `X-TrustLoopGuard-Verdict`
+- `X-TrustLoopGuard-Effect`
 - `X-TrustLoopGuard-Phase`
 - `X-TrustLoopGuard-Trace-Id`
 - `X-TrustLoopGuard-Policy-Id` when a policy id is available
 
-Rewrites include the verdict and correlation headers. Allowed responses carry no enforcement
+Transforms include the effect and correlation headers. Permitted responses carry no enforcement
 headers.
 
 ## Budgets and metering

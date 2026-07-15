@@ -4,6 +4,6 @@ export type CreateApiKeyRequest = { name: string, environment_id?: string,
 /**
  * Optional principal to bind the key to (free-form, e.g.
  * `user:daniel`). Requests authenticated with the key resolve to
- * this principal for mandates, budgets, and the audit trail.
+ * this principal for grants, budgets, and the audit trail.
  */
 principal_id?: string, };

@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InfoHint } from '@/components/ui/info-hint';
 import { Separator } from '@/components/ui/separator';
-import { VerdictLegend } from '@/components/ui/verdict-legend';
+import { AuthorizationEffectLegend } from '@/components/ui/authorization-effect-legend';
 import {
   RefreshControls,
   useAutoRefresh,
@@ -49,7 +49,7 @@ type TimelineRow =
     }
   | { kind: 'event'; id: string; timestamp: number; order: number; event: RunEvent };
 
-// 4-column event-log grid: time / type tag / summary / verdict. Shared by the
+// 4-column event-log grid: time / type tag / summary / effect. Shared by the
 // sticky header and every row so columns stay aligned.
 const ROW_GRID =
   'grid grid-cols-[4.75rem_minmax(0,1fr)_auto] gap-3 md:grid-cols-[5.5rem_9.5rem_minmax(0,1fr)_auto]';
@@ -124,9 +124,9 @@ export function RunDetailLiveView({
           <div className="flex min-w-0 flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle className="font-mono text-lg tracking-tight">{run.shortId}</CardTitle>
-              {/* Run status is a neutral, non-verdict concept — keep it gray (matching
-                  the /runs list) so verdict tokens stay exclusive to allow/block/
-                  rewrite/escalate. Liveness is carried by the pulse dot alone. */}
+              {/* Run status is a neutral, non-effect concept — keep it gray (matching
+                  the /runs list) so effect tokens stay exclusive to the canonical
+                  authorization effects. Liveness is carried by the pulse dot alone. */}
               <Badge variant="secondary" className="gap-1.5 font-mono text-[0.7rem]">
                 <span
                   className={cn(
@@ -163,21 +163,21 @@ export function RunDetailLiveView({
           info="How many times the guardrail looked at this request — once per input and output it reviewed."
         />
         <OutcomeStat
-          label="Blocked"
+          label="Denied"
           value={run.blocked}
-          tone="block"
+          tone="deny"
           info="Checks that were stopped because they broke one of your rules."
         />
         <OutcomeStat
-          label="Rewritten"
+          label="Transformed"
           value={run.rewritten}
-          tone="rewrite"
+          tone="transform"
           info="Checks the guardrail cleaned up, then let through."
         />
         <OutcomeStat
-          label="Escalated"
+          label="Approval required"
           value={run.escalated}
-          tone="escalate"
+          tone="require_approval"
           info="Checks held for a person to review before continuing."
         />
         <OutcomeStat
@@ -247,9 +247,9 @@ export function RunDetailLiveView({
           </div>
           <div className="rounded-lg border bg-muted/20 px-4 py-3">
             <p className="mb-2.5 text-xs font-medium text-muted-foreground">
-              What each verdict color means
+              What each effect color means
             </p>
-            <VerdictLegend />
+            <AuthorizationEffectLegend />
           </div>
         </CardHeader>
         <CardContent className="px-0">
@@ -288,8 +288,8 @@ export function RunDetailLiveView({
                 <span className="inline-flex items-center justify-end gap-1 text-right">
                   Decision
                   <InfoHint label="What does “Decision” mean?" side="left">
-                    What the guardrail decided: allowed, rewritten, escalated, or blocked. Colors
-                    are explained in the key above.
+                    What the guardrail decided: permitted, transformed, approval required, deferred,
+                    or denied. Colors are explained in the key above.
                   </InfoHint>
                 </span>
               </div>
@@ -478,7 +478,7 @@ function TraceRow({
         </div>
 
         <div className="justify-self-end">
-          <VerdictPill outcome={trace.outcome} />
+          <EffectPill outcome={trace.outcome} />
         </div>
       </button>
 
@@ -542,10 +542,10 @@ function TraceDetail({ trace, turn }: { trace: RunTrace; turn: TraceTurn | null 
 function DeliveryInterventionDetail({ trace, turn }: { trace: RunTrace; turn: TraceTurn | null }) {
   const outcome = normalizeOutcome(trace.outcome);
   const tone = OUTCOME_TONE[outcome];
-  const stopped = outcome === 'block';
+  const stopped = outcome === 'deny';
   const status = stopped
     ? 'TrustLoopGuard stopped this before delivery'
-    : 'TrustLoopGuard rewrote this before delivery';
+    : 'TrustLoopGuard transformed this before delivery';
   const returned = trace.safeOutput ?? 'No unsafe response delivered';
 
   return (
@@ -727,7 +727,7 @@ function CopyIdButton({ id, label }: { id: string; label: string }) {
     >
       <span className="max-w-[12rem] truncate">{id}</span>
       {copied ? (
-        <Check className="size-3 text-[color:var(--color-allow)]" aria-hidden />
+        <Check className="size-3 text-[color:var(--color-permit)]" aria-hidden />
       ) : (
         <Copy className="size-3" aria-hidden />
       )}
@@ -748,7 +748,7 @@ function TypeTag({ tone, label }: { tone: Tone; label: string }) {
   );
 }
 
-function VerdictPill({ outcome }: { outcome: string }) {
+function EffectPill({ outcome }: { outcome: string }) {
   const tone = OUTCOME_TONE[normalizeOutcome(outcome)];
   return (
     <span
@@ -1028,7 +1028,7 @@ function buildGuardFlow(snapshot: RunDetailSnapshot): GuardFlowStep[] {
     {
       title: 'Output guard',
       subtitle: guardCheckSubtitle(outputChecks, 'assistant output'),
-      badge: outputChecks.length > 0 ? verdictSummary(outputChecks) : 'not checked',
+      badge: outputChecks.length > 0 ? effectSummary(outputChecks) : 'not checked',
       tone: worstTraceTone(outputChecks),
     },
     {
@@ -1043,7 +1043,7 @@ function buildGuardFlow(snapshot: RunDetailSnapshot): GuardFlowStep[] {
     {
       title: 'Action guard',
       subtitle: guardCheckSubtitle(actionChecks, 'tool or action'),
-      badge: actionChecks.length > 0 ? verdictSummary(actionChecks) : 'not checked',
+      badge: actionChecks.length > 0 ? effectSummary(actionChecks) : 'not checked',
       tone: worstTraceTone(actionChecks),
     },
   ];
@@ -1054,25 +1054,34 @@ function guardCheckSubtitle(traces: RunTrace[], subject: string): string {
   return `${traces.length} ${subject} ${traces.length === 1 ? 'check' : 'checks'} ran.`;
 }
 
-function verdictSummary(traces: RunTrace[]): string {
+function effectSummary(traces: RunTrace[]): string {
   const counts = traces.reduce(
     (acc, trace) => {
       acc[normalizeOutcome(trace.outcome)] += 1;
       return acc;
     },
-    { allow: 0, block: 0, rewrite: 0, escalate: 0, unknown: 0 } satisfies Record<Outcome, number>,
+    {
+      permit: 0,
+      deny: 0,
+      transform: 0,
+      require_approval: 0,
+      defer: 0,
+      unknown: 0,
+    } satisfies Record<Outcome, number>,
   );
-  const parts = (['block', 'escalate', 'rewrite', 'allow'] as const)
+  const parts = (['deny', 'defer', 'require_approval', 'transform', 'permit'] as const)
     .filter((outcome) => counts[outcome] > 0)
     .map((outcome) => `${counts[outcome]} ${OUTCOME_TONE[outcome].label.toLowerCase()}`);
   return parts[0] ?? 'checked';
 }
 
 function worstTraceTone(traces: RunTrace[]): FlowStepTone {
-  if (traces.some((trace) => normalizeOutcome(trace.outcome) === 'block')) return 'block';
-  if (traces.some((trace) => normalizeOutcome(trace.outcome) === 'escalate')) return 'escalate';
-  if (traces.some((trace) => normalizeOutcome(trace.outcome) === 'rewrite')) return 'rewrite';
-  if (traces.some((trace) => normalizeOutcome(trace.outcome) === 'allow')) return 'allow';
+  if (traces.some((trace) => normalizeOutcome(trace.outcome) === 'deny')) return 'deny';
+  if (traces.some((trace) => normalizeOutcome(trace.outcome) === 'defer')) return 'defer';
+  if (traces.some((trace) => normalizeOutcome(trace.outcome) === 'require_approval'))
+    return 'require_approval';
+  if (traces.some((trace) => normalizeOutcome(trace.outcome) === 'transform')) return 'transform';
+  if (traces.some((trace) => normalizeOutcome(trace.outcome) === 'permit')) return 'permit';
   return 'neutral';
 }
 
@@ -1095,13 +1104,13 @@ function stageLabel(side: RunTrace['side']): string {
 
 function traceSummary(trace: RunTrace, tone: Tone, turn: TraceTurn | null): string {
   if (isDeliveryIntervention(trace)) {
-    const verb = normalizeOutcome(trace.outcome) === 'block' ? 'Stopped' : 'Rewritten';
+    const verb = normalizeOutcome(trace.outcome) === 'deny' ? 'Stopped' : 'Transformed';
     return `${verb} before delivery · ${trace.policy}`;
   }
 
   if (trace.triggered) {
     const reason = displayReason(trace);
-    if (isParameterAccountSourceFailure(trace)) return reason ?? 'Blocked unsafe refund account';
+    if (isParameterAccountSourceFailure(trace)) return reason ?? 'Denied unsafe refund account';
     return `${tone.label} · ${trace.policy}${reason ? ` — ${reason}` : ''}`;
   }
   const text =
@@ -1149,7 +1158,7 @@ function isParameterAccountSourceFailure(trace: RunTrace): boolean {
 function isDeliveryIntervention(trace: RunTrace): boolean {
   const outcome = normalizeOutcome(trace.outcome);
   return (
-    trace.side === 'output' && trace.triggered && (outcome === 'block' || outcome === 'rewrite')
+    trace.side === 'output' && trace.triggered && (outcome === 'deny' || outcome === 'transform')
   );
 }
 
@@ -1165,37 +1174,41 @@ function displayUserPrompt(value: string): string {
   return (latestUserLine ? latestUserLine.replace(/^user:\s*/i, '') : text).trim();
 }
 
-type Outcome = 'allow' | 'block' | 'rewrite' | 'escalate' | 'unknown';
+type Outcome = 'permit' | 'deny' | 'transform' | 'require_approval' | 'defer' | 'unknown';
 
 type Tone = { label: string; border: string; dot: string; text: string };
 
-// Verdict colors reuse the canonical guardrail tokens from globals.css
-// (--color-allow green, --color-block red, --color-rewrite amber, --color-escalate violet)
-// so this view matches the dashboard decisions table.
+// Effect colors reuse the canonical guardrail tokens from globals.css.
 const OUTCOME_TONE: Record<Outcome, Tone> = {
-  allow: {
-    label: 'Allowed',
-    border: 'border-[color:var(--color-allow)]',
-    dot: 'bg-[color:var(--color-allow)]',
-    text: 'text-[color:var(--color-allow)]',
+  permit: {
+    label: 'Permitted',
+    border: 'border-[color:var(--color-permit)]',
+    dot: 'bg-[color:var(--color-permit)]',
+    text: 'text-[color:var(--color-permit)]',
   },
-  block: {
-    label: 'Blocked',
-    border: 'border-[color:var(--color-block)]',
-    dot: 'bg-[color:var(--color-block)]',
-    text: 'text-[color:var(--color-block)]',
+  deny: {
+    label: 'Denied',
+    border: 'border-[color:var(--color-deny)]',
+    dot: 'bg-[color:var(--color-deny)]',
+    text: 'text-[color:var(--color-deny)]',
   },
-  rewrite: {
-    label: 'Rewritten',
-    border: 'border-[color:var(--color-rewrite)]',
-    dot: 'bg-[color:var(--color-rewrite)]',
-    text: 'text-[color:var(--color-rewrite)]',
+  transform: {
+    label: 'Transformed',
+    border: 'border-[color:var(--color-transform)]',
+    dot: 'bg-[color:var(--color-transform)]',
+    text: 'text-[color:var(--color-transform)]',
   },
-  escalate: {
-    label: 'Escalated',
-    border: 'border-[color:var(--color-escalate)]',
-    dot: 'bg-[color:var(--color-escalate)]',
-    text: 'text-[color:var(--color-escalate)]',
+  require_approval: {
+    label: 'Approval required',
+    border: 'border-[color:var(--color-require-approval)]',
+    dot: 'bg-[color:var(--color-require-approval)]',
+    text: 'text-[color:var(--color-require-approval)]',
+  },
+  defer: {
+    label: 'Deferred',
+    border: 'border-muted-foreground',
+    dot: 'bg-muted-foreground',
+    text: 'text-muted-foreground',
   },
   unknown: {
     label: 'Checked',
@@ -1207,7 +1220,13 @@ const OUTCOME_TONE: Record<Outcome, Tone> = {
 
 function normalizeOutcome(outcome: string): Outcome {
   const lower = outcome.toLowerCase();
-  if (lower === 'allow' || lower === 'block' || lower === 'rewrite' || lower === 'escalate') {
+  if (
+    lower === 'permit' ||
+    lower === 'deny' ||
+    lower === 'transform' ||
+    lower === 'require_approval' ||
+    lower === 'defer'
+  ) {
     return lower;
   }
   return 'unknown';

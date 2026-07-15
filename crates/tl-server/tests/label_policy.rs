@@ -11,7 +11,10 @@ use axum::{
     http::{header, Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use tl_core::{Decision, SourceLabelPolicyEntry, SourceLabelPolicyListResponse, Verdict};
+use tl_core::{
+    AuthorizationDecision, AuthorizationEffect, SourceLabelPolicyEntry,
+    SourceLabelPolicyListResponse,
+};
 use tl_engine::Engine;
 use tl_server::{memory_app_state, router};
 use tower::ServiceExt;
@@ -278,10 +281,11 @@ async fn event_path_decision_unchanged_with_label_policies_configured() {
     // else must be identical.
     configured["trace_id"] = baseline["trace_id"].clone();
     configured["latency_ms"] = baseline["latency_ms"].clone();
+    configured["receipt_id"] = baseline["receipt_id"].clone();
     assert_eq!(configured, baseline);
 
-    let decision: Decision = serde_json::from_value(configured).unwrap();
-    assert_eq!(decision.verdict, Verdict::Allow);
+    let decision: AuthorizationDecision = serde_json::from_value(configured).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
 }
 
 #[cfg(feature = "postgres")]

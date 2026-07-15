@@ -178,7 +178,7 @@ export function RefreshControls({
 
 /**
  * Pulsing live indicator. Inherits the host badge's text color via
- * `currentColor` so connection status never borrows a verdict token.
+ * `currentColor` so connection status never borrows a effect token.
  * Pulse halts under prefers-reduced-motion.
  */
 function LiveDot() {

@@ -9,10 +9,11 @@ use super::facts::AnalyticsFact;
 #[derive(Default)]
 struct MetricAccumulator {
     traces: i64,
-    allow: i64,
-    block: i64,
-    rewrite: i64,
-    escalate: i64,
+    permit: i64,
+    deny: i64,
+    transform: i64,
+    require_approval: i64,
+    defer: i64,
     human_reviews: i64,
     human_interventions: i64,
     false_positives: i64,
@@ -47,10 +48,11 @@ pub(super) fn metric_value<'a>(
         acc.traces += 1;
         acc.latencies.push(fact.elapsed_ms);
         match fact.decision.as_str() {
-            "allow" => acc.allow += 1,
-            "block" => acc.block += 1,
-            "rewrite" => acc.rewrite += 1,
-            "escalate" => acc.escalate += 1,
+            "permit" => acc.permit += 1,
+            "deny" => acc.deny += 1,
+            "transform" => acc.transform += 1,
+            "require_approval" => acc.require_approval += 1,
+            "defer" => acc.defer += 1,
             _ => {}
         }
         if fact.review_outcome != "not_reviewed" {
@@ -69,13 +71,15 @@ pub(super) fn metric_value<'a>(
     });
     match metric {
         AnalyticsMetric::TraceCount => acc.traces as f64,
-        AnalyticsMetric::AllowCount => acc.allow as f64,
-        AnalyticsMetric::BlockCount => acc.block as f64,
-        AnalyticsMetric::RewriteCount => acc.rewrite as f64,
-        AnalyticsMetric::EscalateCount => acc.escalate as f64,
-        AnalyticsMetric::InterventionRate => {
-            percentage(acc.block + acc.rewrite + acc.escalate, acc.traces)
-        }
+        AnalyticsMetric::PermitCount => acc.permit as f64,
+        AnalyticsMetric::DenyCount => acc.deny as f64,
+        AnalyticsMetric::TransformCount => acc.transform as f64,
+        AnalyticsMetric::RequireApprovalCount => acc.require_approval as f64,
+        AnalyticsMetric::DeferCount => acc.defer as f64,
+        AnalyticsMetric::InterventionRate => percentage(
+            acc.deny + acc.transform + acc.require_approval + acc.defer,
+            acc.traces,
+        ),
         AnalyticsMetric::P95LatencyMs => p95(acc.latencies).unwrap_or_default() as f64,
         AnalyticsMetric::HumanReviewCount => acc.human_reviews as f64,
         AnalyticsMetric::HumanInterventionRate => percentage(acc.human_interventions, acc.traces),
@@ -92,7 +96,7 @@ pub(super) fn values_for_dimension(
         AnalyticsDimension::Environment => vec![fact.environment_id.clone()],
         AnalyticsDimension::RunKind => vec![fact.run_kind.clone()],
         AnalyticsDimension::RunStatus => vec![fact.run_status.clone()],
-        AnalyticsDimension::Decision => vec![fact.decision.clone()],
+        AnalyticsDimension::AuthorizationEffect => vec![fact.decision.clone()],
         AnalyticsDimension::PolicyId => fact.policy_ids.clone(),
         AnalyticsDimension::WorkflowStep => vec![fact.workflow_step.clone()],
         AnalyticsDimension::ReviewOutcome => vec![fact.review_outcome.clone()],
@@ -113,10 +117,11 @@ pub(super) fn fact_values(
 pub(super) fn supported_metrics() -> Vec<AnalyticsMetric> {
     vec![
         AnalyticsMetric::TraceCount,
-        AnalyticsMetric::AllowCount,
-        AnalyticsMetric::BlockCount,
-        AnalyticsMetric::RewriteCount,
-        AnalyticsMetric::EscalateCount,
+        AnalyticsMetric::PermitCount,
+        AnalyticsMetric::DenyCount,
+        AnalyticsMetric::TransformCount,
+        AnalyticsMetric::RequireApprovalCount,
+        AnalyticsMetric::DeferCount,
         AnalyticsMetric::InterventionRate,
         AnalyticsMetric::P95LatencyMs,
         AnalyticsMetric::HumanReviewCount,
@@ -131,7 +136,7 @@ pub(super) fn supported_dimensions() -> Vec<AnalyticsDimension> {
         AnalyticsDimension::Environment,
         AnalyticsDimension::RunKind,
         AnalyticsDimension::RunStatus,
-        AnalyticsDimension::Decision,
+        AnalyticsDimension::AuthorizationEffect,
         AnalyticsDimension::PolicyId,
         AnalyticsDimension::WorkflowStep,
         AnalyticsDimension::ReviewOutcome,
@@ -142,10 +147,11 @@ pub(super) fn supported_dimensions() -> Vec<AnalyticsDimension> {
 pub(super) fn metric_label(metric: AnalyticsMetric) -> &'static str {
     match metric {
         AnalyticsMetric::TraceCount => "Traces",
-        AnalyticsMetric::AllowCount => "Allowed",
-        AnalyticsMetric::BlockCount => "Blocked",
-        AnalyticsMetric::RewriteCount => "Rewritten",
-        AnalyticsMetric::EscalateCount => "Escalated",
+        AnalyticsMetric::PermitCount => "Permitted",
+        AnalyticsMetric::DenyCount => "Denied",
+        AnalyticsMetric::TransformCount => "Transformed",
+        AnalyticsMetric::RequireApprovalCount => "Approval required",
+        AnalyticsMetric::DeferCount => "Deferred",
         AnalyticsMetric::InterventionRate => "Intervention rate",
         AnalyticsMetric::P95LatencyMs => "p95 latency",
         AnalyticsMetric::HumanReviewCount => "Human reviews",
@@ -160,7 +166,7 @@ pub(super) fn dimension_label(dimension: AnalyticsDimension) -> &'static str {
         AnalyticsDimension::Environment => "Environment",
         AnalyticsDimension::RunKind => "Run kind",
         AnalyticsDimension::RunStatus => "Run status",
-        AnalyticsDimension::Decision => "Verdict",
+        AnalyticsDimension::AuthorizationEffect => "Authorization effect",
         AnalyticsDimension::PolicyId => "Policy",
         AnalyticsDimension::WorkflowStep => "Workflow step",
         AnalyticsDimension::ReviewOutcome => "Review outcome",
@@ -171,10 +177,11 @@ pub(super) fn dimension_label(dimension: AnalyticsDimension) -> &'static str {
 pub(super) fn default_chart_type(metric: AnalyticsMetric) -> AnalyticsChartType {
     match metric {
         AnalyticsMetric::TraceCount
-        | AnalyticsMetric::AllowCount
-        | AnalyticsMetric::BlockCount
-        | AnalyticsMetric::RewriteCount
-        | AnalyticsMetric::EscalateCount
+        | AnalyticsMetric::PermitCount
+        | AnalyticsMetric::DenyCount
+        | AnalyticsMetric::TransformCount
+        | AnalyticsMetric::RequireApprovalCount
+        | AnalyticsMetric::DeferCount
         | AnalyticsMetric::HumanReviewCount => AnalyticsChartType::Bar,
         AnalyticsMetric::InterventionRate
         | AnalyticsMetric::P95LatencyMs
