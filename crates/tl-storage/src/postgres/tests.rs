@@ -315,3 +315,147 @@ async fn gateway_profile_removal_preserves_existing_routes() {
     .expect("load preserved route through the profile-free schema");
     assert_eq!(route, ("provider".to_string(), "agent".to_string()));
 }
+
+#[tokio::test]
+async fn migrate_converts_legacy_policy_actions_to_authorization_effects() {
+    use crate::schema::{organizations, policies, workspaces};
+    use diesel::RunQueryDsl as SyncRunQueryDsl;
+
+    let (database_url, _container) = fresh_database_url().await;
+    let mut conn = establish(&database_url);
+    run_migrations_before(&mut conn, "00000000000053");
+    SyncRunQueryDsl::execute(
+        diesel::insert_into(organizations::table).values((
+            organizations::id.eq("org_policy_effect_migration"),
+            organizations::name.eq("Policy effect migration"),
+            organizations::slug.eq("policy-effect-migration"),
+        )),
+        &mut conn,
+    )
+    .expect("insert migration organization");
+    SyncRunQueryDsl::execute(
+        diesel::insert_into(workspaces::table).values((
+            workspaces::id.eq("ws_policy_effect_migration"),
+            workspaces::organization_id.eq("org_policy_effect_migration"),
+            workspaces::name.eq("Policy effect migration"),
+            workspaces::slug.eq("policy-effect-migration"),
+        )),
+        &mut conn,
+    )
+    .expect("insert migration workspace");
+
+    for (id, legacy_action) in [
+        ("legacy-allow", "allow"),
+        ("legacy-block", "block"),
+        ("legacy-rewrite", "rewrite"),
+        ("legacy-escalate", "escalate"),
+    ] {
+        let yaml = format!(
+            "id: {id}\nmatch:\n  literal: trigger\naction: {legacy_action}\n{}",
+            if legacy_action == "rewrite" {
+                "rewrite: safe output\n"
+            } else {
+                ""
+            }
+        );
+        let parsed = serde_json::json!({
+            "id": id,
+            "when": {},
+            "match": { "literal": "trigger" },
+            "action": legacy_action,
+            "rewrite": (legacy_action == "rewrite").then_some("safe output"),
+            "severity": "medium"
+        });
+        SyncRunQueryDsl::execute(
+            diesel::insert_into(policies::table).values((
+                policies::workspace_id.eq("ws_policy_effect_migration"),
+                policies::id.eq(id),
+                policies::policy_yaml.eq(yaml),
+                policies::parsed_policy.eq(parsed),
+                policies::enabled.eq(true),
+                policies::family.eq(Some("content")),
+            )),
+            &mut conn,
+        )
+        .expect("insert legacy content policy");
+    }
+
+    let financial_yaml = "family: financial
+id: legacy-financial
+hold_above_minor: 5000
+hold_new_counterparty: true
+mandate_required: true
+missing_evidence_action: escalate
+failed_precondition_action: block
+on_breach: escalate
+";
+    SyncRunQueryDsl::execute(
+        diesel::insert_into(policies::table).values((
+            policies::workspace_id.eq("ws_policy_effect_migration"),
+            policies::id.eq("legacy-financial"),
+            policies::policy_yaml.eq(financial_yaml),
+            policies::parsed_policy.eq(serde_json::json!({
+                "family": "financial",
+                "id": "legacy-financial",
+                "hold_above_minor": 5000,
+                "hold_new_counterparty": true,
+                "mandate_required": true,
+                "missing_evidence_action": "escalate",
+                "failed_precondition_action": "block",
+                "on_breach": "escalate"
+            })),
+            policies::enabled.eq(true),
+            policies::family.eq(Some("financial")),
+        )),
+        &mut conn,
+    )
+    .expect("insert legacy financial policy");
+
+    conn.run_pending_migrations(MIGRATIONS)
+        .expect("run policy-effect migration");
+
+    let rows = SyncRunQueryDsl::load::<(String, String, serde_json::Value)>(
+        policies::table
+            .filter(policies::workspace_id.eq("ws_policy_effect_migration"))
+            .select((policies::id, policies::policy_yaml, policies::parsed_policy)),
+        &mut conn,
+    )
+    .expect("load migrated policies");
+    let rows = rows
+        .into_iter()
+        .map(|(id, yaml, parsed)| (id, (yaml, parsed)))
+        .collect::<std::collections::HashMap<_, _>>();
+
+    for (id, expected_effect) in [
+        ("legacy-allow", "permit"),
+        ("legacy-block", "deny"),
+        ("legacy-rewrite", "transform"),
+        ("legacy-escalate", "defer"),
+    ] {
+        let (yaml, parsed) = rows.get(id).expect("migrated content policy");
+        assert_eq!(parsed["action"], expected_effect);
+        assert!(yaml.contains(&format!("action: {expected_effect}")));
+        tl_policy::load_any_str(yaml).expect("migrated content YAML parses");
+    }
+
+    let (financial_yaml, financial) = rows
+        .get("legacy-financial")
+        .expect("migrated financial policy");
+    assert_eq!(financial["approval_threshold_minor"], 5000);
+    assert_eq!(financial["require_approval_for_new_counterparty"], true);
+    assert_eq!(financial["grant_required"], true);
+    assert_eq!(financial["missing_evidence_effect"], "defer");
+    assert_eq!(financial["failed_precondition_effect"], "deny");
+    assert_eq!(financial["on_breach"], "require_approval");
+    for legacy_field in [
+        "hold_above_minor",
+        "hold_new_counterparty",
+        "mandate_required",
+        "missing_evidence_action",
+        "failed_precondition_action",
+    ] {
+        assert!(financial.get(legacy_field).is_none());
+        assert!(!financial_yaml.contains(legacy_field));
+    }
+    tl_policy::load_any_str(financial_yaml).expect("migrated financial YAML parses");
+}
