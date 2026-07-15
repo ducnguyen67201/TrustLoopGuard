@@ -95,6 +95,7 @@ export * from './generated/FinancialActionOutcome';
 export * from './generated/FinancialActionOutcomeStatus';
 export * from './generated/FinancialActionPrecondition';
 export * from './generated/FinancialActionRecord';
+export * from './generated/FinancialActionState';
 export * from './generated/FinancialExecutionStatus';
 export * from './generated/BudgetAlertConfig';
 export * from './generated/BudgetAlertConfigListResponse';

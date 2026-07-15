@@ -43,6 +43,7 @@ export class MockFinancialRefundClient implements FinancialDemoClient {
       authorization_effect: permitted ? 'permit' : 'require_approval',
       authorization_status: permitted ? 'authorized' : 'pending_approval',
       execution_status: 'not_started', action: { ...req.action, id }, evidence: req.evidence,
+      state: permitted ? 'authorized' : 'held_for_approval',
       created_at: now, updated_at: now,
     };
     this.actions.set(id, record);
@@ -65,7 +66,12 @@ export class MockFinancialRefundClient implements FinancialDemoClient {
     if (current.execution_status === 'succeeded') return current;
     if (current.authorization_effect !== 'permit' || request.authorization.grant_id !== this.grant?.id) return current;
     this.calls += 1;
-    const updated = { ...current, execution_status: 'succeeded' as const, updated_at: timestamp() };
+    const updated = {
+      ...current,
+      execution_status: 'succeeded' as const,
+      state: 'executed' as const,
+      updated_at: timestamp(),
+    };
     this.actions.set(actionId, updated);
     this.executionReceipts.set(actionId, {
       id: actionId, action_id: actionId, authorization_receipt_id: current.authorization_receipt_id!,

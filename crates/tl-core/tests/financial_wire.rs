@@ -2,8 +2,8 @@ use serde_json::json;
 use tl_core::{
     AuthorizationClaim, AuthorizationEffect, AuthorizationIntentStatus, CounterpartyRef,
     CreateFinancialActionRequest, EvidenceRef, FinancialAction, FinancialActionKind,
-    FinancialActionOutcomeStatus, FinancialActionRecord, FinancialExecutionStatus, FinancialRail,
-    MoneyAmount, RecoveryStatus, ReversalCapability,
+    FinancialActionOutcomeStatus, FinancialActionRecord, FinancialActionState,
+    FinancialExecutionStatus, FinancialRail, MoneyAmount, RecoveryStatus, ReversalCapability,
 };
 
 #[test]
@@ -27,6 +27,10 @@ fn financial_enums_use_canonical_wire_values() {
     assert_eq!(
         serde_json::to_value(RecoveryStatus::ManualRequired).unwrap(),
         "manual_required"
+    );
+    assert_eq!(
+        serde_json::to_value(FinancialActionState::NotExecutable).unwrap(),
+        "not_executable"
     );
 }
 
@@ -86,6 +90,8 @@ fn action_record_separates_authorization_from_execution() {
         authorization: None,
         execution_status: FinancialExecutionStatus::NotStarted,
         status_reason: None,
+        state: FinancialActionState::HeldForApproval,
+        state_reason: Some("Human authorization required".into()),
         action: FinancialAction {
             id: Some("action-1".into()),
             kind: FinancialActionKind::Payment,
@@ -105,8 +111,16 @@ fn action_record_separates_authorization_from_execution() {
         updated_at: "2026-07-14T00:00:00Z".into(),
     };
 
-    let value = serde_json::to_value(record).unwrap();
+    let mut value = serde_json::to_value(record).unwrap();
     assert_eq!(value["authorization_effect"], "require_approval");
     assert_eq!(value["authorization_status"], "pending_approval");
     assert_eq!(value["execution_status"], "not_started");
+    assert_eq!(value["state"], "held_for_approval");
+    assert_eq!(value["state_reason"], "Human authorization required");
+
+    value.as_object_mut().unwrap().remove("state");
+    value.as_object_mut().unwrap().remove("state_reason");
+    let legacy: FinancialActionRecord = serde_json::from_value(value).unwrap();
+    assert_eq!(legacy.state, FinancialActionState::Evaluating);
+    assert_eq!(legacy.state_reason, None);
 }

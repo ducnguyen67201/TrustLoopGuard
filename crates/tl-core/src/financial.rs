@@ -696,6 +696,31 @@ pub struct ExecuteFinancialActionRequest {
     pub attempt_id: Option<String>,
 }
 
+/// Dashboard-facing lifecycle state for a financial action.
+///
+/// This projection complements the lower-level authorization and execution
+/// axes so callers do not have to infer whether an action is waiting, blocked,
+/// in flight, or finished.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum FinancialActionState {
+    #[default]
+    Evaluating,
+    Authorized,
+    HeldForApproval,
+    Blocked,
+    NotExecutable,
+    Executing,
+    Executed,
+    Failed,
+    Canceled,
+    Reversed,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -720,6 +745,11 @@ pub struct FinancialActionRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub status_reason: Option<String>,
+    #[serde(default)]
+    pub state: FinancialActionState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub state_reason: Option<String>,
     pub action: FinancialAction,
     #[serde(default)]
     pub evidence: Vec<EvidenceRef>,

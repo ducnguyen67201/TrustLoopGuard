@@ -11,6 +11,7 @@ use tl_core::{
 use tokio::sync::{Mutex, RwLock};
 
 use super::{
+    project_financial_action_state,
     validation::{is_valid_execution_transition, validate_create_action},
     AgenticPaymentBudgetReservationRequest, FinancialBudgetReservationOutcome,
     FinancialBudgetReservationRequest, FinancialBudgetViolation, FinancialBudgetWindow,
@@ -122,6 +123,8 @@ impl FinancialStore for MemoryFinancialStore {
             authorization: None,
             execution_status: FinancialExecutionStatus::NotStarted,
             status_reason: None,
+            state: tl_core::FinancialActionState::Evaluating,
+            state_reason: None,
             action: tl_core::FinancialAction {
                 id: Some(id.clone()),
                 ..input.action
@@ -132,6 +135,7 @@ impl FinancialStore for MemoryFinancialStore {
         };
         record.action.principal_id = principal_id;
         record.action.amount.currency = currency;
+        project_financial_action_state(&mut record);
 
         let mut actions = self.actions.write().await;
         let action_key = action_key(workspace_id, &environment_id, &id);
@@ -200,6 +204,7 @@ impl FinancialStore for MemoryFinancialStore {
         record.authorization_effect = effect;
         record.authorization_status = status;
         record.updated_at = Utc::now().to_rfc3339();
+        project_financial_action_state(record);
         Ok(record.clone())
     }
 
@@ -223,6 +228,7 @@ impl FinancialStore for MemoryFinancialStore {
         record.execution_status = status;
         record.status_reason = reason.map(str::to_string);
         record.updated_at = Utc::now().to_rfc3339();
+        project_financial_action_state(record);
         Ok(record.clone())
     }
 

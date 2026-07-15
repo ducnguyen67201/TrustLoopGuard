@@ -348,7 +348,7 @@ fn server_budget_violation(
 }
 
 fn stored_action_record(row: tl_storage::StoredFinancialAction) -> tl_core::FinancialActionRecord {
-    tl_core::FinancialActionRecord {
+    let mut record = tl_core::FinancialActionRecord {
         id: row.id,
         workspace_id: row.workspace_id,
         environment_id: row.environment_id,
@@ -359,11 +359,15 @@ fn stored_action_record(row: tl_storage::StoredFinancialAction) -> tl_core::Fina
         authorization: None,
         execution_status: row.execution_status,
         status_reason: row.status_reason,
+        state: tl_core::FinancialActionState::Evaluating,
+        state_reason: None,
         action: row.action,
         evidence: row.evidence,
         created_at: row.created_at.to_rfc3339(),
         updated_at: row.updated_at.to_rfc3339(),
-    }
+    };
+    crate::financial::project_financial_action_state(&mut record);
+    record
 }
 
 fn financial_store_error(error: tl_storage::StorageError) -> FinancialStoreError {
