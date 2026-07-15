@@ -28,7 +28,7 @@ test('runs the hosted refund workflow in-process and removes request state', asy
     runAgent: async (prompt, receivedClient, options) => {
       events.push(`agent:${prompt}:${options?.dbPath}`);
       assert.equal(receivedClient, client);
-      assert.equal(options?.refundGrantId, 'grant_hosted_test');
+      assert.equal(options?.refundGrantId, undefined);
       assert.equal(options?.allowGrantProvisioning, false);
       return {
         prompt,
@@ -42,7 +42,6 @@ test('runs the hosted refund workflow in-process and removes request state', asy
       return state;
     },
     removeDatabase: (dbPath) => events.push(`remove:${dbPath}`),
-    refundGrantId: 'grant_hosted_test',
   });
 
   const expectedPath = '/tmp/refund-demo-hosted-test/trustloopguard-refund-demo/request-123.sqlite';
