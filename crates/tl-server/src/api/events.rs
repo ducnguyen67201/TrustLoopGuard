@@ -38,7 +38,7 @@ pub async fn submit_event(
     let start = std::time::Instant::now();
     let workspace_id = match workspace_id_for_event(&headers, &event) {
         Ok(workspace_id) => workspace_id,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let environment_id = match environments::resolve_environment_id(
         &headers,
@@ -64,6 +64,9 @@ pub async fn submit_event(
 /// Header wins over the caller-claimed principal; the pipeline then
 /// overwrites the principal with the server-resolved values regardless,
 /// so the claimed workspace can never survive into evidence.
-fn workspace_id_for_event(headers: &HeaderMap, _event: &GuardEvent) -> Result<String, Response> {
-    crate::policies::workspace_id_from_headers(headers)
+fn workspace_id_for_event(
+    headers: &HeaderMap,
+    _event: &GuardEvent,
+) -> Result<String, Box<Response>> {
+    crate::policies::workspace_id_from_headers(headers).map_err(Box::new)
 }

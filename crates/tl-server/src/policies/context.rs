@@ -17,6 +17,7 @@ pub(super) async fn resolve_environment_id(
     .map_err(crate::environments::environment_error_response)
 }
 
+#[allow(clippy::result_large_err)]
 pub(crate) fn workspace_id_from_headers(headers: &HeaderMap) -> Result<String, Response> {
     headers
         .get("x-tlg-workspace-id")
