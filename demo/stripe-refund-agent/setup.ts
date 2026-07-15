@@ -6,7 +6,7 @@ import type {
   UpdateGatewayProviderConnectionRequest,
 } from '@trustloopguard/sdk';
 
-import { createClient, API_KEY, SERVER_URL, WORKSPACE_ID } from '../shared/env';
+import { ADMIN_USER_ID, API_KEY, createClient, SERVER_URL, WORKSPACE_ID } from '../shared/env';
 import { ensureRefundGrant } from './core';
 import { orderDatabasePath, resetOrderDatabase } from './order-db';
 import { providerApiKey, providerBaseUrl } from './provider';
@@ -18,6 +18,7 @@ async function main(): Promise<void> {
   const client = createClient();
   const grant = await ensureRefundGrant(client);
   process.stdout.write(`refund grant ready: ${grant.id}\n`);
+  process.stdout.write(`set TL_REFUND_GRANT_ID=${grant.id} on the public refund runtime\n`);
 
   const policy = await ensureFinancialControl();
   process.stdout.write(`financial control ready: ${policy.id}\n`);
@@ -145,6 +146,7 @@ function jsonHeaders(): Record<string, string> {
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (API_KEY) headers.authorization = `Bearer ${API_KEY}`;
   if (WORKSPACE_ID) headers['x-tlg-workspace-id'] = WORKSPACE_ID;
+  if (ADMIN_USER_ID) headers['x-tlg-user-id'] = ADMIN_USER_ID;
   return headers;
 }
 

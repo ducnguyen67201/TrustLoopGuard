@@ -40,6 +40,11 @@ export interface RefundAgentClient {
   getReceipt(receiptId: string): Promise<FinancialReceipt>;
 }
 
+export interface RefundAuthorizationOptions {
+  grantId?: string;
+  allowGrantProvisioning?: boolean;
+}
+
 export async function ensureRefundGrant(client: RefundAgentClient): Promise<AuthorizationGrant> {
   const existing = await client.listGrants();
   const active = existing.grants.find(
@@ -83,6 +88,7 @@ export async function prepareRefundTool(
   input: PrepareRefundInput,
   client: RefundAgentClient,
   dbPath?: string,
+  authorizationOptions: RefundAuthorizationOptions = {},
 ): Promise<PrepareRefundResult> {
   if (!Number.isInteger(input.amountMinor) || input.amountMinor <= 0) {
     throw new Error('refund amount must be a positive integer minor-unit amount');
@@ -93,8 +99,8 @@ export async function prepareRefundTool(
     throw new Error(`cannot prepare refund: ${search.reason ?? 'order not found'}`);
   }
 
-  const grant = await ensureRefundGrant(client);
-  const operation = refundOperation(client, grant.id);
+  const grantId = await resolveRefundGrantId(client, authorizationOptions);
+  const operation = refundOperation(client, grantId);
   const request = operation.buildRequest(input, search);
   const action = await operation.verify(input, search);
   return {
@@ -110,6 +116,7 @@ export async function executeRefundTool(
   actionId: string,
   client: RefundAgentClient,
   dbPath?: string,
+  authorizationOptions: RefundAuthorizationOptions = {},
 ): Promise<ExecuteRefundResult> {
   let current = await client.getFinancialAction(actionId);
   if (current.authorization_effect === 'require_approval') {
@@ -127,12 +134,12 @@ export async function executeRefundTool(
     };
   }
 
-  const grant = await ensureRefundGrant(client);
+  const grantId = await resolveRefundGrantId(client, authorizationOptions);
   const attemptId = `stripe-refund-agent:execute:${actionId}`;
   const executed = current.execution_status === 'succeeded'
     ? current
     : await client.executeAction(actionId, {
-        authorization: { grant_id: grant.id, attempt_id: attemptId },
+        authorization: { grant_id: grantId, attempt_id: attemptId },
         attempt_id: attemptId,
       });
   const receipt = executed.execution_status === 'succeeded' ? await client.getReceipt(executed.id) : undefined;
@@ -158,6 +165,23 @@ export async function executeRefundTool(
         ? `refund ${executed.id} executed through TrustLoopGuard`
         : `refund ${executed.id} is ${executed.execution_status}; no Stripe refund was created`,
   };
+}
+
+async function resolveRefundGrantId(
+  client: RefundAgentClient,
+  options: RefundAuthorizationOptions,
+): Promise<string> {
+  const configured = cleanGrantId(options.grantId);
+  if (configured !== undefined) return configured;
+  if (options.allowGrantProvisioning === false) {
+    throw new Error('TL_REFUND_GRANT_ID is required for the public refund runtime');
+  }
+  return (await ensureRefundGrant(client)).id;
+}
+
+function cleanGrantId(grantId: string | undefined): string | undefined {
+  const trimmed = grantId?.trim();
+  return trimmed === undefined || trimmed === '' ? undefined : trimmed;
 }
 
 export function buildRefundActionRequest(

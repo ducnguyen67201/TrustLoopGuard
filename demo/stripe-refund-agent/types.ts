@@ -123,6 +123,8 @@ export interface AgentRunOptions {
   logger?: AgentRunLogger;
   requestId?: string;
   dbPath?: string;
+  refundGrantId?: string;
+  allowGrantProvisioning?: boolean;
 }
 
 export interface StripeRefundProviderRequest {

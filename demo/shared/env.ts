@@ -13,6 +13,8 @@ export const SERVER_URL = process.env.TL_SERVER_URL ?? 'http://127.0.0.1:8080';
 export const API_KEY = process.env.TL_API_KEY;
 export const DEFAULT_AGENT_ID = process.env.TL_AGENT_ID ?? 'demo-acme-support';
 export const WORKSPACE_ID = process.env.TL_WORKSPACE_ID;
+export const ADMIN_USER_ID = cleanOptionalEnv(process.env.TL_ADMIN_USER_ID);
+export const REFUND_GRANT_ID = cleanOptionalEnv(process.env.TL_REFUND_GRANT_ID);
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 export const OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4.1-mini';
 // The customer's workflow splits document understanding across two models
@@ -35,14 +37,17 @@ function parsePort(raw: string | undefined, fallback: number): number {
 }
 
 export function createClient(): Client {
-  if (WORKSPACE_ID !== undefined && WORKSPACE_ID.trim() !== '') {
-    return new Client({
-      baseUrl: SERVER_URL,
-      apiKey: API_KEY,
-      fetchImpl: fetchWithWorkspace(WORKSPACE_ID.trim()),
-    });
-  }
-  return new Client({ baseUrl: SERVER_URL, apiKey: API_KEY });
+  const fetchImpl = fetchWithTrustLoopContext();
+  return new Client({
+    baseUrl: SERVER_URL,
+    apiKey: API_KEY,
+    ...(fetchImpl === undefined ? {} : { fetchImpl }),
+  });
+}
+
+function cleanOptionalEnv(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed === undefined || trimmed === '' ? undefined : trimmed;
 }
 
 function demoRoot(): string {
@@ -59,6 +64,7 @@ export async function registerDemoProfile(agentId = DEFAULT_AGENT_ID): Promise<v
   };
   if (API_KEY) headers.authorization = `Bearer ${API_KEY}`;
   if (WORKSPACE_ID) headers['x-tlg-workspace-id'] = WORKSPACE_ID;
+  if (ADMIN_USER_ID) headers['x-tlg-user-id'] = ADMIN_USER_ID;
 
   const res = await fetch(`${SERVER_URL}/v1/agents`, {
     method: 'POST',
@@ -73,10 +79,14 @@ export async function registerDemoProfile(agentId = DEFAULT_AGENT_ID): Promise<v
   process.stdout.write(`registered agent profile "${agentId}"\n\n`);
 }
 
-function fetchWithWorkspace(workspaceId: string): typeof fetch {
+function fetchWithTrustLoopContext(): typeof fetch | undefined {
+  const workspaceId = cleanOptionalEnv(WORKSPACE_ID);
+  const adminUserId = ADMIN_USER_ID;
+  if (workspaceId === undefined && adminUserId === undefined) return undefined;
   return ((input: RequestInfo | URL, init?: RequestInit) => {
     const headers = new Headers(init?.headers);
-    headers.set('x-tlg-workspace-id', workspaceId);
+    if (workspaceId !== undefined) headers.set('x-tlg-workspace-id', workspaceId);
+    if (adminUserId !== undefined) headers.set('x-tlg-user-id', adminUserId);
     return fetch(input, { ...init, headers });
   }) as typeof fetch;
 }

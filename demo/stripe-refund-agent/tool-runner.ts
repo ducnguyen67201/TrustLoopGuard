@@ -23,6 +23,8 @@ export interface ToolRunOptions {
   logger?: AgentRunLogger;
   requestId?: string;
   dbPath?: string;
+  refundGrantId?: string;
+  allowGrantProvisioning?: boolean;
 }
 
 export const refundAgentTools: ChatCompletionTool[] = [
@@ -130,7 +132,10 @@ async function runPrepareRefund(
     ...(JSON.parse(rawArguments) as PrepareRefundInput),
     requestId: options.requestId ?? randomUUID(),
   };
-  const result = await prepareRefundTool(args, client, options.dbPath);
+  const result = await prepareRefundTool(args, client, options.dbPath, {
+    grantId: options.refundGrantId,
+    allowGrantProvisioning: options.allowGrantProvisioning,
+  });
   options.logger?.log('prepare_refund', `${result.status}: ${result.action.id}`);
   return {
     trace: {
@@ -152,7 +157,10 @@ async function runExecuteRefund(
   options: ToolRunOptions,
 ): Promise<ToolRunResult> {
   const args = JSON.parse(rawArguments) as { actionId: string };
-  const result = await executeRefundTool(args.actionId, client, options.dbPath);
+  const result = await executeRefundTool(args.actionId, client, options.dbPath, {
+    grantId: options.refundGrantId,
+    allowGrantProvisioning: options.allowGrantProvisioning,
+  });
   options.logger?.log('execute_refund', `${result.status}: ${result.action.id}`);
   return {
     trace: {

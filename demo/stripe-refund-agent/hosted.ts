@@ -3,7 +3,7 @@ import { rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 
-import { createClient } from '../shared/env';
+import { createClient, REFUND_GRANT_ID } from '../shared/env';
 import { runRefundAgent } from './agent';
 import { RefundDemoRequestBudget } from './auth';
 import type { RefundAgentClient } from './core';
@@ -48,6 +48,7 @@ export interface HostedRefundDemoDependencies {
   readState?: typeof customerBackendState;
   readStatus?: typeof readRefundDemoActionStatus;
   removeDatabase?: (dbPath: string) => void;
+  refundGrantId?: string;
 }
 
 export class RefundDemoBudgetExceededError extends Error {
@@ -92,6 +93,8 @@ export async function runHostedRefundDemo(
       requestId,
       requireLiveAgent: true,
       dbPath,
+      refundGrantId: dependencies.refundGrantId ?? REFUND_GRANT_ID,
+      allowGrantProvisioning: false,
     });
     logger.log('chat', 'refund agent finished');
 
