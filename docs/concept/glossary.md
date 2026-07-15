@@ -175,9 +175,21 @@ semantic judge. Exact nano-USD values are serialized as decimal strings to avoid
 loss; legacy minor-unit fields remain compatibility projections. Provider invoices are still the
 authoritative billing record.
 
+### Authorization intent
+
+The durable lifecycle record for one executable proposed action. It is scoped to a workspace, environment, principal, domain, operation, subject, and fingerprint and moves through `evaluating`, `pending_approval`, `authorized`, `denied`, `deferred`, `canceled`, or `expired`. An intent records what is trying to happen; it is not itself permission to execute.
+
+### Authorization approval
+
+A pending human decision tied to one [Authorization intent](#authorization-intent) and its immutable [Approval envelope](#approval-envelope). It is the only item shown in the actionable `/approvals` queue and is labeled by domain (`tool`, `financial`, or `content`). Approving creates a grant; it does not execute the action. Denied, canceled, expired, and already-approved records are not pending queue work.
+
 ### Authorization grant
 
 Database-backed, revocable authority for one principal, domain, capability, set of requirement IDs, and typed scope. A grant is either `exact_once` or reusable `scoped`, may expire or be use-limited, and comes from authenticated user intent, reviewer approval, or a workspace administrator. It can satisfy matching approval requirements but never widens current policy.
+
+### Authorization claim
+
+The caller's explicit reference to a `grant_id` and stable `attempt_id` when retrying an action. The claim is not trusted on its own: the kernel loads the grant, verifies its tenant, principal, domain, capability, requirements, scope, expiry, and use limits, then re-evaluates current policy and live state before execution.
 
 ### Approval envelope
 
@@ -247,9 +259,13 @@ The exact execution target bound to an approval: downstream server id, tool name
 
 A Rust-computed versioned SHA-256 binding for one generic tool invocation, including server-resolved scope, principal/run identity, invocation id, operation, tool identity, and parameters. Unlike a reusable financial approval fingerprint, it authorizes no family of later actions.
 
-### Tool approval request
+### Execution lease
 
-The one-attempt execution right claimed after current authorization returns `permit`. It is `claimed`, `consumed`, `canceled`, or `expired`; same-attempt retries return the same claimed/consumed lease. See [authorization-kernel.md](authorization-kernel.md).
+The one-attempt execution right claimed after current authorization returns `permit` or an executable transformed result. It is `claimed`, `consumed`, `canceled`, or `expired`; same-attempt retries return the same claimed or consumed lease. A lease prevents retries from turning one authorization into duplicate side effects. See [authorization-kernel.md](authorization-kernel.md).
+
+### Authorization receipt
+
+The common audit record written for an authorization evaluation. It preserves the final effect, intent status, reason, findings, policy versions, subject fingerprint, domain evidence, and any approval, grant, or lease references. A receipt explains a decision but grants no authority and does not replace domain evidence such as a financial execution receipt.
 
 ### MCP proxy
 

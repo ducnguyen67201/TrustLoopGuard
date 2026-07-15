@@ -36,14 +36,15 @@ That runtime check is the product. SDK callers receive the decision and handle i
 
 1. [architecture.md](architecture.md) — the big picture: how the pieces fit, how a request flows, where the latency goes.
 2. [event-engine.md](event-engine.md) — the SDK-first event contract and no-op runtime seams.
-3. [financial-authorization.md](financial-authorization.md) — the typed financial action contract and policy family.
-4. [crates.md](crates.md) — what each crate is for, in order of dependency.
-5. [glossary.md](glossary.md) — every domain term defined once: Channel, Authorization effect, Policy, Decision, hot path, etc.
-6. [runs.md](runs.md) — how agent executions group decision traces for monitoring.
-7. [analytics-dashboards.md](analytics-dashboards.md) — how customizable analytics queries and saved dashboard views work.
-8. [gateway.md](gateway.md) — how proxy/gateway mode differs from SDK mode.
-9. [agent-breakaway-arena.md](agent-breakaway-arena.md) — the raw-vs-guarded comparison concept and the agent adapter contract the demos use.
-10. [sdk-publishing.md](sdk-publishing.md) — how `@trustloopguard/sdk` is released to npm.
+3. [authorization-kernel.md](authorization-kernel.md) — how intents, approvals, grants, claims, leases, and receipts form one authority lifecycle.
+4. [financial-authorization.md](financial-authorization.md) — the typed financial action contract and policy family.
+5. [crates.md](crates.md) — what each crate is for, in order of dependency.
+6. [glossary.md](glossary.md) — every domain term defined once: Channel, Authorization effect, Policy, Decision, hot path, etc.
+7. [runs.md](runs.md) — how agent executions group decision traces for monitoring.
+8. [analytics-dashboards.md](analytics-dashboards.md) — how customizable analytics queries and saved dashboard views work.
+9. [gateway.md](gateway.md) — how proxy/gateway mode differs from SDK mode.
+10. [agent-breakaway-arena.md](agent-breakaway-arena.md) — the raw-vs-guarded comparison concept and the agent adapter contract the demos use.
+11. [sdk-publishing.md](sdk-publishing.md) — how `@trustloopguard/sdk` is released to npm.
 
 ## When to update these docs
 
