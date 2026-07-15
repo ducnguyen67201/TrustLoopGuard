@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { AuthorizationApproval, AuthorizationGrantScope } from '@trustloopguard/sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -11,6 +11,7 @@ vi.mock('sonner', () => ({
 
 describe('AuthorizationApprovalsContent', () => {
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
   });
 
@@ -27,10 +28,28 @@ describe('AuthorizationApprovalsContent', () => {
     );
 
     expect(screen.getByText('tool:mail/send')).toBeInTheDocument();
-    expect(screen.queryByText('financial:refund')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /pending/i })).toBeInTheDocument();
 
     await userEvent.selectOptions(screen.getByRole('combobox', { name: /domain/i }), 'financial');
     expect(screen.getByText('No pending approvals')).toBeInTheDocument();
+  });
+
+  it('shows resolved approvals in history from the same approval list', async () => {
+    render(
+      <AuthorizationApprovalsContent
+        workspaceSlug="acme"
+        environmentId="production"
+        approvals={[
+          approval('tool-pending', 'tool'),
+          approval('finance-done', 'financial', 'approved'),
+        ]}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('tab', { name: /history/i }));
+
+    expect(screen.getByText('financial:refund')).toBeInTheDocument();
+    expect(screen.getByText('approved')).toBeInTheDocument();
   });
 
   it('posts the reviewed envelope hash and exact proposed scope for scoped sign-off', async () => {
@@ -86,6 +105,41 @@ describe('AuthorizationApprovalsContent', () => {
       screen.queryByRole('button', { name: /approve matching actions/i }),
     ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /approve this action/i })).toBeInTheDocument();
+  });
+
+  it('moves a denied approval from pending into history', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          approval: {
+            id: 'tool-pending',
+            status: 'denied',
+            decided_at: '2026-07-14T12:05:00Z',
+            decision_reason: 'wrong recipient',
+          },
+          grant: null,
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <AuthorizationApprovalsContent
+        workspaceSlug="acme"
+        environmentId="production"
+        approvals={[approval('tool-pending', 'tool')]}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /deny/i }));
+
+    expect(screen.getByText('No pending approvals')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('tab', { name: /history/i }));
+
+    expect(screen.getByText('tool:mail/send')).toBeInTheDocument();
+    expect(screen.getByText('denied')).toBeInTheDocument();
+    expect(screen.getByText('No grant')).toBeInTheDocument();
   });
 });
 
