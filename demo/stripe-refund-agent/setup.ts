@@ -7,18 +7,12 @@ import type {
 } from '@trustloopguard/sdk';
 
 import { ADMIN_USER_ID, API_KEY, createClient, SERVER_URL, WORKSPACE_ID } from '../shared/env';
-import { ensureRefundGrant } from './core';
 import { orderDatabasePath, resetOrderDatabase } from './order-db';
 import { providerApiKey, providerBaseUrl } from './provider';
 
 async function main(): Promise<void> {
   resetOrderDatabase();
   process.stdout.write(`SQLite order DB ready: ${orderDatabasePath()}\n`);
-
-  const client = createClient();
-  const grant = await ensureRefundGrant(client);
-  process.stdout.write(`refund grant ready: ${grant.id}\n`);
-  process.stdout.write(`set TL_REFUND_GRANT_ID=${grant.id} on the public refund runtime\n`);
 
   const policy = await ensureFinancialControl();
   process.stdout.write(`financial control ready: ${policy.id}\n`);
@@ -55,7 +49,7 @@ const REFUND_CONTROL: CreateFinancialPolicyRequest = {
   allowed_counterparty_ids: [],
   denied_counterparty_ids: [],
   require_approval_for_new_counterparty: false,
-  grant_required: true,
+  grant_required: false,
   approver_roles: [],
   refund_original_method_only: false,
   required_preconditions: [

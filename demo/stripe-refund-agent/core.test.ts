@@ -16,7 +16,7 @@ import { executeRefundTool, prepareRefundTool, type RefundAgentClient } from './
 import { resetOrderDatabase } from './order-db';
 import { DEMO_ORDER_ID } from './types';
 
-test('public refund runtime uses a configured grant without listing or creating grants', async () => {
+test('public refund runtime lets policy hold approval-threshold refunds', async () => {
   resetOrderDatabase();
   const client = new RuntimeOnlyRefundClient('grant_preprovisioned_refund_demo');
 
@@ -27,9 +27,32 @@ test('public refund runtime uses a configured grant without listing or creating 
     { grantId: 'grant_preprovisioned_refund_demo' },
   );
 
-  assert.equal(prepared.status, 'permit');
-  assert.equal(prepared.request.authorization?.grant_id, 'grant_preprovisioned_refund_demo');
+  assert.equal(prepared.status, 'require_approval');
+  assert.equal(prepared.request.authorization, undefined);
   assert.equal(client.adminGrantCalls, 0);
+
+  const executed = await executeRefundTool(prepared.action.id, client, undefined, {
+    grantId: 'grant_preprovisioned_refund_demo',
+  });
+
+  assert.equal(executed.status, 'require_approval');
+  assert.equal(client.executions, 0);
+  assert.equal(client.adminGrantCalls, 0);
+});
+
+test('public refund runtime executes policy-permitted refunds without a grant claim', async () => {
+  resetOrderDatabase();
+  const client = new RuntimeOnlyRefundClient('grant_preprovisioned_refund_demo');
+
+  const prepared = await prepareRefundTool(
+    { orderId: DEMO_ORDER_ID, amountMinor: 2_500, reason: 'damaged item' },
+    client,
+    undefined,
+    { grantId: 'grant_preprovisioned_refund_demo' },
+  );
+
+  assert.equal(prepared.status, 'permit');
+  assert.equal(prepared.request.authorization, undefined);
 
   const executed = await executeRefundTool(prepared.action.id, client, undefined, {
     grantId: 'grant_preprovisioned_refund_demo',
@@ -37,12 +60,19 @@ test('public refund runtime uses a configured grant without listing or creating 
 
   assert.equal(executed.status, 'succeeded');
   assert.equal(client.executions, 1);
+  assert.deepEqual(client.executionRequests, [
+    { attempt_id: `stripe-refund-agent:execute:${prepared.action.id}` },
+  ]);
   assert.equal(client.adminGrantCalls, 0);
 });
 
 class RuntimeOnlyRefundClient implements RefundAgentClient {
   adminGrantCalls = 0;
   executions = 0;
+  executionRequests: Array<{
+    authorization?: { grant_id: string; attempt_id: string };
+    attempt_id?: string;
+  }> = [];
   private sequence = 1;
   private readonly actions = new Map<string, FinancialActionRecord>();
   private readonly receipts = new Map<string, FinancialReceipt>();
@@ -93,9 +123,9 @@ class RuntimeOnlyRefundClient implements RefundAgentClient {
 
   async guardPayment(req: CreateFinancialActionRequest): Promise<FinancialActionRecord> {
     const id = `refund_action_${this.sequence++}`;
-    const permitted =
-      req.authorization?.grant_id === this.configuredGrantId &&
-      req.action.amount.amount_minor <= 10_000n;
+    const amount = req.action.amount.amount_minor;
+    const permitted = req.authorization === undefined && amount < 5_000n;
+    const held = req.authorization === undefined && amount >= 5_000n && amount <= 10_000n;
     const now = '2026-07-06T10:00:00.000Z';
     const record: FinancialActionRecord = {
       id,
@@ -103,8 +133,8 @@ class RuntimeOnlyRefundClient implements RefundAgentClient {
       environment_id: 'production',
       authorization_intent_id: `intent_${id}`,
       authorization_receipt_id: `authorization_${id}`,
-      authorization_effect: permitted ? 'permit' : 'deny',
-      authorization_status: permitted ? 'authorized' : 'denied',
+      authorization_effect: permitted ? 'permit' : held ? 'require_approval' : 'deny',
+      authorization_status: permitted ? 'authorized' : held ? 'pending_approval' : 'denied',
       execution_status: 'not_started',
       action: { ...req.action, id },
       evidence: req.evidence,
@@ -121,10 +151,14 @@ class RuntimeOnlyRefundClient implements RefundAgentClient {
 
   async executeAction(
     id: string,
-    request: { authorization: { grant_id: string; attempt_id: string }; attempt_id: string },
+    request: { authorization?: { grant_id: string; attempt_id: string }; attempt_id?: string } = {},
   ): Promise<FinancialActionRecord> {
     const current = this.requireAction(id);
-    if (request.authorization.grant_id !== this.configuredGrantId) return current;
+    this.executionRequests.push(request);
+    if (current.authorization_effect !== 'permit') return current;
+    if (request.authorization !== undefined && request.authorization.grant_id !== this.configuredGrantId) {
+      return current;
+    }
     this.executions += 1;
     const updated = {
       ...current,
