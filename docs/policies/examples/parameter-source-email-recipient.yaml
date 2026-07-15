@@ -8,4 +8,4 @@ allowed_sources:
   - origin: user
   - origin: tool
     kind: contact_lookup
-action: block
+action: deny

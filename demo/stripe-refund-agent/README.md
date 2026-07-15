@@ -25,7 +25,7 @@ Start the Rust API:
 doppler run --project trustloopguard --config dev_stripe_demo -- cargo run -p tl-server
 ```
 
-In a second terminal, install the refund policy, mandate, and local provider connection:
+In a second terminal, install the refund policy, reusable authorization grant, and local provider connection:
 
 ```bash
 doppler run --project trustloopguard --config dev_stripe_demo -- \

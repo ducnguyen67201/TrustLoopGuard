@@ -71,7 +71,7 @@ pub struct CreateApiKeyRequest {
     pub environment_id: Option<String>,
     /// Optional principal to bind the key to (free-form, e.g.
     /// `user:daniel`). Requests authenticated with the key resolve to
-    /// this principal for mandates, budgets, and the audit trail.
+    /// this principal for grants, budgets, and the audit trail.
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub principal_id: Option<String>,

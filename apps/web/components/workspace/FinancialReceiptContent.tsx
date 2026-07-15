@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import {
   counterpartyLabel,
   currentContextQuery,
+  FinancialAuthorizationBadge,
   FinancialStatusBadge,
   formatDateTime,
   formatMoney,
@@ -61,7 +62,8 @@ export function FinancialReceiptContent({
             {action ? (
               <div className="grid gap-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <FinancialStatusBadge status={action.status} />
+                  <FinancialAuthorizationBadge effect={action.authorization_effect} />
+                  <FinancialStatusBadge status={action.execution_status} />
                   <Badge variant="outline">{titleLabel(action.action.kind)}</Badge>
                   <Badge variant="outline">{titleLabel(action.action.rail)}</Badge>
                 </div>
@@ -70,7 +72,12 @@ export function FinancialReceiptContent({
                   <Fact label="Principal" value={action.action.principal_id} mono />
                   <Fact label="Counterparty" value={counterpartyLabel(action)} />
                   <Fact label="Created" value={formatDateTime(action.created_at)} />
-                  <Fact label="Mandate" value={action.action.mandate?.id ?? '—'} mono />
+                  <Fact
+                    label="Authorization receipt"
+                    value={receipt.authorization_receipt_id}
+                    mono
+                    href={`/authorization/receipts/${encodeURIComponent(receipt.authorization_receipt_id)}${contextQuery}`}
+                  />
                   <Fact label="Trace" value={receipt.trace_id ?? '—'} mono />
                 </div>
               </div>
@@ -133,11 +140,30 @@ export function FinancialReceiptContent({
   );
 }
 
-function Fact({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+function Fact({
+  label,
+  value,
+  mono = false,
+  href,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  href?: string;
+}) {
   return (
     <div className="grid min-w-0 gap-0.5">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={mono ? 'truncate font-mono text-xs' : 'truncate'}>{value}</span>
+      {href ? (
+        <Link
+          href={href}
+          className={mono ? 'truncate font-mono text-xs text-primary hover:underline' : 'truncate'}
+        >
+          {value}
+        </Link>
+      ) : (
+        <span className={mono ? 'truncate font-mono text-xs' : 'truncate'}>{value}</span>
+      )}
     </div>
   );
 }

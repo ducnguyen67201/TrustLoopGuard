@@ -10,7 +10,8 @@
 use std::time::Duration;
 
 use tl_sdk_rust::{
-    Action, Client, EventKind, GuardEvent, Principal, ProvenanceMap, RetryConfig, SdkError, Verdict,
+    Action, AuthorizationEffect, Client, EventKind, GuardEvent, Principal, ProvenanceMap,
+    RetryConfig, SdkError,
 };
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -32,6 +33,9 @@ fn event() -> GuardEvent {
             operation: "output".into(),
             parameters: serde_json::json!({ "text": "hello" }),
             side_effect: None,
+            invocation_id: None,
+            tool_identity: None,
+            authorization: None,
         },
         sources: vec![],
         provenance: ProvenanceMap::default(),
@@ -58,12 +62,11 @@ fn fast_retry() -> RetryConfig {
 fn ok_decision_body() -> serde_json::Value {
     serde_json::json!({
         "trace_id": "trace-1",
-        "verdict": "allow",
+        "domain": "content",
+        "effect": "permit",
         "reason": "no policies triggered",
-        "triggered_policies": [],
-        "safe_output": null,
+        "findings": [],
         "latency_ms": 1,
-        "tier_results": [],
     })
 }
 
@@ -89,7 +92,7 @@ async fn retries_503_until_success() {
         .submit_event(&event())
         .await
         .expect("retry should succeed");
-    assert_eq!(decision.verdict, Verdict::Allow);
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
 
     let calls = server.received_requests().await.unwrap();
     assert_eq!(calls.len(), 3, "expected 1 initial + 2 retries");
@@ -141,7 +144,7 @@ async fn honors_retry_after_header() {
 
     let client = Client::new(server.uri()).with_retry(fast_retry());
     let decision = client.submit_event(&event()).await.unwrap();
-    assert_eq!(decision.verdict, Verdict::Allow);
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
     assert_eq!(server.received_requests().await.unwrap().len(), 2);
 }
 
@@ -159,7 +162,7 @@ async fn sends_bearer_auth_header() {
         .with_api_key("sk-abc")
         .with_retry(fast_retry());
     let decision = client.submit_event(&event()).await.unwrap();
-    assert_eq!(decision.verdict, Verdict::Allow);
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
 }
 
 #[tokio::test]

@@ -20,7 +20,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { VerdictLegend } from '@/components/ui/verdict-legend';
+import { AuthorizationEffectLegend } from '@/components/ui/authorization-effect-legend';
 
 import type { CreatePolicyAction, PolicyFormState } from './policy-form-state';
 
@@ -37,7 +37,7 @@ type PolicyFormProps = {
     policyKey?: string;
     sourceYaml?: string;
     severity?: 'low' | 'medium' | 'high' | 'critical';
-    action?: 'block' | 'rewrite' | 'escalate';
+    action?: 'deny' | 'transform' | 'require_approval';
     enabled?: boolean;
   };
 };
@@ -125,11 +125,7 @@ export function PolicyForm({
       </CardHeader>
       <CardContent className="grid gap-5">
         <div className="grid gap-5 md:grid-cols-3">
-          <Field
-            label="Applies to"
-            name="agentId"
-            hint="One AI assistant, or all of them."
-          >
+          <Field label="Applies to" name="agentId" hint="One AI assistant, or all of them.">
             {(ids) => (
               <Select name="agentId">
                 <SelectTrigger id={ids.control} className="w-full">
@@ -172,19 +168,19 @@ export function PolicyForm({
           <Field
             label="On a match"
             name="action"
-            labelHint={<InfoHint term="verdict" />}
+            labelHint={<InfoHint term="effect" />}
             hint="What the guardrail does when this rule matches."
             error={state.fieldErrors?.action}
           >
             {(ids) => (
-              <Select name="action" defaultValue={initialValues.action ?? 'block'} required>
+              <Select name="action" defaultValue={initialValues.action ?? 'deny'} required>
                 <SelectTrigger id={ids.control} aria-invalid={ids.invalid} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="block">Block it</SelectItem>
-                  <SelectItem value="rewrite">Clean it up (rewrite)</SelectItem>
-                  <SelectItem value="escalate">Send for review (escalate)</SelectItem>
+                  <SelectItem value="deny">Deny it</SelectItem>
+                  <SelectItem value="transform">Clean it up (rewrite)</SelectItem>
+                  <SelectItem value="require_approval">Require approval</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -195,7 +191,7 @@ export function PolicyForm({
           <p className="mb-3 text-xs font-medium text-muted-foreground">
             What each “On a match” choice means
           </p>
-          <VerdictLegend verdicts={['rewrite', 'escalate', 'block']} />
+          <AuthorizationEffectLegend effects={['transform', 'require_approval', 'deny']} />
         </div>
 
         <div className="flex items-start justify-between gap-4 rounded-md border bg-muted/40 p-4">
@@ -243,7 +239,9 @@ export function PolicyForm({
                   id={ids.control}
                   name="sourceYaml"
                   defaultValue={initialValues.sourceYaml}
-                  placeholder={'id: refund-guarantee\nmatch:\n  literal: "guaranteed refund"\naction: block'}
+                  placeholder={
+                    'id: refund-guarantee\nmatch:\n  literal: "guaranteed refund"\naction: deny'
+                  }
                   className="min-h-40 font-mono text-sm"
                   aria-invalid={ids.invalid}
                   aria-describedby={ids.describedBy}

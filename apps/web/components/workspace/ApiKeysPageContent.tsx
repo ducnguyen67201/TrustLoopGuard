@@ -49,7 +49,7 @@ function KeyStatusBadge({ status }: { status: string }) {
     return (
       <span className="inline-flex items-center gap-1.5">
         <Badge variant="outline" className="gap-1.5 text-xs">
-          <IconCircleDot className="size-3 text-[var(--color-allow)]" aria-hidden />
+          <IconCircleDot className="size-3 text-[var(--color-permit)]" aria-hidden />
           Active
         </Badge>
         <InfoHint label="What does Active mean?">
@@ -96,11 +96,7 @@ function CopyableId({ id, name, prefix }: { id: string; name: string; prefix: st
         onClick={copyId}
         aria-label={`Copy the ID for ${name}`}
       >
-        {copied ? (
-          <IconCheck className="text-[var(--color-allow)]" />
-        ) : (
-          <IconCopy />
-        )}
+        {copied ? <IconCheck className="text-[var(--color-permit)]" /> : <IconCopy />}
       </Button>
     </span>
   );
@@ -117,7 +113,7 @@ function SummaryTile({
 }) {
   const valueClass =
     accent === 'active'
-      ? 'text-[var(--color-allow)]'
+      ? 'text-[var(--color-permit)]'
       : accent === 'revoked'
         ? 'text-muted-foreground'
         : 'text-foreground';
@@ -250,7 +246,9 @@ export function ApiKeysPageContent({ data }: { data: ApiKeysPageData }) {
       );
       clearSelection();
       toast.success(
-        ids.length === 1 ? 'Key turned off — it can no longer connect' : `${ids.length} keys turned off`,
+        ids.length === 1
+          ? 'Key turned off — it can no longer connect'
+          : `${ids.length} keys turned off`,
       );
       router.refresh();
     } catch (err) {
@@ -352,8 +350,8 @@ export function ApiKeysPageContent({ data }: { data: ApiKeysPageData }) {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {revokeCount === 1 ? 'This key' : 'These keys'} will stop working right away, and any
-              app still using {revokeCount === 1 ? 'it' : 'them'} will lose access. This can&apos;t be
-              undone — you&apos;ll need to create a new key to reconnect.
+              app still using {revokeCount === 1 ? 'it' : 'them'} will lose access. This can&apos;t
+              be undone — you&apos;ll need to create a new key to reconnect.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

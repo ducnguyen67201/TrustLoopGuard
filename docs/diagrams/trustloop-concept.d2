@@ -18,12 +18,12 @@ guard: {
 }
 
 target: {
-  label: "User or tool\napproved output only"
+  label: "User or tool\npermitted or transformed output"
   shape: rectangle
 }
 
-verdicts: {
-  label: "Four verdicts\nallow | block | rewrite | escalate"
+effects: {
+  label: "Five effects\npermit | transform | require_approval | defer | deny"
   shape: rectangle
 }
 
@@ -33,7 +33,6 @@ trace: {
 }
 
 agent -> guard: "draft output"
-guard -> target: "Decision"
-guard -> verdicts
+guard -> target: "Authorization decision"
+guard -> effects
 guard -> trace
-

@@ -28,7 +28,7 @@ id: refund-guarantee
 description: Prevents agents from guaranteeing refunds.
 match:
   literal: "guaranteed refund"
-action: block
+action: deny
 "#,
     );
     assert!(out.valid);
@@ -46,7 +46,7 @@ fn validation_errors_are_structured() {
 id: "Refund Guarantee"
 match:
   regex: "["
-action: rewrite
+action: transform
 "#,
     );
     assert!(!out.valid);
@@ -60,7 +60,7 @@ fn valid_json_policy_works() {
     let headers = HeaderMap::new();
     let out = validate_raw_policy(
         &headers,
-        r#"{"id":"json-policy","match":{"literal":"refund"},"action":"block"}"#,
+        r#"{"id":"json-policy","match":{"literal":"refund"},"action": "deny"}"#,
     );
     assert!(out.valid);
     assert_eq!(out.policy_id.as_deref(), Some("json-policy"));
@@ -96,7 +96,7 @@ fn family_policy_json_validates_through_endpoint_path() {
     let headers = HeaderMap::new();
     let out = validate_raw_policy(
         &headers,
-        r#"{"family":"memory","id":"json-memory","deny_untrusted_authority_writes":true,"action":"escalate"}"#,
+        r#"{"family":"memory","id":"json-memory","deny_untrusted_authority_writes":true,"action": "require_approval"}"#,
     );
     assert!(out.valid, "errors: {:?}", out.errors);
     assert_eq!(out.policy_id.as_deref(), Some("json-memory"));
@@ -110,7 +110,7 @@ fn invalid_family_policy_returns_structured_issues_and_id() {
 family: approval
 id: unconditional
 when: {}
-action: escalate
+action: require_approval
 "#,
     );
     assert!(!out.valid);
@@ -123,7 +123,7 @@ fn unknown_family_is_invalid_with_truncated_echo() {
     let long_family = "x".repeat(500);
     let out = validate_raw_policy(
         &yaml_headers(),
-        &format!("family: {long_family}\nid: nonsense\naction: block\n"),
+        &format!("family: {long_family}\nid: nonsense\naction: deny\n"),
     );
     assert!(!out.valid);
     assert_eq!(out.errors[0].path, "family");

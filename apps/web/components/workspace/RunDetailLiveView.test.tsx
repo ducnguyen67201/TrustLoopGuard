@@ -183,7 +183,7 @@ describe('RunDetailLiveView', () => {
           run_id: 'run-param-auth',
           run_event_id: 'event-1',
           domain: 'event',
-          decision: 'block',
+          decision: 'deny',
           elapsed_ms: 13,
           latest_review_outcome: null,
           latest_reviewed_at: null,
@@ -206,10 +206,10 @@ describe('RunDetailLiveView', () => {
                     rule: 'parameter_source.account',
                     reason:
                       "authority-bearing parameter 'account' expects sources of origin tool, got user",
-                    recommended_verdict: 'block',
+                    recommended_effect: 'deny',
                     source_chain: ['conversation'],
                     risk_source: 'user',
-                    failure_mode: 'wrong_source',
+                    risk_code: 'wrong_source',
                     harm_class: 'integrity',
                   },
                 ],
@@ -285,7 +285,7 @@ describe('RunDetailLiveView', () => {
           run_id: 'run-output-guard',
           run_event_id: 'assistant-event',
           domain: 'event',
-          decision: 'allow',
+          decision: 'permit',
           elapsed_ms: 6,
           latest_review_outcome: null,
           latest_reviewed_at: null,
@@ -313,7 +313,7 @@ describe('RunDetailLiveView', () => {
     expect(screen.getByText('Agent reply checked')).toBeInTheDocument();
   });
 
-  it('explains blocked and rewritten gateway output as delivery interventions', async () => {
+  it('explains denied and transformed gateway output as delivery interventions', async () => {
     const user = userEvent.setup();
     const snapshot = parseRunDetailSnapshot({
       run: {
@@ -341,7 +341,7 @@ describe('RunDetailLiveView', () => {
           run_id: '019e7bd8-5fee-7261-b7ef-3baab3535774',
           run_event_id: null,
           domain: 'gateway_output_check',
-          decision: 'block',
+          decision: 'deny',
           elapsed_ms: 55,
           latest_review_outcome: null,
           latest_reviewed_at: null,
@@ -355,7 +355,7 @@ describe('RunDetailLiveView', () => {
             ],
             checked_input_excerpt: 'user: Can you return me some money? Refund?',
             checked_output_excerpt: 'We guarantee a full refund immediately.',
-            safe_output: 'Blocked by TrustLoopGuard proxy demo.',
+            safe_output: 'Denied by TrustLoopGuard proxy demo.',
           },
           created_at: '2026-05-31T02:24:16.000Z',
         },
@@ -364,7 +364,7 @@ describe('RunDetailLiveView', () => {
           run_id: '019e7bd8-5fee-7261-b7ef-3baab3535774',
           run_event_id: null,
           domain: 'gateway_output_check',
-          decision: 'rewrite',
+          decision: 'transform',
           elapsed_ms: 43,
           latest_review_outcome: null,
           latest_reviewed_at: null,
@@ -393,7 +393,7 @@ describe('RunDetailLiveView', () => {
       />,
     );
 
-    expect(screen.getAllByText('Rewritten').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Transformed').length).toBeGreaterThan(0);
 
     await user.click(
       screen.getByRole('button', {
@@ -407,15 +407,15 @@ describe('RunDetailLiveView', () => {
     expect(screen.getByText('Agent tried to say')).toBeInTheDocument();
     expect(screen.getByText('We guarantee a full refund immediately.')).toBeInTheDocument();
     expect(screen.getByText('TrustLoopGuard returned')).toBeInTheDocument();
-    expect(screen.getByText('Blocked by TrustLoopGuard proxy demo.')).toBeInTheDocument();
+    expect(screen.getByText('Denied by TrustLoopGuard proxy demo.')).toBeInTheDocument();
 
     await user.click(
       screen.getByRole('button', {
-        name: /Rewritten before delivery.*demo-proxy-rude-output-0968f70b/i,
+        name: /Transformed before delivery.*demo-proxy-rude-output-0968f70b/i,
       }),
     );
 
-    expect(screen.getByText('TrustLoopGuard rewrote this before delivery')).toBeInTheDocument();
+    expect(screen.getByText('TrustLoopGuard transformed this before delivery')).toBeInTheDocument();
     expect(
       screen.getByText('That is a stupid question. Figure it out yourself.'),
     ).toBeInTheDocument();

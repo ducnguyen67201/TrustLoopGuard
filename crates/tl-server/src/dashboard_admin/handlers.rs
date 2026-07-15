@@ -421,10 +421,11 @@ pub async fn put_environment_checker_modes(
     }
 }
 
-/// Verdict values `default_action` may take. The field gates no runtime
+/// AuthorizationEffect values `default_action` may take. The field gates no runtime
 /// decision yet; validating here keeps stored data meaningful before a
 /// consumer appears.
-const VALID_DEFAULT_ACTIONS: [&str; 4] = ["allow", "block", "rewrite", "escalate"];
+const VALID_DEFAULT_ACTIONS: [&str; 5] =
+    ["permit", "deny", "transform", "require_approval", "defer"];
 const MAX_RETENTION_DAYS: u32 = 3650;
 
 /// Cap on the free-form principal binding accepted at key creation.

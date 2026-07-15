@@ -502,11 +502,11 @@ loading/empty/error states. It read as a re-skin, not a designed product.
 The redesign — **"Instrument"** — keeps the product's technical identity (the
 orange brand, monospace as the language of *data*) and fixes the rest:
 
-- **Signal over decoration.** Saturated color is reserved for meaning (verdicts,
+- **Signal over decoration.** Saturated color is reserved for authorization effects and
   status). The base is a disciplined neutral — warm "lab" paper in light, a
   near-black "control room" in dark. Orange is the brand action accent only.
 - **Two-face typography.** `Inter` carries UI and prose; `IBM Plex Mono` is
-  retained for data, IDs, code, and verdict labels. Monospace is no longer the
+  retained for data, IDs, code, and effect labels. Monospace is no longer the
   default body face.
 - **Structured depth.** A real radius scale (~8px base, replacing the harsh 0)
   and layered surfaces with hairline borders; shadows stay a whisper.
@@ -515,8 +515,17 @@ orange brand, monospace as the language of *data*) and fixes the rest:
 - **Wayfinding.** One shared `PageHeader` (eyebrow → `<h1>` → description →
   action) across every page, with breadcrumbs on nested routes.
 
-The verdict tokens (`--color-allow/-rewrite/-block/-escalate`) and the 5-color
-chart identity are unchanged — they are semantic, not decorative. Tokens live in
+The authorization-effect colors and the 5-color chart identity are semantic, not decorative. Tokens live in
 `apps/web/app/globals.css`; shared primitives and their contracts are documented
 in [web-ui-conventions.md](web-ui-conventions.md). The full art direction and the
 gan-design loop that drove the per-page work live under `gan-harness/`.
+
+## 20. Tool execution stays caller-owned; approval is exact (locked)
+
+TrustLoopGuard durably authorizes one immutable invocation but does not execute customer code. SDKs and the MCP proxy hold the execution boundary, resubmit the exact action after approval, and run it once only after every current checker and policy returns `permit`. The fingerprint binds scope, caller identity, tool identity, and parameters; a consumed lease is retry-safe only for the same stable attempt id. The canonical lifecycle is [authorization-kernel.md](authorization-kernel.md).
+
+## 21. One authorization kernel across domains (locked)
+
+The earlier tool-approval and financial-mandate implementations proved the need for durable sign-off but duplicated vocabulary, storage, routes, SDK helpers, and UI queues. Before production usage, they were replaced by one Rust-owned kernel with `AuthorizationEffect`, `AuthorizationIntentStatus`, approvals, grants, execution leases, and receipts.
+
+Typed policy families and domain adapters remain separate. A grant is generalized authority, not a policy exception: effective authority is the intersection of the proposed request, the active typed grant scope, and current policy. `require_approval` can be satisfied by a matching grant; `defer` and `deny` cannot. Financial execution and ledger state remain a separate axis. `/approvals` is the only actionable queue and reviewer signing is an authenticated, hash-bound state transition rather than a portable bearer signature. See [authorization-kernel.md](authorization-kernel.md).

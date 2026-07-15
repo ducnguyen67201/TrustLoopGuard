@@ -14,7 +14,7 @@ interface Decision {
   time: string;
   merchant: string;
   amount: string;
-  verdict: 'allow' | 'rewrite' | 'block' | 'escalate';
+  effect: 'permit' | 'transform' | 'deny' | 'require_approval';
   chip: string;
   trace: string;
 }
@@ -31,7 +31,7 @@ const DECISIONS: Decision[] = [
     time: '14:32:07',
     merchant: 'Northwind Supplies',
     amount: '$4,820.00',
-    verdict: 'block',
+    effect: 'deny',
     chip: 'BLOCK',
     trace: 'tr_9f3a71',
   },
@@ -39,7 +39,7 @@ const DECISIONS: Decision[] = [
     time: '14:31:58',
     merchant: 'Stripe payout · ops',
     amount: '$1,200.00',
-    verdict: 'allow',
+    effect: 'permit',
     chip: 'ALLOW',
     trace: 'tr_a14c08',
   },
@@ -47,7 +47,7 @@ const DECISIONS: Decision[] = [
     time: '14:31:12',
     merchant: 'AWS invoice (capped from $6,400)',
     amount: '$5,000.00',
-    verdict: 'rewrite',
+    effect: 'transform',
     chip: 'CAP',
     trace: 'tr_c4e0b2',
   },
@@ -55,7 +55,7 @@ const DECISIONS: Decision[] = [
     time: '14:30:41',
     merchant: 'Refund · order #8842',
     amount: '$640.00',
-    verdict: 'escalate',
+    effect: 'require_approval',
     chip: 'HOLD',
     trace: 'tr_7c4e19',
   },
@@ -63,7 +63,7 @@ const DECISIONS: Decision[] = [
     time: '14:29:55',
     merchant: 'Acme travel booking',
     amount: '$312.40',
-    verdict: 'allow',
+    effect: 'permit',
     chip: 'ALLOW',
     trace: 'tr_2b8840',
   },
@@ -71,7 +71,7 @@ const DECISIONS: Decision[] = [
     time: '14:28:33',
     merchant: 'Vendor wire · net-30',
     amount: '$9,300.00',
-    verdict: 'escalate',
+    effect: 'require_approval',
     chip: 'HOLD',
     trace: 'tr_5f7a02',
   },
@@ -79,7 +79,7 @@ const DECISIONS: Decision[] = [
     time: '14:27:50',
     merchant: 'OpenAI API · usage',
     amount: '$84.20',
-    verdict: 'allow',
+    effect: 'permit',
     chip: 'ALLOW',
     trace: 'tr_1d9c33',
   },
@@ -87,7 +87,7 @@ const DECISIONS: Decision[] = [
     time: '14:26:14',
     merchant: 'Unknown payee · ACH',
     amount: '$2,500.00',
-    verdict: 'block',
+    effect: 'deny',
     chip: 'BLOCK',
     trace: 'tr_b07e55',
   },
@@ -157,7 +157,7 @@ export function Monitoring() {
                   <span className="trace">{d.trace}</span>
                 </span>
                 <span className="amount tabular-nums">{d.amount}</span>
-                <span className={`verdict-chip verdict-chip-${d.verdict} feed-chip`}>{d.chip}</span>
+                <span className={`effect-chip effect-chip-${d.effect} feed-chip`}>{d.chip}</span>
               </div>
             ))}
           </div>

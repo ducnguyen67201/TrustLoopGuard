@@ -34,6 +34,9 @@ fn event() -> GuardEvent {
             operation: "send_email".into(),
             parameters: serde_json::json!({ "recipient": "a@b.c" }),
             side_effect: None,
+            invocation_id: None,
+            tool_identity: None,
+            authorization: None,
         },
         sources: vec![],
         provenance: ProvenanceMap::default(),
@@ -48,10 +51,10 @@ fn event() -> GuardEvent {
 fn allow_decision() -> serde_json::Value {
     serde_json::json!({
         "trace_id": "018f1111-1111-7111-8111-111111111111",
-        "verdict": "allow",
+        "domain": "content",
+        "effect": "permit",
         "reason": "no policies triggered",
-        "triggered_policies": [],
-        "safe_output": null,
+        "findings": [],
         "latency_ms": 2
     })
 }
@@ -131,7 +134,7 @@ async fn client_without_monitoring_sends_no_session_id() {
         assert!(body.get("session_id").is_none());
         assert!(body
             .get("principal")
-            .is_none_or(|p| p.get("session_id").is_none()));
+            .map_or(true, |p| p.get("session_id").is_none()));
     }
 }
 

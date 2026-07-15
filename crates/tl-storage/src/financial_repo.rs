@@ -4,27 +4,27 @@ use diesel_async::{AsyncConnection, RunQueryDsl};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tl_core::{
-    AgenticPaymentReservation, AgenticPaymentReservationStatus, CreateFinancialActionRequest,
-    CreateFinancialMandateRequest, EvidenceRef, FinancialAction, FinancialActionKind,
-    FinancialActionOutcome, FinancialActionOutcomeStatus, FinancialActionStatus,
-    FinancialApprovalRequestStatus, FinancialMandate, FinancialMandateStatus, FinancialRail,
-    FinancialReceipt, MoneyAmount, RecoveryStatus, ReversalCapability,
+    AgenticPaymentReservation, AgenticPaymentReservationStatus, AuthorizationEffect,
+    AuthorizationIntentStatus, CreateFinancialActionRequest, EvidenceRef, FinancialAction,
+    FinancialActionKind, FinancialActionOutcome, FinancialActionOutcomeStatus,
+    FinancialExecutionStatus, FinancialRail, FinancialReceipt, MoneyAmount, RecoveryStatus,
+    ReversalCapability,
 };
 use uuid::Uuid;
 
 use crate::models::{
-    ApprovalRequestRecord, FinancialActionEventRecord, FinancialActionOutcomeRecord,
-    FinancialActionRecord, FinancialLedgerEntryRecord, FinancialPaymentReservationRecord,
-    FinancialPaymentSessionRecord, FinancialReceiptRecord, MandateRecord, NewApprovalRequest,
-    NewFinancialAction, NewFinancialActionEvent, NewFinancialActionOutcome,
+    FinancialActionEventRecord, FinancialActionOutcomeRecord, FinancialActionRecord,
+    FinancialLedgerEntryRecord, FinancialPaymentReservationRecord, FinancialPaymentSessionRecord,
+    FinancialReceiptRecord, NewFinancialAction, NewFinancialActionEvent, NewFinancialActionOutcome,
     NewFinancialBudgetPrincipalLock, NewFinancialLedgerEntry, NewFinancialPaymentReservation,
-    NewFinancialPaymentSession, NewFinancialReceipt, NewMandate,
+    NewFinancialPaymentSession, NewFinancialReceipt,
 };
 use crate::postgres::{DbConnection, DbPool};
 use crate::schema::{
-    approval_requests, financial_action_events, financial_action_outcomes, financial_actions,
-    financial_budget_principal_locks, financial_ledger_entries, financial_payment_reservations,
-    financial_payment_sessions, financial_receipts, mandates,
+    authorization_intents, authorization_receipts, financial_action_events,
+    financial_action_outcomes, financial_actions, financial_budget_principal_locks,
+    financial_ledger_entries, financial_payment_reservations, financial_payment_sessions,
+    financial_receipts,
 };
 use crate::StorageError;
 
@@ -57,9 +57,14 @@ impl FinancialLedgerEntryKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct StoredFinancialAction {
     pub workspace_id: String,
+    pub environment_id: String,
     pub id: String,
     pub idempotency_key: String,
-    pub status: FinancialActionStatus,
+    pub authorization_intent_id: Option<String>,
+    pub authorization_receipt_id: Option<String>,
+    pub authorization_effect: AuthorizationEffect,
+    pub authorization_status: AuthorizationIntentStatus,
+    pub execution_status: FinancialExecutionStatus,
     pub status_reason: Option<String>,
     pub action: FinancialAction,
     pub evidence: Vec<EvidenceRef>,
@@ -73,8 +78,8 @@ pub struct StoredFinancialActionEvent {
     pub id: String,
     pub action_id: String,
     pub event_type: String,
-    pub from_status: Option<FinancialActionStatus>,
-    pub to_status: Option<FinancialActionStatus>,
+    pub from_status: Option<FinancialExecutionStatus>,
+    pub to_status: Option<FinancialExecutionStatus>,
     pub actor_id: Option<String>,
     pub reason: Option<String>,
     pub metadata: serde_json::Value,
@@ -82,41 +87,12 @@ pub struct StoredFinancialActionEvent {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct StoredFinancialApprovalRequest {
-    pub workspace_id: String,
-    pub id: String,
-    pub action_id: String,
-    pub status: FinancialApprovalRequestStatus,
-    pub reason: String,
-    pub approver_roles: Vec<String>,
-    pub decided_by: Option<String>,
-    pub decided_at: Option<DateTime<Utc>>,
-    pub expires_at: Option<DateTime<Utc>>,
-    pub metadata: serde_json::Value,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct StoredFinancialMandate {
-    pub workspace_id: String,
-    pub id: String,
-    pub version: i32,
-    pub status: FinancialMandateStatus,
-    pub principal_id: String,
-    pub scope: serde_json::Value,
-    pub metadata: serde_json::Value,
-    pub starts_at: Option<DateTime<Utc>>,
-    pub expires_at: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct StoredFinancialReceipt {
     pub workspace_id: String,
+    pub environment_id: String,
     pub id: String,
     pub action_id: String,
+    pub authorization_receipt_id: String,
     pub trace_id: Option<String>,
     pub ledger_event_ids: Vec<String>,
     pub proof: serde_json::Value,
@@ -222,9 +198,11 @@ impl FinancialRepo {
     pub async fn create_action(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         input: CreateFinancialActionRequest,
     ) -> Result<StoredFinancialAction, StorageError> {
         validate_create_action(&input)?;
+        let environment_id = clean_required("environment_id", environment_id)?;
         let action_id = input
             .action
             .id
@@ -235,16 +213,15 @@ impl FinancialRepo {
         let idempotency_key = input.idempotency_key.trim().to_string();
         let new_action = NewFinancialAction {
             workspace_id: workspace_id.to_string(),
+            environment_id: environment_id.clone(),
             id: action_id,
             idempotency_key: idempotency_key.clone(),
             principal_id: input.action.principal_id.trim().to_string(),
             action_kind: enum_text(input.action.kind)?,
             operation: input.action.operation.trim().to_string(),
-            status: enum_text(FinancialActionStatus::Proposed)?,
             amount_minor: input.action.amount.amount_minor,
             currency: input.action.amount.currency.trim().to_uppercase(),
             counterparty: optional_json(&input.action.counterparty)?,
-            mandate: optional_json(&input.action.mandate)?,
             rail: enum_text(input.action.rail)?,
             memo: input.action.memo.and_then(clean_optional),
             metadata: input.action.metadata,
@@ -257,6 +234,7 @@ impl FinancialRepo {
             .values(&new_action)
             .on_conflict((
                 financial_actions::workspace_id,
+                financial_actions::environment_id,
                 financial_actions::idempotency_key,
             ))
             .do_nothing()
@@ -271,26 +249,28 @@ impl FinancialRepo {
                 action_id,
                 "created",
                 None,
-                Some(FinancialActionStatus::Proposed),
+                Some(FinancialExecutionStatus::NotStarted),
                 serde_json::json!({}),
             )
             .await?;
         }
 
         drop(conn);
-        self.get_action_by_idempotency_key(workspace_id, &idempotency_key)
+        self.get_action_by_idempotency_key(workspace_id, &environment_id, &idempotency_key)
             .await
     }
 
     pub async fn get_action(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         action_id: &str,
     ) -> Result<StoredFinancialAction, StorageError> {
         let action_uuid = parse_uuid(action_id)?;
         let mut conn = self.connection().await?;
         let record = financial_actions::table
             .filter(financial_actions::workspace_id.eq(workspace_id))
+            .filter(financial_actions::environment_id.eq(environment_id))
             .filter(financial_actions::id.eq(action_uuid))
             .select(FinancialActionRecord::as_select())
             .first::<FinancialActionRecord>(&mut conn)
@@ -298,7 +278,9 @@ impl FinancialRepo {
             .optional()
             .map_err(|e| StorageError::Internal(format!("financial action get: {e}")))?
             .ok_or(StorageError::NotFound)?;
-        let mut action = action_from_record(record)?;
+        let mut action = self
+            .hydrate_action(&mut conn, action_from_record(record)?)
+            .await?;
         action.status_reason = self
             .latest_status_reason(&mut conn, workspace_id, action_id)
             .await?;
@@ -308,10 +290,16 @@ impl FinancialRepo {
     pub async fn list_actions(
         &self,
         workspace_id: &str,
+        environment_id: Option<&str>,
     ) -> Result<Vec<StoredFinancialAction>, StorageError> {
         let mut conn = self.connection().await?;
-        let rows = financial_actions::table
+        let mut query = financial_actions::table
             .filter(financial_actions::workspace_id.eq(workspace_id))
+            .into_boxed();
+        if let Some(environment_id) = environment_id {
+            query = query.filter(financial_actions::environment_id.eq(environment_id));
+        }
+        let rows = query
             .select(FinancialActionRecord::as_select())
             .order((
                 financial_actions::created_at.desc(),
@@ -325,6 +313,7 @@ impl FinancialRepo {
             .map(action_from_record)
             .collect::<Result<Vec<_>, _>>()?;
         for action in &mut actions {
+            *action = self.hydrate_action(&mut conn, action.clone()).await?;
             action.status_reason = self
                 .latest_status_reason(&mut conn, workspace_id, &action.id)
                 .await?;
@@ -332,195 +321,35 @@ impl FinancialRepo {
         Ok(actions)
     }
 
-    pub async fn create_approval_request(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-        reason: &str,
-        approver_roles: Vec<String>,
-        expires_at: Option<DateTime<Utc>>,
-        metadata: serde_json::Value,
-    ) -> Result<StoredFinancialApprovalRequest, StorageError> {
-        let action_uuid = parse_uuid(action_id)?;
-        let clean_reason = clean_required("reason", reason)?;
-        if approver_roles.iter().any(|role| role.trim().is_empty()) {
-            return Err(StorageError::Internal(
-                "approver_roles must not contain empty roles".into(),
-            ));
-        }
-        let id = Uuid::now_v7();
-        let new_request = NewApprovalRequest {
-            workspace_id: workspace_id.to_string(),
-            id,
-            action_id: action_uuid,
-            status: enum_text(FinancialApprovalRequestStatus::Pending)?,
-            reason: clean_reason,
-            approver_roles: serde_json::to_value(approver_roles)
-                .map_err(|e| StorageError::Internal(format!("approver roles encode: {e}")))?,
-            expires_at,
-            metadata,
-        };
-
-        let mut conn = self.connection().await?;
-        diesel::insert_into(approval_requests::table)
-            .values(&new_request)
-            .execute(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("approval request insert: {e}")))?;
-        let row = approval_requests::table
-            .filter(approval_requests::workspace_id.eq(workspace_id))
-            .filter(approval_requests::id.eq(id))
-            .select(ApprovalRequestRecord::as_select())
-            .first::<ApprovalRequestRecord>(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("approval request get: {e}")))?;
-        approval_from_record(row)
-    }
-
-    pub async fn create_mandate(
-        &self,
-        workspace_id: &str,
-        input: CreateFinancialMandateRequest,
-    ) -> Result<StoredFinancialMandate, StorageError> {
-        let id = input
-            .id
-            .and_then(clean_optional)
-            .unwrap_or_else(|| Uuid::now_v7().to_string());
-        let version = input.version.unwrap_or(1);
-        if version <= 0 {
-            return Err(StorageError::Internal(
-                "mandate version must be positive".into(),
-            ));
-        }
-        let starts_at = parse_optional_rfc3339("starts_at", input.starts_at.as_deref())?;
-        let expires_at = parse_optional_rfc3339("expires_at", input.expires_at.as_deref())?;
-        let new_mandate = NewMandate {
-            workspace_id: workspace_id.to_string(),
-            id: id.clone(),
-            version,
-            status: enum_text(FinancialMandateStatus::Active)?,
-            principal_id: clean_required("principal_id", &input.principal_id)?,
-            scope: input.scope,
-            metadata: input.metadata,
-            starts_at,
-            expires_at,
-        };
-
-        let mut conn = self.connection().await?;
-        diesel::insert_into(mandates::table)
-            .values(&new_mandate)
-            .execute(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("mandate insert: {e}")))?;
-        drop(conn);
-        self.get_mandate(workspace_id, &id, Some(version)).await
-    }
-
-    pub async fn list_mandates(
-        &self,
-        workspace_id: &str,
-    ) -> Result<Vec<StoredFinancialMandate>, StorageError> {
-        let mut conn = self.connection().await?;
-        let rows = mandates::table
-            .filter(mandates::workspace_id.eq(workspace_id))
-            .order((mandates::created_at.desc(), mandates::id.desc()))
-            .select(MandateRecord::as_select())
-            .load::<MandateRecord>(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("mandates list: {e}")))?;
-        rows.into_iter().map(mandate_from_record).collect()
-    }
-
-    pub async fn get_mandate(
-        &self,
-        workspace_id: &str,
-        mandate_id: &str,
-        version: Option<i32>,
-    ) -> Result<StoredFinancialMandate, StorageError> {
-        let clean_id = clean_required("mandate_id", mandate_id)?;
-        let mut conn = self.connection().await?;
-        let mut query = mandates::table
-            .filter(mandates::workspace_id.eq(workspace_id))
-            .filter(mandates::id.eq(&clean_id))
-            .into_boxed();
-        if let Some(version) = version {
-            query = query.filter(mandates::version.eq(version));
-        }
-        let record = query
-            .order(mandates::version.desc())
-            .select(MandateRecord::as_select())
-            .first::<MandateRecord>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| StorageError::Internal(format!("mandate get: {e}")))?
-            .ok_or(StorageError::NotFound)?;
-        mandate_from_record(record)
-    }
-
-    pub async fn revoke_mandate(
-        &self,
-        workspace_id: &str,
-        mandate_id: &str,
-    ) -> Result<StoredFinancialMandate, StorageError> {
-        let clean_id = clean_required("mandate_id", mandate_id)?;
-        let mut conn = self.connection().await?;
-        let current = mandates::table
-            .filter(mandates::workspace_id.eq(workspace_id))
-            .filter(mandates::id.eq(&clean_id))
-            .order(mandates::version.desc())
-            .select(MandateRecord::as_select())
-            .first::<MandateRecord>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| StorageError::Internal(format!("mandate get: {e}")))?
-            .ok_or(StorageError::NotFound)?;
-
-        diesel::update(
-            mandates::table
-                .filter(mandates::workspace_id.eq(workspace_id))
-                .filter(mandates::id.eq(&clean_id))
-                .filter(mandates::version.eq(current.version)),
-        )
-        .set((
-            mandates::status.eq(enum_text(FinancialMandateStatus::Revoked)?),
-            mandates::updated_at.eq(Utc::now()),
-        ))
-        .execute(&mut conn)
-        .await
-        .map_err(|e| StorageError::Internal(format!("mandate revoke: {e}")))?;
-        drop(conn);
-        self.get_mandate(workspace_id, &clean_id, Some(current.version))
-            .await
-    }
-
     pub async fn create_receipt(
         &self,
         workspace_id: &str,
         action_id: &str,
+        authorization_receipt_id: &str,
         trace_id: Option<&str>,
         ledger_event_ids: Vec<String>,
         proof: serde_json::Value,
     ) -> Result<StoredFinancialReceipt, StorageError> {
         let action_uuid = parse_uuid(action_id)?;
+        let authorization_receipt_uuid = parse_uuid(authorization_receipt_id)?;
         let trace_uuid = trace_id.map(parse_uuid).transpose()?;
         let mut conn = self.connection().await?;
-        let action_exists = financial_actions::table
+        let environment_id = financial_actions::table
             .filter(financial_actions::workspace_id.eq(workspace_id))
             .filter(financial_actions::id.eq(action_uuid))
-            .select(financial_actions::id)
-            .first::<Uuid>(&mut conn)
+            .select(financial_actions::environment_id)
+            .first::<String>(&mut conn)
             .await
             .optional()
             .map_err(|e| StorageError::Internal(format!("financial receipt action lookup: {e}")))?
-            .is_some();
-        if !action_exists {
-            return Err(StorageError::NotFound);
-        }
+            .ok_or(StorageError::NotFound)?;
 
         let receipt = NewFinancialReceipt {
             workspace_id: workspace_id.to_string(),
+            environment_id,
             id: action_uuid,
             action_id: action_uuid,
+            authorization_receipt_id: Some(authorization_receipt_uuid),
             trace_id: trace_uuid,
             ledger_event_ids: serde_json::to_value(ledger_event_ids)
                 .map_err(|e| StorageError::Internal(format!("ledger ids encode: {e}")))?,
@@ -650,162 +479,6 @@ impl FinancialRepo {
         rows.into_iter().map(outcome_from_record).collect()
     }
 
-    pub async fn list_approval_requests(
-        &self,
-        workspace_id: &str,
-    ) -> Result<Vec<StoredFinancialApprovalRequest>, StorageError> {
-        let mut conn = self.connection().await?;
-        let rows = approval_requests::table
-            .filter(approval_requests::workspace_id.eq(workspace_id))
-            .order((
-                approval_requests::created_at.desc(),
-                approval_requests::id.desc(),
-            ))
-            .select(ApprovalRequestRecord::as_select())
-            .load::<ApprovalRequestRecord>(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("approval requests list: {e}")))?;
-        rows.into_iter().map(approval_from_record).collect()
-    }
-
-    pub async fn has_current_approved_request(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-    ) -> Result<bool, StorageError> {
-        let action_uuid = parse_uuid(action_id)?;
-        let mut conn = self.connection().await?;
-        approval_requests::table
-            .filter(approval_requests::workspace_id.eq(workspace_id))
-            .filter(approval_requests::action_id.eq(action_uuid))
-            .filter(
-                approval_requests::status.eq(enum_text(FinancialApprovalRequestStatus::Approved)?),
-            )
-            .filter(
-                approval_requests::expires_at
-                    .is_null()
-                    .or(approval_requests::expires_at.gt(Utc::now())),
-            )
-            .select(approval_requests::id)
-            .first::<Uuid>(&mut conn)
-            .await
-            .optional()
-            .map(|request| request.is_some())
-            .map_err(|e| StorageError::Internal(format!("approved request lookup: {e}")))
-    }
-
-    pub async fn resolve_pending_approval_requests(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-        status: FinancialApprovalRequestStatus,
-        decided_by: Option<&str>,
-    ) -> Result<(), StorageError> {
-        if !matches!(
-            status,
-            FinancialApprovalRequestStatus::Approved | FinancialApprovalRequestStatus::Denied
-        ) {
-            return Err(StorageError::Internal(
-                "approval request resolution must be approved or denied".into(),
-            ));
-        }
-        let action_uuid = parse_uuid(action_id)?;
-        let mut conn = self.connection().await?;
-        let action_exists = financial_actions::table
-            .filter(financial_actions::workspace_id.eq(workspace_id))
-            .filter(financial_actions::id.eq(action_uuid))
-            .select(financial_actions::id)
-            .first::<Uuid>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| StorageError::Internal(format!("approval action lookup: {e}")))?
-            .is_some();
-        if !action_exists {
-            return Err(StorageError::NotFound);
-        }
-
-        diesel::update(
-            approval_requests::table
-                .filter(approval_requests::workspace_id.eq(workspace_id))
-                .filter(approval_requests::action_id.eq(action_uuid))
-                .filter(
-                    approval_requests::status
-                        .eq(enum_text(FinancialApprovalRequestStatus::Pending)?),
-                ),
-        )
-        .set((
-            approval_requests::status.eq(enum_text(status)?),
-            approval_requests::decided_by.eq(decided_by.map(str::to_string)),
-            approval_requests::decided_at.eq(Some(Utc::now())),
-            approval_requests::updated_at.eq(Utc::now()),
-        ))
-        .execute(&mut conn)
-        .await
-        .map_err(|e| StorageError::Internal(format!("approval request resolve: {e}")))?;
-        Ok(())
-    }
-
-    pub async fn transition_status(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-        next_status: FinancialActionStatus,
-        event_type: &str,
-        metadata: serde_json::Value,
-    ) -> Result<StoredFinancialAction, StorageError> {
-        let action_uuid = parse_uuid(action_id)?;
-        let clean_event_type = clean_required("event_type", event_type)?;
-        let mut conn = self.connection().await?;
-        let record = financial_actions::table
-            .filter(financial_actions::workspace_id.eq(workspace_id))
-            .filter(financial_actions::id.eq(action_uuid))
-            .select(FinancialActionRecord::as_select())
-            .first::<FinancialActionRecord>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| StorageError::Internal(format!("financial action transition get: {e}")))?
-            .ok_or(StorageError::NotFound)?;
-        let current_status = status_from_text(&record.status)?;
-        if !is_valid_transition(current_status, next_status) {
-            return Err(StorageError::Conflict);
-        }
-
-        diesel::update(
-            financial_actions::table
-                .filter(financial_actions::workspace_id.eq(workspace_id))
-                .filter(financial_actions::id.eq(action_uuid))
-                .filter(financial_actions::status.eq(enum_text(current_status)?)),
-        )
-        .set((
-            financial_actions::status.eq(enum_text(next_status)?),
-            financial_actions::updated_at.eq(Utc::now()),
-        ))
-        .execute(&mut conn)
-        .await
-        .map_err(|e| StorageError::Internal(format!("financial action transition update: {e}")))
-        .and_then(|updated| {
-            if updated == 0 {
-                Err(StorageError::Conflict)
-            } else {
-                Ok(updated)
-            }
-        })?;
-
-        self.insert_event(
-            &mut conn,
-            workspace_id,
-            action_uuid,
-            &clean_event_type,
-            Some(current_status),
-            Some(next_status),
-            metadata,
-        )
-        .await?;
-
-        drop(conn);
-        self.get_action(workspace_id, action_id).await
-    }
-
     pub async fn list_action_events(
         &self,
         workspace_id: &str,
@@ -822,6 +495,95 @@ impl FinancialRepo {
             .await
             .map_err(|e| StorageError::Internal(format!("financial action events list: {e}")))?;
         rows.into_iter().map(event_from_record).collect()
+    }
+
+    pub async fn update_authorization(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        action_id: &str,
+        intent_id: Option<&str>,
+    ) -> Result<StoredFinancialAction, StorageError> {
+        let action_id = parse_uuid(action_id)?;
+        let intent_id = intent_id.map(parse_uuid).transpose()?;
+        let mut conn = self.connection().await?;
+        let updated = diesel::update(
+            financial_actions::table
+                .filter(financial_actions::workspace_id.eq(workspace_id))
+                .filter(financial_actions::environment_id.eq(environment_id))
+                .filter(financial_actions::id.eq(action_id)),
+        )
+        .set((
+            financial_actions::authorization_intent_id.eq(intent_id),
+            financial_actions::updated_at.eq(Utc::now()),
+        ))
+        .execute(&mut conn)
+        .await
+        .map_err(|e| StorageError::Internal(format!("financial authorization update: {e}")))?;
+        if updated == 0 {
+            return Err(StorageError::NotFound);
+        }
+        drop(conn);
+        self.get_action(workspace_id, environment_id, &action_id.to_string())
+            .await
+    }
+
+    pub async fn transition_execution(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        action_id: &str,
+        next_status: FinancialExecutionStatus,
+        reason: Option<&str>,
+    ) -> Result<StoredFinancialAction, StorageError> {
+        let action_uuid = parse_uuid(action_id)?;
+        let mut conn = self.connection().await?;
+        let current = financial_actions::table
+            .filter(financial_actions::workspace_id.eq(workspace_id))
+            .filter(financial_actions::environment_id.eq(environment_id))
+            .filter(financial_actions::id.eq(action_uuid))
+            .select(financial_actions::execution_status)
+            .first::<String>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("financial execution get: {e}")))?
+            .ok_or(StorageError::NotFound)?;
+        let current_status = execution_status_from_text(&current)?;
+        if current_status != next_status
+            && !is_valid_execution_transition(current_status, next_status)
+        {
+            return Err(StorageError::Conflict);
+        }
+        let updated = diesel::update(
+            financial_actions::table
+                .filter(financial_actions::workspace_id.eq(workspace_id))
+                .filter(financial_actions::environment_id.eq(environment_id))
+                .filter(financial_actions::id.eq(action_uuid))
+                .filter(financial_actions::execution_status.eq(&current)),
+        )
+        .set((
+            financial_actions::execution_status.eq(enum_text(next_status)?),
+            financial_actions::updated_at.eq(Utc::now()),
+        ))
+        .execute(&mut conn)
+        .await
+        .map_err(|e| StorageError::Internal(format!("financial execution update: {e}")))?;
+        if updated == 0 {
+            return Err(StorageError::Conflict);
+        }
+        self.insert_event(
+            &mut conn,
+            workspace_id,
+            action_uuid,
+            "execution_status_changed",
+            Some(current_status),
+            Some(next_status),
+            serde_json::json!({ "reason": reason }),
+        )
+        .await?;
+        drop(conn);
+        self.get_action(workspace_id, environment_id, action_id)
+            .await
     }
 
     async fn latest_status_reason(
@@ -1512,11 +1274,13 @@ impl FinancialRepo {
     async fn get_action_by_idempotency_key(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         idempotency_key: &str,
     ) -> Result<StoredFinancialAction, StorageError> {
         let mut conn = self.connection().await?;
         let record = financial_actions::table
             .filter(financial_actions::workspace_id.eq(workspace_id))
+            .filter(financial_actions::environment_id.eq(environment_id))
             .filter(financial_actions::idempotency_key.eq(idempotency_key))
             .select(FinancialActionRecord::as_select())
             .first::<FinancialActionRecord>(&mut conn)
@@ -1524,7 +1288,51 @@ impl FinancialRepo {
             .optional()
             .map_err(|e| StorageError::Internal(format!("financial action get idempotency: {e}")))?
             .ok_or(StorageError::NotFound)?;
-        action_from_record(record)
+        self.hydrate_action(&mut conn, action_from_record(record)?)
+            .await
+    }
+
+    async fn hydrate_action(
+        &self,
+        conn: &mut DbConnection<'_>,
+        mut action: StoredFinancialAction,
+    ) -> Result<StoredFinancialAction, StorageError> {
+        let Some(intent_id) = action
+            .authorization_intent_id
+            .as_deref()
+            .map(parse_uuid)
+            .transpose()?
+        else {
+            return Ok(action);
+        };
+        let projection = authorization_intents::table
+            .filter(authorization_intents::workspace_id.eq(&action.workspace_id))
+            .filter(authorization_intents::environment_id.eq(&action.environment_id))
+            .filter(authorization_intents::id.eq(intent_id))
+            .select((
+                authorization_intents::current_effect,
+                authorization_intents::status,
+            ))
+            .first::<(String, String)>(conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("financial authorization hydrate: {e}")))?;
+        if let Some((effect, status)) = projection {
+            action.authorization_effect = enum_from_text(&effect)?;
+            action.authorization_status = enum_from_text(&status)?;
+        }
+        action.authorization_receipt_id = authorization_receipts::table
+            .filter(authorization_receipts::workspace_id.eq(&action.workspace_id))
+            .filter(authorization_receipts::environment_id.eq(&action.environment_id))
+            .filter(authorization_receipts::intent_id.eq(Some(intent_id)))
+            .order(authorization_receipts::created_at.desc())
+            .select(authorization_receipts::id)
+            .first::<Uuid>(conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("financial receipt hydrate: {e}")))?
+            .map(|id| id.to_string());
+        Ok(action)
     }
 
     async fn get_ledger_entry_by_idempotency_key(
@@ -1551,8 +1359,8 @@ impl FinancialRepo {
         workspace_id: &str,
         action_id: Uuid,
         event_type: &str,
-        from_status: Option<FinancialActionStatus>,
-        to_status: Option<FinancialActionStatus>,
+        from_status: Option<FinancialExecutionStatus>,
+        to_status: Option<FinancialExecutionStatus>,
         metadata: serde_json::Value,
     ) -> Result<(), StorageError> {
         let event = NewFinancialActionEvent {
@@ -1604,14 +1412,17 @@ fn validate_create_action(input: &CreateFinancialActionRequest) -> Result<(), St
     Ok(())
 }
 
-fn is_valid_transition(from: FinancialActionStatus, to: FinancialActionStatus) -> bool {
-    use FinancialActionStatus::*;
+fn is_valid_execution_transition(
+    from: FinancialExecutionStatus,
+    to: FinancialExecutionStatus,
+) -> bool {
+    use FinancialExecutionStatus::*;
     matches!(
         (from, to),
-        (Proposed, Authorized | Held | Denied | Failed | Expired)
-            | (Held, Authorized | Executed | Denied | Failed | Expired)
-            | (Authorized, Executed | Denied | Failed | Expired)
-            | (Executed, Reversed)
+        (NotStarted, Executing | Canceled)
+            | (Executing, Succeeded | Failed | Canceled)
+            | (Failed, Executing | Canceled)
+            | (Succeeded, Reversed)
     )
 }
 
@@ -1637,17 +1448,20 @@ fn clean_operation(operation: &str) -> Result<(), StorageError> {
 fn action_from_record(
     record: FinancialActionRecord,
 ) -> Result<StoredFinancialAction, StorageError> {
-    let status = status_from_text(&record.status)?;
     let kind = enum_from_text::<FinancialActionKind>(&record.action_kind)?;
     let rail = enum_from_text::<FinancialRail>(&record.rail)?;
     let counterparty = optional_from_value(record.counterparty)?;
-    let mandate = optional_from_value(record.mandate)?;
     let evidence = from_value::<Vec<EvidenceRef>>(record.evidence)?;
     Ok(StoredFinancialAction {
         workspace_id: record.workspace_id,
+        environment_id: record.environment_id,
         id: record.id.to_string(),
         idempotency_key: record.idempotency_key,
-        status,
+        authorization_intent_id: record.authorization_intent_id.map(|id| id.to_string()),
+        authorization_receipt_id: None,
+        authorization_effect: AuthorizationEffect::Defer,
+        authorization_status: AuthorizationIntentStatus::Evaluating,
+        execution_status: execution_status_from_text(&record.execution_status)?,
         status_reason: None,
         action: FinancialAction {
             id: Some(record.id.to_string()),
@@ -1660,7 +1474,6 @@ fn action_from_record(
             },
             counterparty,
             rail,
-            mandate,
             memo: record.memo,
             metadata: record.metadata,
         },
@@ -1681,12 +1494,12 @@ fn event_from_record(
         from_status: record
             .from_status
             .as_deref()
-            .map(status_from_text)
+            .map(execution_status_from_text)
             .transpose()?,
         to_status: record
             .to_status
             .as_deref()
-            .map(status_from_text)
+            .map(execution_status_from_text)
             .transpose()?,
         actor_id: record.actor_id,
         reason: record.reason,
@@ -1695,48 +1508,20 @@ fn event_from_record(
     })
 }
 
-fn approval_from_record(
-    record: ApprovalRequestRecord,
-) -> Result<StoredFinancialApprovalRequest, StorageError> {
-    Ok(StoredFinancialApprovalRequest {
-        workspace_id: record.workspace_id,
-        id: record.id.to_string(),
-        action_id: record.action_id.to_string(),
-        status: enum_from_text(&record.status)?,
-        reason: record.reason,
-        approver_roles: from_value::<Vec<String>>(record.approver_roles)?,
-        decided_by: record.decided_by,
-        decided_at: record.decided_at,
-        expires_at: record.expires_at,
-        metadata: record.metadata,
-        created_at: record.created_at,
-        updated_at: record.updated_at,
-    })
-}
-
-fn mandate_from_record(record: MandateRecord) -> Result<StoredFinancialMandate, StorageError> {
-    Ok(StoredFinancialMandate {
-        workspace_id: record.workspace_id,
-        id: record.id,
-        version: record.version,
-        status: enum_from_text(&record.status)?,
-        principal_id: record.principal_id,
-        scope: record.scope,
-        metadata: record.metadata,
-        starts_at: record.starts_at,
-        expires_at: record.expires_at,
-        created_at: record.created_at,
-        updated_at: record.updated_at,
-    })
-}
-
 fn receipt_from_record(
     record: FinancialReceiptRecord,
 ) -> Result<StoredFinancialReceipt, StorageError> {
     Ok(StoredFinancialReceipt {
         workspace_id: record.workspace_id,
+        environment_id: record.environment_id,
         id: record.id.to_string(),
         action_id: record.action_id.to_string(),
+        authorization_receipt_id: record
+            .authorization_receipt_id
+            .ok_or_else(|| {
+                StorageError::Internal("financial receipt missing authorization receipt".into())
+            })?
+            .to_string(),
         trace_id: record.trace_id.map(|value| value.to_string()),
         ledger_event_ids: from_value::<Vec<String>>(record.ledger_event_ids)?,
         proof: record.proof,
@@ -1862,29 +1647,12 @@ fn outcome_from_record(
     })
 }
 
-impl From<StoredFinancialMandate> for FinancialMandate {
-    fn from(row: StoredFinancialMandate) -> Self {
-        Self {
-            id: row.id,
-            workspace_id: row.workspace_id,
-            version: row.version,
-            status: row.status,
-            principal_id: row.principal_id,
-            scope: row.scope,
-            metadata: row.metadata,
-            starts_at: row.starts_at.map(|value| value.to_rfc3339()),
-            expires_at: row.expires_at.map(|value| value.to_rfc3339()),
-            created_at: row.created_at.to_rfc3339(),
-            updated_at: row.updated_at.to_rfc3339(),
-        }
-    }
-}
-
 impl From<StoredFinancialReceipt> for FinancialReceipt {
     fn from(row: StoredFinancialReceipt) -> Self {
         Self {
             id: row.id,
             action_id: row.action_id,
+            authorization_receipt_id: row.authorization_receipt_id,
             trace_id: row.trace_id,
             ledger_event_ids: row.ledger_event_ids,
             proof: row.proof,
@@ -1908,19 +1676,6 @@ fn parse_rfc3339(name: &str, value: &str) -> Result<DateTime<Utc>, StorageError>
     DateTime::parse_from_rfc3339(value)
         .map(|value| value.with_timezone(&Utc))
         .map_err(|e| StorageError::Internal(format!("{name}: {e}")))
-}
-
-fn parse_optional_rfc3339(
-    name: &str,
-    value: Option<&str>,
-) -> Result<Option<DateTime<Utc>>, StorageError> {
-    value
-        .map(|value| {
-            DateTime::parse_from_rfc3339(value)
-                .map(|value| value.with_timezone(&Utc))
-                .map_err(|e| StorageError::Internal(format!("{name}: {e}")))
-        })
-        .transpose()
 }
 
 fn clean_required(name: &str, value: &str) -> Result<String, StorageError> {
@@ -1954,7 +1709,7 @@ where
     }
 }
 
-fn status_from_text(value: &str) -> Result<FinancialActionStatus, StorageError> {
+fn execution_status_from_text(value: &str) -> Result<FinancialExecutionStatus, StorageError> {
     enum_from_text(value)
 }
 

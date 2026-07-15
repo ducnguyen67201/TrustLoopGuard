@@ -6,7 +6,7 @@ import type { SourceLabelEvidence } from "./SourceLabelEvidence";
 /**
  * Label resolution + propagation evidence attached by the event
  * pipeline. `None` until the pipeline has run. Observe-only: no
- * checker changes a verdict because of this value.
+ * checker changes an authorization effect because of this value.
  */
 export type LabelResolution = { policy_status: LabelPolicyStatus, sources?: Array<SourceLabelEvidence>,
 /**

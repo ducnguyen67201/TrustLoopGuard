@@ -21,6 +21,6 @@ max?: bigint,
  */
 min?: bigint,
 /**
- * Verdict to recommend when a bound is breached. Defaults to `Block`.
+ * Authorization effect to recommend when a bound is breached. Defaults to `Deny`.
  */
 on_breach: LimitAction, };

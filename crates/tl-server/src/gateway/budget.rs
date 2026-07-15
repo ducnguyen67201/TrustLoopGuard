@@ -8,7 +8,7 @@
 //!
 //! Budgets are financial family policies with
 //! [`tl_core::SpendMeter::LlmUsage`] — same registry, same window math,
-//! same pure verdict fn as `/v1/financial/actions`; only the spend-sum
+//! same pure effect composition as `/v1/financial/actions`; only the spend-sum
 //! source differs (`llm_usage_events`, not the ledger).
 
 use axum::{

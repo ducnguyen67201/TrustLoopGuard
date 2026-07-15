@@ -7,8 +7,7 @@
 
 use std::time::Instant;
 
-use tl_core::{CheckRequest, Tier, TierResult, TierStatus, TriggeredPolicy, Verdict};
-use tl_policy::Action;
+use tl_core::{AuthorizationEffect, CheckRequest, Tier, TierResult, TierStatus, TriggeredPolicy};
 use tokio_util::sync::CancellationToken;
 
 use crate::context::{FuzzyHit, HandlerCtx};
@@ -65,14 +64,15 @@ pub async fn run(req: &CheckRequest, ctx: &HandlerCtx, cancel: CancellationToken
 }
 
 fn block_signal_from_hit(hit: &FuzzyHit) -> Option<BlockSignal> {
-    let verdict = match hit.action {
-        Action::Allow => return None,
-        Action::Block => Verdict::Block,
-        Action::Rewrite => Verdict::Rewrite,
-        Action::Escalate => Verdict::Escalate,
+    let effect = match hit.action {
+        AuthorizationEffect::Permit => return None,
+        AuthorizationEffect::Deny => AuthorizationEffect::Deny,
+        AuthorizationEffect::Transform => AuthorizationEffect::Transform,
+        AuthorizationEffect::RequireApproval => AuthorizationEffect::RequireApproval,
+        AuthorizationEffect::Defer => AuthorizationEffect::Defer,
     };
     Some(BlockSignal {
-        verdict,
+        effect,
         reason: format!(
             "tier2 policy `{}` triggered: {}",
             hit.policy_id, hit.message

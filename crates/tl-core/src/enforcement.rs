@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::guard::{Severity, Verdict};
+use crate::{AuthorizationEffect, Severity};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -24,7 +24,7 @@ use utoipa::ToSchema;
 /// - `Shadow`: the checker is evaluated and full hypothetical evidence is
 ///   recorded, but the decision is never changed.
 /// - `Enforce`: the checker is evaluated and its findings can change the
-///   decision (worst verdict wins).
+///   decision (the strongest authorization effect wins).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -61,9 +61,9 @@ pub struct CheckerRun {
 
 /// One rule violation observed by a checker.
 ///
-/// `recommended_verdict` is what enforce mode applies; in shadow mode it is
+/// `recommended_effect` is what enforce mode applies; in shadow mode it is
 /// the hypothetical outcome and the decision is left untouched. It is
-/// absent for verdict-free evidence findings (e.g. "tool not registered,
+/// absent for effect-free evidence findings (e.g. "tool not registered,
 /// parameters unverifiable") that never affect the decision in any mode.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -75,7 +75,7 @@ pub struct CheckerFindingEvidence {
     pub reason: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub recommended_verdict: Option<Verdict>,
+    pub recommended_effect: Option<AuthorizationEffect>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(feature = "ts-export", ts(as = "Option<Vec<String>>", optional))]
     pub source_chain: Vec<String>,
@@ -84,7 +84,7 @@ pub struct CheckerFindingEvidence {
     pub risk_source: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub failure_mode: Option<String>,
+    pub risk_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub harm_class: Option<String>,
@@ -93,8 +93,8 @@ pub struct CheckerFindingEvidence {
 /// Advisory evidence from one LLM/classifier signal provider, attached
 /// by the event pipeline.
 ///
-/// Signals never decide action verdicts: the composer ignores them for
-/// verdict computation, and this evidence exists so traces and review
+/// Signals never decide authorization effects: the composer ignores them for
+/// effect composition, and this evidence exists so traces and review
 /// show what advisory layers observed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -171,14 +171,14 @@ mod tests {
         let finding = CheckerFindingEvidence {
             rule: "destination-permission".into(),
             reason: "private data flows to external sink".into(),
-            recommended_verdict: Some(Verdict::Block),
+            recommended_effect: Some(AuthorizationEffect::Deny),
             source_chain: vec!["src.web".into()],
             risk_source: Some("web".into()),
-            failure_mode: Some("data_exfiltration".into()),
+            risk_code: Some("data_exfiltration".into()),
             harm_class: None,
         };
         let value = serde_json::to_value(&finding).unwrap();
-        assert_eq!(value["recommended_verdict"], "block");
+        assert_eq!(value["recommended_effect"], "deny");
         assert_eq!(value["source_chain"][0], "src.web");
         assert!(value.get("harm_class").is_none());
         let parsed: CheckerFindingEvidence = serde_json::from_value(value).unwrap();

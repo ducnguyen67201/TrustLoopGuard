@@ -46,6 +46,8 @@ pub mod agent_repo;
 #[cfg(feature = "postgres")]
 pub mod analytics_repo;
 #[cfg(feature = "postgres")]
+pub mod authorization_repo;
+#[cfg(feature = "postgres")]
 pub mod budget_alert_repo;
 #[cfg(feature = "postgres")]
 pub mod dashboard_admin_repo;
@@ -97,6 +99,10 @@ pub use agent_repo::AgentRepo;
 #[cfg(feature = "postgres")]
 pub use analytics_repo::AnalyticsRepo;
 #[cfg(feature = "postgres")]
+pub use authorization_repo::{
+    AuthorizationRepo, CreateAuthorizationApproval, CreateAuthorizationIntent,
+};
+#[cfg(feature = "postgres")]
 pub use budget_alert_repo::{
     BudgetAlertRepo, NewBudgetAlertConfigParams, NewBudgetAlertFiringParams,
     StoredBudgetAlertConfig, StoredBudgetAlertFiring, UpdateBudgetAlertConfigParams,
@@ -112,8 +118,8 @@ pub use financial_repo::{
     FinancialBudgetConstraint, FinancialBudgetViolation, FinancialBudgetWindow,
     FinancialLedgerEntryKind, FinancialRepo, ReserveAgenticPaymentBudgetRequest,
     ReserveFinancialActionBudgetRequest, ReserveFinancialActionBudgetResult, StoredFinancialAction,
-    StoredFinancialActionEvent, StoredFinancialActionOutcome, StoredFinancialApprovalRequest,
-    StoredFinancialLedgerEntry, StoredFinancialMandate, StoredFinancialReceipt,
+    StoredFinancialActionEvent, StoredFinancialActionOutcome, StoredFinancialLedgerEntry,
+    StoredFinancialReceipt,
 };
 #[cfg(feature = "postgres")]
 pub use gateway_repo::{

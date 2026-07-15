@@ -26,7 +26,7 @@ const tools = [
         // non-integer amount escalates as unverifiable.
         path: 'amount',
         role: 'content_bearing',
-        limit: { min: 1, max: REFUND_CAP_CENTS, on_breach: 'block' },
+        limit: { min: 1, max: REFUND_CAP_CENTS, on_breach: 'deny' },
       },
     ],
     enabled: true,
@@ -45,7 +45,7 @@ const tools = [
         // Wires escalate over $50k for a human instead of hard-blocking.
         path: 'amount',
         role: 'content_bearing',
-        limit: { min: 1, max: WIRE_ESCALATE_CENTS, on_breach: 'escalate' },
+        limit: { min: 1, max: WIRE_ESCALATE_CENTS, on_breach: 'require_approval' },
       },
     ],
     // Every wire needs a human in the loop, regardless of amount.

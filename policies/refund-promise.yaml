@@ -6,6 +6,6 @@ match:
   any:
     - regex: "(?i)\\b(refund|money[- ]back|guarantee)\\b"
     - literal: "I promise"
-action: rewrite
+action: transform
 rewrite: "I'll connect you with a teammate who can review that for you."
 severity: high

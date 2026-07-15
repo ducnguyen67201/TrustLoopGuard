@@ -13,7 +13,7 @@ when:
   domains: [gateway_output_check]
 match:
   regex: "(?i)\\\\b(stupid question|figure it out yourself)\\\\b"
-action: block
+action: deny
 owner_agent_id: demo-proxy-agent-0968f70b
 `);
 
@@ -27,7 +27,7 @@ owner_agent_id: demo-proxy-agent-0968f70b
       domains: ['gateway_output_check'],
       matchType: 'regex',
       matchValue: '(?i)\\b(stupid question|figure it out yourself)\\b',
-      action: 'block',
+      action: 'deny',
       ownerAgentId: 'demo-proxy-agent-0968f70b',
     });
   });
@@ -41,7 +41,7 @@ owner_agent_id: demo-proxy-agent-0968f70b
       domains: ['gateway_output_check'],
       matchType: 'regex',
       matchValue: '\\b\\d{3}-\\d{2}-\\d{4}\\b',
-      action: 'block',
+      action: 'deny',
       ownerAgentId: 'agent-1',
     });
 
@@ -58,7 +58,7 @@ match:
   any:
     - literal: one
     - literal: two
-action: block
+action: deny
 `);
 
     expect(result).toMatchObject({

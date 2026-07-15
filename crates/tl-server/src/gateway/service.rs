@@ -10,7 +10,7 @@ use axum::{
 };
 use bytes::Bytes;
 use std::time::Instant;
-use tl_core::{GatewayProviderKind, RunProviderUsage, RunStatus, Verdict};
+use tl_core::{AuthorizationEffect, GatewayProviderKind, RunProviderUsage, RunStatus};
 use uuid::Uuid;
 
 use crate::policies::workspace_id_from_headers;
@@ -164,9 +164,9 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
         wants_stream,
     });
 
-    match input_decision.verdict {
-        Verdict::Allow => {}
-        Verdict::Rewrite => {
+    match input_decision.effect {
+        AuthorizationEffect::Permit => {}
+        AuthorizationEffect::Transform => {
             if let Some(safe_input) = input_decision.safe_output.as_deref() {
                 provider.apply_input_rewrite(&mut request, safe_input);
             } else {
@@ -189,18 +189,20 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
                 return response;
             }
         }
-        Verdict::Block | Verdict::Escalate => {
-            let verdict = if input_decision.verdict == Verdict::Escalate {
-                "escalated"
-            } else {
-                "blocked"
+        AuthorizationEffect::Deny
+        | AuthorizationEffect::RequireApproval
+        | AuthorizationEffect::Defer => {
+            let effect = match input_decision.effect {
+                AuthorizationEffect::RequireApproval => "require_approval",
+                AuthorizationEffect::Defer => "defer",
+                _ => "deny",
             };
             let response = blocked_response(
                 &provider,
                 wants_stream,
                 &request,
                 &input_decision,
-                verdict,
+                effect,
                 "input",
             );
             finish_gateway_run(
@@ -464,7 +466,7 @@ fn blocked_response<P: GatewayProvider>(
     wants_stream: bool,
     request: &serde_json::Value,
     decision: &tl_core::Decision,
-    verdict: &'static str,
+    effect: &'static str,
     phase: &'static str,
 ) -> Response {
     let policy_id = decision
@@ -476,7 +478,7 @@ fn blocked_response<P: GatewayProvider>(
         wants_stream,
         provider.blocked_response(request),
         Some(EnforcementHeaders {
-            verdict,
+            effect,
             trace_id: &decision.trace_id,
             phase,
             policy_id,

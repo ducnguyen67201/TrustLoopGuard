@@ -42,7 +42,7 @@ pub enum TierStatus {
     Completed,
     /// Tier was cancelled because an earlier tier produced a hard block.
     Cancelled,
-    /// Tier exceeded its deadline and was treated as `Escalate`.
+    /// Tier exceeded its deadline and was treated as `Defer`.
     TimedOut,
     /// Tier was not run (e.g. cache hit, or feature disabled by config).
     Skipped,

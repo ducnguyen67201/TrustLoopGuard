@@ -34,6 +34,9 @@ fn output_event(text: &str, agent_id: &str) -> GuardEvent {
             operation: "output".into(),
             parameters: serde_json::json!({ "text": text }),
             side_effect: Some(SideEffectClass::None),
+            invocation_id: None,
+            tool_identity: None,
+            authorization: None,
         },
         sources: vec![],
         provenance: Default::default(),
@@ -127,9 +130,10 @@ pub(super) async fn verify_candidate(
 mod tests {
     use super::*;
     use async_trait::async_trait;
+    use tl_core::AuthorizationEffect;
     use tl_core::Severity;
     use tl_engine::{SemanticPolicyJudgeInput, SemanticPolicyJudgeResult};
-    use tl_policy::{Action, MatchClause, Matcher};
+    use tl_policy::{MatchClause, Matcher};
 
     /// Judge stub that "matches" when the candidate text contains a needle —
     /// lets us assert verify mechanics without a live LLM.
@@ -165,7 +169,7 @@ mod tests {
             description: Some("test".into()),
             when: Default::default(),
             r#match,
-            action: Action::Block,
+            action: AuthorizationEffect::Deny,
             rewrite: None,
             severity: Severity::High,
             owner_agent_id: None,

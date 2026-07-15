@@ -134,7 +134,7 @@ pub struct WorkspaceKeyContext {
     pub workspace_id: String,
     pub environment_id: String,
     /// Principal the key was bound to at creation time, if any.
-    /// Downstream handlers attribute mandates/budgets to it.
+    /// Downstream handlers attribute grants and budgets to it.
     pub principal_id: Option<String>,
 }
 

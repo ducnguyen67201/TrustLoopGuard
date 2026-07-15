@@ -1,6 +1,6 @@
 //! Persistent CRUD for the `escalations` table.
 //!
-//! One row per `Decision::Escalate` once persistence is enabled. Lifecycle:
+//! One operational delivery row per `AuthorizationEffect::Defer` once persistence is enabled.
 //!
 //! ```text
 //!   insert_pending  →  pending

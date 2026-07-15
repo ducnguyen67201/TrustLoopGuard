@@ -8,7 +8,8 @@ test('merges an externally approved Stripe execution into the held demo response
   const response = heldResponse();
   const status: RefundDemoStatus = {
     actionId: response.result.actionId!,
-    status: 'executed',
+    authorizationEffect: 'permit',
+    executionStatus: 'succeeded',
     orderId: 'ord_demo_1001',
     amountMinor: 7_500,
     currency: 'USD',
@@ -30,7 +31,8 @@ test('does not merge a status belonging to another action', () => {
   const response = heldResponse();
   const status: RefundDemoStatus = {
     actionId: '019f5d63-f8ca-77c3-ae7f-07b122daa7b4',
-    status: 'executed',
+    authorizationEffect: 'permit',
+    executionStatus: 'succeeded',
     orderId: 'ord_demo_1001',
     amountMinor: 7_500,
     currency: 'USD',
@@ -48,7 +50,7 @@ function heldResponse(): RefundDemoResponse {
         { tool: 'search_order', summary: 'found ord_demo_1001' },
         {
           tool: 'prepare_refund',
-          summary: 'held: refund 019f5d63-f8ca-77c3-ae7f-07b122daa7b3 requires approval',
+          summary: 'require_approval: refund 019f5d63-f8ca-77c3-ae7f-07b122daa7b3 requires approval',
         },
       ],
       finalMessage: 'The refund is held for approval.',

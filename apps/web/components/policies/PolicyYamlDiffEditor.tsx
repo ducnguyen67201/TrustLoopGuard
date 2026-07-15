@@ -8,10 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { VersionPicker, type VersionEntry } from './VersionPicker';
 
-const MonacoDiffEditor = dynamic(
-  () => import('@monaco-editor/react').then((m) => m.DiffEditor),
-  { ssr: false },
-);
+const MonacoDiffEditor = dynamic(() => import('@monaco-editor/react').then((m) => m.DiffEditor), {
+  ssr: false,
+});
 
 interface Props {
   original: string;
@@ -112,7 +111,7 @@ export function PolicyYamlDiffEditor({
               Editing
             </span>
             <span className="text-[11px] font-mono text-[#c8c8c8]">Current</span>
-            <span className="ml-auto size-1.5 rounded-full bg-[var(--color-allow)]" aria-hidden />
+            <span className="ml-auto size-1.5 rounded-full bg-[var(--color-permit)]" aria-hidden />
           </div>
         </div>
 

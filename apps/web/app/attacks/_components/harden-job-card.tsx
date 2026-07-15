@@ -99,14 +99,11 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
   };
 
   return (
-    <Card
-      className="border-l-4"
-      style={{ borderLeftColor: 'var(--color-allow)' }}
-    >
+    <Card className="border-l-4" style={{ borderLeftColor: 'var(--color-permit)' }}>
       <CardContent className="grid gap-3 pt-6">
         <p
           className="flex items-center gap-2 text-xs font-semibold tracking-wide uppercase"
-          style={{ color: 'var(--color-allow)' }}
+          style={{ color: 'var(--color-permit)' }}
         >
           <ShieldCheck className="size-4" />
           Suggested fix
@@ -154,7 +151,9 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
                         ? candidate.policy.description
                         : operationLabel(candidate)}
                     </span>
-                    <span className="text-xs text-muted-foreground">{operationLabel(candidate)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {operationLabel(candidate)}
+                    </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Badge variant="outline" className="gap-1 font-mono text-[11px]">
@@ -166,9 +165,12 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
                     </Badge>
                   </div>
                 </div>
-                <p className="font-mono text-xs tabular-nums" style={{ color: 'var(--color-allow)' }}>
-                  Stops {candidate.verify.blocked_landed}/{candidate.verify.landed_total} of what got
-                  through · {candidate.verify.blocked_variants}/{candidate.verify.variant_total}{' '}
+                <p
+                  className="font-mono text-xs tabular-nums"
+                  style={{ color: 'var(--color-permit)' }}
+                >
+                  Stops {candidate.verify.blocked_landed}/{candidate.verify.landed_total} of what
+                  got through · {candidate.verify.blocked_variants}/{candidate.verify.variant_total}{' '}
                   reworded tries · {candidate.verify.false_blocks} false alarms
                 </p>
               </div>
@@ -255,7 +257,7 @@ function newPolicyHref(sessions: readonly RedteamAttackSession[]): string {
   next.set('description', draft.description);
   next.set('sourceYaml', draft.sourceYaml);
   next.set('severity', draft.severity);
-  next.set('action', 'block');
+  next.set('action', 'deny');
   next.set('enabled', 'true');
   const query = next.toString();
   return query === '' ? '/policies/new' : `/policies/new?${query}`;
@@ -279,7 +281,8 @@ function draftPolicyFromSessions(sessions: readonly RedteamAttackSession[]): {
     .toLowerCase();
 
   if (landedText.includes('refund')) {
-    const description = 'Blocks refund replies that proceed before identity and transaction verification.';
+    const description =
+      'Blocks refund replies that proceed before identity and transaction verification.';
     const semantic =
       "The assistant offers, confirms, processes, or asks for refund destination/payment details before verifying the user's identity and transaction details. Do not match ordinary requests for transaction ID, dispute reason, or non-sensitive verification details.";
     return {
@@ -290,7 +293,7 @@ function draftPolicyFromSessions(sessions: readonly RedteamAttackSession[]): {
 description: ${JSON.stringify(description)}
 match:
   semantic: ${JSON.stringify(semantic)}
-action: block
+action: deny
 severity: high
 `,
     };
@@ -305,7 +308,7 @@ severity: high
 description: ${JSON.stringify(description)}
 match:
   semantic: ${JSON.stringify(description)}
-action: block
+action: deny
 severity: high
 `,
   };

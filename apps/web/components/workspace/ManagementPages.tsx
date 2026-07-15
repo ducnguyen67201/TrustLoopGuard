@@ -48,6 +48,7 @@ import { RunDetailLiveView } from '@/components/workspace/RunDetailLiveView';
 import { RunsLiveTable } from '@/components/workspace/RunsLiveTable';
 import { AnalyticsChartGrid } from '@/components/analytics/AnalyticsChartGrid';
 import { AgentEditDialog } from '@/components/workspace/AgentEditDialog';
+import { ApprovalCheckerModeControl } from '@/components/workspace/ApprovalCheckerModeControl';
 import { GitHubIntegrationDialog } from '@/components/workspace/GitHubIntegrationDialog';
 import { cn } from '@/lib/utils';
 import type { RunDetailSnapshot } from '@/lib/run-detail-live';
@@ -93,67 +94,81 @@ export function WorkspacesPageContent({ data }: { data: DashboardShellData }) {
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {data.workspaces.map((workspace) => {
-            const isActive = workspace.id === data.activeWorkspace.id;
-            return (
-              <Card
-                key={workspace.id}
-                className="group gap-0 overflow-hidden transition-colors hover:border-foreground/20"
-              >
-                <CardHeader className="pb-4">
-                  <CardDescription className="flex items-center gap-1.5">
-                    <IconBuilding className="size-3.5" />
-                    {workspace.role}
-                  </CardDescription>
-                  <CardTitle className="truncate text-base" title={workspace.name}>
-                    {workspace.name}
-                  </CardTitle>
-                  <CardAction>
-                    {isActive ? (
-                      <Badge variant="secondary" className="font-data text-xs">
-                        active
-                      </Badge>
-                    ) : null}
-                  </CardAction>
-                </CardHeader>
-                <CardContent className="grid gap-4">
-                  <p className="line-clamp-2 min-h-[2.5rem] text-sm text-muted-foreground">
-                    {workspace.description || 'No description provided.'}
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Stat
-                      label="Policies"
-                      value={String(workspace.policyCount)}
-                      help={<InfoHint label="What does “Policies” count mean?">Rules in this workspace that decide what to allow, rewrite, block, or hold for review.</InfoHint>}
-                    />
-                    <Stat
-                      label="Agents"
-                      value={String(workspace.agentCount)}
-                      help={<InfoHint label="What does “Agents” count mean?">AI apps connected here that send their requests through the guardrail.</InfoHint>}
-                    />
-                    <Stat
-                      label="Sources"
-                      value={String(workspace.sourceCount)}
-                      help={<InfoHint label="What does “Sources” count mean?">Trusted documents and links the guardrail can lean on when it makes a decision.</InfoHint>}
-                    />
-                  </div>
-                </CardContent>
-                <CardFooter className="mt-4 border-t pt-4">
-                  <Button
-                    asChild
-                    variant={isActive ? 'outline' : 'ghost'}
-                    size="sm"
-                    className="w-full justify-between"
-                  >
-                    <Link href={`/?workspace=${workspace.slug}`}>
-                      {isActive ? "You're here now" : 'Open this workspace'}
-                      <IconArrowRight className="transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
-                    </Link>
-                  </Button>
-                </CardFooter>
-              </Card>
-            );
-          })}
+            {data.workspaces.map((workspace) => {
+              const isActive = workspace.id === data.activeWorkspace.id;
+              return (
+                <Card
+                  key={workspace.id}
+                  className="group gap-0 overflow-hidden transition-colors hover:border-foreground/20"
+                >
+                  <CardHeader className="pb-4">
+                    <CardDescription className="flex items-center gap-1.5">
+                      <IconBuilding className="size-3.5" />
+                      {workspace.role}
+                    </CardDescription>
+                    <CardTitle className="truncate text-base" title={workspace.name}>
+                      {workspace.name}
+                    </CardTitle>
+                    <CardAction>
+                      {isActive ? (
+                        <Badge variant="secondary" className="font-data text-xs">
+                          active
+                        </Badge>
+                      ) : null}
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent className="grid gap-4">
+                    <p className="line-clamp-2 min-h-[2.5rem] text-sm text-muted-foreground">
+                      {workspace.description || 'No description provided.'}
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Stat
+                        label="Policies"
+                        value={String(workspace.policyCount)}
+                        help={
+                          <InfoHint label="What does “Policies” count mean?">
+                            Rules in this workspace that can permit, transform, require approval,
+                            defer, or deny.
+                          </InfoHint>
+                        }
+                      />
+                      <Stat
+                        label="Agents"
+                        value={String(workspace.agentCount)}
+                        help={
+                          <InfoHint label="What does “Agents” count mean?">
+                            AI apps connected here that send their requests through the guardrail.
+                          </InfoHint>
+                        }
+                      />
+                      <Stat
+                        label="Sources"
+                        value={String(workspace.sourceCount)}
+                        help={
+                          <InfoHint label="What does “Sources” count mean?">
+                            Trusted documents and links the guardrail can lean on when it makes a
+                            decision.
+                          </InfoHint>
+                        }
+                      />
+                    </div>
+                  </CardContent>
+                  <CardFooter className="mt-4 border-t pt-4">
+                    <Button
+                      asChild
+                      variant={isActive ? 'outline' : 'ghost'}
+                      size="sm"
+                      className="w-full justify-between"
+                    >
+                      <Link href={`/?workspace=${workspace.slug}`}>
+                        {isActive ? "You're here now" : 'Open this workspace'}
+                        <IconArrowRight className="transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
+                      </Link>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              );
+            })}
           </div>
         </>
       )}
@@ -161,11 +176,7 @@ export function WorkspacesPageContent({ data }: { data: DashboardShellData }) {
   );
 }
 
-export function AgentsPageContent({
-  data,
-}: {
-  data: DashboardShellData & { agents: AgentRow[] };
-}) {
+export function AgentsPageContent({ data }: { data: DashboardShellData & { agents: AgentRow[] } }) {
   const agentColumns: DataTableColumn<AgentRow>[] = [
     {
       id: 'name',
@@ -266,11 +277,7 @@ export function AgentsPageContent({
   );
 }
 
-export function RunsPageContent({
-  data,
-}: {
-  data: DashboardShellData & { runs: RunRow[] };
-}) {
+export function RunsPageContent({ data }: { data: DashboardShellData & { runs: RunRow[] } }) {
   return (
     <PageShell
       eyebrow={data.activeWorkspace.name}
@@ -295,12 +302,9 @@ export function AnalyticsPageContent({
     <PageShell
       eyebrow={data.activeWorkspace.name}
       title="Analytics"
-      description="See how your guardrail is doing over time: how many requests were allowed, rewritten, blocked, or held for review, and how fast each check ran."
+      description="See how your guardrail is doing over time: how many requests were permitted, transformed, denied, or required approval, and how fast each check ran."
     >
-      <AnalyticsChartGrid
-        catalog={data.analyticsCatalog}
-        savedViews={data.analyticsViews}
-      />
+      <AnalyticsChartGrid catalog={data.analyticsCatalog} savedViews={data.analyticsViews} />
     </PageShell>
   );
 }
@@ -372,7 +376,11 @@ export function KnowledgeSourcesPageContent({
 }
 
 const knowledgeSourceColumns: DataTableColumn<KnowledgeSourceRow>[] = [
-  { id: 'title', header: 'Source', cell: (row) => <span className="font-medium">{row.title}</span> },
+  {
+    id: 'title',
+    header: 'Source',
+    cell: (row) => <span className="font-medium">{row.title}</span>,
+  },
   {
     id: 'kind',
     header: 'Kind',
@@ -484,16 +492,18 @@ export function TeamPageContent({
  * general description for any role not listed here.
  */
 const ROLE_MEANINGS: Record<string, string> = {
-  owner: 'Can do everything, including billing, deleting the workspace, and managing every teammate.',
-  admin: 'Can change rules, agents, and settings, and invite or remove teammates — but not delete the workspace.',
+  owner:
+    'Can do everything, including billing, deleting the workspace, and managing every teammate.',
+  admin:
+    'Can change rules, agents, and settings, and invite or remove teammates — but not delete the workspace.',
   editor: 'Can create and change rules and agents, but not manage members or settings.',
-  viewer: 'Can look at everything and watch what the guardrail is doing, but can’t change anything.',
+  viewer:
+    'Can look at everything and watch what the guardrail is doing, but can’t change anything.',
 };
 
 function roleMeaning(role: string): string {
   return (
-    ROLE_MEANINGS[role.toLowerCase()] ??
-    'What this teammate is allowed to do in the workspace.'
+    ROLE_MEANINGS[role.toLowerCase()] ?? 'What this teammate is allowed to do in the workspace.'
   );
 }
 
@@ -539,15 +549,16 @@ const teamMemberColumns: DataTableColumn<TeamMemberRow>[] = [
 ];
 
 /**
- * Turns the guardrail's default-action enum (allow / block / rewrite / escalate)
+ * Turns the guardrail's canonical authorization effect into a friendly phrase.
  * into a friendly phrase a non-technical reader can act on. Unknown values are
  * shown as-is so nothing is ever hidden.
  */
 const DEFAULT_ACTION_LABELS: Record<string, string> = {
-  allow: 'Let it through',
-  block: 'Block it',
-  rewrite: 'Clean it up, then allow',
-  escalate: 'Hold it for a person to review',
+  permit: 'Let it through',
+  deny: 'Deny it',
+  transform: 'Transform it, then proceed',
+  require_approval: 'Wait for authorization',
+  defer: 'Wait for missing evidence or system state',
 };
 
 function friendlyDefaultAction(value: string): string {
@@ -563,15 +574,13 @@ export function SettingsPageContent({ data }: { data: WorkspaceDashboardData }) 
       action={
         <Badge variant="outline" className="font-data gap-1.5 text-xs">
           <IconShieldCheck className="size-3.5" />
-          Read-only preview
+          Live runtime settings
         </Badge>
       }
     >
       <p className="text-sm text-muted-foreground">
-        Everything here is read straight from the guardrail that&apos;s running right now, so it
-        always matches what&apos;s actually live. That&apos;s also why you can&apos;t edit it on this
-        page — these settings are changed where the guardrail is configured, and this view just shows
-        you the current setup.
+        Runtime values come from the Rust guardrail. Owner and Admin members can change the active
+        environment&apos;s approval enforcement below; the remaining fields are read-only.
       </p>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.7fr)]">
         <SectionCard icon={IconSettings} eyebrow="Workspace identity" title="General">
@@ -612,6 +621,11 @@ export function SettingsPageContent({ data }: { data: WorkspaceDashboardData }) 
         </SectionCard>
         <SectionCard icon={IconShieldCheck} eyebrow="Runtime behavior" title="Guardrail config">
           <div className="grid gap-5">
+            <ApprovalCheckerModeControl
+              workspaceSlug={data.activeWorkspace.slug}
+              environmentId={data.activeEnvironment.id}
+            />
+            <Separator />
             <Field
               label="Default action"
               id="default-action"
@@ -703,8 +717,8 @@ export function AccountPageContent({ data }: { data: DashboardShellData }) {
         >
           <div className="grid gap-3">
             <p className="text-sm text-muted-foreground">
-              A preview of the alerts we&apos;re building. These toggles aren&apos;t adjustable
-              yet — they&apos;re here so you can see what&apos;s coming.
+              A preview of the alerts we&apos;re building. These toggles aren&apos;t adjustable yet
+              — they&apos;re here so you can see what&apos;s coming.
             </p>
             <ToggleRow
               label="Policy validation failures"
@@ -913,19 +927,12 @@ function ToggleRow({
         <Label htmlFor={controlId} className={readOnly ? undefined : 'cursor-pointer'}>
           {label}
         </Label>
-        {description ? (
-          <p className="text-sm text-muted-foreground">{description}</p>
-        ) : null}
+        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
         {stateNote ? (
           <p className="text-xs font-medium text-muted-foreground/80">{stateNote}</p>
         ) : null}
       </div>
-      <Switch
-        id={controlId}
-        defaultChecked={enabled}
-        disabled={readOnly}
-        aria-label={ariaLabel}
-      />
+      <Switch id={controlId} defaultChecked={enabled} disabled={readOnly} aria-label={ariaLabel} />
     </div>
   );
 }

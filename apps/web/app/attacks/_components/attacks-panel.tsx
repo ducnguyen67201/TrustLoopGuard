@@ -1331,9 +1331,9 @@ function ScanningBoard({ target }: { target: string }) {
   );
 }
 
-/** The headline verdict readout — a console gauge. The big tabular percentage is
+/** The headline effect readout — a console gauge. The big tabular percentage is
  *  the single loudest number on the page; orange/red when anything landed, calm
- *  green when the agent held. A plain-language verdict sentence + a "what next"
+ *  green when the agent held. A plain-language effect sentence + a "what next"
  *  line make the number meaningful to a non-technical reader. A thin bar shows
  *  the landed share across every prompt tried. */
 function ResultSummary({ job }: { job: RedteamJobSummary }) {
@@ -1341,12 +1341,12 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
   const done = isTerminalStatus(job.status);
   const breached = percent > 0;
   const landedShare = job.attacks > 0 ? (job.landed / job.attacks) * 100 : 0;
-  // Verdict semantics: a breach reads in the sacred BLOCK color, a held agent in
-  // the ALLOW color — never an ad-hoc red/green, so the readout matches verdict
+  // Effect semantics: a breach reads in the sacred BLOCK color, a held agent in
+  // the ALLOW color — never an ad-hoc red/green, so the readout matches effect
   // badges everywhere else.
-  const verdictColor = breached ? 'var(--color-block)' : 'var(--color-allow)';
+  const effectColor = breached ? 'var(--color-deny)' : 'var(--color-permit)';
 
-  // Plain-language verdict: spell out whether this number is good or bad, and what
+  // Plain-language effect: spell out whether this number is good or bad, and what
   // to do next, so a non-technical reader never has to interpret a raw percentage.
   const headline = !done
     ? 'Running the test…'
@@ -1362,7 +1362,7 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
   return (
     <section className="min-w-0 overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60">
       <header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
-        <ShieldAlert className="size-3.5" style={{ color: verdictColor }} aria-hidden="true" />
+        <ShieldAlert className="size-3.5" style={{ color: effectColor }} aria-hidden="true" />
         <span className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
           Result
         </span>
@@ -1377,7 +1377,7 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
           <div className="flex items-end gap-2">
             <span
               className="font-mono text-5xl leading-none font-semibold tabular-nums"
-              style={{ color: verdictColor }}
+              style={{ color: effectColor }}
             >
               {done ? `${percent}%` : '—'}
             </span>
@@ -1399,20 +1399,20 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
         {done && job.attacks > 0 ? (
           <div
             className="flex h-2 w-full overflow-hidden rounded-full"
-            style={{ backgroundColor: 'color-mix(in oklab, var(--color-allow), transparent 75%)' }}
+            style={{ backgroundColor: 'color-mix(in oklab, var(--color-permit), transparent 75%)' }}
             role="presentation"
             aria-hidden="true"
           >
             <span
               className="h-full rounded-full"
-              style={{ width: `${landedShare}%`, backgroundColor: 'var(--color-block)' }}
+              style={{ width: `${landedShare}%`, backgroundColor: 'var(--color-deny)' }}
             />
           </div>
         ) : null}
 
         <p
           className="text-sm font-medium text-foreground"
-          style={{ color: done ? verdictColor : undefined }}
+          style={{ color: done ? effectColor : undefined }}
         >
           {headline}
         </p>
@@ -1458,7 +1458,7 @@ function CopyRedteamJobIdButton({ id }: { id: string }) {
     >
       <span className="max-w-[10rem] truncate">{id}</span>
       {copied ? (
-        <Check className="size-3 text-[color:var(--color-allow)]" aria-hidden="true" />
+        <Check className="size-3 text-[color:var(--color-permit)]" aria-hidden="true" />
       ) : (
         <Copy className="size-3" aria-hidden="true" />
       )}
@@ -1468,7 +1468,7 @@ function CopyRedteamJobIdButton({ id }: { id: string }) {
 
 /** After a run the Threat Board flips to outcomes — same chrome as PlanVectors,
  *  now graded by what actually happened: landed attacks get hot/red emphasis +
- *  a left accent bar and sort first; held attacks read calm green with a verdict
+ *  a left accent bar and sort first; held attacks read calm green with a effect
  *  pip. Each row expands to its adversarial prompt + the agent's reply. */
 function ThreatResultBoard({
   sessions,
@@ -1497,7 +1497,7 @@ function ThreatResultBoard({
           Every prompt we tried
         </h2>
         <span className="ml-auto min-w-0 truncate font-mono text-[11px] tabular-nums text-muted-foreground">
-          <span style={{ color: landed > 0 ? 'var(--color-block)' : 'var(--color-allow)' }}>
+          <span style={{ color: landed > 0 ? 'var(--color-deny)' : 'var(--color-permit)' }}>
             {landed}
           </span>{' '}
           / {sessions.length} succeeded
@@ -1506,11 +1506,11 @@ function ThreatResultBoard({
 
       <p className="border-b px-4 py-2 text-xs leading-relaxed text-muted-foreground">
         Red rows{' '}
-        <span className="font-medium" style={{ color: 'var(--color-block)' }}>
+        <span className="font-medium" style={{ color: 'var(--color-deny)' }}>
           succeeded
         </span>{' '}
         against the target; green rows were{' '}
-        <span className="font-medium" style={{ color: 'var(--color-allow)' }}>
+        <span className="font-medium" style={{ color: 'var(--color-permit)' }}>
           resisted
         </span>
         . A resisted attack does not always mean TrustLoopGuard fired; open the row to check for a
@@ -1539,8 +1539,8 @@ function ThreatResultBoard({
                   className="w-1 shrink-0 self-stretch rounded-full"
                   style={{
                     backgroundColor: breached
-                      ? 'var(--color-block)'
-                      : 'color-mix(in oklab, var(--color-allow), transparent 35%)',
+                      ? 'var(--color-deny)'
+                      : 'color-mix(in oklab, var(--color-permit), transparent 35%)',
                   }}
                 />
                 <span className="grid min-w-0 flex-1 gap-1">
@@ -1616,7 +1616,7 @@ function JobHistory({
                   className="font-mono text-xs text-muted-foreground tabular-nums"
                   style={
                     isTerminalStatus(item.status) && item.landed > 0
-                      ? { color: 'var(--color-block)' }
+                      ? { color: 'var(--color-deny)' }
                       : undefined
                   }
                 >
@@ -1703,7 +1703,7 @@ function AttackTranscript({ result }: { result: RedteamAttackSession }) {
 }
 
 function ReplayTranscript({ result }: { result: RedteamAttackSession }) {
-  const verdict = replayVerdict(result);
+  const effect = replayEffect(result);
   const metadata = replayMetadataChips(result);
   const actions = replayActionChips(result);
   const prompt = sessionEventText(result, 'attack_prompt') ?? result.goal;
@@ -1736,21 +1736,21 @@ function ReplayTranscript({ result }: { result: RedteamAttackSession }) {
           icon={<Target className="size-3.5" aria-hidden="true" />}
           label="Target agent"
           body={reply}
-          tone={verdict.tone}
+          tone={effect.tone}
         />
       </div>
 
       <div
         className="grid gap-2 rounded-md border bg-background px-3 py-2"
-        style={{ borderLeftColor: verdict.color, borderLeftWidth: 3 }}
+        style={{ borderLeftColor: effect.color, borderLeftWidth: 3 }}
       >
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold tracking-[0.14em] uppercase">
-            <span style={{ color: verdict.color }}>{verdict.icon}</span>
-            <span style={{ color: verdict.color }}>{verdict.label}</span>
+            <span style={{ color: effect.color }}>{effect.icon}</span>
+            <span style={{ color: effect.color }}>{effect.label}</span>
           </span>
           <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
-            {verdict.detail}
+            {effect.detail}
           </span>
         </div>
         {actions.length > 0 ? (
@@ -1787,9 +1787,9 @@ function ReplayMessage({
 }) {
   const toneStyle =
     tone === 'danger'
-      ? { borderColor: 'color-mix(in oklab, var(--color-block), transparent 55%)' }
+      ? { borderColor: 'color-mix(in oklab, var(--color-deny), transparent 55%)' }
       : tone === 'safe'
-        ? { borderColor: 'color-mix(in oklab, var(--color-allow), transparent 55%)' }
+        ? { borderColor: 'color-mix(in oklab, var(--color-permit), transparent 55%)' }
         : undefined;
 
   return (
@@ -1824,7 +1824,7 @@ function sessionEventText(session: RedteamAttackSession, kind: string): string |
   return session.events.find((event) => event.kind === kind)?.content_text;
 }
 
-function replayVerdict(result: RedteamAttackSession): {
+function replayEffect(result: RedteamAttackSession): {
   label: string;
   detail: string;
   tone: 'danger' | 'safe' | 'neutral';
@@ -1845,20 +1845,23 @@ function replayVerdict(result: RedteamAttackSession): {
       label: 'Breakthrough',
       detail: 'The target reply completed the unsafe request.',
       tone: 'danger',
-      color: 'var(--color-block)',
+      color: 'var(--color-deny)',
       icon: <ShieldAlert className="size-3.5" aria-hidden="true" />,
     };
   }
   return {
     label: 'Resisted',
-    detail: 'The target refused or stayed safe. A guard trace only appears when TrustLoopGuard checked it.',
+    detail:
+      'The target refused or stayed safe. A guard trace only appears when TrustLoopGuard checked it.',
     tone: 'safe',
-    color: 'var(--color-allow)',
+    color: 'var(--color-permit)',
     icon: <ShieldCheck className="size-3.5" aria-hidden="true" />,
   };
 }
 
-function replayMetadataChips(result: RedteamAttackSession): Array<{ label: string; value: string }> {
+function replayMetadataChips(
+  result: RedteamAttackSession,
+): Array<{ label: string; value: string }> {
   const chips: Array<{ label: string; value: string }> = [];
   if (result.track) chips.push({ label: 'track', value: result.track });
   if (result.kind) chips.push({ label: 'kind', value: result.kind });
@@ -1968,9 +1971,9 @@ function TranscriptStep({
 }) {
   const toneStyle =
     tone === 'danger'
-      ? { color: 'var(--color-block)' }
+      ? { color: 'var(--color-deny)' }
       : tone === 'safe'
-        ? { color: 'var(--color-allow)' }
+        ? { color: 'var(--color-permit)' }
         : undefined;
 
   return (
@@ -2005,10 +2008,10 @@ function TranscriptStep({
 
 function OutcomeBadge({ outcome, landed }: { outcome: string; landed?: boolean }) {
   // Outcome here is the attack runner's score, not necessarily a TrustLoopGuard
-  // policy verdict. Non-landed rows resisted even when no guard trace exists.
+  // policy effect. Non-landed rows resisted even when no guard trace exists.
   if (outcome === 'landed' || landed) {
     return (
-      <Badge variant="block" className="gap-1 font-mono text-[10px] tracking-wider uppercase">
+      <Badge variant="deny" className="gap-1 font-mono text-[10px] tracking-wider uppercase">
         <ShieldAlert className="size-3" aria-hidden="true" />
         landed
       </Badge>
@@ -2022,15 +2025,15 @@ function OutcomeBadge({ outcome, landed }: { outcome: string; landed?: boolean }
     );
   }
   return (
-    <Badge variant="allow" className="gap-1 font-mono text-[10px] tracking-wider uppercase">
+    <Badge variant="permit" className="gap-1 font-mono text-[10px] tracking-wider uppercase">
       <ShieldCheck className="size-3" aria-hidden="true" />
       {outcome === 'clean' || outcome === 'blocked' ? 'resisted' : outcome}
     </Badge>
   );
 }
 
-/** Process-state tone (NOT a verdict). The sacred verdict tokens are reserved for
- *  guardrail verdicts, so job lifecycle uses neutral tones: running pulls the brand
+/** Process-state tone (NOT a effect). The sacred effect tokens are reserved for
+ *  guardrail effects, so job lifecycle uses neutral tones: running pulls the brand
  *  accent so an in-flight job stands out, error uses the destructive token, and the
  *  rest stay muted (the status text carries the meaning). */
 const STATUS_STYLE: Record<JobStatus, string | undefined> = {

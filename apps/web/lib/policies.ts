@@ -91,26 +91,19 @@ const aiEditResponseSchema = z.object({
 });
 
 export async function getPolicy(policyId: string, signal?: AbortSignal): Promise<PolicyDocument> {
-  return http.get(
-    `/api/policies/${encodeURIComponent(policyId)}`,
-    policyDocumentSchema,
-    { signal },
-  );
+  return http.get(`/api/policies/${encodeURIComponent(policyId)}`, policyDocumentSchema, {
+    signal,
+  });
 }
 
 export async function validatePolicy(
   sourceYaml: string,
   signal?: AbortSignal,
 ): Promise<PolicyValidateResponse> {
-  return http.post(
-    '/api/policies/validate',
-    sourceYaml,
-    policyValidateResponseSchema,
-    {
-      contentType: 'application/yaml',
-      signal,
-    },
-  );
+  return http.post('/api/policies/validate', sourceYaml, policyValidateResponseSchema, {
+    contentType: 'application/yaml',
+    signal,
+  });
 }
 
 export async function upsertPolicy(
@@ -143,12 +136,9 @@ export async function setPoliciesEnabled(
   signal?: AbortSignal,
 ): Promise<PolicyBatchSetEnabledResponse> {
   const body = { ids: policyIds, enabled } satisfies PolicyBatchSetEnabledRequest;
-  return http.patch(
-    '/api/policies/batch/enabled',
-    body,
-    policyBatchSetEnabledResponseSchema,
-    { signal },
-  );
+  return http.patch('/api/policies/batch/enabled', body, policyBatchSetEnabledResponseSchema, {
+    signal,
+  });
 }
 
 export async function deletePolicy(policyId: string, signal?: AbortSignal): Promise<void> {
@@ -220,7 +210,6 @@ export async function aiEditPolicy(
   return data.yaml;
 }
 
-
 type ParsedPolicySummary = z.infer<typeof policySummaryWireSchema>;
 type ParsedPolicyDocument = z.infer<typeof policyDocumentWireSchema>;
 
@@ -230,7 +219,7 @@ function toPolicySummary(policy: ParsedPolicySummary): PolicySummary {
     family: policy.family,
     ...(typeof policy.description === 'string' ? { description: policy.description } : {}),
     severity: policy.severity,
-    action: policy.action ?? 'block',
+    action: policy.action ?? 'deny',
     enabled: policy.enabled,
     ...(policy.owner_agent_id !== undefined && policy.owner_agent_id !== null
       ? { owner_agent_id: policy.owner_agent_id }

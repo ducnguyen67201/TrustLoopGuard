@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::{
-    extract::{Path, State},
+    extract::{Extension, Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
@@ -28,7 +28,12 @@ mod validation;
 pub use memory_store::MemoryToolMetadataStore;
 use validation::validate_metadata;
 
-use crate::app::error::api_error_response;
+use crate::{
+    app::error::api_error_response,
+    auth::{InternalServiceContext, WorkspaceKeyContext},
+    jwt::UserContext,
+    team::TeamStore,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ToolMetadataStoreError {
@@ -78,6 +83,7 @@ fn store_error_response(operation: &'static str, err: &ToolMetadataStoreError) -
 #[derive(Clone)]
 pub struct ToolMetadataState {
     pub store: Arc<dyn ToolMetadataStore>,
+    pub team_store: Arc<dyn TeamStore>,
 }
 
 /// `POST /v1/tool-metadata` — upsert a registry entry.
@@ -95,10 +101,25 @@ pub struct ToolMetadataState {
 )]
 pub async fn upsert_tool_metadata(
     State(state): State<ToolMetadataState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Json(req): Json<UpsertToolMetadataRequest>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let (workspace_id, _) = match crate::dashboard_admin::authorize_workspace_admin(
+        &state.team_store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+        "modify tool metadata",
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
+        Err(response) => return response,
+    };
 
     if let Err(msg) = validate_metadata(&req.metadata) {
         return api_error_response(
@@ -168,10 +189,25 @@ pub async fn get_tool_metadata(
 )]
 pub async fn delete_tool_metadata(
     State(state): State<ToolMetadataState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Path(tool): Path<String>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let (workspace_id, _) = match crate::dashboard_admin::authorize_workspace_admin(
+        &state.team_store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+        "modify tool metadata",
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
+        Err(response) => return response,
+    };
     match state.store.delete(&workspace_id, &tool).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(ToolMetadataStoreError::NotFound) => api_error_response(

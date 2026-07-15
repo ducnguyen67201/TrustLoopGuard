@@ -1,35 +1,49 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Decision",
+  "title": "AuthorizationDecision",
   "type": "object",
   "required": [
+    "domain",
+    "effect",
     "latency_ms",
     "reason",
-    "trace_id",
-    "triggered_policies",
-    "verdict"
+    "trace_id"
   ],
   "properties": {
-    "checked_input_excerpt": {
-      "type": [
-        "string",
-        "null"
+    "applied_grant": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/AuthorizationGrantRef"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
-    "checked_output_excerpt": {
-      "type": [
-        "string",
-        "null"
+    "approval": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/AuthorizationApprovalSummary"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
-    "constraints": true,
-    "failure_mode": {
-      "type": [
-        "string",
-        "null"
-      ]
+    "domain": {
+      "$ref": "#/definitions/AuthorizationDomain"
     },
-    "harm_class": {
+    "effect": {
+      "$ref": "#/definitions/AuthorizationEffect"
+    },
+    "findings": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/AuthorizationFinding"
+      }
+    },
+    "intent_id": {
       "type": [
         "string",
         "null"
@@ -40,145 +54,254 @@
       "format": "uint64",
       "minimum": 0.0
     },
-    "reason": {
-      "type": "string"
-    },
-    "redaction": {
-      "default": null,
+    "lease": {
       "anyOf": [
         {
-          "$ref": "#/definitions/RedactionInfo"
+          "$ref": "#/definitions/AuthorizationLease"
         },
         {
           "type": "null"
         }
       ]
     },
-    "remediation": {
+    "reason": {
+      "type": "string"
+    },
+    "receipt_id": {
       "type": [
         "string",
         "null"
       ]
     },
-    "risk_source": {
-      "type": [
-        "string",
-        "null"
+    "status": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/AuthorizationIntentStatus"
+        },
+        {
+          "type": "null"
+        }
       ]
-    },
-    "safe_output": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "source_chain": {
-      "type": [
-        "array",
-        "null"
-      ],
-      "items": {
-        "type": "string"
-      }
-    },
-    "tier_results": {
-      "description": "Per-tier breakdown produced by the parallel-cancel orchestrator. Empty for callers that only ran the synchronous `Engine::check` path; populated when `Engine::check_async` is used.",
-      "default": [],
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/TierResult"
-      }
     },
     "trace_id": {
       "type": "string"
     },
-    "triggered_policies": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/TriggeredPolicy"
-      }
-    },
-    "verdict": {
-      "$ref": "#/definitions/Verdict"
-    },
-    "violated_rule": {
-      "type": [
-        "string",
-        "null"
-      ]
-    }
+    "transformed_value": true
   },
   "definitions": {
-    "RedactedEntity": {
-      "type": "object",
-      "required": [
-        "count",
-        "entity_type",
-        "token"
-      ],
-      "properties": {
-        "count": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0.0
-        },
-        "entity_type": {
-          "type": "string"
-        },
-        "token": {
-          "type": "string"
-        }
-      }
+    "ApprovalStatus": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "denied",
+        "canceled",
+        "expired"
+      ]
     },
-    "RedactionInfo": {
+    "AuthorizationApprovalSummary": {
       "type": "object",
       "required": [
-        "context_redacted",
-        "entities",
-        "input_redacted",
-        "mode",
-        "proposed_output_redacted",
+        "envelope_hash",
+        "expires_at",
+        "id",
+        "poll_after_ms",
         "status"
       ],
       "properties": {
-        "context_redacted": {
-          "type": "boolean"
+        "envelope_hash": {
+          "type": "string"
         },
-        "entities": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/RedactedEntity"
-          }
+        "expires_at": {
+          "type": "string"
         },
-        "input_redacted": {
-          "type": "boolean"
+        "id": {
+          "type": "string"
         },
-        "mode": {
-          "$ref": "#/definitions/RedactionMode"
-        },
-        "proposed_output_redacted": {
-          "type": "boolean"
+        "poll_after_ms": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
         },
         "status": {
-          "$ref": "#/definitions/RedactionStatus"
+          "$ref": "#/definitions/ApprovalStatus"
         }
       }
     },
-    "RedactionMode": {
+    "AuthorizationCapabilityId": {
+      "type": "string"
+    },
+    "AuthorizationDomain": {
       "type": "string",
       "enum": [
-        "sdk_local",
-        "customer_service",
-        "server"
+        "content",
+        "tool",
+        "financial"
       ]
     },
-    "RedactionStatus": {
+    "AuthorizationEffect": {
+      "description": "The only runtime decision vocabulary.",
       "type": "string",
       "enum": [
-        "not_requested",
-        "applied",
-        "failed",
-        "rejected_raw_sensitive_data"
+        "permit",
+        "deny",
+        "transform",
+        "require_approval",
+        "defer"
+      ]
+    },
+    "AuthorizationFinding": {
+      "type": "object",
+      "required": [
+        "effect",
+        "id",
+        "reason",
+        "severity",
+        "source"
+      ],
+      "properties": {
+        "effect": {
+          "$ref": "#/definitions/AuthorizationEffect"
+        },
+        "evidence": {
+          "default": null
+        },
+        "id": {
+          "type": "string"
+        },
+        "policy_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "remediation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requirement_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "severity": {
+          "$ref": "#/definitions/Severity"
+        },
+        "source": {
+          "type": "string"
+        }
+      }
+    },
+    "AuthorizationGrantRef": {
+      "type": "object",
+      "required": [
+        "capability",
+        "id",
+        "mode",
+        "source"
+      ],
+      "properties": {
+        "capability": {
+          "$ref": "#/definitions/AuthorizationCapabilityId"
+        },
+        "id": {
+          "type": "string"
+        },
+        "mode": {
+          "$ref": "#/definitions/GrantMode"
+        },
+        "source": {
+          "$ref": "#/definitions/AuthorizationGrantSource"
+        }
+      }
+    },
+    "AuthorizationGrantSource": {
+      "type": "string",
+      "enum": [
+        "user_intent",
+        "reviewer_approval",
+        "workspace_admin"
+      ]
+    },
+    "AuthorizationIntentStatus": {
+      "type": "string",
+      "enum": [
+        "evaluating",
+        "pending_approval",
+        "authorized",
+        "denied",
+        "deferred",
+        "canceled",
+        "expired"
+      ]
+    },
+    "AuthorizationLease": {
+      "type": "object",
+      "required": [
+        "attempt_id",
+        "claimed_at",
+        "expires_at",
+        "fingerprint",
+        "id",
+        "intent_id",
+        "status"
+      ],
+      "properties": {
+        "attempt_id": {
+          "type": "string"
+        },
+        "claimed_at": {
+          "type": "string"
+        },
+        "completed_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expires_at": {
+          "type": "string"
+        },
+        "fingerprint": {
+          "type": "string"
+        },
+        "grant_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "intent_id": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/LeaseStatus"
+        }
+      }
+    },
+    "GrantMode": {
+      "type": "string",
+      "enum": [
+        "exact_once",
+        "scoped"
+      ]
+    },
+    "LeaseStatus": {
+      "type": "string",
+      "enum": [
+        "claimed",
+        "consumed",
+        "canceled",
+        "expired"
       ]
     },
     "Severity": {
@@ -188,123 +311,6 @@
         "medium",
         "high",
         "critical"
-      ]
-    },
-    "Tier": {
-      "description": "Which pipeline tier produced a result.",
-      "oneOf": [
-        {
-          "description": "Static matchers — regex, literal, PII patterns. Microsecond-scale.",
-          "type": "string",
-          "enum": [
-            "deterministic"
-          ]
-        },
-        {
-          "description": "Embedding similarity + edit-distance bypass detection. ~5-20 ms.",
-          "type": "string",
-          "enum": [
-            "fuzzy"
-          ]
-        },
-        {
-          "description": "LLM judges (hallucination, tone, authority). ~200-600 ms.",
-          "type": "string",
-          "enum": [
-            "llm"
-          ]
-        }
-      ]
-    },
-    "TierResult": {
-      "description": "One row of evidence per tier in the final `Decision`.",
-      "type": "object",
-      "required": [
-        "elapsed_ms",
-        "status",
-        "tier"
-      ],
-      "properties": {
-        "elapsed_ms": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "reasons": {
-          "default": [],
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/TriggeredPolicy"
-          }
-        },
-        "status": {
-          "$ref": "#/definitions/TierStatus"
-        },
-        "tier": {
-          "$ref": "#/definitions/Tier"
-        }
-      }
-    },
-    "TierStatus": {
-      "description": "How a tier finished.",
-      "oneOf": [
-        {
-          "description": "Tier finished and contributed to the aggregated decision.",
-          "type": "string",
-          "enum": [
-            "completed"
-          ]
-        },
-        {
-          "description": "Tier was cancelled because an earlier tier produced a hard block.",
-          "type": "string",
-          "enum": [
-            "cancelled"
-          ]
-        },
-        {
-          "description": "Tier exceeded its deadline and was treated as `Escalate`.",
-          "type": "string",
-          "enum": [
-            "timed_out"
-          ]
-        },
-        {
-          "description": "Tier was not run (e.g. cache hit, or feature disabled by config).",
-          "type": "string",
-          "enum": [
-            "skipped"
-          ]
-        }
-      ]
-    },
-    "TriggeredPolicy": {
-      "type": "object",
-      "required": [
-        "id",
-        "reason",
-        "severity"
-      ],
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "reason": {
-          "type": "string"
-        },
-        "severity": {
-          "$ref": "#/definitions/Severity"
-        }
-      }
-    },
-    "Verdict": {
-      "description": "What TrustLoopGuard tells the caller to do with the proposed output.",
-      "type": "string",
-      "enum": [
-        "allow",
-        "block",
-        "rewrite",
-        "escalate"
       ]
     }
   }

@@ -76,11 +76,11 @@ describe('FinancialPolicyCreateDialog', () => {
       meter: 'llm_usage',
       when: {},
       weekly_minor: 5000,
-      on_breach: 'block',
+      on_breach: 'deny',
     });
   });
 
-  it('shows x402 mandate-required policies as payment policies and preserves mandate checks', async () => {
+  it('shows x402 grant-required policies as payment policies and preserves authority checks', async () => {
     const policy = x402MandatePolicy();
     const fetchMock = vi.fn<typeof fetch>(
       async () => new Response(JSON.stringify(policy), { status: 200 }),
@@ -111,11 +111,11 @@ describe('FinancialPolicyCreateDialog', () => {
       headers: { 'Content-Type': 'application/json' },
     });
     const body = JSON.parse(String(init?.body)) as {
-      mandate_required?: boolean;
+      grant_required?: boolean;
       required_preconditions?: string[];
       when?: { rails?: string[]; action_kinds?: string[] };
     };
-    expect(body.mandate_required).toBe(true);
+    expect(body.grant_required).toBe(true);
     expect(body.required_preconditions).toEqual([]);
     expect(body.when?.rails).toEqual(['x402']);
     expect(body.when?.action_kinds).toEqual(['payment']);
@@ -136,15 +136,15 @@ function x402MandatePolicy(): FamilyPolicyRow {
       rails: ['x402'],
     },
     per_transaction_minor: 500,
-    hold_above_minor: null,
+    approval_threshold_minor: null,
     daily_minor: 5000,
     weekly_minor: null,
     monthly_minor: null,
-    mandate_required: true,
+    grant_required: true,
     required_preconditions: [],
-    missing_evidence_action: 'escalate',
-    failed_precondition_action: 'block',
-    on_breach: 'block',
+    missing_evidence_effect: 'require_approval',
+    failed_precondition_effect: 'deny',
+    on_breach: 'deny',
     enabled: true,
   };
 }

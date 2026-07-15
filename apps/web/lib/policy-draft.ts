@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const POLICY_ACTIONS = ['block', 'rewrite', 'escalate'] as const;
+export const POLICY_ACTIONS = ['deny', 'transform', 'require_approval'] as const;
 export const POLICY_SEVERITIES = ['low', 'medium', 'high', 'critical'] as const;
 export const POLICY_MATCH_TYPES = ['literal', 'regex'] as const;
 
@@ -28,7 +28,7 @@ export const EMPTY_DRAFT: PolicyDraft = {
   description: '',
   matchType: 'literal',
   matchValue: '',
-  action: 'block',
+  action: 'deny',
   severity: 'medium',
   channels: ['chat'],
 };
@@ -46,7 +46,7 @@ export function draftToYaml(draft: PolicyDraft): string {
   lines.push(`  ${draft.matchType}: ${yamlQuote(draft.matchValue)}`);
   lines.push(`action: ${draft.action}`);
   lines.push(`severity: ${draft.severity}`);
-  if (draft.action === 'rewrite' && draft.rewrite) {
+  if (draft.action === 'transform' && draft.rewrite) {
     lines.push(`rewrite: ${yamlQuote(draft.rewrite)}`);
   }
   if (draft.ownerAgentId) {
@@ -55,9 +55,7 @@ export function draftToYaml(draft: PolicyDraft): string {
   return `${lines.join('\n')}\n`;
 }
 
-type PolicyDraftParseResult =
-  | { ok: true; draft: PolicyDraft }
-  | { ok: false; reason: string };
+type PolicyDraftParseResult = { ok: true; draft: PolicyDraft } | { ok: false; reason: string };
 
 export function yamlToDraft(sourceYaml: string): PolicyDraftParseResult {
   const lines = sourceYaml.split(/\r?\n/);
@@ -95,9 +93,9 @@ export function yamlToDraft(sourceYaml: string): PolicyDraftParseResult {
     return { ok: false, reason: 'Builder supports policies with match.literal or match.regex.' };
   }
 
-  const action = parseEnum(top.get('action'), POLICY_ACTIONS, 'block');
+  const action = parseEnum(top.get('action'), POLICY_ACTIONS, 'deny');
   if (action === null) {
-    return { ok: false, reason: 'Builder supports block, rewrite, and escalate actions.' };
+    return { ok: false, reason: 'Builder supports deny, transform, and require_approval actions.' };
   }
   const severity = parseEnum(top.get('severity'), POLICY_SEVERITIES, 'medium');
   if (severity === null) {
@@ -111,7 +109,7 @@ export function yamlToDraft(sourceYaml: string): PolicyDraftParseResult {
     matchValue: unquoteYamlScalar(match.get(matchType) ?? ''),
     action,
     severity,
-    rewrite: optionalScalar(top.get('rewrite')),
+    rewrite: optionalScalar(top.get('transform')),
     channels: parseYamlArray(when.get('channels')),
     domains: parseYamlArray(when.get('domains')),
     ownerAgentId: optionalScalar(top.get('owner_agent_id')),
@@ -144,7 +142,7 @@ function stripYamlComment(line: string): string {
   for (let i = 0; i < line.length; i += 1) {
     const char = line[i];
     if ((char === '"' || char === "'") && line[i - 1] !== '\\') {
-      quote = quote === char ? null : quote ?? char;
+      quote = quote === char ? null : (quote ?? char);
     }
     if (char === '#' && quote === null) return line.slice(0, i);
   }

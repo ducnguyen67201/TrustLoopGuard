@@ -2,7 +2,7 @@
 //
 // One home for "what does this word mean?" so we never re-explain a term in two
 // places with different wording. Consumed by `InfoHint` (hover help next to a
-// label) and `VerdictLegend` (the allow/rewrite/block/escalate key). Keep each
+// label) and `AuthorizationEffectLegend`. Keep each
 // `short` to one friendly sentence a non-technical teammate would understand —
 // no jargon inside the definition itself.
 
@@ -14,22 +14,26 @@ export interface GlossaryEntry {
 }
 
 export const GLOSSARY = {
-  // Verdicts — the four decisions the guardrail can make about a request.
-  allow: {
-    label: 'Allow',
+  // Canonical authorization effects.
+  permit: {
+    label: 'Permit',
     short: 'Safe — the request passed through unchanged.',
   },
-  rewrite: {
-    label: 'Rewrite',
+  transform: {
+    label: 'Transform',
     short: 'The guardrail cleaned up the request, then let it through.',
   },
-  block: {
-    label: 'Block',
+  deny: {
+    label: 'Deny',
     short: 'Stopped — the request broke one of your rules.',
   },
-  escalate: {
-    label: 'Escalate',
+  require_approval: {
+    label: 'Require approval',
     short: 'Held for a person to review before it continues.',
+  },
+  defer: {
+    label: 'Defer',
+    short: 'Stopped until missing evidence or unavailable checks can be resolved.',
   },
 
   // Core nouns.
@@ -38,13 +42,14 @@ export const GLOSSARY = {
     short:
       'A safety check that runs on every request to your AI app, so risky ones get blocked, rewritten, or flagged automatically.',
   },
-  verdict: {
-    label: 'Verdict',
-    short: 'The decision the guardrail made about a request: allow, rewrite, block, or escalate.',
+  effect: {
+    label: 'Authorization effect',
+    short:
+      'The result of the authorization kernel: permit, transform, deny, require approval, or defer.',
   },
   policy: {
     label: 'Policy',
-    short: 'A rule you set that tells the guardrail what to allow, rewrite, block, or escalate.',
+    short: 'A rule that contributes findings and boundaries to the authorization decision.',
   },
   policyKey: {
     label: 'Policy ID',
@@ -66,7 +71,8 @@ export const GLOSSARY = {
   },
   provider: {
     label: 'Provider',
-    short: 'An AI service you connect, like OpenAI or Anthropic, that the gateway forwards requests to.',
+    short:
+      'An AI service you connect, like OpenAI or Anthropic, that the gateway forwards requests to.',
   },
   route: {
     label: 'Route',
@@ -88,11 +94,13 @@ export const GLOSSARY = {
   },
   workspace: {
     label: 'Workspace',
-    short: 'A project space with its own policies, agents, and team. Keep separate products or clients apart.',
+    short:
+      'A project space with its own policies, agents, and team. Keep separate products or clients apart.',
   },
   redteam: {
     label: 'Red-team test',
-    short: 'A safe, simulated attack you run on your own agent to see how well your guardrails hold up.',
+    short:
+      'A safe, simulated attack you run on your own agent to see how well your guardrails hold up.',
   },
   severity: {
     label: 'Severity',

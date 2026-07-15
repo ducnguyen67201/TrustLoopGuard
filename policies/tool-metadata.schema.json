@@ -84,11 +84,11 @@
       }
     },
     "LimitAction": {
-      "description": "The verdict a [`ParamLimit`] breach maps to. `Block` is the safe default for money movement; `Escalate` routes a breach to a human instead.",
+      "description": "The authorization effect a [`ParamLimit`] breach maps to. `Deny` is the safe default for money movement; `RequireApproval` routes a breach to review.",
       "type": "string",
       "enum": [
-        "block",
-        "escalate"
+        "deny",
+        "require_approval"
       ]
     },
     "Origin": {
@@ -126,8 +126,8 @@
           "format": "int64"
         },
         "on_breach": {
-          "description": "Verdict to recommend when a bound is breached. Defaults to `Block`.",
-          "default": "block",
+          "description": "Authorization effect to recommend when a bound is breached. Defaults to `Deny`.",
+          "default": "deny",
           "allOf": [
             {
               "$ref": "#/definitions/LimitAction"

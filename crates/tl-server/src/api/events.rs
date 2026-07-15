@@ -1,18 +1,19 @@
 //! Direct `GuardEvent` ingestion endpoint.
 
 use axum::{
-    extract::State,
+    extract::{Extension, State},
     http::HeaderMap,
     response::{IntoResponse, Response},
     Json,
 };
 #[allow(unused_imports)]
 use tl_core::ApiError;
-#[allow(unused_imports)]
-use tl_core::Decision;
-use tl_core::{GuardEvent, DEFAULT_WORKSPACE_ID};
+use tl_core::{AuthorizationDecision, GuardEvent, DEFAULT_WORKSPACE_ID};
 
-use crate::{environments, services::event_service::execute_event_submission, AppState};
+use crate::{
+    auth::WorkspaceKeyContext, environments, services::event_service::execute_event_submission,
+    AppState,
+};
 
 #[utoipa::path(
     post,
@@ -20,7 +21,7 @@ use crate::{environments, services::event_service::execute_event_submission, App
     tag = "events",
     request_body = GuardEvent,
     responses(
-        (status = 200, description = "Event evaluated; decision returned", body = Decision),
+        (status = 200, description = "Event evaluated; authorization decision returned", body = AuthorizationDecision),
         (status = 400, description = "Malformed request or workspace data handling mode rejects raw events", body = ApiError),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
         (status = 404, description = "Referenced run not found", body = ApiError),
@@ -30,8 +31,9 @@ use crate::{environments, services::event_service::execute_event_submission, App
 )]
 pub async fn submit_event(
     State(state): State<AppState>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
-    Json(event): Json<GuardEvent>,
+    Json(mut event): Json<GuardEvent>,
 ) -> Response {
     let start = std::time::Instant::now();
     let workspace_id = workspace_id_for_event(&headers, &event);
@@ -45,8 +47,13 @@ pub async fn submit_event(
         Ok(environment_id) => environment_id,
         Err(error) => return environments::environment_error_response(error),
     };
+    if let Some(Extension(key)) = runtime_key {
+        if let Some(principal_id) = key.principal_id {
+            event.principal.agent_id = principal_id;
+        }
+    }
     match execute_event_submission(&state, &workspace_id, &environment_id, event, start).await {
-        Ok(decision) => Json(decision).into_response(),
+        Ok(result) => Json(result.authorization).into_response(),
         Err(response) => response,
     }
 }

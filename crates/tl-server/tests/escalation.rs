@@ -4,14 +4,14 @@
 
 use std::time::Duration;
 
-use tl_core::{Decision, Verdict};
+use tl_core::{AuthorizationDecision, AuthorizationEffect, Decision};
 use tl_server::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn payload(trace_id: &str) -> EscalationPayload {
     let mut decision = Decision::allow(trace_id.to_string());
-    decision.verdict = Verdict::Escalate;
+    decision.effect = AuthorizationEffect::Defer;
     decision.reason = "tier 3 LLM judge timed out".into();
     EscalationPayload {
         trace_id: trace_id.into(),
@@ -39,7 +39,7 @@ fn fast_retry(extra_attempts: usize) -> RetryPolicy {
 }
 
 #[tokio::test]
-async fn escalate_decision_triggers_post_within_100ms() {
+async fn deferred_decision_triggers_post_within_100ms() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/escalations"))
@@ -84,7 +84,7 @@ async fn escalate_decision_triggers_post_within_100ms() {
     let body: serde_json::Value = serde_json::from_slice(&received[0].body).unwrap();
     assert_eq!(body["trace_id"], "trace-1");
     assert_eq!(body["agent_id"], "acme-support-v3");
-    assert_eq!(body["decision"]["verdict"], "escalate");
+    assert_eq!(body["decision"]["effect"], "defer");
 }
 
 #[tokio::test]
@@ -232,7 +232,7 @@ async fn drop_sender_completes_worker_handle() {
 }
 
 #[tokio::test]
-async fn check_handler_fires_escalation_on_escalate_verdict() {
+async fn event_handler_fires_escalation_on_defer_effect() {
     // End-to-end: register an agent, deploy an escalation policy, send a
     // matching check, and assert the webhook receiver got the POST.
     use axum::{
@@ -290,7 +290,7 @@ tone: { target: neutral }
 id: prompt-injection-escalate
 match:
   literal: "ignore previous instructions"
-action: escalate
+action: defer
 severity: high
 "#;
     let policy_resp = app
@@ -336,8 +336,8 @@ severity: high
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body_bytes = resp.into_body().collect().await.unwrap().to_bytes();
-    let decision: Decision = serde_json::from_slice(&body_bytes).unwrap();
-    assert_eq!(decision.verdict, Verdict::Escalate);
+    let decision: AuthorizationDecision = serde_json::from_slice(&body_bytes).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Defer);
 
     // Wait briefly for the worker to deliver.
     let deadline = std::time::Instant::now() + Duration::from_secs(1);

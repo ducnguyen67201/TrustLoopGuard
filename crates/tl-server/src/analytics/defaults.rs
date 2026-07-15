@@ -29,8 +29,8 @@ pub(super) fn empty_catalog() -> AnalyticsFacetCatalogResponse {
                 label: "Agent".into(),
             },
             AnalyticsCatalogDimension {
-                dimension: AnalyticsDimension::Decision,
-                label: "Verdict".into(),
+                dimension: AnalyticsDimension::AuthorizationEffect,
+                label: "Authorization effect".into(),
             },
         ],
         chart_types: vec![
@@ -57,7 +57,7 @@ pub(super) fn default_views() -> Vec<AnalyticsDashboardView> {
                     title: "Trace volume".into(),
                     metric: AnalyticsMetric::TraceCount,
                     chart_type: AnalyticsChartType::Bar,
-                    group_by: Some(AnalyticsDimension::Decision),
+                    group_by: Some(AnalyticsDimension::AuthorizationEffect),
                     layout: AnalyticsWidgetLayout {
                         x: 0,
                         y: 0,

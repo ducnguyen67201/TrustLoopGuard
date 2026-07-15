@@ -1,4 +1,4 @@
-use tl_core::{CreateFinancialActionRequest, FinancialActionStatus};
+use tl_core::{CreateFinancialActionRequest, FinancialExecutionStatus};
 
 use super::FinancialStoreError;
 
@@ -46,13 +46,16 @@ pub(super) fn clean_required(name: &str, value: &str) -> Result<String, Financia
     Ok(trimmed.to_string())
 }
 
-pub(super) fn is_valid_transition(from: FinancialActionStatus, to: FinancialActionStatus) -> bool {
-    use FinancialActionStatus::*;
+pub(super) fn is_valid_execution_transition(
+    from: FinancialExecutionStatus,
+    to: FinancialExecutionStatus,
+) -> bool {
+    use FinancialExecutionStatus::*;
     matches!(
         (from, to),
-        (Proposed, Authorized | Held | Denied | Failed | Expired)
-            | (Held, Authorized | Executed | Denied | Failed | Expired)
-            | (Authorized, Executed | Denied | Failed | Expired)
-            | (Executed, Reversed)
+        (NotStarted, Executing | Canceled)
+            | (Executing, Succeeded | Failed | Canceled)
+            | (Failed, Executing | Canceled)
+            | (Succeeded, Reversed)
     )
 }

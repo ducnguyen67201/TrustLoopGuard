@@ -16,29 +16,32 @@
 //     context,
 //     agentId: 'acme-support-v3',
 //     onBlock:    () => cannedSafeReply,
-//     onEscalate: () => { humanQueue.push(...); return holdMessage; },
+//     onRequireApproval: () => { humanQueue.push(...); return holdMessage; },
+//     onDefer: () => 'Try again when required evidence is available.',
 //   });
 //   await sendToCustomer(reply);
 //
-// The handler stays the source of truth on what to do per-verdict.
+// The handler stays the source of truth on what to do per effect.
 // `guard` just makes the dispatch ergonomic and applies a fail-open
 // default for transport errors so an outage on our side doesn't take
 // down the agent.
 //
 // Factory guards support three presets:
-//   strict                -> treat rewrite verdicts as blocked output
-//   rewrite               -> use safeOutput, block when no safeOutput exists
-//   rewrite_or_regenerate -> use safeOutput, otherwise regenerate and check again
+//   strict                -> treat transform effects as denied output
+//   rewrite               -> use transformed output, deny when none exists
+//   rewrite_or_regenerate -> use transformed output, otherwise regenerate and check again
 
 import { Client, type ClientOptions } from './client';
 import type { Channel } from './generated/Channel';
 import type { CreateRunEventRequest } from './generated/CreateRunEventRequest';
-import type { Decision } from './generated/Decision';
+import type { AuthorizationDecision as Decision } from './generated/AuthorizationDecision';
 import type { GuardEvent } from './generated/GuardEvent';
 import { SdkError } from './errors';
 
 const DEFAULT_BLOCK_MESSAGE = "I can't help with that request.";
-const DEFAULT_ESCALATE_MESSAGE = 'A human teammate should review this before we continue.';
+const DEFAULT_REQUIRE_APPROVAL_MESSAGE = 'A human teammate should review this before we continue.';
+const DEFAULT_DEFER_MESSAGE =
+  'Required evidence or system state is unavailable. Please try again later.';
 
 type DecisionHandler = string | ((decision: Decision) => string | Promise<string>);
 type ErrorHandler = string | ((err: SdkError, draft: string) => string | Promise<string>);
@@ -76,16 +79,16 @@ type RegenerateHandler = (feedback: RegenerateFeedback) => string | Promise<stri
 
 export interface GuardCallbacks {
   /**
-   * Called when the verdict is `allow`. Default: return the original
-   * draft unchanged. Override only if you want to log the allow path
+   * Called when the effect is `permit`. Default: return the original
+   * draft unchanged. Override only if you want to log the permit path
    * or strip a draft suffix etc.
    */
   onAllow?: (draft: string, decision: Decision) => string | Promise<string>;
 
   /**
-   * Called when the verdict is `rewrite`. Default: return
-   * `decision.safe_output ?? draft`. Override to post-process or
-   * substitute your own canned rewrite.
+   * Called when the effect is `transform`. Default: return
+   * `decision.transformed_value ?? draft`. Override to post-process or
+   * substitute your own safe output.
    */
   onRevise?: (
     revised: string | null,
@@ -94,17 +97,23 @@ export interface GuardCallbacks {
   ) => string | Promise<string>;
 
   /**
-   * Called when the verdict is `block`. **Required** — there is no
+   * Called when the effect is `deny`. **Required** — there is no
    * sensible automatic answer. Return the canned safe message your
    * brand wants the customer to see (or throw to abort the send).
    */
   onBlock: (decision: Decision) => string | Promise<string>;
 
   /**
-   * Called when the verdict is `escalate`. **Required** — typically
-   * pushes onto a human-review queue and returns a holding message.
+   * Called when the effect is `require_approval`. **Required** — typically
+   * points the caller at the common authorization queue and returns a holding message.
    */
-  onEscalate: (decision: Decision) => string | Promise<string>;
+  onRequireApproval: (decision: Decision) => string | Promise<string>;
+
+  /**
+   * Called when the effect is `defer`. **Required** — approval cannot satisfy
+   * this branch; wait for evidence or system availability before retrying.
+   */
+  onDefer: (decision: Decision) => string | Promise<string>;
 
   /**
    * Called when the SDK transport itself fails (network down, server
@@ -157,7 +166,7 @@ export interface GuardOptions extends GuardCallbacks {
 
   /**
    * Logger hook. If provided, gets one structured event per `guard`
-   * invocation: { trace_id, verdict, branch, latency_ms }. Useful for
+   * invocation: { trace_id, effect, branch, latency_ms }. Useful for
    * surfacing which branch fired without forcing a specific logger
    * dependency.
    */
@@ -201,15 +210,18 @@ export interface GuardFactoryOptions {
   /** Default block branch. Omit for the SDK safe message. */
   onBlock?: DecisionHandler;
 
-  /** Default escalation branch. Omit for the SDK safe message. */
-  onEscalate?: DecisionHandler;
+  /** Default approval-required branch. Omit for the SDK holding message. */
+  onRequireApproval?: DecisionHandler;
+
+  /** Default unresolved-evidence branch. Omit for the SDK retry-later message. */
+  onDefer?: DecisionHandler;
 
   /** Transport failure branch. Omit for fail-open. */
   onError?: ErrorHandler;
 
   /**
    * Output mode:
-   * - strict: treat rewrite verdicts as blocked output
+   * - strict: treat transform effects as denied output
    * - rewrite: use safeOutput, block when no safeOutput exists
    * - rewrite_or_regenerate: use safeOutput, otherwise ask the model to try again
    */
@@ -244,7 +256,8 @@ export interface GuardCallOptions {
   /** @deprecated Create run events explicitly and pass runEventId. */
   runEvent?: CreateRunEventRequest;
   onBlock?: DecisionHandler;
-  onEscalate?: DecisionHandler;
+  onRequireApproval?: DecisionHandler;
+  onDefer?: DecisionHandler;
   onError?: ErrorHandler;
   mode?: GuardMode;
   regenerate?: RegenerateHandler;
@@ -277,9 +290,9 @@ export interface OutputGuard {
 
 export interface GuardLogEvent {
   trace_id: string;
-  verdict: Decision['verdict'];
+  effect: Decision['effect'];
   /** Which callback we ended up calling. */
-  branch: 'allow' | 'revise' | 'block' | 'escalate' | 'error';
+  branch: 'permit' | 'revise' | 'deny' | 'require_approval' | 'defer' | 'error';
   latency_ms: number;
 }
 
@@ -287,12 +300,13 @@ export interface GuardLogEvent {
  * Submit an output `GuardEvent` and dispatch the appropriate callback. Returns the
  * string the caller should actually send to the customer.
  *
- * Verdicts map 1:1 to callbacks:
+ * Effects map 1:1 to callbacks:
  *
- *   allow    → onAllow (default: return draft as-is)
- *   rewrite  → onRevise (default: return decision.safe_output ?? draft)
- *   block    → onBlock (required)
- *   escalate → onEscalate (required)
+ *   permit           → onAllow (default: return draft as-is)
+ *   transform        → onRevise (default: return decision.transformed_value ?? draft)
+ *   deny             → onBlock (required)
+ *   require_approval → onRequireApproval (required)
+ *   defer            → onDefer (required)
  *
  * Transport / decode / retry-exhausted errors go to `onError`. Default
  * is **fail-open** — return the original draft. Pass an explicit
@@ -319,9 +333,9 @@ async function guardOnce(opts: GuardOptions): Promise<string> {
     const fallback = opts.onError ? await opts.onError(e, opts.draft) : opts.draft; // fail-open default
     opts.log?.({
       trace_id: opts.traceId ?? '',
-      // Wire shape doesn't have an "error" verdict; we synthesise the
+      // Wire shape doesn't have an "error" effect; we synthesise the
       // log line for observability without lying about the wire.
-      verdict: 'allow',
+      effect: 'permit',
       branch: 'error',
       latency_ms: Math.round(performance.now() - start),
     });
@@ -331,8 +345,8 @@ async function guardOnce(opts: GuardOptions): Promise<string> {
   const result = await dispatch(opts, decision);
   opts.log?.({
     trace_id: decision.trace_id,
-    verdict: decision.verdict,
-    branch: branchFor(decision.verdict),
+    effect: decision.effect,
+    branch: branchFor(decision.effect),
     latency_ms: Math.round(performance.now() - start),
   });
   return result;
@@ -383,10 +397,11 @@ function createOutputGuard(opts: GuardFactoryOptions): OutputGuard {
     const regenerate = call.regenerate ?? opts.regenerate;
     const maxRegenerations = call.maxRegenerations ?? opts.maxRegenerations ?? 1;
     const onBlock = decisionHandler(call.onBlock ?? opts.onBlock, DEFAULT_BLOCK_MESSAGE);
-    const onEscalate = decisionHandler(
-      call.onEscalate ?? opts.onEscalate,
-      DEFAULT_ESCALATE_MESSAGE,
+    const onRequireApproval = decisionHandler(
+      call.onRequireApproval ?? opts.onRequireApproval,
+      DEFAULT_REQUIRE_APPROVAL_MESSAGE,
     );
+    const onDefer = decisionHandler(call.onDefer ?? opts.onDefer, DEFAULT_DEFER_MESSAGE);
     const onError = errorHandler(
       call.onError ?? opts.onError,
       opts.failClosed === true ? DEFAULT_BLOCK_MESSAGE : undefined,
@@ -417,7 +432,8 @@ function createOutputGuard(opts: GuardFactoryOptions): OutputGuard {
           draft: checkedDraft,
           decision,
           reason: decision.reason,
-          safeOutput: decision.safe_output ?? null,
+          safeOutput:
+            typeof decision.transformed_value === 'string' ? decision.transformed_value : null,
           attempt: nextAttempt,
           maxAttempts: maxRegenerations,
         });
@@ -431,7 +447,8 @@ function createOutputGuard(opts: GuardFactoryOptions): OutputGuard {
         draft: currentDraft,
         context: { ...(opts.context ?? {}), ...(call.context ?? {}) },
         onBlock,
-        onEscalate,
+        onRequireApproval,
+        onDefer,
         onRevise,
       };
       addDefined(guardOpts, 'channel', call.channel ?? opts.channel);
@@ -462,22 +479,27 @@ function createOutputGuard(opts: GuardFactoryOptions): OutputGuard {
 }
 
 async function dispatch(opts: GuardOptions, decision: Decision): Promise<string> {
-  switch (decision.verdict) {
-    case 'allow':
+  switch (decision.effect) {
+    case 'permit':
       return opts.onAllow ? await opts.onAllow(opts.draft, decision) : opts.draft;
-    case 'rewrite':
+    case 'transform': {
+      const transformed =
+        typeof decision.transformed_value === 'string' ? decision.transformed_value : null;
       return opts.onRevise
-        ? await opts.onRevise(decision.safe_output ?? null, opts.draft, decision)
-        : (decision.safe_output ?? opts.draft);
-    case 'block':
+        ? await opts.onRevise(transformed, opts.draft, decision)
+        : (transformed ?? opts.draft);
+    }
+    case 'deny':
       return await opts.onBlock(decision);
-    case 'escalate':
-      return await opts.onEscalate(decision);
+    case 'require_approval':
+      return await opts.onRequireApproval(decision);
+    case 'defer':
+      return await opts.onDefer(decision);
   }
 }
 
-function branchFor(v: Decision['verdict']): GuardLogEvent['branch'] {
-  if (v === 'rewrite') return 'revise';
+function branchFor(v: Decision['effect']): GuardLogEvent['branch'] {
+  if (v === 'transform') return 'revise';
   return v;
 }
 

@@ -134,13 +134,16 @@ impl HumanReviewRepo {
             }
 
             summary.trace_count += 1;
-            let automated = matches!(decision.as_str(), "block" | "rewrite" | "escalate");
+            let automated = matches!(
+                decision.as_str(),
+                "deny" | "transform" | "require_approval" | "defer"
+            );
             if automated {
                 summary.automated_intervention_count += 1;
             }
             for policy_id in &policies {
                 let entry = policy.entry(policy_id.clone()).or_default();
-                if decision == "escalate" {
+                if decision == "require_approval" {
                     entry.escalation_count += 1;
                 }
             }

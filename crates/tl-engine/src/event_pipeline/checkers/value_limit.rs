@@ -12,12 +12,12 @@
 //!
 //! Conservative money posture: a limit is configured precisely because the
 //! parameter is dangerous, so anything we cannot verify against it
-//! escalates rather than passes. A non-integer or non-numeric value (where
+//! defers rather than passes. A non-integer or non-numeric value (where
 //! an integer in the tool's minor units is expected) is *unverifiable*, not
-//! clean — it escalates. An absent parameter supplied nothing to cap and is
+//! clean — it defers. An absent parameter supplied nothing to cap and is
 //! skipped, mirroring `parameter_auth`.
 
-use tl_core::{GuardEvent, LimitAction, ParamLimit, ToolResolution, Verdict};
+use tl_core::{AuthorizationEffect, GuardEvent, LimitAction, ParamLimit, ToolResolution};
 
 use super::param_auth::lookup_param;
 use crate::event_pipeline::{Checker, CheckerFinding};
@@ -34,8 +34,8 @@ const HARM_AUTHORIZATION: &str = "authorization";
 ///
 /// - **parameter_value.{path}**: every parameter carrying a `ParamLimit`
 ///   must hold an integer within `[min, max]`. Over `max` or under `min`
-///   yields the limit's `on_breach` verdict (default `Block`); a value that
-///   is present but not an integer escalates as unverifiable.
+///   yields the limit's `on_breach` effect (default `Deny`); a value that
+///   is present but not an integer defers as unverifiable.
 /// - Unregistered or unresolved tools emit nothing — unknown-tool
 ///   conservatism is the flow/parameter checkers' job, and a value cap has
 ///   no bound to test without resolved metadata.
@@ -63,7 +63,7 @@ impl Checker for ValueLimitChecker {
 
             // A configured limit expects an integer in the tool's minor
             // units. A non-integer value cannot be verified against the
-            // bound; for a money parameter that is a reason to escalate,
+            // bound; for a money parameter that is a reason to defer,
             // never to pass.
             let Some(amount) = value.as_i64() else {
                 findings.push(unverifiable_finding(&spec.path));
@@ -82,17 +82,17 @@ impl Checker for ValueLimitChecker {
 /// `[min, max]`. `max` is checked before `min`; a single value can only sit
 /// on one side of a well-formed range, so at most one finding is produced.
 fn bound_finding(path: &str, amount: i64, limit: &ParamLimit) -> Option<CheckerFinding> {
-    // `Block` is the safe default for money movement; `Escalate` routes to a human.
-    let verdict = match limit.on_breach {
-        LimitAction::Block => Verdict::Block,
-        LimitAction::Escalate => Verdict::Escalate,
+    // `Deny` is the safe default; `RequireApproval` routes to human sign-off.
+    let effect = match limit.on_breach {
+        LimitAction::Deny => AuthorizationEffect::Deny,
+        LimitAction::RequireApproval => AuthorizationEffect::RequireApproval,
     };
 
     if let Some(max) = limit.max {
         if amount > max {
             return Some(CheckerFinding {
                 checker_id: VALUE_LIMIT_CHECKER_ID.to_string(),
-                verdict: Some(verdict),
+                effect: Some(effect),
                 reason: format!("parameter '{path}' value {amount} exceeds the maximum of {max}"),
                 violated_rule: Some(format!("parameter_value.{path}")),
                 remediation: Some(format!(
@@ -100,7 +100,7 @@ fn bound_finding(path: &str, amount: i64, limit: &ParamLimit) -> Option<CheckerF
                 )),
                 source_chain: vec![],
                 risk_source: None,
-                failure_mode: Some(FAILURE_OVER_LIMIT.to_string()),
+                risk_code: Some(FAILURE_OVER_LIMIT.to_string()),
                 harm_class: Some(HARM_AUTHORIZATION.to_string()),
             });
         }
@@ -110,7 +110,7 @@ fn bound_finding(path: &str, amount: i64, limit: &ParamLimit) -> Option<CheckerF
         if amount < min {
             return Some(CheckerFinding {
                 checker_id: VALUE_LIMIT_CHECKER_ID.to_string(),
-                verdict: Some(verdict),
+                effect: Some(effect),
                 reason: format!("parameter '{path}' value {amount} is below the minimum of {min}"),
                 violated_rule: Some(format!("parameter_value.{path}")),
                 remediation: Some(format!(
@@ -118,7 +118,7 @@ fn bound_finding(path: &str, amount: i64, limit: &ParamLimit) -> Option<CheckerF
                 )),
                 source_chain: vec![],
                 risk_source: None,
-                failure_mode: Some(FAILURE_UNDER_LIMIT.to_string()),
+                risk_code: Some(FAILURE_UNDER_LIMIT.to_string()),
                 harm_class: Some(HARM_AUTHORIZATION.to_string()),
             });
         }
@@ -130,9 +130,8 @@ fn bound_finding(path: &str, amount: i64, limit: &ParamLimit) -> Option<CheckerF
 fn unverifiable_finding(path: &str) -> CheckerFinding {
     CheckerFinding {
         checker_id: VALUE_LIMIT_CHECKER_ID.to_string(),
-        // Unverifiable is never silently allowed: a configured money cap
-        // we cannot evaluate routes to a human.
-        verdict: Some(Verdict::Escalate),
+        // Human approval cannot replace the missing typed value.
+        effect: Some(AuthorizationEffect::Defer),
         reason: format!(
             "parameter '{path}' has a value limit but its value is not an integer; \
              the limit cannot be verified"
@@ -143,7 +142,7 @@ fn unverifiable_finding(path: &str) -> CheckerFinding {
         )),
         source_chain: vec![],
         risk_source: None,
-        failure_mode: Some(FAILURE_UNVERIFIABLE.to_string()),
+        risk_code: Some(FAILURE_UNVERIFIABLE.to_string()),
         harm_class: Some(HARM_AUTHORIZATION.to_string()),
     }
 }
@@ -195,7 +194,7 @@ mod tests {
         ParamLimit {
             max: Some(max),
             min: None,
-            on_breach: LimitAction::Block,
+            on_breach: LimitAction::Deny,
         }
     }
 
@@ -206,12 +205,12 @@ mod tests {
         let findings = ValueLimitChecker.check(&event);
         assert_eq!(findings.len(), 1);
         let finding = &findings[0];
-        assert_eq!(finding.verdict, Some(Verdict::Block));
+        assert_eq!(finding.effect, Some(AuthorizationEffect::Deny));
         assert_eq!(
             finding.violated_rule.as_deref(),
             Some("parameter_value.amount")
         );
-        assert_eq!(finding.failure_mode.as_deref(), Some("amount_over_limit"));
+        assert_eq!(finding.risk_code.as_deref(), Some("amount_over_limit"));
         assert_eq!(finding.harm_class.as_deref(), Some("authorization"));
         assert!(finding.reason.contains("9999"));
         assert!(finding.reason.contains("500"));
@@ -234,17 +233,14 @@ mod tests {
         let limit = ParamLimit {
             max: None,
             min: Some(100),
-            on_breach: LimitAction::Block,
+            on_breach: LimitAction::Deny,
         };
         let event = resolved_event(serde_json::json!(10), Some(limit));
 
         let findings = ValueLimitChecker.check(&event);
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].verdict, Some(Verdict::Block));
-        assert_eq!(
-            findings[0].failure_mode.as_deref(),
-            Some("amount_under_limit")
-        );
+        assert_eq!(findings[0].effect, Some(AuthorizationEffect::Deny));
+        assert_eq!(findings[0].risk_code.as_deref(), Some("amount_under_limit"));
     }
 
     #[test]
@@ -252,14 +248,14 @@ mod tests {
         let limit = ParamLimit {
             max: None,
             min: Some(100),
-            on_breach: LimitAction::Block,
+            on_breach: LimitAction::Deny,
         };
         let event = resolved_event(serde_json::json!(100), Some(limit));
         assert!(ValueLimitChecker.check(&event).is_empty());
     }
 
     #[test]
-    fn escalates_when_value_is_not_an_integer() {
+    fn defers_when_value_is_not_an_integer() {
         for value in [
             serde_json::json!("lots"),
             serde_json::json!(1.5),
@@ -275,33 +271,33 @@ mod tests {
                 "value {value:?} should yield one finding"
             );
             assert_eq!(
-                findings[0].verdict,
-                Some(Verdict::Escalate),
+                findings[0].effect,
+                Some(AuthorizationEffect::Defer),
                 "value {value:?}"
             );
             assert_eq!(
-                findings[0].failure_mode.as_deref(),
+                findings[0].risk_code.as_deref(),
                 Some("unverifiable_amount")
             );
         }
     }
 
     #[test]
-    fn on_breach_escalate_yields_escalate_not_block() {
+    fn on_breach_require_approval_yields_require_approval() {
         let limit = ParamLimit {
             max: Some(500),
             min: None,
-            on_breach: LimitAction::Escalate,
+            on_breach: LimitAction::RequireApproval,
         };
         let event = resolved_event(serde_json::json!(9999), Some(limit));
 
         let findings = ValueLimitChecker.check(&event);
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].verdict, Some(Verdict::Escalate));
         assert_eq!(
-            findings[0].failure_mode.as_deref(),
-            Some("amount_over_limit")
+            findings[0].effect,
+            Some(AuthorizationEffect::RequireApproval)
         );
+        assert_eq!(findings[0].risk_code.as_deref(), Some("amount_over_limit"));
     }
 
     #[test]
@@ -338,15 +334,12 @@ mod tests {
         let limit = ParamLimit {
             max: Some(500),
             min: Some(0),
-            on_breach: LimitAction::Block,
+            on_breach: LimitAction::Deny,
         };
         let event = resolved_event(serde_json::json!(-100), Some(limit));
 
         let findings = ValueLimitChecker.check(&event);
         assert_eq!(findings.len(), 1);
-        assert_eq!(
-            findings[0].failure_mode.as_deref(),
-            Some("amount_under_limit")
-        );
+        assert_eq!(findings[0].risk_code.as_deref(), Some("amount_under_limit"));
     }
 }

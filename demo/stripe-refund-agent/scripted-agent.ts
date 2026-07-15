@@ -43,7 +43,7 @@ export async function runScriptedRefundAgent(
     summary: `${prepared.status}: ${prepared.message}`,
   });
   options.logger?.log('prepare_refund', `${prepared.status}: ${prepared.action.id}`);
-  if (prepared.status !== 'authorized' && prepared.status !== 'proposed') {
+  if (prepared.status !== 'permit') {
     return {
       prompt,
       traces,
@@ -64,7 +64,7 @@ export async function runScriptedRefundAgent(
     prompt,
     traces,
     finalMessage:
-      executed.status === 'executed'
+      executed.status === 'succeeded'
         ? `Refund executed. Receipt ${executed.receipt?.id ?? executed.action.id} is ready.`
         : `Refund was not executed because the action is ${executed.status}.`,
     actionId: executed.action.id,

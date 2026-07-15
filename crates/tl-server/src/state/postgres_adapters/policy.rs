@@ -250,12 +250,13 @@ fn policy_summary_from_row(row: tl_storage::PolicyRow) -> tl_core::PolicySummary
     }
 }
 
-fn policy_action(action: &tl_policy::Action) -> String {
+fn policy_action(action: &tl_core::AuthorizationEffect) -> String {
     match action {
-        tl_policy::Action::Allow => "allow",
-        tl_policy::Action::Block => "block",
-        tl_policy::Action::Rewrite => "rewrite",
-        tl_policy::Action::Escalate => "escalate",
+        tl_core::AuthorizationEffect::Permit => "permit",
+        tl_core::AuthorizationEffect::Deny => "deny",
+        tl_core::AuthorizationEffect::Transform => "transform",
+        tl_core::AuthorizationEffect::RequireApproval => "require_approval",
+        tl_core::AuthorizationEffect::Defer => "defer",
     }
     .to_string()
 }

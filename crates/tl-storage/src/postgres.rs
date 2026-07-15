@@ -92,7 +92,7 @@ impl DecisionStore for PostgresStore {
         // match the engine's default. PR 15 will plumb a real domain
         // through once the request envelope carries it consistently.
         let domain = "customer_support";
-        let verdict = verdict_text(&decision.verdict);
+        let effect = effect_text(&decision.effect);
         let payload = serde_json::to_value(decision)
             .map_err(|e| StorageError::Internal(format!("decision serialize: {e}")))?;
         let new_trace = NewTrace {
@@ -103,7 +103,7 @@ impl DecisionStore for PostgresStore {
             session_id: None,
             environment_id: tl_core::DEFAULT_ENVIRONMENT_ID.to_string(),
             domain: domain.to_string(),
-            decision: verdict.to_string(),
+            decision: effect.to_string(),
             elapsed_ms: decision.latency_ms as i32,
             payload,
         };
@@ -151,12 +151,13 @@ impl PostgresStore {
     }
 }
 
-fn verdict_text(v: &tl_core::Verdict) -> &'static str {
+fn effect_text(v: &tl_core::AuthorizationEffect) -> &'static str {
     match v {
-        tl_core::Verdict::Allow => "allow",
-        tl_core::Verdict::Block => "block",
-        tl_core::Verdict::Rewrite => "rewrite",
-        tl_core::Verdict::Escalate => "escalate",
+        tl_core::AuthorizationEffect::Permit => "permit",
+        tl_core::AuthorizationEffect::Deny => "deny",
+        tl_core::AuthorizationEffect::Transform => "transform",
+        tl_core::AuthorizationEffect::RequireApproval => "require_approval",
+        tl_core::AuthorizationEffect::Defer => "defer",
     }
 }
 

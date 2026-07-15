@@ -99,9 +99,9 @@ impl RunRepo {
             stats.trace_count += 1;
             latencies.push(elapsed_ms);
             match decision.as_str() {
-                "block" => stats.blocked_count += 1,
-                "rewrite" => stats.rewritten_count += 1,
-                "escalate" => stats.escalated_count += 1,
+                "deny" => stats.blocked_count += 1,
+                "transform" => stats.rewritten_count += 1,
+                "require_approval" | "defer" => stats.escalated_count += 1,
                 _ => {}
             }
         }

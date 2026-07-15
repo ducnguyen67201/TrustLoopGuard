@@ -1,11 +1,6 @@
 'use client';
 
-import {
-  IconAlertTriangle,
-  IconCheck,
-  IconCopy,
-  IconKey,
-} from '@tabler/icons-react';
+import { IconAlertTriangle, IconCheck, IconCopy, IconKey } from '@tabler/icons-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
@@ -143,8 +138,8 @@ export function CreateApiKeyDialog({
             <DialogHeader>
               <DialogTitle>Your key is ready — copy it now</DialogTitle>
               <DialogDescription>
-                This is the only time you&apos;ll see the full secret. Copy it and paste it into your
-                app. If you lose it, you can&apos;t get it back — just create a new key.
+                This is the only time you&apos;ll see the full secret. Copy it and paste it into
+                your app. If you lose it, you can&apos;t get it back — just create a new key.
               </DialogDescription>
             </DialogHeader>
 
@@ -169,22 +164,23 @@ export function CreateApiKeyDialog({
                 </Button>
               </div>
               {copied ? (
-                <p className="flex items-center gap-1.5 text-xs text-[var(--color-allow)]">
+                <p className="flex items-center gap-1.5 text-xs text-[var(--color-permit)]">
                   <IconCheck className="size-3.5 shrink-0" aria-hidden />
                   Copied. Paste it into your app, then keep it somewhere safe.
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Saved as <span className="font-medium text-foreground">{created.api_key.name}</span>
-                  , starting with{' '}
+                  Saved as{' '}
+                  <span className="font-medium text-foreground">{created.api_key.name}</span>,
+                  starting with{' '}
                   <span className="font-mono text-foreground">{created.api_key.prefix}…</span>
                 </p>
               )}
             </div>
 
-            <div className="flex items-start gap-2.5 rounded-lg border border-[var(--color-escalate)]/40 bg-[var(--color-escalate)]/10 px-3.5 py-3">
+            <div className="flex items-start gap-2.5 rounded-lg border border-[var(--color-require-approval)]/40 bg-[var(--color-require-approval)]/10 px-3.5 py-3">
               <IconAlertTriangle
-                className="mt-0.5 size-4 shrink-0 text-[var(--color-escalate)]"
+                className="mt-0.5 size-4 shrink-0 text-[var(--color-require-approval)]"
                 aria-hidden
               />
               <p className="text-sm text-foreground">

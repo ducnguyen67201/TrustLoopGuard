@@ -76,7 +76,8 @@ test('validates and redacts a public refund action status', () => {
 
   const status = sanitizeRefundDemoStatus({
     actionId,
-    status: 'executed',
+    authorizationEffect: 'permit',
+    executionStatus: 'succeeded',
     orderId: 'ord_demo_1001',
     amountMinor: 7_500,
     currency: 'USD',

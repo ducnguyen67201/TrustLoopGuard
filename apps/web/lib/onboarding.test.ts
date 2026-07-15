@@ -32,7 +32,8 @@ describe('buildSdkSnippet', () => {
     expect(snippet).toContain("import { Client, guard } from '@trustloopguard/sdk'");
     expect(snippet).toContain('client.withRun(');
     expect(snippet).toContain('onBlock:');
-    expect(snippet).toContain('onEscalate:');
+    expect(snippet).toContain('onRequireApproval:');
+    expect(snippet).toContain('onDefer:');
   });
 });
 
@@ -44,7 +45,7 @@ describe('buildPaymentSdkSnippet', () => {
 
   test('places TrustLoopGuard before payment signing', () => {
     expect(snippet).toContain("principal_id: 'spid:commerce-agent'");
-    expect(snippet).toContain('client.createMandate');
+    expect(snippet).toContain('client.createGrant');
     expect(snippet).toContain('client.authorizeAgenticPayment');
     expect(snippet).toContain('if (!auth.signable)');
     expect(snippet).toContain('payWithWallet');
@@ -109,8 +110,8 @@ describe('buildClaudeCodeHookPrompt', () => {
     expect(prompt).toContain('"TLG_AGENT_ID": "support-ai"');
   });
 
-  test('maps verdicts onto Claude Code permission decisions', () => {
-    expect(prompt).toContain("permissionDecision: decision.verdict === 'block' ? 'deny' : 'ask'");
+  test('maps effects onto Claude Code permission decisions', () => {
+    expect(prompt).toContain("permissionDecision: decision.effect === 'deny' ? 'deny' : 'ask'");
   });
 
   test('keeps the API key out of files and out of the prompt', () => {
@@ -177,7 +178,7 @@ describe('traceListSchema', () => {
           environment_id: 'env_default',
           environment: 'Production',
           domain: 'chat',
-          decision: 'allow',
+          decision: 'permit',
           elapsed_ms: 42,
           latest_review_outcome: null,
           payload: { reason: 'ok' },
@@ -190,7 +191,7 @@ describe('traceListSchema', () => {
     expect(parsed.traces).toHaveLength(1);
     expect(parsed.traces[0]).toEqual({
       trace_id: 'a4f0c2ce-1111-2222-3333-444455556666',
-      decision: 'allow',
+      decision: 'permit',
       elapsed_ms: 42,
       created_at: '2026-07-02T09:00:00Z',
     });

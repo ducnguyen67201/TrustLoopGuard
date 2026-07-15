@@ -84,18 +84,19 @@ TrustLoopGuard bearer key.
 Gateway creates an input event before the provider call and an output event after it. Both go
 through the same `execute_event_submission` service as direct event submissions.
 
-| Policy verdict | Gateway behavior                                          |
-| -------------- | --------------------------------------------------------- |
-| Allow          | Forwards or returns content unchanged.                    |
-| Rewrite        | Uses the policy's safe replacement.                       |
-| Block          | Suppresses content; input blocks never call the provider. |
-| Escalate       | Suppresses content and queues the configured escalation.  |
+| Authorization effect | Gateway behavior                                                    |
+| -------------------- | ------------------------------------------------------------------- |
+| `permit`             | Forwards or returns content unchanged.                              |
+| `transform`          | Uses the policy's safe replacement.                                 |
+| `deny`               | Suppresses content; input denial never calls the provider.          |
+| `require_approval`   | Suppresses content and creates an item in the common review queue.  |
+| `defer`              | Suppresses content and sends the configured operational escalation. |
 
 A rewrite without safe replacement text fails closed. Gateway does not issue an extra model call to
 regenerate output.
 
-Blocked and escalated responses use the provider's content-filter response shape and include
-`X-TrustLoopGuard-Verdict`, `X-TrustLoopGuard-Phase`, `X-TrustLoopGuard-Trace-Id`, and—when
+Non-permitted responses use the provider's content-filter response shape and include
+`X-TrustLoopGuard-Effect`, `X-TrustLoopGuard-Phase`, `X-TrustLoopGuard-Trace-Id`, and—when
 available—`X-TrustLoopGuard-Policy-Id`.
 
 ## Streaming

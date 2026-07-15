@@ -10,10 +10,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tl_core::{
-    Action, AllowedSource, Confidentiality, Decision, EnforcementMode, EventKind, GuardEvent,
-    Integrity, LabelBasis, LabelPolicyStatus, Labels, LimitAction, Origin, ParamLimit, ParamRole,
-    ParamSpec, Principal, ProvenanceMap, SideEffectClass, Source, SourceLabelPolicy, ToolMetadata,
-    ToolResolution, Trust, Verdict,
+    Action, AllowedSource, AuthorizationEffect, Confidentiality, Decision, EnforcementMode,
+    EventKind, GuardEvent, Integrity, LabelBasis, LabelPolicyStatus, Labels, LimitAction, Origin,
+    ParamLimit, ParamRole, ParamSpec, Principal, ProvenanceMap, SideEffectClass, Source,
+    SourceLabelPolicy, ToolMetadata, ToolResolution, Trust,
 };
 
 use super::labels::{LabelPolicyProvider, LabelPolicyUnavailable};
@@ -157,6 +157,9 @@ fn send_email_event() -> GuardEvent {
             operation: "send_email".into(),
             parameters: serde_json::json!({ "recipient": "a@b.c", "body": "hi" }),
             side_effect: Some(SideEffectClass::None),
+            invocation_id: None,
+            tool_identity: None,
+            authorization: None,
         },
         sources: vec![
             Source {
@@ -416,7 +419,10 @@ async fn param_auth_shadow_records_hypothetical_block_without_changing_decision(
     assert_eq!(run.mode, EnforcementMode::Shadow);
     assert_eq!(run.findings.len(), 1);
     assert_eq!(run.findings[0].rule, "parameter_source.recipient");
-    assert_eq!(run.findings[0].recommended_verdict, Some(Verdict::Block));
+    assert_eq!(
+        run.findings[0].recommended_effect,
+        Some(AuthorizationEffect::Deny)
+    );
 }
 
 #[tokio::test]
@@ -432,7 +438,7 @@ async fn param_auth_enforce_blocks_wrong_source() {
         )
         .await;
 
-    assert_eq!(after.verdict, Verdict::Block);
+    assert_eq!(after.effect, AuthorizationEffect::Deny);
     assert!(after
         .reason
         .starts_with("parameter_auth: parameter_source.recipient:"));
@@ -467,11 +473,11 @@ async fn param_auth_enforce_allows_correct_source() {
         )
         .await;
 
-    assert_eq!(after.verdict, Verdict::Allow);
+    assert_eq!(after.effect, AuthorizationEffect::Permit);
 }
 
 #[tokio::test]
-async fn param_auth_enforce_escalates_missing_provenance() {
+async fn param_auth_enforce_defers_missing_provenance() {
     let mut event = send_email_event();
     event.provenance.0.remove("recipient");
 
@@ -486,8 +492,8 @@ async fn param_auth_enforce_escalates_missing_provenance() {
         )
         .await;
 
-    assert_eq!(after.verdict, Verdict::Escalate);
-    assert_eq!(after.failure_mode.as_deref(), Some("missing_provenance"));
+    assert_eq!(after.effect, AuthorizationEffect::Defer);
+    assert_eq!(after.risk_code.as_deref(), Some("missing_provenance"));
 }
 
 /// `send_email` whose registry entry requires admin approval, with a live
@@ -554,7 +560,10 @@ async fn approval_shadow_records_hypothetical_escalate_without_changing_decision
     assert_eq!(run.mode, EnforcementMode::Shadow);
     assert_eq!(run.findings.len(), 1);
     assert_eq!(run.findings[0].rule, "approval.send_email");
-    assert_eq!(run.findings[0].recommended_verdict, Some(Verdict::Escalate));
+    assert_eq!(
+        run.findings[0].recommended_effect,
+        Some(AuthorizationEffect::RequireApproval)
+    );
 }
 
 #[tokio::test]
@@ -570,14 +579,14 @@ async fn approval_enforce_escalates_required_tool() {
         )
         .await;
 
-    assert_eq!(after.verdict, Verdict::Escalate);
+    assert_eq!(after.effect, AuthorizationEffect::RequireApproval);
     assert!(after.reason.starts_with("approval: approval.send_email:"));
     assert_eq!(after.violated_rule.as_deref(), Some("approval.send_email"));
     assert_eq!(
         after.remediation.as_deref(),
         Some("request approval from roles: admin before retrying this action")
     );
-    assert_eq!(after.failure_mode.as_deref(), Some("approval_required"));
+    assert_eq!(after.risk_code.as_deref(), Some("approval_required"));
     assert_eq!(after.harm_class.as_deref(), Some("authorization"));
     assert_eq!(event.checks.len(), 1);
     assert_eq!(event.checks[0].mode, EnforcementMode::Enforce);
@@ -586,7 +595,7 @@ async fn approval_enforce_escalates_required_tool() {
 #[tokio::test]
 async fn approval_enforce_does_not_demote_an_engine_block() {
     let mut blocked = Decision::allow("trace-1");
-    blocked.verdict = Verdict::Block;
+    blocked.effect = AuthorizationEffect::Deny;
     blocked.reason = "tier1 policy `pii` triggered".into();
 
     let (_event, after) = approval_fixture()
@@ -600,7 +609,7 @@ async fn approval_enforce_does_not_demote_an_engine_block() {
         )
         .await;
 
-    assert_eq!(after.verdict, Verdict::Block);
+    assert_eq!(after.effect, AuthorizationEffect::Deny);
     assert_eq!(after.reason, "tier1 policy `pii` triggered");
 }
 
@@ -619,7 +628,7 @@ async fn approval_enforce_ignores_tools_without_approval_rules() {
         )
         .await;
 
-    assert_eq!(after.verdict, Verdict::Allow);
+    assert_eq!(after.effect, AuthorizationEffect::Permit);
 }
 
 /// `issue_refund` whose `amount` parameter carries a value limit. Value
@@ -658,6 +667,9 @@ fn issue_refund_event(amount: i64) -> GuardEvent {
             operation: "issue_refund".into(),
             parameters: serde_json::json!({ "amount": amount }),
             side_effect: Some(SideEffectClass::ApiMutation),
+            invocation_id: None,
+            tool_identity: None,
+            authorization: None,
         },
         sources: vec![],
         provenance: ProvenanceMap::default(),
@@ -679,7 +691,7 @@ fn max_block(max: i64) -> ParamLimit {
     ParamLimit {
         max: Some(max),
         min: None,
-        on_breach: LimitAction::Block,
+        on_breach: LimitAction::Deny,
     }
 }
 
@@ -696,7 +708,7 @@ async fn value_limit_enforce_blocks_over_max_refund() {
         )
         .await;
 
-    assert_eq!(after.verdict, Verdict::Block);
+    assert_eq!(after.effect, AuthorizationEffect::Deny);
     assert!(after
         .reason
         .starts_with("value_limit: parameter_value.amount:"));
@@ -704,7 +716,7 @@ async fn value_limit_enforce_blocks_over_max_refund() {
         after.violated_rule.as_deref(),
         Some("parameter_value.amount")
     );
-    assert_eq!(after.failure_mode.as_deref(), Some("amount_over_limit"));
+    assert_eq!(after.risk_code.as_deref(), Some("amount_over_limit"));
     assert_eq!(after.harm_class.as_deref(), Some("authorization"));
     assert_eq!(event.checks.len(), 1);
     assert_eq!(event.checks[0].checker_id, "value_limit");
@@ -724,7 +736,7 @@ async fn value_limit_enforce_allows_within_max_refund() {
         )
         .await;
 
-    assert_eq!(after.verdict, Verdict::Allow);
+    assert_eq!(after.effect, AuthorizationEffect::Permit);
 }
 
 #[tokio::test]

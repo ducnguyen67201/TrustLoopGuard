@@ -10,17 +10,17 @@ from trustloopguard import (
     AsyncClient,
     Client,
     CreateRunEventRequest,
-    Decision,
+    AuthorizationDecision,
     GuardEvent,
     Internal,
     RunEventKind,
     RunKind,
     RunStatus,
-    Verdict,
+    AuthorizationEffect,
 )
 from trustloopguard.retry import RetryConfig
 
-DEFAULT_EVENT_ALLOW_REASON = "event allowed: no enforced checker or enabled policy matched"
+DEFAULT_EVENT_ALLOW_REASON = "current policy and authority permit the subject"
 
 
 def send_email_event() -> GuardEvent:
@@ -51,10 +51,11 @@ def send_email_event() -> GuardEvent:
 def default_allow_decision() -> dict:
     return {
         "trace_id": "t-1",
-        "verdict": "allow",
+        "domain": "tool",
+        "effect": "permit",
         "reason": DEFAULT_EVENT_ALLOW_REASON,
-        "triggered_policies": [],
-        "safe_output": None,
+        "findings": [],
+        "transformed_value": None,
         "latency_ms": 2,
     }
 
@@ -105,9 +106,9 @@ def test_submit_event_round_trip() -> None:
     )
 
     with Client("https://api.example.test", api_key="secret") as client:
-        decision: Decision = client.submit_event(send_email_event())
+        decision: AuthorizationDecision = client.submit_event(send_email_event())
 
-    assert decision.verdict is Verdict.allow
+    assert decision.effect is AuthorizationEffect.permit
     assert decision.reason == DEFAULT_EVENT_ALLOW_REASON
 
     request = route.calls.last.request
@@ -239,5 +240,5 @@ async def test_async_submit_event_round_trip() -> None:
     async with AsyncClient("https://api.example.test") as client:
         decision = await client.submit_event(send_email_event())
 
-    assert decision.verdict is Verdict.allow
+    assert decision.effect is AuthorizationEffect.permit
     assert decision.reason == DEFAULT_EVENT_ALLOW_REASON

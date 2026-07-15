@@ -1,6 +1,6 @@
 use axum::response::Response;
 use serde_json::Value;
-use tl_core::{Decision, RunStatus, Verdict};
+use tl_core::{AuthorizationEffect, Decision, RunStatus};
 
 use super::super::provider::GatewayProvider;
 use super::super::GatewayState;
@@ -34,39 +34,34 @@ pub(super) async fn handle_output_enforcement<P: GatewayProvider>(
         wants_stream,
     } = enforcement;
 
-    let response = match output_decision.verdict {
-        Verdict::Allow => {
+    let response = match output_decision.effect {
+        AuthorizationEffect::Permit => {
             finalize_gateway_response(provider, wants_stream, provider_response, None)
         }
-        Verdict::Rewrite => match output_decision.safe_output.as_deref() {
+        AuthorizationEffect::Transform => match output_decision.safe_output.as_deref() {
             Some(safe_output) => finalize_gateway_response(
                 provider,
                 wants_stream,
                 provider.apply_output_rewrite(provider_response, safe_output),
-                Some(enforcement_headers(&output_decision, "rewrite")),
+                Some(enforcement_headers(&output_decision, "transform")),
             ),
-            None => output_blocked_response(
-                provider,
-                &request,
-                wants_stream,
-                &output_decision,
-                "blocked",
-            ),
+            None => {
+                output_blocked_response(provider, &request, wants_stream, &output_decision, "deny")
+            }
         },
-        Verdict::Block => output_blocked_response(
+        AuthorizationEffect::Deny => {
+            output_blocked_response(provider, &request, wants_stream, &output_decision, "deny")
+        }
+        AuthorizationEffect::RequireApproval => output_blocked_response(
             provider,
             &request,
             wants_stream,
             &output_decision,
-            "blocked",
+            "require_approval",
         ),
-        Verdict::Escalate => output_blocked_response(
-            provider,
-            &request,
-            wants_stream,
-            &output_decision,
-            "escalated",
-        ),
+        AuthorizationEffect::Defer => {
+            output_blocked_response(provider, &request, wants_stream, &output_decision, "defer")
+        }
     };
 
     finish_completed(state, workspace_id, environment_id, run_id).await;
@@ -78,22 +73,19 @@ fn output_blocked_response<P: GatewayProvider>(
     request: &Value,
     wants_stream: bool,
     decision: &Decision,
-    verdict: &'static str,
+    effect: &'static str,
 ) -> Response {
     finalize_gateway_response(
         provider,
         wants_stream,
         provider.blocked_response(request),
-        Some(enforcement_headers(decision, verdict)),
+        Some(enforcement_headers(decision, effect)),
     )
 }
 
-fn enforcement_headers<'a>(
-    decision: &'a Decision,
-    verdict: &'static str,
-) -> EnforcementHeaders<'a> {
+fn enforcement_headers<'a>(decision: &'a Decision, effect: &'static str) -> EnforcementHeaders<'a> {
     EnforcementHeaders {
-        verdict,
+        effect,
         trace_id: &decision.trace_id,
         phase: "output",
         policy_id: decision

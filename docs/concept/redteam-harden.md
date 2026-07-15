@@ -91,6 +91,6 @@ its claim, and any class needing an event-level defence is reported as
 - Endpoint, verify loop, persistence — `crates/tl-server` (`redteam::harden`,
   `redteam::verify`).
 - Verification reuses the engine evaluator and the runtime semantic judge, so a
-  candidate's verdict matches production. See [event-engine.md](event-engine.md).
+  candidate's authorization effect matches production. See [event-engine.md](event-engine.md).
 
 Related: [redteam-dispatch.md](redteam-dispatch.md) (the jobs harden reads from).

@@ -15,7 +15,7 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
-use tl_core::{new_trace_id, Decision, Verdict};
+use tl_core::{new_trace_id, AuthorizationEffect, Decision};
 use tl_storage::{
     connect_postgres, migrate_postgres,
     schema::{organizations, workspace_environments, workspaces},
@@ -78,9 +78,9 @@ async fn fresh_store() -> (
     (PostgresStore::new(pool), url, container)
 }
 
-fn fake_decision(trace_id: String, verdict: Verdict) -> Decision {
+fn fake_decision(trace_id: String, effect: AuthorizationEffect) -> Decision {
     let mut d = Decision::allow(trace_id);
-    d.verdict = verdict;
+    d.effect = effect;
     d.reason = "integration test".into();
     d.latency_ms = 42;
     d
@@ -96,12 +96,12 @@ async fn migration_runs_clean_and_is_idempotent() {
 async fn put_then_get_round_trips() {
     let (store, _url, _c) = fresh_store().await;
     let id = new_trace_id();
-    let original = fake_decision(id.clone(), Verdict::Block);
+    let original = fake_decision(id.clone(), AuthorizationEffect::Deny);
     store.put(&original).await.expect("put");
 
     let fetched = store.get(&id).await.expect("get");
     assert_eq!(fetched.trace_id, original.trace_id);
-    assert_eq!(fetched.verdict, original.verdict);
+    assert_eq!(fetched.effect, original.effect);
     assert_eq!(fetched.reason, original.reason);
     assert_eq!(fetched.latency_ms, original.latency_ms);
 }
@@ -120,7 +120,7 @@ async fn missing_trace_id_returns_not_found() {
 async fn duplicate_put_is_idempotent() {
     let (store, _url, _c) = fresh_store().await;
     let id = new_trace_id();
-    let d = fake_decision(id.clone(), Verdict::Allow);
+    let d = fake_decision(id.clone(), AuthorizationEffect::Permit);
     store.put(&d).await.expect("first");
     store.put(&d).await.expect("second");
     // Idempotency: still fetchable, no panic.

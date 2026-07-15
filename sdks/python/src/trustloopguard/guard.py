@@ -9,18 +9,19 @@ delivering an agent draft::
 The lower-level sync (``guard`` with ``client=...``) and async
 (``guard_async``) variants remain available for custom client ownership.
 
-Low-level verdict → callback mapping::
+Low-level effect → callback mapping::
 
-    allow    → on_allow ?? draft
-    rewrite  → on_revise ?? (decision.safe_output or draft)
-    block    → on_block ?? default safe message
-    escalate → on_escalate ?? default escalation message
+    permit           → on_allow ?? draft
+    transform        → on_revise ?? (decision.transformed_value or draft)
+    deny             → on_block ?? default safe message
+    require_approval → on_require_approval ?? default holding message
+    defer            → on_defer ?? default retry-later message
 
 Factory-mode presets::
 
-    strict                → treat rewrite verdicts as blocked output
-    rewrite               → use safe_output, block when no safe_output exists
-    rewrite_or_regenerate → use safe_output, otherwise regenerate and check again
+    strict                → treat transform effects as denied output
+    rewrite               → use transformed output, deny when none exists
+    rewrite_or_regenerate → use transformed output, otherwise regenerate and check again
 
 Transport / decode / retry-exhausted errors route to ``on_error``,
 **default fail-open** (return original draft). Pass an explicit
@@ -38,8 +39,9 @@ Low-level example::
         agent_id="acme-support-v3",
         input=user_message,
         draft=agent_draft,
-    on_block=lambda _: "I'll connect you with a teammate.",
-        on_escalate=lambda _: human_queue_push_then_hold(),
+        on_block=lambda _: "I can't help with that.",
+        on_require_approval=lambda _: human_queue_push_then_hold(),
+        on_defer=lambda _: "I need more verified information before continuing.",
     )
     send_to_customer(reply)
 """
@@ -57,7 +59,7 @@ from typing import Any, Awaitable, Callable, Literal, Optional, Union, overload
 from trustloopguard._generated.types import (
     Action,
     Channel,
-    Decision,
+    AuthorizationDecision,
     EventKind,
     GuardEvent,
     Labels,
@@ -66,7 +68,7 @@ from trustloopguard._generated.types import (
     ProvenanceMap,
     SideEffectClass,
     Source,
-    Verdict,
+    AuthorizationEffect,
 )
 from trustloopguard.client import AsyncClient, Client
 from trustloopguard.errors import SdkError
@@ -76,28 +78,31 @@ _logger = logging.getLogger("trustloopguard")
 
 # -- Sync callback signatures ----------------------------------------------
 
-OnAllowSync = Callable[[str, Decision], str]
-OnReviseSync = Callable[[Optional[str], str, Decision], str]
-OnBlockSync = Callable[[Decision], str]
-OnEscalateSync = Callable[[Decision], str]
+OnAllowSync = Callable[[str, AuthorizationDecision], str]
+OnReviseSync = Callable[[Optional[str], str, AuthorizationDecision], str]
+OnBlockSync = Callable[[AuthorizationDecision], str]
+OnRequireApprovalSync = Callable[[AuthorizationDecision], str]
+OnDeferSync = Callable[[AuthorizationDecision], str]
 OnErrorSync = Callable[[SdkError, str], str]
 
 # -- Async callback signatures ---------------------------------------------
 
-OnAllowAsync = Callable[[str, Decision], Awaitable[str]]
-OnReviseAsync = Callable[[Optional[str], str, Decision], Awaitable[str]]
-OnBlockAsync = Callable[[Decision], Awaitable[str]]
-OnEscalateAsync = Callable[[Decision], Awaitable[str]]
+OnAllowAsync = Callable[[str, AuthorizationDecision], Awaitable[str]]
+OnReviseAsync = Callable[[Optional[str], str, AuthorizationDecision], Awaitable[str]]
+OnBlockAsync = Callable[[AuthorizationDecision], Awaitable[str]]
+OnRequireApprovalAsync = Callable[[AuthorizationDecision], Awaitable[str]]
+OnDeferAsync = Callable[[AuthorizationDecision], Awaitable[str]]
 OnErrorAsync = Callable[[SdkError, str], Awaitable[str]]
 
-DecisionHandler = Callable[[Decision], Union[str, Awaitable[str]]]
+DecisionHandler = Callable[[AuthorizationDecision], Union[str, Awaitable[str]]]
 ErrorHandler = Callable[[SdkError, str], Union[str, Awaitable[str]]]
 GuardModeValue = Literal["strict", "rewrite", "rewrite_or_regenerate"]
 GuardModeInput = Union["GuardMode", GuardModeValue]
 RegenerateHandler = Callable[["RegenerateFeedback"], Union[str, Awaitable[str]]]
 
 DEFAULT_BLOCK_MESSAGE = "I can't help with that request."
-DEFAULT_ESCALATE_MESSAGE = "A human teammate should review this before we continue."
+DEFAULT_REQUIRE_APPROVAL_MESSAGE = "A human teammate should review this before we continue."
+DEFAULT_DEFER_MESSAGE = "Required evidence or system state is unavailable. Please try again later."
 
 
 class GuardMode(str, Enum):
@@ -114,7 +119,7 @@ class RegenerateFeedback:
 
     input: str
     draft: str
-    decision: Decision
+    decision: AuthorizationDecision
     reason: str
     safe_output: str | None
     attempt: int
@@ -126,8 +131,8 @@ class GuardLogEvent:
     """Structured event emitted once per ``guard`` invocation."""
 
     trace_id: str
-    verdict: str
-    branch: Literal["allow", "revise", "block", "escalate", "error"]
+    effect: str
+    branch: Literal["permit", "revise", "deny", "require_approval", "defer", "error"]
     latency_ms: int
 
 
@@ -135,7 +140,7 @@ class OutputGuard:
     """Async callable returned by ``trustloopguard.guard(agent_id=...)``.
 
     It owns the SDK client by default, reads the usual TrustLoopGuard env vars,
-    and applies safe block/escalate defaults. Most integrations should create
+    and applies safe deny/approval/defer defaults. Most integrations should create
     one guard at startup and call it at the output boundary:
 
     ``safe_reply = await guard(input=user_text, draft=agent_draft)``
@@ -154,7 +159,8 @@ class OutputGuard:
         domain: str | None = None,
         context: dict[str, Any] | None = None,
         on_block: DecisionHandler | str | None = None,
-        on_escalate: DecisionHandler | str | None = None,
+        on_require_approval: DecisionHandler | str | None = None,
+        on_defer: DecisionHandler | str | None = None,
         on_error: ErrorHandler | str | None = None,
         mode: GuardModeInput = GuardMode.REWRITE,
         regenerate: RegenerateHandler | None = None,
@@ -167,7 +173,8 @@ class OutputGuard:
         self.domain = domain
         self.context = context or {}
         self.on_block = on_block
-        self.on_escalate = on_escalate
+        self.on_require_approval = on_require_approval
+        self.on_defer = on_defer
         self.on_error = on_error
         self.mode = _normalize_mode(mode)
         self.regenerate = regenerate
@@ -203,7 +210,8 @@ class OutputGuard:
         context: dict[str, Any] | None = None,
         trace_id: str | None = None,
         on_block: DecisionHandler | str | None = None,
-        on_escalate: DecisionHandler | str | None = None,
+        on_require_approval: DecisionHandler | str | None = None,
+        on_defer: DecisionHandler | str | None = None,
         on_error: ErrorHandler | str | None = None,
         mode: GuardModeInput | None = None,
         regenerate: RegenerateHandler | None = None,
@@ -219,9 +227,13 @@ class OutputGuard:
             on_block if on_block is not None else self.on_block,
             DEFAULT_BLOCK_MESSAGE,
         )
-        escalate_handler = _decision_handler(
-            on_escalate if on_escalate is not None else self.on_escalate,
-            DEFAULT_ESCALATE_MESSAGE,
+        require_approval_handler = _decision_handler(
+            on_require_approval if on_require_approval is not None else self.on_require_approval,
+            DEFAULT_REQUIRE_APPROVAL_MESSAGE,
+        )
+        defer_handler = _decision_handler(
+            on_defer if on_defer is not None else self.on_defer,
+            DEFAULT_DEFER_MESSAGE,
         )
         error_handler = _error_handler(
             on_error if on_error is not None else self.on_error,
@@ -233,7 +245,7 @@ class OutputGuard:
             async def on_revise(
                 revised: str | None,
                 checked_draft: str,
-                decision: Decision,
+                decision: AuthorizationDecision,
             ) -> str:
                 if selected_mode == GuardMode.STRICT:
                     return await block_handler(decision)
@@ -254,7 +266,11 @@ class OutputGuard:
                     draft=checked_draft,
                     decision=decision,
                     reason=decision.reason,
-                    safe_output=decision.safe_output,
+                    safe_output=(
+                        decision.transformed_value
+                        if isinstance(decision.transformed_value, str)
+                        else None
+                    ),
                     attempt=next_attempt,
                     max_attempts=selected_max_regenerations,
                 )
@@ -273,7 +289,8 @@ class OutputGuard:
                 context={**self.context, **(context or {})},
                 trace_id=trace_id,
                 on_block=block_handler,
-                on_escalate=escalate_handler,
+                on_require_approval=require_approval_handler,
+                on_defer=defer_handler,
                 on_revise=on_revise,
                 on_error=error_handler,
                 log=selected_log,
@@ -291,7 +308,8 @@ class OutputGuard:
         context: dict[str, Any] | None = None,
         trace_id: str | None = None,
         on_block: DecisionHandler | str | None = None,
-        on_escalate: DecisionHandler | str | None = None,
+        on_require_approval: DecisionHandler | str | None = None,
+        on_defer: DecisionHandler | str | None = None,
         on_error: ErrorHandler | str | None = None,
         mode: GuardModeInput | None = None,
         regenerate: RegenerateHandler | None = None,
@@ -314,7 +332,8 @@ class OutputGuard:
             context=context,
             trace_id=trace_id,
             on_block=on_block,
-            on_escalate=on_escalate,
+            on_require_approval=on_require_approval,
+            on_defer=on_defer,
             on_error=on_error,
             mode=mode,
             regenerate=regenerate,
@@ -384,10 +403,14 @@ def _build_event(
     )
 
 
-def _branch_for(verdict: str) -> Literal["allow", "revise", "block", "escalate"]:
-    if verdict == "rewrite":
+def _branch_for(
+    effect: str,
+) -> Literal["permit", "revise", "deny", "require_approval", "defer"]:
+    if effect == "transform":
         return "revise"
-    return verdict  # type: ignore[return-value]
+    if effect in {"permit", "deny", "require_approval", "defer"}:
+        return effect
+    raise ValueError(f"unknown authorization effect: {effect}")
 
 
 def _env(*names: str) -> str | None:
@@ -408,7 +431,7 @@ def _decision_handler(
     handler: DecisionHandler | str | None,
     default_message: str,
 ) -> OnBlockAsync:
-    async def resolved(decision: Decision) -> str:
+    async def resolved(decision: AuthorizationDecision) -> str:
         if handler is None:
             return default_message
         if isinstance(handler, str):
@@ -457,7 +480,8 @@ def guard(
     domain: str | None = None,
     context: dict[str, Any] | None = None,
     on_block: DecisionHandler | str | None = None,
-    on_escalate: DecisionHandler | str | None = None,
+    on_require_approval: DecisionHandler | str | None = None,
+    on_defer: DecisionHandler | str | None = None,
     on_error: ErrorHandler | str | None = None,
     mode: GuardModeInput = GuardMode.REWRITE,
     regenerate: RegenerateHandler | None = None,
@@ -475,7 +499,8 @@ def guard(
     input: str,  # noqa: A002 — matches the wire field name
     draft: str,
     on_block: OnBlockSync,
-    on_escalate: OnEscalateSync,
+    on_require_approval: OnRequireApprovalSync,
+    on_defer: OnDeferSync | None = None,
     on_allow: OnAllowSync | None = None,
     on_revise: OnReviseSync | None = None,
     on_error: OnErrorSync | None = None,
@@ -496,7 +521,8 @@ def guard(
     input: str | None = None,  # noqa: A002 — matches the wire field name
     draft: str | None = None,
     on_block: OnBlockSync | DecisionHandler | str | None = None,
-    on_escalate: OnEscalateSync | DecisionHandler | str | None = None,
+    on_require_approval: OnRequireApprovalSync | DecisionHandler | str | None = None,
+    on_defer: OnDeferSync | DecisionHandler | str | None = None,
     on_allow: OnAllowSync | None = None,
     on_revise: OnReviseSync | None = None,
     on_error: OnErrorSync | ErrorHandler | str | None = None,
@@ -542,7 +568,8 @@ def guard(
             domain=domain,
             context=context,
             on_block=on_block,
-            on_escalate=on_escalate,
+            on_require_approval=on_require_approval,
+            on_defer=on_defer,
             on_error=on_error,
             mode=mode,
             regenerate=regenerate,
@@ -553,8 +580,11 @@ def guard(
 
     if input is None or draft is None:
         raise TypeError("client guard requires input=... and draft=...")
-    if not callable(on_block) or not callable(on_escalate):
-        raise TypeError("client guard requires callable on_block and on_escalate")
+    if not callable(on_block) or not callable(on_require_approval):
+        raise TypeError("client guard requires callable on_block and on_require_approval")
+    resolved_on_defer: OnDeferSync = (
+        on_defer if callable(on_defer) else lambda _decision: DEFAULT_DEFER_MESSAGE
+    )
 
     return _guard_sync(
         client=client,
@@ -562,7 +592,8 @@ def guard(
         input=input,
         draft=draft,
         on_block=on_block,
-        on_escalate=on_escalate,
+        on_require_approval=on_require_approval,
+        on_defer=resolved_on_defer,
         on_allow=on_allow,
         on_revise=on_revise,
         on_error=on_error if callable(on_error) else None,
@@ -583,7 +614,8 @@ def _guard_sync(
     input: str,  # noqa: A002 — matches the wire field name
     draft: str,
     on_block: OnBlockSync,
-    on_escalate: OnEscalateSync,
+    on_require_approval: OnRequireApprovalSync,
+    on_defer: OnDeferSync,
     on_allow: OnAllowSync | None = None,
     on_revise: OnReviseSync | None = None,
     on_error: OnErrorSync | None = None,
@@ -598,7 +630,7 @@ def _guard_sync(
     """Run a sync check and dispatch the appropriate callback. Returns
     the string the caller should actually send to the customer.
 
-    See module docstring for the full verdict-to-callback table.
+    See module docstring for the full effect-to-callback table.
     """
     start = time.monotonic()
     event = _build_event(
@@ -617,29 +649,31 @@ def _guard_sync(
         decision = client.submit_event(event)
     except SdkError as e:
         result = on_error(e, draft) if on_error else draft  # fail-open default
-        _emit_log(log, trace_id or "", "allow", "error", start)
+        _emit_log(log, trace_id or "", "permit", "error", start)
         return result
 
-    if decision.verdict == Verdict.allow:
+    if decision.effect == AuthorizationEffect.permit:
         result = on_allow(draft, decision) if on_allow else draft
-    elif decision.verdict == Verdict.rewrite:
-        revised = decision.safe_output
+    elif decision.effect == AuthorizationEffect.transform:
+        revised = decision.transformed_value if isinstance(decision.transformed_value, str) else None
         if on_revise:
             result = on_revise(revised, draft, decision)
         else:
             result = revised if revised is not None else draft
-    elif decision.verdict == Verdict.block:
+    elif decision.effect == AuthorizationEffect.deny:
         result = on_block(decision)
-    elif decision.verdict == Verdict.escalate:
-        result = on_escalate(decision)
-    else:  # pragma: no cover — exhaustive over the verdict literal
-        raise RuntimeError(f"unknown verdict: {decision.verdict}")
+    elif decision.effect == AuthorizationEffect.require_approval:
+        result = on_require_approval(decision)
+    elif decision.effect == AuthorizationEffect.defer:
+        result = on_defer(decision)
+    else:  # pragma: no cover — exhaustive over the effect enum
+        raise RuntimeError(f"unknown effect: {decision.effect}")
 
     _emit_log(
         log,
         decision.trace_id,
-        decision.verdict.value,
-        _branch_for(decision.verdict.value),
+        decision.effect.value,
+        _branch_for(decision.effect.value),
         start,
     )
     return result
@@ -655,7 +689,8 @@ async def guard_async(
     input: str,  # noqa: A002
     draft: str,
     on_block: OnBlockAsync,
-    on_escalate: OnEscalateAsync,
+    on_require_approval: OnRequireApprovalAsync,
+    on_defer: OnDeferAsync | None = None,
     on_allow: OnAllowAsync | None = None,
     on_revise: OnReviseAsync | None = None,
     on_error: OnErrorAsync | None = None,
@@ -685,29 +720,31 @@ async def guard_async(
         decision = await client.submit_event(event)
     except SdkError as e:
         result = await on_error(e, draft) if on_error else draft
-        _emit_log(log, trace_id or "", "allow", "error", start)
+        _emit_log(log, trace_id or "", "permit", "error", start)
         return result
 
-    if decision.verdict == Verdict.allow:
+    if decision.effect == AuthorizationEffect.permit:
         result = await on_allow(draft, decision) if on_allow else draft
-    elif decision.verdict == Verdict.rewrite:
-        revised = decision.safe_output
+    elif decision.effect == AuthorizationEffect.transform:
+        revised = decision.transformed_value if isinstance(decision.transformed_value, str) else None
         if on_revise:
             result = await on_revise(revised, draft, decision)
         else:
             result = revised if revised is not None else draft
-    elif decision.verdict == Verdict.block:
+    elif decision.effect == AuthorizationEffect.deny:
         result = await on_block(decision)
-    elif decision.verdict == Verdict.escalate:
-        result = await on_escalate(decision)
+    elif decision.effect == AuthorizationEffect.require_approval:
+        result = await on_require_approval(decision)
+    elif decision.effect == AuthorizationEffect.defer:
+        result = await on_defer(decision) if on_defer else DEFAULT_DEFER_MESSAGE
     else:  # pragma: no cover
-        raise RuntimeError(f"unknown verdict: {decision.verdict}")
+        raise RuntimeError(f"unknown effect: {decision.effect}")
 
     _emit_log(
         log,
         decision.trace_id,
-        decision.verdict.value,
-        _branch_for(decision.verdict.value),
+        decision.effect.value,
+        _branch_for(decision.effect.value),
         start,
     )
     return result
@@ -719,8 +756,8 @@ async def guard_async(
 def _emit_log(
     log: Callable[[GuardLogEvent], None] | None,
     trace_id: str,
-    verdict: str,
-    branch: Literal["allow", "revise", "block", "escalate", "error"],
+    effect: str,
+    branch: Literal["permit", "revise", "deny", "require_approval", "defer", "error"],
     start: float,
 ) -> None:
     if log is None:
@@ -729,7 +766,7 @@ def _emit_log(
     log(
         GuardLogEvent(
             trace_id=trace_id,
-            verdict=verdict,
+            effect=effect,
             branch=branch,
             latency_ms=elapsed_ms,
         )

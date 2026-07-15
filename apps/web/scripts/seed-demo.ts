@@ -86,7 +86,7 @@ id: pii-leak
 description: Escalate replies that include sensitive personal or payment data.
 match:
   regex: "(ssn|social security|credit card|card number)"
-action: escalate
+action: require_approval
 severity: critical
 owner_agent_id: support-bot
 `);
@@ -96,7 +96,7 @@ id: refund-guarantee
 description: Block promises that guarantee refunds without approved policy context.
 match:
   literal: guaranteed refund
-action: block
+action: deny
 severity: high
 owner_agent_id: support-bot
 `);

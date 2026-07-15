@@ -47,7 +47,7 @@ when:
   channels: [chat]
 match:
   literal: unsafe input
-action: rewrite
+action: transform
 rewrite: safe input
 "#,
     )
@@ -108,7 +108,7 @@ when:
   channels: [chat]
 match:
   literal: unsafe reply
-action: rewrite
+action: transform
 rewrite: safe replacement
 "#,
     )
@@ -132,8 +132,8 @@ rewrite: safe replacement
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
-        response.headers().get("x-trustloopguard-verdict").unwrap(),
-        "rewrite"
+        response.headers().get("x-trustloopguard-effect").unwrap(),
+        "transform"
     );
     let body = read_body(response).await;
     assert_eq!(body["choices"][0]["message"]["content"], "safe replacement");
@@ -172,7 +172,7 @@ async fn gateway_returns_bad_gateway_for_provider_failure() {
     assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
     assert!(response
         .headers()
-        .get("x-trustloopguard-verdict")
+        .get("x-trustloopguard-effect")
         .is_none());
     let body = read_body(response).await;
     assert_eq!(body["message"], "upstream provider request failed");
@@ -180,7 +180,7 @@ async fn gateway_returns_bad_gateway_for_provider_failure() {
 }
 
 #[tokio::test]
-async fn gateway_applies_policy_escalation_before_provider_call() {
+async fn gateway_defers_before_provider_call() {
     let provider = MockServer::start().await;
     let app = build_app().await;
     let workspace = "ws_gateway_policy_escalate_input";
@@ -194,7 +194,7 @@ when:
   channels: [chat]
 match:
   literal: sensitive input
-action: escalate
+action: defer
 "#,
     )
     .await;
@@ -217,8 +217,8 @@ action: escalate
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
-        response.headers().get("x-trustloopguard-verdict").unwrap(),
-        "escalated"
+        response.headers().get("x-trustloopguard-effect").unwrap(),
+        "defer"
     );
     let body = read_body(response).await;
     assert_eq!(
@@ -243,7 +243,7 @@ when:
   channels: [chat]
 match:
   literal: parity input
-action: block
+action: deny
 "#,
     )
     .await;
@@ -282,8 +282,8 @@ action: block
         .unwrap();
     assert_eq!(direct.status(), StatusCode::OK);
     let direct_body = read_body(direct).await;
-    assert_eq!(direct_body["verdict"], "block");
-    assert_eq!(direct_body["triggered_policies"][0]["id"], "parity-block");
+    assert_eq!(direct_body["effect"], "deny");
+    assert_eq!(direct_body["findings"][0]["policy_id"], "parity-block");
 
     let gateway = app
         .oneshot(json_request(
@@ -300,8 +300,8 @@ action: block
         .unwrap();
     assert_eq!(gateway.status(), StatusCode::OK);
     assert_eq!(
-        gateway.headers().get("x-trustloopguard-verdict").unwrap(),
-        "blocked"
+        gateway.headers().get("x-trustloopguard-effect").unwrap(),
+        "deny"
     );
     assert_eq!(
         gateway.headers().get("x-trustloopguard-policy-id").unwrap(),

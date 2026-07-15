@@ -5,12 +5,12 @@ new, or use the visual map below to jump to the part you need.
 
 ## What TrustLoopGuard is
 
-> Ultra-low-latency runtime safety layer for production AI agents. The moment before an agent speaks, sends, clicks, or commits — TrustLoopGuard decides `allow | block | rewrite | escalate`.
+> Ultra-low-latency runtime safety layer for production AI agents. The moment before an agent speaks, sends, clicks, or commits — TrustLoopGuard returns `permit | transform | require_approval | defer | deny`.
 
 Customers integrate one primitive into their agent loop:
 
 ```
-agent proposes output → guard(...) / GuardEvent → allow | block | rewrite | escalate → log
+agent proposes output → guard(...) / GuardEvent → authorization kernel → decision + receipt
 ```
 
 That runtime check is the product. SDK callers receive the decision and handle it in code; gateway callers route provider traffic through TrustLoopGuard and let the Rust proxy apply dashboard-managed enforcement.
@@ -24,7 +24,8 @@ That runtime check is the product. SDK callers receive the decision and handle i
 | The product concept | [architecture.md](architecture.md) | TrustLoopGuard is a gate in the agent output path, not the agent itself. |
 | Runtime data ownership | [architecture.md](architecture.md#runtime-data-flow) | SDKs and the dashboard both reach Rust; the dashboard does not own guardrail state. |
 | Event-engine contract | [event-engine.md](event-engine.md) | `GuardEvent` vocabulary, event-stage seams, policy evaluation, and decision evidence. |
-| Financial authorization | [financial-authorization.md](financial-authorization.md) | Typed financial actions, financial policies, eligibility evidence, outcomes, and reversal semantics. |
+| Authorization kernel | [authorization-kernel.md](authorization-kernel.md) | Shared effects, approvals, grants, leases, and receipts across every domain. |
+| Financial authorization | [financial-authorization.md](financial-authorization.md) | Typed financial policy, execution, ledger, outcome, and reversal semantics. |
 | Policies | [policies.md](policies.md) | Unified Rust policy registry, policy families, environment deployment, and domain wrappers. |
 | Environments | [environments.md](environments.md) | Runtime keys, policy deployments, runs, traces, and analytics are scoped by environment. |
 | Product usage analytics | [product-analytics.md](product-analytics.md) | PostHog observes marketing and dashboard use without owning guardrail/runtime data. |
@@ -37,7 +38,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 2. [event-engine.md](event-engine.md) — the SDK-first event contract and no-op runtime seams.
 3. [financial-authorization.md](financial-authorization.md) — the typed financial action contract and policy family.
 4. [crates.md](crates.md) — what each crate is for, in order of dependency.
-5. [glossary.md](glossary.md) — every domain term defined once: Channel, Verdict, Policy, Decision, hot path, etc.
+5. [glossary.md](glossary.md) — every domain term defined once: Channel, Authorization effect, Policy, Decision, hot path, etc.
 6. [runs.md](runs.md) — how agent executions group decision traces for monitoring.
 7. [analytics-dashboards.md](analytics-dashboards.md) — how customizable analytics queries and saved dashboard views work.
 8. [gateway.md](gateway.md) — how proxy/gateway mode differs from SDK mode.

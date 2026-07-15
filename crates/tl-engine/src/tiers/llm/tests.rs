@@ -4,8 +4,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::json;
 use tl_core::{
-    AgentAuthority, AgentProfile, AgentScope, AgentTone, Channel, CheckRequest, KnowledgeSource,
-    KnowledgeSourceKind, TierStatus, Verdict,
+    AgentAuthority, AgentProfile, AgentScope, AgentTone, AuthorizationEffect, Channel,
+    CheckRequest, KnowledgeSource, KnowledgeSourceKind, TierStatus,
 };
 use tl_llm::{
     JsonSchema, JudgeKind, LlmClient, LlmOutput, LlmRouter, ProviderTarget, ResolvedRoute,
@@ -20,6 +20,8 @@ use crate::context::HandlerCtx;
 struct CannedClient {
     out: serde_json::Value,
 }
+
+struct FailingClient;
 
 #[async_trait]
 impl LlmClient for CannedClient {
@@ -38,9 +40,47 @@ impl LlmClient for CannedClient {
     }
 }
 
+#[async_trait]
+impl LlmClient for FailingClient {
+    async fn complete(
+        &self,
+        _model: &str,
+        _prompt: &str,
+        _schema: &JsonSchema,
+        _deadline: std::time::Duration,
+    ) -> Result<LlmOutput, tl_llm::LlmError> {
+        Err(tl_llm::LlmError::Http("judge unavailable".into()))
+    }
+}
+
 fn router_returning(json: serde_json::Value) -> LlmRouter {
     let mut providers: HashMap<String, Arc<dyn LlmClient>> = HashMap::new();
     providers.insert("p".into(), Arc::new(CannedClient { out: json }));
+    let target = ProviderTarget {
+        provider: "p".into(),
+        model: "m".into(),
+        deadline_ms: 1_000,
+    };
+    let mut routes = HashMap::new();
+    for kind in [
+        JudgeKind::Hallucination,
+        JudgeKind::Tone,
+        JudgeKind::Authority,
+    ] {
+        routes.insert(
+            kind,
+            ResolvedRoute {
+                primary: target.clone(),
+                fallback: None,
+            },
+        );
+    }
+    LlmRouter::new(providers, routes, Arc::new(TokenBudget::new(0)))
+}
+
+fn failing_router() -> LlmRouter {
+    let mut providers: HashMap<String, Arc<dyn LlmClient>> = HashMap::new();
+    providers.insert("p".into(), Arc::new(FailingClient));
     let target = ProviderTarget {
         provider: "p".into(),
         model: "m".into(),
@@ -140,6 +180,15 @@ async fn empty_router_yields_skipped() {
 }
 
 #[tokio::test]
+async fn unavailable_judge_defers_instead_of_requiring_approval() {
+    let context = ctx_with(failing_router());
+    let out = run(&sample_req(), &context, CancellationToken::new()).await;
+    let stop = out.block.expect("unavailable evidence must stop delivery");
+    assert_eq!(stop.effect, AuthorizationEffect::Defer);
+    assert!(stop.reason.contains("judge unavailable"));
+}
+
+#[tokio::test]
 async fn three_clean_verdicts_yield_completed_with_no_block() {
     let json = json!({
         "grounded": true,
@@ -189,7 +238,7 @@ async fn hallucination_violation_blocks() {
     let context = ctx_with(router_returning(json));
     let out = run(&sample_req(), &context, CancellationToken::new()).await;
     let block = out.block.expect("block set");
-    assert_eq!(block.verdict, Verdict::Block);
+    assert_eq!(block.effect, AuthorizationEffect::Deny);
     assert!(block.reason.contains("hallucination"));
     assert!(out
         .result
@@ -212,7 +261,7 @@ async fn authority_violation_blocks() {
     let context = ctx_with(router_returning(json));
     let out = run(&sample_req(), &context, CancellationToken::new()).await;
     let block = out.block.expect("block set");
-    assert_eq!(block.verdict, Verdict::Block);
+    assert_eq!(block.effect, AuthorizationEffect::Deny);
     assert!(block.reason.contains("authority"));
     assert!(out
         .result
@@ -235,7 +284,7 @@ async fn tone_mismatch_yields_rewrite_verdict() {
     let context = ctx_with(router_returning(json));
     let out = run(&sample_req(), &context, CancellationToken::new()).await;
     let block = out.block.expect("block set");
-    assert_eq!(block.verdict, Verdict::Rewrite);
+    assert_eq!(block.effect, AuthorizationEffect::Transform);
     assert!(block.reason.contains("tone"));
 }
 

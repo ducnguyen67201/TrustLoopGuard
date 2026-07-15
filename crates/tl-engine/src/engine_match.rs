@@ -87,7 +87,7 @@ when:
   channels: [chat]
 match:
   literal: "guaranteed refund"
-action: block
+action: deny
 "#,
         )
         .expect("policy");
@@ -104,7 +104,7 @@ when:
   agents: [other-agent]
 match:
   literal: "guaranteed refund"
-action: block
+action: deny
 "#,
         )
         .expect("policy");
@@ -121,7 +121,7 @@ when:
   domains: [sales]
 match:
   literal: "guaranteed refund"
-action: block
+action: deny
 "#,
         )
         .expect("policy");
@@ -138,7 +138,7 @@ action: block
 id: refund-promise
 match:
   literal: "guaranteed refund"
-action: block
+action: deny
 "#,
         )
         .expect("policy");
@@ -157,7 +157,7 @@ when:
   domains: [customer_support]
 match:
   literal: "guaranteed refund"
-action: block
+action: deny
 "#,
         )
         .expect("policy");

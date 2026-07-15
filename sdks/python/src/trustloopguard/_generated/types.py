@@ -27,15 +27,6 @@ class AgentTone(BaseModel):
     target: str
 
 
-class AgenticPaymentDecision(Enum):
-    authorized = 'authorized'
-    held = 'held'
-    denied = 'denied'
-    committed = 'committed'
-    rolled_back = 'rolled_back'
-    failed = 'failed'
-
-
 class AgenticPaymentReservationStatus(Enum):
     reserved = 'reserved'
     committed = 'committed'
@@ -64,7 +55,7 @@ class AnalyticsDimension(Enum):
     environment = 'environment'
     run_kind = 'run_kind'
     run_status = 'run_status'
-    decision = 'decision'
+    authorization_effect = 'authorization_effect'
     policy_id = 'policy_id'
     workflow_step = 'workflow_step'
     review_outcome = 'review_outcome'
@@ -84,10 +75,11 @@ class AnalyticsFilter(BaseModel):
 
 class AnalyticsMetric(Enum):
     trace_count = 'trace_count'
-    allow_count = 'allow_count'
-    block_count = 'block_count'
-    rewrite_count = 'rewrite_count'
-    escalate_count = 'escalate_count'
+    permit_count = 'permit_count'
+    deny_count = 'deny_count'
+    transform_count = 'transform_count'
+    require_approval_count = 'require_approval_count'
+    defer_count = 'defer_count'
     intervention_rate = 'intervention_rate'
     p95_latency_ms = 'p95_latency_ms'
     human_review_count = 'human_review_count'
@@ -137,11 +129,9 @@ class ApiKeyBatchRevokeRequest(BaseModel):
     ids: list[str]
 
 
-class ApprovalRequirement(BaseModel):
-    approver_roles: list[str] | None = None
-    expires_at: str | None = None
-    reason: str
-    required: bool
+class ApprovalDecision(Enum):
+    approve = 'approve'
+    deny = 'deny'
 
 
 class ApprovalRule(BaseModel):
@@ -150,13 +140,12 @@ class ApprovalRule(BaseModel):
     required: bool
 
 
-class ApproveMatchingFinancialActionsRequest(BaseModel):
-    action_fingerprint: str = Field(
-        ...,
-        description='The fingerprint shown to the approver. The server recomputes it before\ncreating the mandate so an action cannot change underneath the dialog.',
-    )
-    expires_at: str
-    max_amount_minor: int
+class ApprovalStatus(Enum):
+    pending = 'pending'
+    approved = 'approved'
+    denied = 'denied'
+    canceled = 'canceled'
+    expired = 'expired'
 
 
 class AuthRequest(BaseModel):
@@ -176,6 +165,114 @@ class AuthResponse(BaseModel):
     )
     user_id: str
     username: str
+
+
+class AuthorizationApprovalSummary(BaseModel):
+    envelope_hash: str
+    expires_at: str
+    id: str
+    poll_after_ms: conint(ge=0)
+    status: ApprovalStatus
+
+
+class AuthorizationCapabilityId(RootModel[str]):
+    root: str
+
+
+class AuthorizationClaim(BaseModel):
+    attempt_id: str
+    grant_id: str
+
+
+class AuthorizationDomain(Enum):
+    content = 'content'
+    tool = 'tool'
+    financial = 'financial'
+
+
+class Domain(Enum):
+    content = 'content'
+
+
+class AuthorizationDomainEvidence1(BaseModel):
+    domain: Domain
+    evidence: Any
+
+
+class Domain1(Enum):
+    tool = 'tool'
+
+
+class AuthorizationDomainEvidence2(BaseModel):
+    domain: Domain1
+    evidence: Any
+
+
+class Domain2(Enum):
+    financial = 'financial'
+
+
+class AuthorizationDomainEvidence3(BaseModel):
+    domain: Domain2
+    evidence: Any
+
+
+class AuthorizationDomainEvidence(
+    RootModel[
+        AuthorizationDomainEvidence1
+        | AuthorizationDomainEvidence2
+        | AuthorizationDomainEvidence3
+    ]
+):
+    root: (
+        AuthorizationDomainEvidence1
+        | AuthorizationDomainEvidence2
+        | AuthorizationDomainEvidence3
+    )
+
+
+class AuthorizationEffect(Enum):
+    permit = 'permit'
+    deny = 'deny'
+    transform = 'transform'
+    require_approval = 'require_approval'
+    defer = 'defer'
+
+
+class ScopeType(Enum):
+    action = 'action'
+
+
+class ScopeType1(Enum):
+    financial = 'financial'
+
+
+class AuthorizationGrantSource(Enum):
+    user_intent = 'user_intent'
+    reviewer_approval = 'reviewer_approval'
+    workspace_admin = 'workspace_admin'
+
+
+class AuthorizationIntentStatus(Enum):
+    evaluating = 'evaluating'
+    pending_approval = 'pending_approval'
+    authorized = 'authorized'
+    denied = 'denied'
+    deferred = 'deferred'
+    canceled = 'canceled'
+    expired = 'expired'
+
+
+class Domain3(Enum):
+    content = 'content'
+
+
+class Domain4(Enum):
+    tool = 'tool'
+
+
+class Domain5(Enum):
+    financial = 'financial'
 
 
 class BudgetAlertThresholdType(Enum):
@@ -203,6 +300,16 @@ class Channel(Enum):
     voice = 'voice'
     chat = 'chat'
     email = 'email'
+
+
+class CheckerFindingEvidence(BaseModel):
+    harm_class: str | None = None
+    reason: str
+    recommended_effect: AuthorizationEffect | None = None
+    risk_code: str | None = None
+    risk_source: str | None = None
+    rule: str
+    source_chain: list[str] | None = None
 
 
 class ComparedAttackStatus(Enum):
@@ -233,7 +340,7 @@ class CreateApiKeyRequest(BaseModel):
     name: str
     principal_id: str | None = Field(
         None,
-        description='Optional principal to bind the key to (free-form, e.g.\n`user:daniel`). Requests authenticated with the key resolve to\nthis principal for mandates, budgets, and the audit trail.',
+        description='Optional principal to bind the key to (free-form, e.g.\n`user:daniel`). Requests authenticated with the key resolve to\nthis principal for grants, budgets, and the audit trail.',
     )
 
 
@@ -339,11 +446,9 @@ class EvidenceRef(BaseModel):
     source_id: str
 
 
-class FinancialActionDecision(Enum):
-    allow = 'allow'
-    hold = 'hold'
-    block = 'block'
-    escalate = 'escalate'
+class ExecuteFinancialActionRequest(BaseModel):
+    attempt_id: str | None = None
+    authorization: AuthorizationClaim | None = None
 
 
 class FinancialActionKind(Enum):
@@ -379,72 +484,17 @@ class FinancialActionPrecondition(Enum):
     no_duplicate_refund = 'no_duplicate_refund'
     invoice_matches_po = 'invoice_matches_po'
     vendor_approved = 'vendor_approved'
-    mandate_valid = 'mandate_valid'
+    grant_valid = 'grant_valid'
     custom = 'custom'
 
 
-class FinancialActionStatus(Enum):
-    proposed = 'proposed'
-    authorized = 'authorized'
-    held = 'held'
-    executed = 'executed'
-    denied = 'denied'
-    failed = 'failed'
-    reversed = 'reversed'
-    expired = 'expired'
-
-
-class FinancialApprovalRequestStatus(Enum):
-    pending = 'pending'
-    approved = 'approved'
-    denied = 'denied'
-    expired = 'expired'
-    canceled = 'canceled'
-
-
-class FinancialDecisionRiskCode(Enum):
-    amount_above_auto_approve_threshold = 'amount_above_auto_approve_threshold'
-    amount_over_per_transaction_cap = 'amount_over_per_transaction_cap'
-    missing_authorization_scope = 'missing_authorization_scope'
-    authorization_scope_invalid = 'authorization_scope_invalid'
-    counterparty_denied = 'counterparty_denied'
-    counterparty_not_allowed = 'counterparty_not_allowed'
-    new_counterparty = 'new_counterparty'
-    missing_evidence = 'missing_evidence'
-    failed_evidence = 'failed_evidence'
-    daily_cap_exceeded = 'daily_cap_exceeded'
-    weekly_cap_exceeded = 'weekly_cap_exceeded'
-    monthly_cap_exceeded = 'monthly_cap_exceeded'
-    provider_not_executed = 'provider_not_executed'
-    provider_failed = 'provider_failed'
-    unknown = 'unknown'
-
-
-class FinancialEligibilityStatus(Enum):
-    passed = 'passed'
-    failed = 'failed'
-    missing = 'missing'
-
-
-class FinancialEvidenceProof(BaseModel):
-    evidence_source_id: str | None = None
-    precondition: FinancialActionPrecondition
-    reason: str | None = None
-    status: FinancialEligibilityStatus
-
-
-class FinancialExecutionProofStatus(Enum):
+class FinancialExecutionStatus(Enum):
     not_started = 'not_started'
-    not_required = 'not_required'
-    executed = 'executed'
+    executing = 'executing'
+    succeeded = 'succeeded'
     failed = 'failed'
-    receipt_missing = 'receipt_missing'
-
-
-class FinancialMandateStatus(Enum):
-    active = 'active'
-    revoked = 'revoked'
-    expired = 'expired'
+    canceled = 'canceled'
+    reversed = 'reversed'
 
 
 class FinancialRail(Enum):
@@ -459,6 +509,7 @@ class FinancialRail(Enum):
 
 class FinancialReceipt(BaseModel):
     action_id: str
+    authorization_receipt_id: str
     created_at: str
     id: str
     ledger_event_ids: list[str] | None = None
@@ -593,6 +644,18 @@ class GitHubRepositorySummary(BaseModel):
     owner: str
     private: bool
     repository_id: str
+
+
+class GrantMode(Enum):
+    exact_once = 'exact_once'
+    scoped = 'scoped'
+
+
+class GrantStatus(Enum):
+    active = 'active'
+    revoked = 'revoked'
+    expired = 'expired'
+    exhausted = 'exhausted'
 
 
 class HardenCandidateOperation(Enum):
@@ -742,9 +805,16 @@ class LabelPolicyStatus(Enum):
     unavailable = 'unavailable'
 
 
+class LeaseStatus(Enum):
+    claimed = 'claimed'
+    consumed = 'consumed'
+    canceled = 'canceled'
+    expired = 'expired'
+
+
 class LimitAction(Enum):
-    block = 'block'
-    escalate = 'escalate'
+    deny = 'deny'
+    require_approval = 'require_approval'
 
 
 class LlmPriceSource(Enum):
@@ -774,11 +844,6 @@ class LlmUsageBucketsResponse(BaseModel):
 class LlmUsageKind(Enum):
     customer_inference = 'customer_inference'
     guardrail = 'guardrail'
-
-
-class MandateRef(BaseModel):
-    id: str
-    version: int | None = None
 
 
 class MoneyAmount(BaseModel):
@@ -823,19 +888,13 @@ class ParamLimit(BaseModel):
     )
     on_breach: LimitAction | None = Field(
         None,
-        description='Verdict to recommend when a bound is breached. Defaults to `Block`.',
+        description='Authorization effect to recommend when a bound is breached. Defaults to `Deny`.',
     )
 
 
 class ParamRole(Enum):
     authority_bearing = 'authority_bearing'
     content_bearing = 'content_bearing'
-
-
-class PolicyAction(Enum):
-    block = 'block'
-    rewrite = 'rewrite'
-    escalate = 'escalate'
 
 
 class PolicyBatchSetEnabledRequest(BaseModel):
@@ -1191,6 +1250,12 @@ class TierStatus(Enum):
     skipped = 'skipped'
 
 
+class ToolIdentity(BaseModel):
+    schema_hash: str
+    server_id: str
+    tool_name: str
+
+
 class Status(Enum):
     resolved = 'resolved'
 
@@ -1317,13 +1382,6 @@ class UpsertLlmModelPriceRequest(BaseModel):
     output_per_million_usd_nanos: str | None = Field(
         None, description='Optional exact USD nanos per 1M completion tokens.'
     )
-
-
-class Verdict(Enum):
-    allow = 'allow'
-    block = 'block'
-    rewrite = 'rewrite'
-    escalate = 'escalate'
 
 
 class VerifyResult(BaseModel):
@@ -1464,15 +1522,30 @@ class X402SettlementProof(BaseModel):
 
 
 class Action(BaseModel):
+    authorization: AuthorizationClaim | None = None
+    invocation_id: str | None = None
     operation: str
     parameters: Any | None = None
     side_effect: SideEffectClass | None = None
+    tool_identity: ToolIdentity | None = None
+
+
+class ActionGrantScope(BaseModel):
+    allowed_destinations: list[str] | None = None
+    maximum_data_confidentiality: str | None = None
+    minimum_source_trust: str | None = None
+    operations: list[str] | None = None
+    parameters: Any | None = None
+    schema_hash: str | None = None
+    server_id: str | None = None
+    side_effects: list[SideEffectClass] | None = None
+    tool_name: str | None = None
 
 
 class AgenticPaymentAuthorizeRequest(BaseModel):
+    authorization: AuthorizationClaim | None = None
     evidence: list[EvidenceRef] | None = None
     idempotency_key: str
-    mandate: MandateRef | None = None
     metadata: Any | None = None
     operation: str | None = None
     payment_requirement: X402PaymentRequirement
@@ -1487,22 +1560,6 @@ class AgenticPaymentAuthorizeRequest(BaseModel):
 class AgenticPaymentCommitRequest(BaseModel):
     idempotency_key: str | None = None
     proof: X402SettlementProof
-
-
-class AgenticPaymentMandateScope(BaseModel):
-    action_kinds: list[FinancialActionKind] | None = None
-    allowed_assets: list[str] | None = None
-    allowed_counterparty_ids: list[str] | None = None
-    allowed_hosts: list[str] | None = None
-    allowed_networks: list[str] | None = None
-    allowed_pay_to: list[str] | None = None
-    allowed_resources: list[str] | None = None
-    currency: str | None = None
-    intent_label: str | None = None
-    max_amount_minor: int | None = None
-    operation: str | None = None
-    rail: FinancialRail | None = None
-    required_preconditions: list[FinancialActionPrecondition] | None = None
 
 
 class AgenticPaymentReservation(BaseModel):
@@ -1593,6 +1650,77 @@ class AttackVector(BaseModel):
     )
 
 
+class AuthorizationFinding(BaseModel):
+    effect: AuthorizationEffect
+    evidence: Any | None = None
+    id: str
+    policy_id: str | None = None
+    reason: str
+    remediation: str | None = None
+    requirement_id: str | None = None
+    severity: Severity
+    source: str
+
+
+class AuthorizationGrantRef(BaseModel):
+    capability: AuthorizationCapabilityId
+    id: str
+    mode: GrantMode
+    source: AuthorizationGrantSource
+
+
+class AuthorizationGrantScope1(BaseModel):
+    scope: ActionGrantScope
+    scope_type: ScopeType
+
+
+class AuthorizationLease(BaseModel):
+    attempt_id: str
+    claimed_at: str
+    completed_at: str | None = None
+    expires_at: str
+    fingerprint: str
+    grant_id: str | None = None
+    id: str
+    intent_id: str
+    status: LeaseStatus
+
+
+class AuthorizationReceipt(BaseModel):
+    approval_id: str | None = None
+    created_at: str
+    domain: AuthorizationDomain
+    domain_evidence: AuthorizationDomainEvidence
+    effect: AuthorizationEffect
+    findings: list[AuthorizationFinding] | None = None
+    grant_id: str | None = None
+    id: str
+    intent_id: str | None = None
+    intent_status: AuthorizationIntentStatus | None = None
+    lease_id: str | None = None
+    policy_versions: list[str] | None = None
+    reason: str
+    subject_hash: str
+    trace_id: str | None = None
+
+
+class AuthorizationSubject1(BaseModel):
+    channel: Channel
+    domain: Domain3
+    event_kind: EventKind
+    input: str
+    output: str
+
+
+class AuthorizationSubject2(BaseModel):
+    domain: Domain4
+    invocation_id: str
+    operation: str
+    parameters: Any
+    side_effect: SideEffectClass
+    tool_identity: ToolIdentity
+
+
 class BudgetAlertConfig(BaseModel):
     created_at: str = Field(..., description='RFC 3339 timestamps.')
     enabled: bool
@@ -1640,22 +1768,17 @@ class BudgetAlertFiringListResponse(BaseModel):
     firings: list[BudgetAlertFiring]
 
 
-class CheckerFindingEvidence(BaseModel):
-    failure_mode: str | None = None
-    harm_class: str | None = None
-    reason: str
-    recommended_verdict: Verdict | None = None
-    risk_source: str | None = None
-    rule: str
-    source_chain: list[str] | None = None
-
-
 class CheckerRun(BaseModel):
     checker_id: str
     findings: list[CheckerFindingEvidence] | None = None
     mode: EnforcementMode = Field(
         ..., description='Mode the checker ran under at evaluation time.'
     )
+
+
+class CompleteAuthorizationLeaseRequest(BaseModel):
+    outcome: Any | None = None
+    status: LeaseStatus
 
 
 class CreateApiKeyResponse(BaseModel):
@@ -1674,17 +1797,6 @@ class CreateBudgetAlertConfigRequest(BaseModel):
     threshold_value: int
     webhook_url: str | None = None
     window: BudgetAlertWindow
-
-
-class CreateFinancialMandateRequest(BaseModel):
-    expires_at: str | None = None
-    id: str | None = None
-    metadata: Any | None = None
-    payment_scope: AgenticPaymentMandateScope | None = None
-    principal_id: str
-    scope: Any | None = None
-    starts_at: str | None = None
-    version: int | None = None
 
 
 class CreateGatewayProviderConnectionRequest(BaseModel):
@@ -1744,7 +1856,6 @@ class FinancialAction(BaseModel):
     counterparty: CounterpartyRef | None = None
     id: str | None = None
     kind: FinancialActionKind
-    mandate: MandateRef | None = None
     memo: str | None = None
     metadata: Any | None = None
     operation: str
@@ -1764,80 +1875,19 @@ class FinancialActionOutcome(BaseModel):
     status: FinancialActionOutcomeStatus
 
 
-class FinancialActionRecord(BaseModel):
-    action: FinancialAction
-    created_at: str
-    evidence: list[EvidenceRef] | None = None
-    id: str
-    status: FinancialActionStatus
-    status_reason: str | None = None
-    updated_at: str
-    workspace_id: str
-
-
-class FinancialApprovalEnvelope(BaseModel):
-    action_fingerprint: str
-    action_id: str
-    action_kind: FinancialActionKind
-    counterparty_id: str | None = None
-    currency: str
-    current_amount_minor: int
-    fingerprint_version: int
-    operation: str
-    principal_id: str
-    rail: FinancialRail
-    recommended_max_amount_minor: int
-
-
-class FinancialApprovalRequest(BaseModel):
-    action_id: str
-    approver_roles: list[str] | None = None
-    created_at: str
-    decided_at: str | None = None
-    decided_by: str | None = None
-    expires_at: str | None = None
-    id: str
-    metadata: Any | None = None
-    reason: str
-    status: FinancialApprovalRequestStatus
-    updated_at: str
-    workspace_id: str
-
-
-class FinancialApprovalRequestListResponse(BaseModel):
-    approval_requests: list[FinancialApprovalRequest]
-
-
-class FinancialDecisionRisk(BaseModel):
-    code: FinancialDecisionRiskCode
-    policy_id: str | None = None
-    reason: str
-    severity: Severity
-    source: str
-
-
-class FinancialExecutionProof(BaseModel):
-    ledger_event_ids: list[str] | None = None
-    receipt_id: str | None = None
-    status: FinancialExecutionProofStatus
-
-
-class FinancialMandate(BaseModel):
-    created_at: str
-    expires_at: str | None = None
-    id: str
-    metadata: Any | None = None
-    principal_id: str
-    scope: Any | None = None
-    starts_at: str | None = None
-    status: FinancialMandateStatus
-    updated_at: str
-    version: int
-    workspace_id: str
-
-
-class FinancialMandateListResponse(BaseModel):
-    mandates: list[FinancialMandate]
+class FinancialGrantScope(BaseModel):
+    action_kinds: list[FinancialActionKind] | None = None
+    counterparties: list[str] | None = None
+    currency: str | None = None
+    maximum_amount_minor: int | None = None
+    operation: str | None = None
+    rail: FinancialRail | None = None
+    required_preconditions: list[FinancialActionPrecondition] | None = None
+    x402_assets: list[str] | None = None
+    x402_hosts: list[str] | None = None
+    x402_networks: list[str] | None = None
+    x402_payees: list[str] | None = None
+    x402_resources: list[str] | None = None
 
 
 class FinancialOutcomeListResponse(BaseModel):
@@ -2057,7 +2107,7 @@ class PolicyDocument(BaseModel):
 
 
 class PolicyDraft(BaseModel):
-    action: PolicyAction
+    action: AuthorizationEffect
     description: str
     id: str
     match_type: PolicyMatchType
@@ -2372,25 +2422,48 @@ class AgentProfile(BaseModel):
     )
 
 
-class AgenticPaymentRecord(BaseModel):
-    action: FinancialActionRecord
-    decision: AgenticPaymentDecision
-    id: str
-    normalized_requirement: X402NormalizedPaymentRequirement
-    proof: X402SettlementProof | None = None
-    receipt_id: str | None = None
-    reservation: AgenticPaymentReservation | None = None
-
-
 class AnalyticsDashboardViewConfig(BaseModel):
     filters: list[AnalyticsFilter]
     widgets: list[AnalyticsDashboardWidget]
 
 
-class ApproveMatchingFinancialActionsResponse(BaseModel):
-    action: FinancialActionRecord
-    approval_envelope: FinancialApprovalEnvelope
-    mandate: FinancialMandate
+class AuthorizationDecision(BaseModel):
+    applied_grant: AuthorizationGrantRef | None = None
+    approval: AuthorizationApprovalSummary | None = None
+    domain: AuthorizationDomain
+    effect: AuthorizationEffect
+    findings: list[AuthorizationFinding] | None = None
+    intent_id: str | None = None
+    latency_ms: conint(ge=0)
+    lease: AuthorizationLease | None = None
+    reason: str
+    receipt_id: str | None = None
+    status: AuthorizationIntentStatus | None = None
+    trace_id: str
+    transformed_value: Any | None = None
+
+
+class AuthorizationGrantScope2(BaseModel):
+    scope: FinancialGrantScope
+    scope_type: ScopeType1
+
+
+class AuthorizationGrantScope(
+    RootModel[AuthorizationGrantScope1 | AuthorizationGrantScope2]
+):
+    root: AuthorizationGrantScope1 | AuthorizationGrantScope2
+
+
+class AuthorizationSubject3(BaseModel):
+    action: FinancialAction
+    action_id: str
+    domain: Domain5
+
+
+class AuthorizationSubject(
+    RootModel[AuthorizationSubject1 | AuthorizationSubject2 | AuthorizationSubject3]
+):
+    root: AuthorizationSubject1 | AuthorizationSubject2 | AuthorizationSubject3
 
 
 class CreateAnalyticsDashboardViewRequest(BaseModel):
@@ -2399,8 +2472,20 @@ class CreateAnalyticsDashboardViewRequest(BaseModel):
     name: str
 
 
+class CreateAuthorizationGrantRequest(BaseModel):
+    capability: AuthorizationCapabilityId
+    domain: AuthorizationDomain
+    expires_at: str | None = None
+    max_uses: conint(ge=0) | None = None
+    principal_id: str
+    requirement_ids: list[str] | None = None
+    scope: AuthorizationGrantScope
+    starts_at: str | None = None
+
+
 class CreateFinancialActionRequest(BaseModel):
     action: FinancialAction
+    authorization: AuthorizationClaim | None = None
     evidence: list[EvidenceRef] | None = None
     execute: bool | None = None
     idempotency_key: str
@@ -2413,19 +2498,18 @@ class CreateFinancialPolicyRequest(BaseModel):
     daily_minor: int | None = None
     denied_counterparty_ids: list[str] | None = None
     description: str | None = None
-    failed_precondition_action: PolicyAction | None = None
-    hold_above_minor: int | None = None
-    hold_new_counterparty: bool | None = None
+    failed_precondition_effect: AuthorizationEffect | None = None
+    grant_required: bool | None = None
     id: str
-    mandate_required: bool | None = None
     meter: SpendMeter | None = Field(
         None, description='Spend meter this policy governs; omitted means `actions`.'
     )
-    missing_evidence_action: PolicyAction | None = None
+    missing_evidence_effect: AuthorizationEffect | None = None
     monthly_minor: int | None = None
-    on_breach: PolicyAction | None = None
+    on_breach: AuthorizationEffect | None = None
     per_transaction_minor: int | None = None
     refund_original_method_only: bool | None = None
+    require_approval_for_new_counterparty: bool | None = None
     required_preconditions: list[FinancialActionPrecondition] | None = None
     severity: Severity | None = None
     weekly_minor: int | None = None
@@ -2452,42 +2536,31 @@ class CreateInviteResponse(RootModel[CreateInviteResponse1 | CreateInviteRespons
     )
 
 
-class Decision(BaseModel):
-    checked_input_excerpt: str | None = None
-    checked_output_excerpt: str | None = None
-    constraints: Any | None = None
-    failure_mode: str | None = None
-    harm_class: str | None = None
-    latency_ms: conint(ge=0)
-    reason: str
-    redaction: RedactionInfo | None = None
-    remediation: str | None = None
-    risk_source: str | None = None
-    safe_output: str | None = None
-    source_chain: list[str] | None = None
-    tier_results: list[TierResult] | None = Field(
-        None,
-        description='Per-tier breakdown produced by the parallel-cancel orchestrator.\nEmpty for callers that only ran the synchronous `Engine::check`\npath; populated when `Engine::check_async` is used.',
-    )
-    trace_id: str
-    triggered_policies: list[TriggeredPolicy]
-    verdict: Verdict
-    violated_rule: str | None = None
-
-
-class FinancialActionListResponse(BaseModel):
-    actions: list[FinancialActionRecord]
-
-
-class FinancialAuthorizationScopeProof(BaseModel):
-    checked: bool
-    mandate_hash: str | None = None
-    normalized_scope: Any | None = None
+class DecideAuthorizationApprovalRequest(BaseModel):
+    decision: ApprovalDecision
+    envelope_hash: str
+    expires_at: str | None = None
+    mode: GrantMode
     reason: str | None = None
-    result: FinancialEligibilityStatus
-    scope_ref: MandateRef | None = None
-    scope_snapshot: FinancialMandate | None = None
-    source: str | None = None
+    scope: AuthorizationGrantScope | None = None
+    starts_at: str | None = None
+
+
+class FinancialActionRecord(BaseModel):
+    action: FinancialAction
+    authorization: AuthorizationDecision | None = None
+    authorization_effect: AuthorizationEffect
+    authorization_intent_id: str | None = None
+    authorization_receipt_id: str | None = None
+    authorization_status: AuthorizationIntentStatus
+    created_at: str
+    environment_id: str
+    evidence: list[EvidenceRef] | None = None
+    execution_status: FinancialExecutionStatus
+    id: str
+    status_reason: str | None = None
+    updated_at: str
+    workspace_id: str
 
 
 class FinancialPolicyRecord(BaseModel):
@@ -2498,19 +2571,18 @@ class FinancialPolicyRecord(BaseModel):
     denied_counterparty_ids: list[str] | None = None
     description: str | None = None
     enabled: bool
-    failed_precondition_action: PolicyAction
-    hold_above_minor: int | None = None
-    hold_new_counterparty: bool | None = None
+    failed_precondition_effect: AuthorizationEffect
+    grant_required: bool | None = None
     id: str
-    mandate_required: bool | None = None
     meter: SpendMeter | None = Field(
         None, description='Spend meter this policy governs.'
     )
-    missing_evidence_action: PolicyAction
+    missing_evidence_effect: AuthorizationEffect
     monthly_minor: int | None = None
-    on_breach: PolicyAction
+    on_breach: AuthorizationEffect
     per_transaction_minor: int | None = None
     refund_original_method_only: bool | None = None
+    require_approval_for_new_counterparty: bool | None = None
     required_preconditions: list[FinancialActionPrecondition] | None = None
     severity: Severity
     weekly_minor: int | None = None
@@ -2632,12 +2704,14 @@ class AgentListResponse(BaseModel):
     agents: list[AgentProfile]
 
 
-class AgenticPaymentAuthorizationResponse(BaseModel):
-    decision: AgenticPaymentDecision
-    decision_receipt_id: str | None = None
-    reason: str
-    record: AgenticPaymentRecord
-    signable: bool
+class AgenticPaymentRecord(BaseModel):
+    action: FinancialActionRecord
+    authorization: AuthorizationDecision
+    id: str
+    normalized_requirement: X402NormalizedPaymentRequirement
+    proof: X402SettlementProof | None = None
+    receipt_id: str | None = None
+    reservation: AgenticPaymentReservation | None = None
 
 
 class AnalyticsDashboardView(BaseModel):
@@ -2653,23 +2727,90 @@ class AnalyticsDashboardViewListResponse(BaseModel):
     views: list[AnalyticsDashboardView]
 
 
-class FinancialActionDecisionReceipt(BaseModel):
-    action_id: str
-    amount: MoneyAmount
-    approval: ApprovalRequirement | None = None
-    authorization_scope: FinancialAuthorizationScopeProof
-    counterparty: CounterpartyRef | None = None
-    created_at: str
-    decision: FinancialActionDecision
-    evidence: list[FinancialEvidenceProof] | None = None
-    execution: FinancialExecutionProof
-    operation: str
+class ApprovalEnvelope(BaseModel):
+    capability: AuthorizationCapabilityId
+    domain: AuthorizationDomain
+    exact_fingerprint: str
+    expires_at: str
+    fingerprint_version: int
+    intent_id: str
+    issued_at: str
+    policy_versions: list[str] | None = None
     principal_id: str
-    reason: str
-    risks: list[FinancialDecisionRisk] | None = None
+    proposed_scope: AuthorizationGrantScope | None = None
+    requirement_ids: list[str] | None = None
     schema_: str = Field(..., alias='schema')
-    status: FinancialActionStatus
+    subject_hash: str
+    subject_id: str
+
+
+class AuthorityRequirement(BaseModel):
+    approver_roles: list[str] | None = None
+    capability: AuthorizationCapabilityId
+    id: str
+    max_grant_ttl_seconds: conint(ge=0) | None = None
+    reason: str
+    required_scope: AuthorizationGrantScope
+    reusable_allowed: bool
+
+
+class AuthorizationApproval(BaseModel):
+    approver_roles: list[str] | None = None
+    created_at: str
+    decided_at: str | None = None
+    decided_by: str | None = None
+    decision_reason: str | None = None
+    envelope: ApprovalEnvelope
+    envelope_hash: str
+    environment_id: str
+    expires_at: str
+    grant_id: str | None = None
+    id: str
+    intent_id: str
+    status: ApprovalStatus
     updated_at: str
+    workspace_id: str
+
+
+class AuthorizationApprovalListResponse(BaseModel):
+    approvals: list[AuthorizationApproval]
+
+
+class AuthorizationGrant(BaseModel):
+    capability: AuthorizationCapabilityId
+    created_at: str
+    created_by: str
+    domain: AuthorizationDomain
+    environment_id: str
+    exact_fingerprint: str | None = None
+    expires_at: str | None = None
+    fingerprint_version: int
+    id: str
+    max_uses: conint(ge=0) | None = None
+    mode: GrantMode
+    principal_id: str
+    requirement_ids: list[str] | None = None
+    scope: AuthorizationGrantScope | None = None
+    source: AuthorizationGrantSource
+    source_approval_id: str | None = None
+    starts_at: str | None = None
+    status: GrantStatus
+    updated_at: str
+    use_count: conint(ge=0)
+    workspace_id: str
+
+
+class AuthorizationGrantListResponse(BaseModel):
+    grants: list[AuthorizationGrant]
+
+
+class DecideAuthorizationApprovalResponse(BaseModel):
+    approval: AuthorizationApproval
+    grant: AuthorizationGrant | None = None
+
+
+class FinancialActionListResponse(BaseModel):
+    actions: list[FinancialActionRecord]
 
 
 class FinancialPolicyListResponse(BaseModel):
@@ -2705,3 +2846,11 @@ class GuardEvent(BaseModel):
         description='Advisory signal evidence attached by the event pipeline.\nServer-populated: the pipeline resets this before evaluating, so\ncollector-submitted values never survive. Signals never change\nthe decision.',
     )
     sources: list[Source] | None = None
+
+
+class AgenticPaymentAuthorizationResponse(BaseModel):
+    authorization: AuthorizationDecision
+    authorization_receipt_id: str | None = None
+    reason: str
+    record: AgenticPaymentRecord
+    signable: bool

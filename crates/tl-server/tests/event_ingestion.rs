@@ -13,7 +13,7 @@ use axum::{
     http::{header, Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use tl_core::{Decision, Verdict, DEFAULT_WORKSPACE_ID};
+use tl_core::{AuthorizationDecision, AuthorizationEffect, DEFAULT_WORKSPACE_ID};
 use tl_engine::Engine;
 use tl_llm::{
     JsonSchema, JudgeKind, LlmClient, LlmError, LlmOutput, LlmRouter, ProviderTarget,
@@ -22,9 +22,9 @@ use tl_llm::{
 use tl_policy::load_str;
 use tl_server::{memory_app_state, router, AppState};
 use tower::ServiceExt;
+use uuid::Uuid;
 
-const DEFAULT_EVENT_ALLOW_REASON: &str =
-    "event allowed: no enforced checker or enabled policy matched";
+const DEFAULT_EVENT_ALLOW_REASON: &str = "current policy and authority permit the subject";
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
@@ -63,8 +63,15 @@ fn send_email_event() -> serde_json::Value {
             "agent_id": "agent-1"
         },
         "action": {
+            "invocation_id": Uuid::new_v4().to_string(),
             "operation": "send_email",
-            "parameters": { "recipient": "a@b.c", "body": "hi" }
+            "parameters": { "recipient": "a@b.c", "body": "hi" },
+            "side_effect": "external_communication",
+            "tool_identity": {
+                "server_id": "mail",
+                "tool_name": "send_email",
+                "schema_hash": "sha256:v1:test-schema"
+            }
         },
         "sources": [
             { "id": "src.user", "origin": "user", "labels": {} },
@@ -184,13 +191,15 @@ async fn submit_event_returns_default_allow_when_nothing_matches() {
         .oneshot(submit_request(&send_email_event(), None))
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
+    let status = resp.status();
+    let body = read_body(resp).await;
+    assert_eq!(status, StatusCode::OK, "unexpected response: {body}");
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Allow);
+    let decision: AuthorizationDecision = serde_json::from_value(body).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
     assert_eq!(decision.reason, DEFAULT_EVENT_ALLOW_REASON);
     assert!(!decision.trace_id.is_empty());
-    assert!(decision.triggered_policies.is_empty());
+    assert!(decision.findings.is_empty());
 }
 
 #[tokio::test]
@@ -376,7 +385,7 @@ when:
   domains: [customer_support]
 match:
   literal: guaranteed refund
-action: block
+action: deny
 severity: high
 "#,
     )
@@ -391,10 +400,13 @@ severity: high
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Block);
-    assert_eq!(decision.triggered_policies.len(), 1);
-    assert_eq!(decision.triggered_policies[0].id, "refund-guarantee");
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Deny);
+    assert_eq!(decision.findings.len(), 1);
+    assert_eq!(
+        decision.findings[0].policy_id.as_deref(),
+        Some("refund-guarantee")
+    );
 }
 
 #[tokio::test]
@@ -407,7 +419,7 @@ when:
   domains: [customer_support]
 match:
   semantic: "the agent insults or demeans the user"
-action: block
+action: deny
 severity: high
 "#,
     )
@@ -446,13 +458,14 @@ severity: high
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Block);
-    assert_eq!(decision.triggered_policies.len(), 1);
-    assert_eq!(decision.triggered_policies[0].id, "respectful-tone");
-    assert!(decision.triggered_policies[0]
-        .reason
-        .contains("confidence=0.94"));
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Deny);
+    assert_eq!(decision.findings.len(), 1);
+    assert_eq!(
+        decision.findings[0].policy_id.as_deref(),
+        Some("respectful-tone")
+    );
+    assert!(decision.findings[0].reason.contains("confidence=0.94"));
 
     let usage = app
         .oneshot(
@@ -480,7 +493,7 @@ async fn semantic_policy_without_llm_route_preserves_allow() {
 id: respectful-tone
 match:
   semantic: "the agent insults or demeans the user"
-action: block
+action: deny
 severity: high
 "#,
     )
@@ -497,9 +510,9 @@ severity: high
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Allow);
-    assert!(decision.triggered_policies.is_empty());
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
+    assert!(decision.findings.is_empty());
 }
 
 #[tokio::test]
@@ -509,7 +522,7 @@ async fn semantic_judge_failure_escalates_high_severity_policy() {
 id: legal-advice
 match:
   semantic: "the agent gives legal advice"
-action: block
+action: deny
 severity: critical
 "#,
     )
@@ -525,11 +538,16 @@ severity: critical
         ))
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
+    let status = resp.status();
+    let body = read_body(resp).await;
+    assert_eq!(status, StatusCode::OK, "unexpected response: {body}");
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Escalate);
-    assert_eq!(decision.triggered_policies[0].id, "legal-advice");
+    let decision: AuthorizationDecision = serde_json::from_value(body).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Defer);
+    assert_eq!(
+        decision.findings[0].policy_id.as_deref(),
+        Some("legal-advice")
+    );
     assert!(decision.reason.contains("judge unavailable"));
 }
 
@@ -741,12 +759,19 @@ mod trace_evidence {
         let mut state = memory_app_state(Arc::new(Engine::empty()));
         let (capture, mut rx) = ChannelTraceStore::channel(8);
         state.trace_store = capture;
+        let owner_id = uuid::Uuid::new_v4();
+        let workspace = state
+            .team_store
+            .create_workspace(owner_id, "Trace Evidence")
+            .await
+            .unwrap();
         let app = router(state, None, [0u8; 32]);
 
         let resp = app
             .clone()
             .oneshot(
-                json_request("POST", "/v1/tool-metadata", None)
+                json_request("POST", "/v1/tool-metadata", Some(&workspace.id))
+                    .header("x-tlg-user-id", owner_id.to_string())
                     .body(Body::from(metadata_body().to_string()))
                     .unwrap(),
             )
@@ -757,7 +782,7 @@ mod trace_evidence {
         let resp = app
             .clone()
             .oneshot(
-                json_request("POST", "/v1/label-policies", None)
+                json_request("POST", "/v1/label-policies", Some(&workspace.id))
                     .body(Body::from(
                         serde_json::json!({ "origin": "web", "confidentiality": "private" })
                             .to_string(),
@@ -768,10 +793,8 @@ mod trace_evidence {
             .unwrap();
         assert_eq!(resp.status(), StatusCode::CREATED);
 
-        // The registry rows above live in the default workspace; without
-        // the header the event would fall back to its claimed workspace.
         let resp = app
-            .oneshot(submit_request(&send_email_event(), Some("default")))
+            .oneshot(submit_request(&send_email_event(), Some(&workspace.id)))
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);

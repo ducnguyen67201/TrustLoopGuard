@@ -76,7 +76,7 @@ export interface WorkspaceDashboardData extends DashboardShellData {
     id: string;
     agent: string;
     environment: string;
-    verdict: string;
+    effect: string;
     policy: string;
     latency: string;
     time: string;
@@ -176,7 +176,7 @@ export type RunTraceRow = {
   id: string;
   runEventId: string | null;
   environment: string;
-  verdict: string;
+  effect: string;
   latestReviewOutcome: string;
   policy: string;
   latency: string;
@@ -239,10 +239,11 @@ type HumanReviewAnalytics = {
 
 export type AnalyticsMetric =
   | 'trace_count'
-  | 'allow_count'
-  | 'block_count'
-  | 'rewrite_count'
-  | 'escalate_count'
+  | 'permit_count'
+  | 'deny_count'
+  | 'transform_count'
+  | 'require_approval_count'
+  | 'defer_count'
   | 'intervention_rate'
   | 'p95_latency_ms'
   | 'human_review_count'
@@ -254,7 +255,7 @@ export type AnalyticsDimension =
   | 'environment'
   | 'run_kind'
   | 'run_status'
-  | 'decision'
+  | 'authorization_effect'
   | 'policy_id'
   | 'workflow_step'
   | 'review_outcome'
@@ -341,7 +342,7 @@ export class UserApprovalRequiredError extends Error {
 
 type RuntimeDecisionPayload = {
   trace_id?: string;
-  verdict?: string;
+  effect?: string;
   reason?: string;
   triggered_policies?: Array<{ id?: string; severity?: string; reason?: string }>;
   safe_output?: string | null;
@@ -575,8 +576,10 @@ export async function getWorkspaceDashboard(
   const recentDecisions = agentId
     ? allTraces.filter((t) => t.payload?.agent_id === agentId).slice(0, 8)
     : allTraces;
-  const blocked = recentDecisions.filter((decision) => decision.decision === 'block').length;
-  const escalated = recentDecisions.filter((decision) => decision.decision === 'escalate').length;
+  const blocked = recentDecisions.filter((decision) => decision.decision === 'deny').length;
+  const escalated = recentDecisions.filter(
+    (decision) => decision.decision === 'require_approval',
+  ).length;
 
   return {
     ...shell,
@@ -610,7 +613,7 @@ export async function getWorkspaceDashboard(
       id: String(decision.trace_id),
       agent: readTraceAgent(decision.payload),
       environment: decision.environment,
-      verdict: decision.decision,
+      effect: decision.decision,
       policy: readTracePolicy(decision.payload),
       latency: `${decision.elapsed_ms}ms`,
       time: relativeTime(new Date(decision.created_at)),
@@ -837,20 +840,19 @@ export type FamilyPolicyRow = {
   };
   meter?: string;
   per_transaction_minor?: number | null;
-  hold_above_minor?: number | null;
   daily_minor?: number | null;
   weekly_minor?: number | null;
   monthly_minor?: number | null;
   allowed_counterparty_ids?: string[];
   denied_counterparty_ids?: string[];
-  hold_new_counterparty?: boolean;
-  mandate_required?: boolean;
+  require_approval_for_new_counterparty?: boolean;
+  grant_required?: boolean;
   approval_threshold_minor?: number | null;
   approver_roles?: string[];
   refund_original_method_only?: boolean;
   required_preconditions?: string[];
-  missing_evidence_action?: string;
-  failed_precondition_action?: string;
+  missing_evidence_effect?: string;
+  failed_precondition_effect?: string;
   on_breach?: string;
   enabled?: boolean;
 };
@@ -1233,7 +1235,7 @@ async function listPolicyRows(
     family: policy.family ?? 'content',
     description: policy.description?.trim() || 'Runtime policy',
     severity: policy.severity ?? 'medium',
-    action: policy.action ?? 'block',
+    action: policy.action ?? 'deny',
     enabled: policy.enabled,
     agent: policy.owner_agent_id
       ? agentName(agentsById.get(policy.owner_agent_id) ?? null, policy.owner_agent_id)
@@ -1401,7 +1403,7 @@ function traceRow(trace: TraceSummaryWire): RunTraceRow {
     id: trace.trace_id,
     runEventId: trace.run_event_id ?? null,
     environment: trace.environment,
-    verdict: titleize(trace.decision),
+    effect: titleize(trace.decision),
     latestReviewOutcome: trace.latest_review_outcome
       ? titleize(trace.latest_review_outcome)
       : 'Not reviewed',

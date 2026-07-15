@@ -157,7 +157,7 @@ Before changing a page or route:
 What lives in `docs/concept/`:
 - `architecture.md` — high-level system shape, request flow, latency budget, layer ownership.
 - `crates.md` — every Rust crate, its responsibility, and its dependency position.
-- `glossary.md` — canonical definition of every domain term (Channel, Verdict, Policy, Decision, hot path, etc.).
+- `glossary.md` — canonical definition of every domain term (Channel, Authorization effect, Policy, Decision, hot path, etc.).
 - `plugin-contract.md` — plugin/extension interface contract.
 - `web-dashboard-authentication.md` — dashboard auth model.
 - `web-ui-conventions.md` — canonical home for shared web UI primitives and cross-page patterns (e.g. the `DataTable` component, sidebar layout, dialog patterns, table/empty-state conventions). One topic per shared pattern.

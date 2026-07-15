@@ -179,9 +179,9 @@ fn walk_clause(clause: &MatchClause, mut f: impl FnMut(&Matcher)) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tl_core::Severity;
+    use tl_core::{AuthorizationEffect, Severity};
     use tl_fuzzy::MockEmbedder;
-    use tl_policy::{load_str, Action};
+    use tl_policy::load_str;
 
     fn semantic_policy(id: &str, text: &str, action: &str, rewrite: Option<&str>) -> Policy {
         let r = rewrite
@@ -194,8 +194,7 @@ mod tests {
     }
 
     fn literal_policy(id: &str, text: &str) -> Policy {
-        let yaml =
-            format!("id: {id}\nmatch:\n  literal: \"{text}\"\naction: block\nseverity: high");
+        let yaml = format!("id: {id}\nmatch:\n  literal: \"{text}\"\naction: deny\nseverity: high");
         load_str(&yaml).expect("policy")
     }
 
@@ -214,7 +213,7 @@ mod tests {
         let policies = vec![semantic_policy(
             "no-refund-promises",
             "i promise full refund to the customer",
-            "block",
+            "deny",
             Some("Let me connect you with a teammate."),
         )];
         // Lower the threshold a bit since MockEmbedder produces less
@@ -229,7 +228,7 @@ mod tests {
             .await;
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].policy_id, "no-refund-promises");
-        assert_eq!(hits[0].action, Action::Block);
+        assert_eq!(hits[0].action, AuthorizationEffect::Deny);
         assert_eq!(hits[0].severity, Severity::High);
         assert!(hits[0].safe_output.is_some());
         assert_eq!(checker.semantic_count(), 1);
@@ -273,7 +272,7 @@ match:
   any:
     - semantic: "promising refund"
     - literal: "refund"
-action: block
+action: deny
 severity: high
 "#;
         let policy = load_str(yaml).expect("policy");

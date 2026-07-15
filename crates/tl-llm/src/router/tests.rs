@@ -14,7 +14,7 @@ use super::*;
 
 fn schema() -> JsonSchema {
     JsonSchema {
-        name: "Verdict".into(),
+        name: "AuthorizationEffect".into(),
         schema: json!({"type":"object"}),
     }
 }

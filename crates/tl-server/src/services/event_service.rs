@@ -7,8 +7,11 @@
 
 use axum::{http::StatusCode, response::Response};
 use tl_core::{
-    ApiErrorCode, CreateRunEventRequest, DataHandlingMode, Decision, GuardEvent, LlmUsageKind,
-    RunEventKind, RunGuardrailUsage, Verdict, USD,
+    ActionGrantScope, ApiErrorCode, ApprovalRule, AuthorityRequirement, AuthorizationCapabilityId,
+    AuthorizationClaim, AuthorizationDecision, AuthorizationEffect, AuthorizationFinding,
+    AuthorizationGrantScope, AuthorizationSubject, Channel, CreateRunEventRequest,
+    DataHandlingMode, Decision, EnforcementMode, GuardEvent, LlmUsageKind, RunEventKind,
+    RunGuardrailUsage, Severity, SideEffectClass, ToolResolution, USD,
 };
 use tl_engine::{evaluate_event_policies, EventPolicyEvalCtx};
 
@@ -33,13 +36,21 @@ const MAX_PATH_BYTES: usize = 512;
 const MAX_PARAMETERS_BYTES: usize = 65_536;
 const MAX_CONTEXT_BYTES: usize = 65_536;
 
+pub(crate) struct EventSubmissionResult {
+    pub decision: Decision,
+    pub authorization: AuthorizationDecision,
+}
+
 pub(crate) async fn execute_event_submission(
     state: &AppState,
     workspace_id: &str,
     environment_id: &str,
-    event: GuardEvent,
+    mut event: GuardEvent,
     start: std::time::Instant,
-) -> Result<Decision, Response> {
+) -> Result<EventSubmissionResult, Response> {
+    // Authorization is a replay credential, not trace evidence. Extract it
+    // before validation/pipeline work and never persist it with the event.
+    let authorization = event.action.authorization.take();
     // Validate before any storage round trip so malformed-but-
     // authenticated spam never touches the database.
     if let Err(msg) = validate_event(&event) {
@@ -150,6 +161,10 @@ pub(crate) async fn execute_event_submission(
         }
     }
 
+    if let Some(claim) = authorization.as_ref() {
+        validate_authorization(claim)?;
+    }
+
     // No tier engine: events are evaluated by the event pipeline and
     // enabled policies.
     let mut decision = Decision::allow(tl_core::new_trace_id());
@@ -191,19 +206,57 @@ pub(crate) async fn execute_event_submission(
     .await;
     let semantic_invocations = policy_outcome.semantic_invocations.clone();
     decision.triggered_policies.extend(policy_outcome.triggered);
-    if let Some(policy_verdict) = policy_outcome.verdict {
-        if verdict_rank(policy_verdict) > verdict_rank(decision.verdict) {
-            decision.verdict = policy_verdict;
+    if let Some(policy_verdict) = policy_outcome.effect {
+        if effect_rank(policy_verdict) > effect_rank(decision.effect) {
+            decision.effect = policy_verdict;
             if let Some(reason) = policy_outcome.reason {
                 decision.reason = reason;
             }
             decision.safe_output = match policy_verdict {
-                Verdict::Rewrite => policy_outcome.safe_output,
+                AuthorizationEffect::Transform => policy_outcome.safe_output,
                 _ => None,
             };
         }
     }
 
+    let subject = authorization_subject(&event)?;
+    let attempt_id = match &subject {
+        AuthorizationSubject::Tool { invocation_id, .. } => Some(invocation_id.clone()),
+        _ => None,
+    };
+    let requirement = authority_requirement(&event, &subject, decision.effect)?;
+    let requirement_id = requirement
+        .as_ref()
+        .map(|requirement| requirement.id.clone());
+    let findings = authorization_findings(&event, &decision, requirement_id.as_deref());
+    let authorization_decision = state
+        .authorization_coordinator
+        .evaluate(crate::authorization::AuthorizationEvaluationRequest {
+            workspace_id: workspace_id.to_string(),
+            environment_id: environment_id.to_string(),
+            principal_id: event.principal.agent_id.clone(),
+            subject,
+            findings,
+            requirements: requirement.into_iter().collect(),
+            policy_versions: enabled_policies
+                .iter()
+                .map(|policy| policy.id.to_string())
+                .collect(),
+            claim: authorization,
+            attempt_id,
+            trace_id: decision.trace_id.clone(),
+            transformed_value: decision.safe_output.clone().map(serde_json::Value::String),
+            intent_expires_at: None,
+        })
+        .await
+        .map_err(authorization_error)?;
+
+    decision.effect = authorization_decision.effect;
+    decision.reason = authorization_decision.reason.clone();
+    decision.approval = authorization_decision.approval.clone();
+    decision.applied_grant = authorization_decision.applied_grant.clone();
+    decision.lease = authorization_decision.lease.clone();
+    decision.authorization_receipt_id = authorization_decision.receipt_id.clone();
     decision.latency_ms = start.elapsed().as_millis() as u64;
 
     record_semantic_usage(
@@ -219,7 +272,7 @@ pub(crate) async fn execute_event_submission(
     tracing::info!(
         workspace_id,
         environment_id,
-        verdict = ?decision.verdict,
+        effect = ?decision.effect,
         flow_mode = ?modes.information_flow,
         memory_mode = ?modes.memory,
         param_mode = ?modes.parameter_auth,
@@ -236,7 +289,7 @@ pub(crate) async fn execute_event_submission(
                 workspace_id,
                 environment_id,
                 run_id,
-                verdict_name(decision.verdict),
+                effect_name(decision.effect),
                 decision.latency_ms as i32,
             )
             .await
@@ -264,9 +317,9 @@ pub(crate) async fn execute_event_submission(
         tracing::warn!(error = %e, "trace record failed; dropped");
     }
 
-    // Enforce-mode checkers and enabled policies can escalate event
+    // Enforce-mode checkers and enabled policies can require approval or defer event
     // decisions; route them to the shared escalation worker.
-    if decision.verdict == tl_core::Verdict::Escalate {
+    if decision.effect == tl_core::AuthorizationEffect::Defer {
         if let Some(tx) = state.escalation_tx.as_ref() {
             let payload = crate::escalation::EscalationPayload {
                 trace_id: decision.trace_id.clone(),
@@ -280,7 +333,226 @@ pub(crate) async fn execute_event_submission(
         }
     }
 
-    Ok(decision)
+    Ok(EventSubmissionResult {
+        decision,
+        authorization: authorization_decision,
+    })
+}
+
+#[allow(clippy::result_large_err)]
+fn authorization_subject(event: &GuardEvent) -> Result<AuthorizationSubject, Response> {
+    if event.kind == tl_core::EventKind::OutputProposed {
+        let input = event
+            .context
+            .get("input")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let output = event
+            .action
+            .parameters
+            .get("text")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        return Ok(AuthorizationSubject::Content {
+            event_kind: event.kind,
+            channel: Channel::Chat,
+            input,
+            output,
+        });
+    }
+    let invocation_id = event.action.invocation_id.clone().ok_or_else(|| {
+        api_error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ApiErrorCode::Unprocessable,
+            "action.invocation_id is required for executable events".into(),
+        )
+    })?;
+    let tool_identity = event.action.tool_identity.clone().ok_or_else(|| {
+        api_error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ApiErrorCode::Unprocessable,
+            "action.tool_identity is required for executable events".into(),
+        )
+    })?;
+    Ok(AuthorizationSubject::Tool {
+        invocation_id,
+        operation: event.action.operation.clone(),
+        tool_identity,
+        parameters: event.action.parameters.clone(),
+        side_effect: event.action.side_effect.unwrap_or(SideEffectClass::None),
+    })
+}
+
+#[allow(clippy::result_large_err)]
+fn authority_requirement(
+    event: &GuardEvent,
+    subject: &AuthorizationSubject,
+    effect: AuthorizationEffect,
+) -> Result<Option<AuthorityRequirement>, Response> {
+    if effect != AuthorizationEffect::RequireApproval {
+        return Ok(None);
+    }
+    let AuthorizationSubject::Tool {
+        operation,
+        tool_identity,
+        parameters,
+        side_effect,
+        ..
+    } = subject
+    else {
+        return Ok(None);
+    };
+    let capability = AuthorizationCapabilityId::parse(format!(
+        "tool:{}/{}",
+        tool_identity.server_id.to_ascii_lowercase(),
+        tool_identity.tool_name.to_ascii_lowercase()
+    ))
+    .map_err(|message| {
+        api_error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ApiErrorCode::Unprocessable,
+            message.into(),
+        )
+    })?;
+    let rule = controlling_approval_rule(event);
+    Ok(Some(AuthorityRequirement {
+        id: format!("approval:{operation}"),
+        capability,
+        required_scope: AuthorizationGrantScope::Action(ActionGrantScope {
+            operations: vec![operation.clone()],
+            side_effects: vec![*side_effect],
+            server_id: Some(tool_identity.server_id.clone()),
+            tool_name: Some(tool_identity.tool_name.clone()),
+            schema_hash: Some(tool_identity.schema_hash.clone()),
+            parameters: Some(parameters.clone()),
+            allowed_destinations: Vec::new(),
+            maximum_data_confidentiality: None,
+            minimum_source_trust: None,
+        }),
+        approver_roles: rule
+            .map(|rule| rule.approver_roles.clone())
+            .unwrap_or_else(|| vec!["owner".into(), "admin".into()]),
+        reason: rule
+            .and_then(|rule| rule.reason.clone())
+            .unwrap_or_else(|| "current policy requires human authorization".into()),
+        reusable_allowed: true,
+        max_grant_ttl_seconds: Some(86_400),
+    }))
+}
+
+fn authorization_findings(
+    event: &GuardEvent,
+    decision: &Decision,
+    requirement_id: Option<&str>,
+) -> Vec<AuthorizationFinding> {
+    let mut findings = event
+        .checks
+        .iter()
+        .flat_map(|run| {
+            run.findings
+                .iter()
+                .enumerate()
+                .map(move |(index, finding)| {
+                    let recommended = finding
+                        .recommended_effect
+                        .unwrap_or(AuthorizationEffect::Permit);
+                    let effect = if run.mode == EnforcementMode::Enforce {
+                        recommended
+                    } else {
+                        AuthorizationEffect::Permit
+                    };
+                    AuthorizationFinding {
+                        id: format!("checker:{}:{index}", run.checker_id),
+                        source: run.checker_id.clone(),
+                        effect,
+                        reason: finding.reason.clone(),
+                        severity: Severity::Medium,
+                        policy_id: None,
+                        requirement_id: (effect == AuthorizationEffect::RequireApproval)
+                            .then(|| requirement_id.map(str::to_string))
+                            .flatten(),
+                        remediation: decision.remediation.clone(),
+                        evidence: serde_json::json!({
+                            "rule": finding.rule,
+                            "recommended_effect": recommended,
+                            "mode": run.mode,
+                            "source_chain": finding.source_chain,
+                            "risk_source": finding.risk_source,
+                            "risk_code": finding.risk_code,
+                            "harm_class": finding.harm_class,
+                        }),
+                    }
+                })
+        })
+        .collect::<Vec<_>>();
+    findings.extend(decision.triggered_policies.iter().map(|policy| {
+        AuthorizationFinding {
+            id: format!("policy:{}", policy.id),
+            source: "policy".into(),
+            effect: decision.effect,
+            reason: policy.reason.clone(),
+            severity: policy.severity,
+            policy_id: Some(policy.id.clone()),
+            requirement_id: (decision.effect == AuthorizationEffect::RequireApproval)
+                .then(|| requirement_id.map(str::to_string))
+                .flatten(),
+            remediation: decision.remediation.clone(),
+            evidence: serde_json::Value::Null,
+        }
+    }));
+    if findings.is_empty() && decision.effect != AuthorizationEffect::Permit {
+        findings.push(AuthorizationFinding {
+            id: format!("event:{}", decision.trace_id),
+            source: "event_pipeline".into(),
+            effect: decision.effect,
+            reason: decision.reason.clone(),
+            severity: Severity::Medium,
+            policy_id: None,
+            requirement_id: (decision.effect == AuthorizationEffect::RequireApproval)
+                .then(|| requirement_id.map(str::to_string))
+                .flatten(),
+            remediation: decision.remediation.clone(),
+            evidence: serde_json::Value::Null,
+        });
+    }
+    findings
+}
+
+fn authorization_error(error: crate::authorization::AuthorizationError) -> Response {
+    use crate::authorization::{AuthorizationError, AuthorizationStoreError};
+    match error {
+        AuthorizationError::Store(AuthorizationStoreError::NotFound) => api_error_response(
+            StatusCode::NOT_FOUND,
+            ApiErrorCode::NotFound,
+            "authorization resource was not found".into(),
+        ),
+        AuthorizationError::Store(AuthorizationStoreError::Conflict(message))
+        | AuthorizationError::Conflict(message) => {
+            api_error_response(StatusCode::CONFLICT, ApiErrorCode::Invalid, message)
+        }
+        AuthorizationError::Store(AuthorizationStoreError::Invalid(message))
+        | AuthorizationError::Invalid(message) => api_error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ApiErrorCode::Unprocessable,
+            message,
+        ),
+        AuthorizationError::Adapter(error) => api_error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ApiErrorCode::Unprocessable,
+            error.to_string(),
+        ),
+        AuthorizationError::Store(AuthorizationStoreError::Internal(message))
+        | AuthorizationError::Policy(message) => {
+            tracing::error!(error = %message, "authorization coordination failed");
+            api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                "authorization coordination failed".into(),
+            )
+        }
+    }
 }
 
 fn trace_domain(event: &GuardEvent) -> &'static str {
@@ -430,21 +702,44 @@ async fn record_semantic_usage(
     }
 }
 
-fn verdict_rank(verdict: Verdict) -> u8 {
-    match verdict {
-        Verdict::Allow => 0,
-        Verdict::Rewrite => 1,
-        Verdict::Escalate => 2,
-        Verdict::Block => 3,
+fn effect_rank(effect: AuthorizationEffect) -> u8 {
+    match effect {
+        AuthorizationEffect::Permit => 0,
+        AuthorizationEffect::Transform => 1,
+        AuthorizationEffect::RequireApproval => 2,
+        AuthorizationEffect::Defer => 3,
+        AuthorizationEffect::Deny => 4,
     }
 }
 
-fn verdict_name(verdict: Verdict) -> &'static str {
-    match verdict {
-        Verdict::Allow => "allow",
-        Verdict::Rewrite => "rewrite",
-        Verdict::Block => "block",
-        Verdict::Escalate => "escalate",
+fn controlling_approval_rule(event: &GuardEvent) -> Option<&ApprovalRule> {
+    let ToolResolution::Resolved { metadata } = event.resolution.as_ref()? else {
+        return None;
+    };
+    metadata.approval.as_ref().filter(|rule| rule.required)
+}
+
+#[allow(clippy::result_large_err)]
+fn validate_authorization(authorization: &AuthorizationClaim) -> Result<(), Response> {
+    if uuid::Uuid::parse_str(&authorization.grant_id).is_err()
+        || uuid::Uuid::parse_str(&authorization.attempt_id).is_err()
+    {
+        return Err(api_error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ApiErrorCode::Unprocessable,
+            "grant and attempt ids must be UUIDs".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn effect_name(effect: AuthorizationEffect) -> &'static str {
+    match effect {
+        AuthorizationEffect::Permit => "permit",
+        AuthorizationEffect::Transform => "transform",
+        AuthorizationEffect::Deny => "deny",
+        AuthorizationEffect::RequireApproval => "require_approval",
+        AuthorizationEffect::Defer => "defer",
     }
 }
 
@@ -478,6 +773,26 @@ fn validate_event(event: &GuardEvent) -> Result<(), String> {
         return Err(format!(
             "action.operation must be at most {MAX_ID_BYTES} bytes"
         ));
+    }
+    if let Some(invocation_id) = event.action.invocation_id.as_deref() {
+        if invocation_id.trim().is_empty() || invocation_id.len() > MAX_ID_BYTES {
+            return Err(format!(
+                "action.invocation_id must be non-empty and at most {MAX_ID_BYTES} bytes"
+            ));
+        }
+    }
+    if let Some(identity) = event.action.tool_identity.as_ref() {
+        for (name, value) in [
+            ("server_id", identity.server_id.as_str()),
+            ("tool_name", identity.tool_name.as_str()),
+            ("schema_hash", identity.schema_hash.as_str()),
+        ] {
+            if value.trim().is_empty() || value.len() > MAX_ID_BYTES {
+                return Err(format!(
+                    "action.tool_identity.{name} must be non-empty and at most {MAX_ID_BYTES} bytes"
+                ));
+            }
+        }
     }
 
     if event.sources.len() > MAX_SOURCES {
@@ -587,6 +902,9 @@ mod tests {
                 operation: "send_email".into(),
                 parameters: serde_json::json!({ "recipient": "a@b.c" }),
                 side_effect: None,
+                invocation_id: None,
+                tool_identity: None,
+                authorization: None,
             },
             sources: vec![],
             provenance: ProvenanceMap::default(),

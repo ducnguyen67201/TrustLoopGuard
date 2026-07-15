@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{CheckerRun, LabelResolution, ProvenanceMap, SignalEvidence, Source, ToolResolution};
+use crate::{
+    AuthorizationClaim, CheckerRun, LabelResolution, ProvenanceMap, SignalEvidence, Source,
+    ToolIdentity, ToolResolution,
+};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -122,6 +125,17 @@ pub struct Action {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub side_effect: Option<SideEffectClass>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub invocation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub tool_identity: Option<ToolIdentity>,
+    /// Opaque grant claim submitted only on a resumed attempt. The
+    /// server extracts and clears it before trace persistence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub authorization: Option<AuthorizationClaim>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

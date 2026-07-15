@@ -7,12 +7,12 @@
 //!
 //! Stored policies are the only source of Tier 1 decisions. The first
 //! non-Allow hit sets the `BlockSignal`; subsequent hits accumulate as
-//! reasons but don't override the first verdict.
+//! reasons but don't override the first effect.
 
 use std::time::Instant;
 
-use tl_core::{CheckRequest, Tier, TierResult, TierStatus, TriggeredPolicy, Verdict};
-use tl_policy::{Action, Policy};
+use tl_core::{AuthorizationEffect, CheckRequest, Tier, TierResult, TierStatus, TriggeredPolicy};
+use tl_policy::Policy;
 
 use crate::engine_match::policy_matches;
 use crate::pipeline::{BlockSignal, TierOutput};
@@ -50,14 +50,15 @@ pub fn run(req: &CheckRequest, policies: &[Policy]) -> TierOutput {
 }
 
 fn block_signal_from_action(policy: &Policy) -> Option<BlockSignal> {
-    let verdict = match policy.action {
-        Action::Allow => return None,
-        Action::Block => Verdict::Block,
-        Action::Rewrite => Verdict::Rewrite,
-        Action::Escalate => Verdict::Escalate,
+    let effect = match policy.action {
+        AuthorizationEffect::Permit => return None,
+        AuthorizationEffect::Deny => AuthorizationEffect::Deny,
+        AuthorizationEffect::Transform => AuthorizationEffect::Transform,
+        AuthorizationEffect::RequireApproval => AuthorizationEffect::RequireApproval,
+        AuthorizationEffect::Defer => AuthorizationEffect::Defer,
     };
     Some(BlockSignal {
-        verdict,
+        effect,
         reason: format!("tier1 policy `{}` triggered", policy.id),
         safe_output: policy.rewrite.clone(),
     })
@@ -95,7 +96,7 @@ mod tests {
 id: pii-email-block
 match:
   regex: "(?i)[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}"
-action: block
+action: deny
 severity: high
 "#,
         )
@@ -103,8 +104,8 @@ severity: high
         let req = req_with("hi", "your email is alice@example.com");
         let out = run(&req, &[policy]);
         assert!(matches!(
-            out.block.as_ref().map(|b| b.verdict),
-            Some(Verdict::Block)
+            out.block.as_ref().map(|b| b.effect),
+            Some(AuthorizationEffect::Deny)
         ));
         assert!(out.result.reasons.iter().any(|r| r.id == "pii-email-block"));
     }

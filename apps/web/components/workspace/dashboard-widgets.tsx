@@ -32,7 +32,7 @@ import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InfoHint } from '@/components/ui/info-hint';
 import { Separator } from '@/components/ui/separator';
-import { VerdictLegend } from '@/components/ui/verdict-legend';
+import { AuthorizationEffectLegend } from '@/components/ui/authorization-effect-legend';
 import { GLOSSARY } from '@/lib/glossary';
 import type { VariantProps } from 'class-variance-authority';
 import type { WorkspaceDashboardData } from '@/lib/server/dashboard-data';
@@ -40,19 +40,22 @@ import { UsageContent } from './UsageContent';
 import type { UsagePeriod } from './usage-utils';
 
 type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>['variant']>;
-type VerdictVariant = Extract<BadgeVariant, 'allow' | 'rewrite' | 'block' | 'escalate'>;
+type EffectVariant = Extract<
+  BadgeVariant,
+  'permit' | 'transform' | 'deny' | 'require_approval' | 'defer'
+>;
 
-const VERDICT_ORDER: VerdictVariant[] = ['allow', 'rewrite', 'escalate', 'block'];
+const EFFECT_ORDER: EffectVariant[] = ['permit', 'transform', 'require_approval', 'defer', 'deny'];
 
-/** Map a raw verdict string to its Badge verdict variant; `allow` is the safe default. */
-function verdictVariant(value: string): VerdictVariant {
+/** Map a raw effect string to its badge variant; permit is the safe default. */
+function effectVariant(value: string): EffectVariant {
   const key = value.trim().toLowerCase();
-  return (VERDICT_ORDER as string[]).includes(key) ? (key as VerdictVariant) : 'allow';
+  return (EFFECT_ORDER as string[]).includes(key) ? (key as EffectVariant) : 'permit';
 }
 
-/** Friendly, capitalized label for a verdict instead of the raw lowercase enum. */
-function verdictLabel(value: string): string {
-  return GLOSSARY[verdictVariant(value)].label;
+/** Friendly label for an effect instead of the raw enum token. */
+function effectLabel(value: string): string {
+  return GLOSSARY[effectVariant(value)].label;
 }
 
 /** Last 8 characters of a trace UUID — enough to tell two requests apart at a glance. */
@@ -114,7 +117,7 @@ function TraceCell({ row }: { row: DecisionRow }) {
         aria-label={copied ? 'Request ID copied' : `Copy full request ID ${row.id}`}
         className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&_svg]:size-3.5"
       >
-        {copied ? <IconCheck className="text-[var(--color-allow)]" /> : <IconCopy />}
+        {copied ? <IconCheck className="text-[var(--color-permit)]" /> : <IconCopy />}
       </button>
     </div>
   );
@@ -122,14 +125,14 @@ function TraceCell({ row }: { row: DecisionRow }) {
 
 const decisionColumns: DataTableColumn<DecisionRow>[] = [
   {
-    id: 'verdict',
+    id: 'effect',
     header: (
       <span className="inline-flex items-center gap-1.5">
         Decision
-        <InfoHint term="verdict" />
+        <InfoHint term="effect" />
       </span>
     ),
-    cell: (row) => <Badge variant={verdictVariant(row.verdict)}>{verdictLabel(row.verdict)}</Badge>,
+    cell: (row) => <Badge variant={effectVariant(row.effect)}>{effectLabel(row.effect)}</Badge>,
   },
   {
     id: 'id',
@@ -231,17 +234,23 @@ function ShortcutTile({ label, why, value, href, cta, icon: Icon }: SetupItem) {
   );
 }
 
-type VerdictCounts = Record<VerdictVariant, number>;
+type EffectCounts = Record<EffectVariant, number>;
 
-function countVerdicts(decisions: DecisionRow[]): VerdictCounts {
-  const counts: VerdictCounts = { allow: 0, rewrite: 0, escalate: 0, block: 0 };
+function countEffects(decisions: DecisionRow[]): EffectCounts {
+  const counts: EffectCounts = {
+    permit: 0,
+    transform: 0,
+    require_approval: 0,
+    defer: 0,
+    deny: 0,
+  };
   for (const decision of decisions) {
-    counts[verdictVariant(decision.verdict)] += 1;
+    counts[effectVariant(decision.effect)] += 1;
   }
   return counts;
 }
 
-function VerdictBar({ counts, total }: { counts: VerdictCounts; total: number }) {
+function EffectBar({ counts, total }: { counts: EffectCounts; total: number }) {
   if (total === 0) {
     return (
       <div
@@ -256,18 +265,18 @@ function VerdictBar({ counts, total }: { counts: VerdictCounts; total: number })
     <div
       className="flex h-2 w-full overflow-hidden rounded-full bg-muted"
       role="img"
-      aria-label={VERDICT_ORDER.map((v) => `${counts[v]} ${GLOSSARY[v].label}`).join(', ')}
+      aria-label={EFFECT_ORDER.map((v) => `${counts[v]} ${GLOSSARY[v].label}`).join(', ')}
     >
-      {VERDICT_ORDER.map((verdict) => {
-        const share = counts[verdict] / total;
+      {EFFECT_ORDER.map((effect) => {
+        const share = counts[effect] / total;
         if (share === 0) return null;
         return (
           <span
-            key={verdict}
+            key={effect}
             className="h-full first:rounded-l-full last:rounded-r-full"
             style={{
               width: `${share * 100}%`,
-              backgroundColor: `var(--color-${verdict})`,
+              backgroundColor: `var(--color-${effect})`,
             }}
           />
         );
@@ -304,7 +313,7 @@ function RecentDecisionsWidget({ data }: WidgetProps): ReactNode {
           <EmptyState
             icon={<IconPlugConnected />}
             title="Let's see your first decision"
-            description="Nothing has been checked yet. Connect one of your AI apps, and every request it makes will appear here — clearly marked as allowed, cleaned up, held for review, or blocked."
+            description="Nothing has been checked yet. Connect one of your AI apps, and every request it makes will appear here — clearly marked as permitted, transformed, approval required, deferred, or denied."
             action={
               <Button asChild size="sm">
                 <Link
@@ -329,7 +338,7 @@ function RecentDecisionsWidget({ data }: WidgetProps): ReactNode {
               <p className="mb-2 text-xs font-medium text-muted-foreground">
                 What each decision means
               </p>
-              <VerdictLegend />
+              <AuthorizationEffectLegend />
             </div>
           </>
         )}
@@ -339,7 +348,7 @@ function RecentDecisionsWidget({ data }: WidgetProps): ReactNode {
 }
 
 function DecisionMixWidget({ data }: WidgetProps): ReactNode {
-  const verdictCounts = countVerdicts(data.recentDecisions);
+  const effectCounts = countEffects(data.recentDecisions);
   const sampleSize = data.recentDecisions.length;
   return (
     <Card>
@@ -347,19 +356,19 @@ function DecisionMixWidget({ data }: WidgetProps): ReactNode {
         <CardDescription>How requests are landing</CardDescription>
         <CardTitle className="flex items-center gap-1.5">
           Decision mix
-          <InfoHint term="verdict" />
+          <InfoHint term="effect" />
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <VerdictBar counts={verdictCounts} total={sampleSize} />
+        <EffectBar counts={effectCounts} total={sampleSize} />
         <dl className="grid gap-2">
-          {VERDICT_ORDER.map((verdict) => (
-            <div key={verdict} className="flex items-center justify-between gap-3">
+          {EFFECT_ORDER.map((effect) => (
+            <div key={effect} className="flex items-center justify-between gap-3">
               <dt>
-                <Badge variant={verdict}>{GLOSSARY[verdict].label}</Badge>
+                <Badge variant={effect}>{GLOSSARY[effect].label}</Badge>
               </dt>
               <dd className="font-data text-sm tabular-nums text-foreground">
-                {verdictCounts[verdict]}
+                {effectCounts[effect]}
               </dd>
             </div>
           ))}
@@ -386,8 +395,8 @@ function GuardrailConfigWidget({ data }: WidgetProps): ReactNode {
           label="If no rule applies"
           hint="What happens to a request when none of your rules have an opinion about it."
         >
-          <Badge variant={verdictVariant(data.settings.defaultAction)}>
-            {verdictLabel(data.settings.defaultAction)}
+          <Badge variant={effectVariant(data.settings.defaultAction)}>
+            {effectLabel(data.settings.defaultAction)}
           </Badge>
         </ConfigRow>
         <Separator />
@@ -535,12 +544,27 @@ export type DashboardWidget = {
 
 /** Default dashboard layout: the order and set of widgets shown out of the box. */
 export const DASHBOARD_WIDGETS: readonly DashboardWidget[] = [
-  { key: 'recent-decisions', title: 'Recent decisions', span: 'full', render: RecentDecisionsWidget },
+  {
+    key: 'recent-decisions',
+    title: 'Recent decisions',
+    span: 'full',
+    render: RecentDecisionsWidget,
+  },
   { key: 'decision-mix', title: 'Decision mix', span: 'half', render: DecisionMixWidget },
-  { key: 'guardrail-config', title: 'How the guardrail behaves', span: 'half', render: GuardrailConfigWidget },
+  {
+    key: 'guardrail-config',
+    title: 'How the guardrail behaves',
+    span: 'half',
+    render: GuardrailConfigWidget,
+  },
   { key: 'usage', title: 'LLM usage', span: 'full', render: UsageWidget },
   { key: 'metrics', title: 'Key metrics', span: 'full', render: MetricsWidget },
-  { key: 'setup-shortcuts', title: 'Set up your protection', span: 'full', render: SetupShortcutsWidget },
+  {
+    key: 'setup-shortcuts',
+    title: 'Set up your protection',
+    span: 'full',
+    render: SetupShortcutsWidget,
+  },
 ];
 
 export const DASHBOARD_WIDGET_KEYS: readonly WidgetKey[] = DASHBOARD_WIDGETS.map((w) => w.key);

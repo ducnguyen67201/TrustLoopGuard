@@ -12,7 +12,7 @@ async fn validate_policy_yaml_returns_valid_true() {
 id: refund-guarantee
 match:
   literal: "guaranteed refund"
-action: block
+action: deny
 "#,
                 ))
                 .unwrap(),
@@ -39,7 +39,7 @@ async fn create_invalid_policy_returns_422_with_validation_details() {
 id: "Refund Guarantee"
 match:
   regex: "["
-action: rewrite
+action: transform
 "#,
         ),
     )
@@ -64,7 +64,7 @@ async fn validate_policy_yaml_returns_structured_errors() {
 id: "Refund Guarantee"
 match:
   regex: "["
-action: rewrite
+action: transform
 "#,
                 ))
                 .unwrap(),
@@ -96,7 +96,7 @@ async fn validate_policy_json_works() {
                 .uri("/v1/policies/validate")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
-                    r#"{"id":"json-policy","match":{"literal":"refund"},"action":"block"}"#,
+                    r#"{"id":"json-policy","match":{"literal":"refund"},"action": "deny"}"#,
                 ))
                 .unwrap(),
         )

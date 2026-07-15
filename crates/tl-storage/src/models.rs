@@ -4,16 +4,17 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::schema::{
-    agents, approval_requests, budget_alert_configs, budget_alert_firings, entity_versions,
-    escalations, financial_action_events, financial_action_outcomes, financial_actions,
-    financial_budget_principal_locks, financial_ledger_entries, financial_payment_reservations,
-    financial_payment_sessions, financial_receipts, gateway_provider_connections, gateway_routes,
-    github_installation_states, github_installations, github_integration_jobs,
-    github_repository_connections, human_review_events, llm_budget_principal_locks,
-    llm_budget_reservations, llm_model_prices, llm_usage_events, mandates, oauth_identities,
-    policies, policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
-    redteam_report_shares, redteam_session_events, run_events, runs, tool_metadata, traces, users,
-    workspace_environments,
+    agents, authorization_approvals, authorization_grants, authorization_intents,
+    authorization_leases, authorization_receipts, budget_alert_configs, budget_alert_firings,
+    entity_versions, escalations, financial_action_events, financial_action_outcomes,
+    financial_actions, financial_budget_principal_locks, financial_ledger_entries,
+    financial_payment_reservations, financial_payment_sessions, financial_receipts,
+    gateway_provider_connections, gateway_routes, github_installation_states, github_installations,
+    github_integration_jobs, github_repository_connections, human_review_events,
+    llm_budget_principal_locks, llm_budget_reservations, llm_model_prices, llm_usage_events,
+    oauth_identities, policies, policy_environment_deployments, redteam_attack_sessions,
+    redteam_jobs, redteam_plans, redteam_report_shares, redteam_session_events, run_events, runs,
+    tool_metadata, traces, users, workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -176,16 +177,15 @@ pub struct HumanReviewEventRecord {
 #[diesel(table_name = financial_actions)]
 pub struct NewFinancialAction {
     pub workspace_id: String,
+    pub environment_id: String,
     pub id: Uuid,
     pub idempotency_key: String,
     pub principal_id: String,
     pub action_kind: String,
     pub operation: String,
-    pub status: String,
     pub amount_minor: i64,
     pub currency: String,
     pub counterparty: Option<Value>,
-    pub mandate: Option<Value>,
     pub rail: String,
     pub memo: Option<String>,
     pub metadata: Value,
@@ -197,22 +197,237 @@ pub struct NewFinancialAction {
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct FinancialActionRecord {
     pub workspace_id: String,
+    pub environment_id: String,
     pub id: Uuid,
     pub idempotency_key: String,
     pub principal_id: String,
     pub action_kind: String,
     pub operation: String,
-    pub status: String,
     pub amount_minor: i64,
     pub currency: String,
     pub counterparty: Option<Value>,
-    pub mandate: Option<Value>,
     pub rail: String,
     pub memo: Option<String>,
     pub metadata: Value,
     pub evidence: Value,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub authorization_intent_id: Option<Uuid>,
+    pub execution_status: String,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = authorization_intents)]
+pub struct NewAuthorizationIntent {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub id: Uuid,
+    pub domain: String,
+    pub subject_id: String,
+    pub idempotency_key: String,
+    pub principal_id: String,
+    pub operation: String,
+    pub fingerprint: String,
+    pub fingerprint_version: i32,
+    pub subject_snapshot: Value,
+    pub status: String,
+    pub current_effect: String,
+    pub reason: String,
+    pub trace_id: Option<String>,
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = authorization_intents)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct AuthorizationIntentRecord {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub id: Uuid,
+    pub domain: String,
+    pub subject_id: String,
+    pub idempotency_key: String,
+    pub principal_id: String,
+    pub operation: String,
+    pub fingerprint: String,
+    pub fingerprint_version: i32,
+    pub subject_snapshot: Value,
+    pub status: String,
+    pub current_effect: String,
+    pub reason: String,
+    pub trace_id: Option<String>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = authorization_approvals)]
+pub struct NewAuthorizationApproval {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub id: Uuid,
+    pub intent_id: Uuid,
+    pub fingerprint: String,
+    pub status: String,
+    pub envelope: Value,
+    pub envelope_hash: String,
+    pub requirement_ids: Value,
+    pub approver_roles: Value,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = authorization_approvals)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct AuthorizationApprovalRecord {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub id: Uuid,
+    pub intent_id: Uuid,
+    pub fingerprint: String,
+    pub status: String,
+    pub envelope: Value,
+    pub envelope_hash: String,
+    pub requirement_ids: Value,
+    pub approver_roles: Value,
+    pub decided_by: Option<String>,
+    pub decided_at: Option<DateTime<Utc>>,
+    pub decision_reason: Option<String>,
+    pub expires_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = authorization_grants)]
+pub struct NewAuthorizationGrant {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub id: Uuid,
+    pub principal_id: String,
+    pub domain: String,
+    pub capability: String,
+    pub mode: String,
+    pub status: String,
+    pub source: String,
+    pub scope_schema: String,
+    pub scope: Option<Value>,
+    pub exact_fingerprint: Option<String>,
+    pub fingerprint_version: i32,
+    pub source_approval_id: Option<Uuid>,
+    pub requirement_ids: Value,
+    pub max_uses: Option<i32>,
+    pub starts_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = authorization_grants)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct AuthorizationGrantRecord {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub id: Uuid,
+    pub principal_id: String,
+    pub domain: String,
+    pub capability: String,
+    pub mode: String,
+    pub status: String,
+    pub source: String,
+    pub scope_schema: String,
+    pub scope: Option<Value>,
+    pub exact_fingerprint: Option<String>,
+    pub fingerprint_version: i32,
+    pub source_approval_id: Option<Uuid>,
+    pub requirement_ids: Value,
+    pub max_uses: Option<i32>,
+    pub use_count: i32,
+    pub starts_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub revoked_at: Option<DateTime<Utc>>,
+    pub revoked_by: Option<String>,
+    pub created_by: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = authorization_leases)]
+pub struct NewAuthorizationLease {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub id: Uuid,
+    pub intent_id: Uuid,
+    pub grant_id: Option<Uuid>,
+    pub attempt_id: String,
+    pub fingerprint: String,
+    pub status: String,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = authorization_leases)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct AuthorizationLeaseRecord {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub id: Uuid,
+    pub intent_id: Uuid,
+    pub grant_id: Option<Uuid>,
+    pub attempt_id: String,
+    pub fingerprint: String,
+    pub status: String,
+    pub claimed_at: DateTime<Utc>,
+    pub consumed_at: Option<DateTime<Utc>>,
+    pub canceled_at: Option<DateTime<Utc>>,
+    pub expires_at: DateTime<Utc>,
+    pub outcome: Value,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = authorization_receipts)]
+pub struct NewAuthorizationReceipt {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub id: Uuid,
+    pub intent_id: Option<Uuid>,
+    pub trace_id: Option<String>,
+    pub domain: String,
+    pub effect: String,
+    pub intent_status: Option<String>,
+    pub subject_hash: String,
+    pub reason: String,
+    pub findings: Value,
+    pub policy_versions: Value,
+    pub approval_id: Option<Uuid>,
+    pub grant_id: Option<Uuid>,
+    pub lease_id: Option<Uuid>,
+    pub domain_evidence: Value,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = authorization_receipts)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct AuthorizationReceiptRecord {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub id: Uuid,
+    pub intent_id: Option<Uuid>,
+    pub trace_id: Option<String>,
+    pub domain: String,
+    pub effect: String,
+    pub intent_status: Option<String>,
+    pub subject_hash: String,
+    pub reason: String,
+    pub findings: Value,
+    pub policy_versions: Value,
+    pub approval_id: Option<Uuid>,
+    pub grant_id: Option<Uuid>,
+    pub lease_id: Option<Uuid>,
+    pub domain_evidence: Value,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Insertable)]
@@ -505,8 +720,10 @@ pub struct NewLlmBudgetReservation {
 #[diesel(table_name = financial_receipts)]
 pub struct NewFinancialReceipt {
     pub workspace_id: String,
+    pub environment_id: String,
     pub id: Uuid,
     pub action_id: Uuid,
+    pub authorization_receipt_id: Option<Uuid>,
     pub trace_id: Option<Uuid>,
     pub ledger_event_ids: Value,
     pub proof: Value,
@@ -517,8 +734,10 @@ pub struct NewFinancialReceipt {
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct FinancialReceiptRecord {
     pub workspace_id: String,
+    pub environment_id: String,
     pub id: Uuid,
     pub action_id: Uuid,
+    pub authorization_receipt_id: Option<Uuid>,
     pub trace_id: Option<Uuid>,
     pub ledger_event_ids: Value,
     pub proof: Value,
@@ -559,68 +778,6 @@ pub struct FinancialActionOutcomeRecord {
     pub occurred_at: DateTime<Utc>,
     pub metadata: Value,
     pub created_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Insertable)]
-#[diesel(table_name = approval_requests)]
-pub struct NewApprovalRequest {
-    pub workspace_id: String,
-    pub id: Uuid,
-    pub action_id: Uuid,
-    pub status: String,
-    pub reason: String,
-    pub approver_roles: Value,
-    pub expires_at: Option<DateTime<Utc>>,
-    pub metadata: Value,
-}
-
-#[derive(Debug, Clone, Queryable, Selectable)]
-#[diesel(table_name = approval_requests)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct ApprovalRequestRecord {
-    pub workspace_id: String,
-    pub id: Uuid,
-    pub action_id: Uuid,
-    pub status: String,
-    pub reason: String,
-    pub approver_roles: Value,
-    pub decided_by: Option<String>,
-    pub decided_at: Option<DateTime<Utc>>,
-    pub expires_at: Option<DateTime<Utc>>,
-    pub metadata: Value,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Insertable)]
-#[diesel(table_name = mandates)]
-pub struct NewMandate {
-    pub workspace_id: String,
-    pub id: String,
-    pub version: i32,
-    pub status: String,
-    pub principal_id: String,
-    pub scope: Value,
-    pub metadata: Value,
-    pub starts_at: Option<DateTime<Utc>>,
-    pub expires_at: Option<DateTime<Utc>>,
-}
-
-#[derive(Debug, Clone, Queryable, Selectable)]
-#[diesel(table_name = mandates)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct MandateRecord {
-    pub workspace_id: String,
-    pub id: String,
-    pub version: i32,
-    pub status: String,
-    pub principal_id: String,
-    pub scope: Value,
-    pub metadata: Value,
-    pub starts_at: Option<DateTime<Utc>>,
-    pub expires_at: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Insertable)]

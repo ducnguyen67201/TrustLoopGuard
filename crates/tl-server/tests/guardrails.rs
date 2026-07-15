@@ -83,7 +83,7 @@ impl LlmClient for StubLlm {
                     "description": "Block customer email patterns in responses.",
                     "match_type": "regex",
                     "match_value": "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[A-Za-z]{2,}",
-                    "action": "block",
+                    "action": "deny",
                     "severity": "high",
                     "rewrite": null
                 },
@@ -92,7 +92,7 @@ impl LlmClient for StubLlm {
                     "description": "Block claims about medical or dietary safety.",
                     "match_type": "literal",
                     "match_value": "is safe for diabetics",
-                    "action": "block",
+                    "action": "deny",
                     "severity": "high",
                     "rewrite": null
                 },
@@ -101,7 +101,7 @@ impl LlmClient for StubLlm {
                     "description": "Refuse refund guarantees.",
                     "match_type": "literal",
                     "match_value": "guaranteed refund",
-                    "action": "block",
+                    "action": "deny",
                     "severity": "critical",
                     "rewrite": null
                 }

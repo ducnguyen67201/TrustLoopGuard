@@ -87,7 +87,7 @@ async fn patch_settings_updates_only_provided_fields() {
     assert_eq!(settings.flow_checker_mode, EnforcementMode::Shadow);
     // Untouched fields keep their defaults.
     assert_eq!(settings.memory_checker_mode, EnforcementMode::Off);
-    assert_eq!(settings.default_action, "allow");
+    assert_eq!(settings.default_action, "permit");
     assert!(settings.telemetry_enabled);
     assert!(settings.updated_at.is_some());
 
@@ -118,7 +118,7 @@ async fn patch_settings_with_empty_body_is_a_noop() {
     assert_eq!(resp.status(), StatusCode::OK);
     let settings: WorkspaceSettings = serde_json::from_value(read_body(resp).await).unwrap();
     assert_eq!(settings.flow_checker_mode, EnforcementMode::Off);
-    assert_eq!(settings.default_action, "allow");
+    assert_eq!(settings.default_action, "permit");
 }
 
 #[tokio::test]

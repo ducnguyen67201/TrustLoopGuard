@@ -101,12 +101,7 @@ describe('HardenJobCard', () => {
     );
 
     render(
-      <HardenJobCard
-        jobId="job-1"
-        sessions={[REFUND_SESSION]}
-        busy={false}
-        onHardened={vi.fn()}
-      />,
+      <HardenJobCard jobId="job-1" sessions={[REFUND_SESSION]} busy={false} onHardened={vi.fn()} />,
     );
 
     await userEvent.click(screen.getByRole('button', { name: /build a fix/i }));
@@ -114,7 +109,9 @@ describe('HardenJobCard', () => {
     await waitFor(() => expect(screen.getByText(/couldn't verify it/i)).toBeInTheDocument());
     expect(screen.getByText(/semantic policy judge is not configured/i)).toBeInTheDocument();
     expect(screen.getByText(/candidate missed a reworded version/i)).toBeInTheDocument();
-    expect(screen.getByText(/checked: 3\/3 landed, 2\/3 variants, 1\/4 benign controls blocked/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/checked: 3\/3 landed, 2\/3 variants, 1\/4 benign controls blocked/i),
+    ).toBeInTheDocument();
     const createRuleHref = screen.getByRole('link', { name: /create rule/i }).getAttribute('href');
     expect(createRuleHref).toContain('/policies/new?');
     expect(createRuleHref).toContain('workspace=test-BJ-V');
@@ -122,8 +119,10 @@ describe('HardenJobCard', () => {
     expect(createRuleHref).toContain('policyKey=');
     expect(createRuleHref).toContain('sourceYaml=');
     expect(createRuleHref).toContain('severity=high');
-    expect(createRuleHref).toContain('action=block');
-    const sourceYaml = new URL(createRuleHref ?? '', 'http://localhost').searchParams.get('sourceYaml');
+    expect(createRuleHref).toContain('action=deny');
+    const sourceYaml = new URL(createRuleHref ?? '', 'http://localhost').searchParams.get(
+      'sourceYaml',
+    );
     expect(sourceYaml).toContain('semantic:');
     expect(sourceYaml).not.toContain('regex:');
     expect(screen.queryByRole('button', { name: /build a fix/i })).not.toBeInTheDocument();

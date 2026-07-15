@@ -3,8 +3,9 @@
 use std::time::Duration;
 
 use tl_sdk_rust::{
-    Action, Client, CreateRunEventRequest, CreateRunRequest, EventKind, GuardEvent, Labels, Origin,
-    Principal, ProvenanceMap, RetryConfig, RunEventKind, RunKind, SdkError, Source, Verdict,
+    Action, AuthorizationEffect, Client, CreateRunEventRequest, CreateRunRequest, EventKind,
+    GuardEvent, Labels, Origin, Principal, ProvenanceMap, RetryConfig, RunEventKind, RunKind,
+    SdkError, Source,
 };
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -40,6 +41,9 @@ fn send_email_event() -> GuardEvent {
             operation: "send_email".into(),
             parameters: serde_json::json!({ "recipient": "a@b.c" }),
             side_effect: None,
+            invocation_id: None,
+            tool_identity: None,
+            authorization: None,
         },
         sources: vec![Source {
             id: "src.web".into(),
@@ -59,10 +63,10 @@ fn send_email_event() -> GuardEvent {
 fn observe_only_decision() -> serde_json::Value {
     serde_json::json!({
         "trace_id": "018f1111-1111-7111-8111-111111111111",
-        "verdict": "allow",
+        "domain": "content",
+        "effect": "permit",
         "reason": OBSERVE_ONLY_REASON,
-        "triggered_policies": [],
-        "safe_output": null,
+        "findings": [],
         "latency_ms": 2
     })
 }
@@ -83,7 +87,7 @@ async fn submit_event_posts_typed_event_with_bearer_auth() {
 
     let decision = client.submit_event(&send_email_event()).await.unwrap();
 
-    assert_eq!(decision.verdict, Verdict::Allow);
+    assert_eq!(decision.effect, AuthorizationEffect::Permit);
     assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
 
     let requests = server.received_requests().await.unwrap();

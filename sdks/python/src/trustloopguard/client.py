@@ -6,11 +6,13 @@ Sync and async variants share the same surface.
 from __future__ import annotations
 
 import asyncio
+import copy
 import contextvars
 import logging
 import random
 import time
-from typing import Any, Callable, Generic, TypeVar
+import uuid
+from typing import Any, Awaitable, Callable, Generic, TypeVar
 
 import httpx
 
@@ -18,32 +20,35 @@ from urllib.parse import quote
 
 from trustloopguard._generated.types import (
     Action,
+    AuthorizationApproval,
+    AuthorizationApprovalListResponse,
+    AuthorizationClaim,
+    AuthorizationGrant,
+    AuthorizationGrantListResponse,
+    AuthorizationLease,
+    AuthorizationReceipt,
+    CompleteAuthorizationLeaseRequest,
+    CreateAuthorizationGrantRequest,
+    DecideAuthorizationApprovalRequest,
+    DecideAuthorizationApprovalResponse,
     AgenticPaymentAuthorizationResponse,
     AgenticPaymentAuthorizeRequest,
     AgenticPaymentCommitRequest,
     AgenticPaymentRecord,
     AgenticPaymentRollbackRequest,
-    ApproveMatchingFinancialActionsRequest,
-    ApproveMatchingFinancialActionsResponse,
     CounterpartyRef,
     CreateFinancialActionRequest,
-    CreateFinancialMandateRequest,
     CreateFinancialPolicyRequest,
     CreateRunEventRequest,
     CreateRunRequest,
-    Decision,
+    AuthorizationDecision,
     EventKind,
     EvidenceRef,
     FinancialAction,
-    FinancialActionDecisionReceipt,
     FinancialActionKind,
     FinancialActionListResponse,
     FinancialActionOutcome,
     FinancialActionRecord,
-    FinancialApprovalEnvelope,
-    FinancialApprovalRequestListResponse,
-    FinancialMandate,
-    FinancialMandateListResponse,
     FinancialOutcomeListResponse,
     FinancialPolicyListResponse,
     FinancialPolicyRecord,
@@ -52,7 +57,6 @@ from trustloopguard._generated.types import (
     GuardEvent,
     GuardrailGenerateResponse,
     GuardrailListResponse,
-    MandateRef,
     MoneyAmount,
     PolicyDocument,
     PolicyFamily,
@@ -67,8 +71,10 @@ from trustloopguard._generated.types import (
     RunSummary,
     SideEffectClass,
     TraceListResponse,
+    ToolIdentity,
     UpdateRunRequest,
 )
+from trustloopguard.authorization import AuthorizationResult
 from trustloopguard.errors import (
     Decode,
     SdkError,
@@ -86,6 +92,11 @@ _run_context: contextvars.ContextVar[dict[str, str]] = contextvars.ContextVar(
 )
 InputT = TypeVar("InputT")
 FactsT = TypeVar("FactsT")
+ResultT = TypeVar("ResultT")
+
+
+def _wire_value(value: Any) -> str:
+    return str(getattr(value, "value", value))
 
 
 def _merge_context(event: GuardEvent) -> GuardEvent:
@@ -141,7 +152,7 @@ class FinancialOperation(Generic[InputT, FactsT]):
         amount: Callable[[InputT, FactsT | None], MoneyAmount],
         idempotency_key: Callable[[InputT, FactsT | None], str],
         counterparty: Callable[[InputT, FactsT | None], CounterpartyRef | None] | None = None,
-        mandate: Callable[[InputT, FactsT | None], MandateRef | None] | None = None,
+        authorization: Callable[[InputT, FactsT | None], AuthorizationClaim | None] | None = None,
         memo: Callable[[InputT, FactsT | None], str | None] | None = None,
         metadata: Callable[[InputT, FactsT | None], dict[str, Any] | None] | None = None,
         evidence: Callable[[InputT, FactsT | None], list[EvidenceRef]] | None = None,
@@ -155,7 +166,7 @@ class FinancialOperation(Generic[InputT, FactsT]):
         self._amount = amount
         self._idempotency_key = idempotency_key
         self._counterparty = counterparty
-        self._mandate = mandate
+        self._authorization = authorization
         self._memo = memo
         self._metadata = metadata
         self._evidence = evidence
@@ -178,7 +189,7 @@ class FinancialOperation(Generic[InputT, FactsT]):
             amount=self._amount,
             idempotency_key=self._idempotency_key,
             counterparty=self._counterparty,
-            mandate=self._mandate,
+            authorization=self._authorization,
             memo=self._memo,
             metadata=self._metadata,
             evidence=self._evidence,
@@ -210,7 +221,7 @@ class AsyncFinancialOperation(Generic[InputT, FactsT]):
         amount: Callable[[InputT, FactsT | None], MoneyAmount],
         idempotency_key: Callable[[InputT, FactsT | None], str],
         counterparty: Callable[[InputT, FactsT | None], CounterpartyRef | None] | None = None,
-        mandate: Callable[[InputT, FactsT | None], MandateRef | None] | None = None,
+        authorization: Callable[[InputT, FactsT | None], AuthorizationClaim | None] | None = None,
         memo: Callable[[InputT, FactsT | None], str | None] | None = None,
         metadata: Callable[[InputT, FactsT | None], dict[str, Any] | None] | None = None,
         evidence: Callable[[InputT, FactsT | None], list[EvidenceRef]] | None = None,
@@ -224,7 +235,7 @@ class AsyncFinancialOperation(Generic[InputT, FactsT]):
         self._amount = amount
         self._idempotency_key = idempotency_key
         self._counterparty = counterparty
-        self._mandate = mandate
+        self._authorization = authorization
         self._memo = memo
         self._metadata = metadata
         self._evidence = evidence
@@ -247,7 +258,7 @@ class AsyncFinancialOperation(Generic[InputT, FactsT]):
             amount=self._amount,
             idempotency_key=self._idempotency_key,
             counterparty=self._counterparty,
-            mandate=self._mandate,
+            authorization=self._authorization,
             memo=self._memo,
             metadata=self._metadata,
             evidence=self._evidence,
@@ -278,7 +289,7 @@ def _build_financial_operation_request(
     amount: Callable[[InputT, FactsT | None], MoneyAmount],
     idempotency_key: Callable[[InputT, FactsT | None], str],
     counterparty: Callable[[InputT, FactsT | None], CounterpartyRef | None] | None,
-    mandate: Callable[[InputT, FactsT | None], MandateRef | None] | None,
+    authorization: Callable[[InputT, FactsT | None], AuthorizationClaim | None] | None,
     memo: Callable[[InputT, FactsT | None], str | None] | None,
     metadata: Callable[[InputT, FactsT | None], dict[str, Any] | None] | None,
     evidence: Callable[[InputT, FactsT | None], list[EvidenceRef]] | None,
@@ -289,6 +300,7 @@ def _build_financial_operation_request(
             "idempotency_key", idempotency_key(input, facts)
         ),
         execute=execute,
+        authorization=authorization(input, facts) if authorization else None,
         action=FinancialAction(
             kind=kind,
             operation=operation,
@@ -296,7 +308,6 @@ def _build_financial_operation_request(
             amount=amount(input, facts),
             counterparty=counterparty(input, facts) if counterparty else None,
             rail=rail,
-            mandate=mandate(input, facts) if mandate else None,
             memo=memo(input, facts) if memo else None,
             metadata=metadata(input, facts) if metadata else {},
         ),
@@ -344,7 +355,7 @@ class Client:
 
     def submit_event(
         self, event: GuardEvent, *, timeout: float | None = None
-    ) -> Decision:
+    ) -> AuthorizationDecision:
         """Submit a full ``GuardEvent`` (sources + provenance) for a runtime decision."""
         event = _merge_context(event)
         return self._run_with_retry(
@@ -353,7 +364,210 @@ class Client:
                 method="POST",
                 body=event.model_dump(mode="json", exclude_none=True),
                 timeout=timeout,
-                model=Decision,
+                model=AuthorizationDecision,
+            )
+        )
+
+    def get_approval(
+        self, approval_id: str, *, timeout: float | None = None
+    ) -> AuthorizationApproval:
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                f"/v1/authorization/approvals/{quote(approval_id, safe='')}",
+                method="GET",
+                timeout=timeout,
+                model=AuthorizationApproval,
+            )
+        )
+
+    def resume_authorized_action(
+        self,
+        event: GuardEvent,
+        grant_id: str,
+        attempt_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> AuthorizationDecision:
+        resumed = event.model_copy(deep=True)
+        resumed.action.authorization = AuthorizationClaim(
+            grant_id=grant_id,
+            attempt_id=attempt_id,
+        )
+        return self.submit_event(resumed, timeout=timeout)
+
+    def with_authorized_action(
+        self,
+        *,
+        agent_id: str,
+        operation: str,
+        tool_identity: ToolIdentity,
+        execute: Callable[[dict[str, Any]], ResultT],
+        parameters: dict[str, Any] | None = None,
+        side_effect: str | SideEffectClass | None = None,
+        timeout: float = 60.0,
+        poll_interval: float | None = None,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> AuthorizationResult[ResultT]:
+        event = GuardEvent.model_validate(
+            {
+                "kind": EventKind.tool_call_proposed,
+                "principal": {
+                    "workspace_id": "",
+                    "environment_id": "",
+                    "agent_id": agent_id,
+                },
+                "action": {
+                    "operation": operation,
+                    "parameters": copy.deepcopy(parameters or {}),
+                    "side_effect": side_effect,
+                    "invocation_id": str(uuid.uuid4()),
+                    "tool_identity": tool_identity.model_dump(mode="json"),
+                },
+                "sources": [],
+                "provenance": {},
+                "context": None,
+            }
+        )
+        approved_parameters = copy.deepcopy(parameters or {})
+
+        def execute_permitted(
+            permitted: AuthorizationDecision,
+        ) -> AuthorizationResult[ResultT]:
+            try:
+                value = execute(approved_parameters)
+            except BaseException:
+                if permitted.lease is not None:
+                    try:
+                        self.complete_lease(
+                            permitted.lease.id,
+                            CompleteAuthorizationLeaseRequest(
+                                status="canceled", outcome={"success": False}
+                            ),
+                        )
+                    except Exception:
+                        pass
+                raise
+            if permitted.lease is not None:
+                self.complete_lease(
+                    permitted.lease.id,
+                    CompleteAuthorizationLeaseRequest(
+                        status="consumed", outcome={"success": True}
+                    ),
+                )
+            return AuthorizationResult(permitted, True, value)
+
+        decision = self.submit_event(event)
+        if _wire_value(decision.effect) == "permit":
+            return execute_permitted(decision)
+        if _wire_value(decision.effect) != "require_approval" or decision.approval is None:
+            return AuthorizationResult(decision, False)
+
+        approval_id = decision.approval.id
+        attempt_id = str(uuid.uuid4())
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            approval = self.get_approval(approval_id)
+            status_value = _wire_value(approval.status)
+            if status_value == "approved":
+                if approval.grant_id is None:
+                    return AuthorizationResult(decision, False)
+                resumed = self.resume_authorized_action(event, approval.grant_id, attempt_id)
+                if _wire_value(resumed.effect) == "permit" and resumed.lease is not None:
+                    return execute_permitted(resumed)
+                return AuthorizationResult(resumed, False)
+            if status_value != "pending":
+                return AuthorizationResult(decision, False)
+            sleep(poll_interval or 1.0)
+        return AuthorizationResult(decision, False)
+
+    def list_approvals(
+        self, *, timeout: float | None = None
+    ) -> AuthorizationApprovalListResponse:
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/authorization/approvals",
+                method="GET",
+                timeout=timeout,
+                model=AuthorizationApprovalListResponse,
+            )
+        )
+
+    def decide_approval(
+        self,
+        approval_id: str,
+        request: DecideAuthorizationApprovalRequest,
+        *,
+        timeout: float | None = None,
+    ) -> DecideAuthorizationApprovalResponse:
+        return self._send_json_model(
+            f"/v1/authorization/approvals/{quote(approval_id, safe='')}/decide",
+            method="POST",
+            body=request.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=DecideAuthorizationApprovalResponse,
+        )
+
+    def create_grant(
+        self,
+        request: CreateAuthorizationGrantRequest,
+        *,
+        timeout: float | None = None,
+    ) -> AuthorizationGrant:
+        return self._send_json_model(
+            "/v1/authorization/grants",
+            method="POST",
+            body=request.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=AuthorizationGrant,
+        )
+
+    def list_grants(
+        self, *, timeout: float | None = None
+    ) -> AuthorizationGrantListResponse:
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/authorization/grants",
+                method="GET",
+                timeout=timeout,
+                model=AuthorizationGrantListResponse,
+            )
+        )
+
+    def revoke_grant(
+        self, grant_id: str, *, timeout: float | None = None
+    ) -> AuthorizationGrant:
+        return self._send_json_model(
+            f"/v1/authorization/grants/{quote(grant_id, safe='')}/revoke",
+            method="POST",
+            body={},
+            timeout=timeout,
+            model=AuthorizationGrant,
+        )
+
+    def complete_lease(
+        self,
+        lease_id: str,
+        request: CompleteAuthorizationLeaseRequest,
+        *,
+        timeout: float | None = None,
+    ) -> AuthorizationLease:
+        return self._send_json_model(
+            f"/v1/authorization/leases/{quote(lease_id, safe='')}/complete",
+            method="POST",
+            body=request.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=AuthorizationLease,
+        )
+
+    def get_authorization_receipt(
+        self, receipt_id: str, *, timeout: float | None = None
+    ) -> AuthorizationReceipt:
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                f"/v1/authorization/receipts/{quote(receipt_id, safe='')}",
+                method="GET",
+                timeout=timeout,
+                model=AuthorizationReceipt,
             )
         )
 
@@ -389,7 +603,7 @@ class Client:
         sources: list[Any] | None = None,
         provenance: dict[str, list[str]] | None = None,
         context: dict[str, Any] | None = None,
-    ) -> Decision:
+    ) -> AuthorizationDecision:
         return self.submit_event(
             GuardEvent.model_validate(
                 {
@@ -441,7 +655,7 @@ class Client:
         amount: Callable[[InputT, FactsT | None], MoneyAmount],
         idempotency_key: Callable[[InputT, FactsT | None], str],
         counterparty: Callable[[InputT, FactsT | None], CounterpartyRef | None] | None = None,
-        mandate: Callable[[InputT, FactsT | None], MandateRef | None] | None = None,
+        authorization: Callable[[InputT, FactsT | None], AuthorizationClaim | None] | None = None,
         memo: Callable[[InputT, FactsT | None], str | None] | None = None,
         metadata: Callable[[InputT, FactsT | None], dict[str, Any] | None] | None = None,
         evidence: Callable[[InputT, FactsT | None], list[EvidenceRef]] | None = None,
@@ -456,7 +670,7 @@ class Client:
             amount=amount,
             idempotency_key=idempotency_key,
             counterparty=counterparty,
-            mandate=mandate,
+            authorization=authorization,
             memo=memo,
             metadata=metadata,
             evidence=evidence,
@@ -616,49 +830,6 @@ class Client:
             )
         )
 
-    def create_mandate(
-        self, req: CreateFinancialMandateRequest, *, timeout: float | None = None
-    ) -> FinancialMandate:
-        return self._send_json_model(
-            "/v1/financial/mandates",
-            method="POST",
-            body=req.model_dump(mode="json", exclude_none=True),
-            timeout=timeout,
-            model=FinancialMandate,
-        )
-
-    def list_mandates(
-        self, *, timeout: float | None = None
-    ) -> FinancialMandateListResponse:
-        return self._run_with_retry(
-            lambda: self._send_get_or_post(
-                "/v1/financial/mandates",
-                method="GET",
-                timeout=timeout,
-                model=FinancialMandateListResponse,
-            )
-        )
-
-    def list_approval_requests(
-        self, *, timeout: float | None = None
-    ) -> FinancialApprovalRequestListResponse:
-        return self._run_with_retry(
-            lambda: self._send_get_or_post(
-                "/v1/financial/approval-requests",
-                method="GET",
-                timeout=timeout,
-                model=FinancialApprovalRequestListResponse,
-            )
-        )
-
-    def revoke_mandate(
-        self, mandate_id: str, *, timeout: float | None = None
-    ) -> FinancialMandate:
-        path = f"/v1/financial/mandates/{quote(mandate_id, safe='')}/revoke"
-        return self._send_get_or_post(
-            path, method="POST", timeout=timeout, model=FinancialMandate
-        )
-
     def get_receipt(
         self, receipt_id: str, *, timeout: float | None = None
     ) -> FinancialReceipt:
@@ -666,19 +837,6 @@ class Client:
         return self._run_with_retry(
             lambda: self._send_get_or_post(
                 path, method="GET", timeout=timeout, model=FinancialReceipt
-            )
-        )
-
-    def get_financial_decision_receipt(
-        self, action_id: str, *, timeout: float | None = None
-    ) -> FinancialActionDecisionReceipt:
-        path = f"/v1/financial/actions/{quote(action_id, safe='')}/decision-receipt"
-        return self._run_with_retry(
-            lambda: self._send_get_or_post(
-                path,
-                method="GET",
-                timeout=timeout,
-                model=FinancialActionDecisionReceipt,
             )
         )
 
@@ -708,53 +866,29 @@ class Client:
             )
         )
 
-    def approve_action(
-        self, action_id: str, *, timeout: float | None = None
-    ) -> FinancialActionRecord:
-        return self._transition_financial_action(action_id, "approve", timeout=timeout)
-
-    def get_financial_approval_envelope(
-        self, action_id: str, *, timeout: float | None = None
-    ) -> FinancialApprovalEnvelope:
-        path = f"/v1/financial/actions/{quote(action_id, safe='')}/approval-envelope"
-        return self._run_with_retry(
-            lambda: self._send_get_or_post(
-                path, method="GET", timeout=timeout, model=FinancialApprovalEnvelope
-            )
-        )
-
-    def approve_matching_financial_actions(
+    def execute_action(
         self,
         action_id: str,
-        request: ApproveMatchingFinancialActionsRequest,
         *,
+        authorization: AuthorizationClaim | None = None,
+        attempt_id: str | None = None,
         timeout: float | None = None,
-    ) -> ApproveMatchingFinancialActionsResponse:
-        path = f"/v1/financial/actions/{quote(action_id, safe='')}/approve-matching"
+    ) -> FinancialActionRecord:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/execute"
+        body = {
+            **(
+                {"authorization": authorization.model_dump(mode="json")}
+                if authorization is not None
+                else {}
+            ),
+            **({"attempt_id": attempt_id} if attempt_id is not None else {}),
+        }
         return self._send_json_model(
             path,
             method="POST",
-            body=request.model_dump(mode="json", exclude_none=True),
+            body=body,
             timeout=timeout,
-            model=ApproveMatchingFinancialActionsResponse,
-        )
-
-    def deny_action(
-        self, action_id: str, *, timeout: float | None = None
-    ) -> FinancialActionRecord:
-        return self._transition_financial_action(action_id, "deny", timeout=timeout)
-
-    def execute_action(
-        self, action_id: str, *, timeout: float | None = None
-    ) -> FinancialActionRecord:
-        return self._transition_financial_action(action_id, "execute", timeout=timeout)
-
-    def _transition_financial_action(
-        self, action_id: str, transition: str, *, timeout: float | None = None
-    ) -> FinancialActionRecord:
-        path = f"/v1/financial/actions/{quote(action_id, safe='')}/{transition}"
-        return self._send_get_or_post(
-            path, method="POST", timeout=timeout, model=FinancialActionRecord
+            model=FinancialActionRecord,
         )
 
     def generate_guardrails(
@@ -1176,7 +1310,7 @@ class AsyncClient:
 
     async def submit_event(
         self, event: GuardEvent, *, timeout: float | None = None
-    ) -> Decision:
+    ) -> AuthorizationDecision:
         """Submit a full ``GuardEvent`` (sources + provenance) for a runtime decision."""
         event = _merge_context(event)
         return await self._run_with_retry(
@@ -1185,7 +1319,209 @@ class AsyncClient:
                 method="POST",
                 body=event.model_dump(mode="json", exclude_none=True),
                 timeout=timeout,
-                model=Decision,
+                model=AuthorizationDecision,
+            )
+        )
+
+    async def get_approval(
+        self, approval_id: str, *, timeout: float | None = None
+    ) -> AuthorizationApproval:
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                f"/v1/authorization/approvals/{quote(approval_id, safe='')}",
+                method="GET",
+                timeout=timeout,
+                model=AuthorizationApproval,
+            )
+        )
+
+    async def resume_authorized_action(
+        self,
+        event: GuardEvent,
+        grant_id: str,
+        attempt_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> AuthorizationDecision:
+        resumed = event.model_copy(deep=True)
+        resumed.action.authorization = AuthorizationClaim(
+            grant_id=grant_id,
+            attempt_id=attempt_id,
+        )
+        return await self.submit_event(resumed, timeout=timeout)
+
+    async def with_authorized_action(
+        self,
+        *,
+        agent_id: str,
+        operation: str,
+        tool_identity: ToolIdentity,
+        execute: Callable[[dict[str, Any]], Awaitable[ResultT]],
+        parameters: dict[str, Any] | None = None,
+        side_effect: str | SideEffectClass | None = None,
+        timeout: float = 60.0,
+        poll_interval: float | None = None,
+    ) -> AuthorizationResult[ResultT]:
+        event = GuardEvent.model_validate(
+            {
+                "kind": EventKind.tool_call_proposed,
+                "principal": {
+                    "workspace_id": "",
+                    "environment_id": "",
+                    "agent_id": agent_id,
+                },
+                "action": {
+                    "operation": operation,
+                    "parameters": copy.deepcopy(parameters or {}),
+                    "side_effect": side_effect,
+                    "invocation_id": str(uuid.uuid4()),
+                    "tool_identity": tool_identity.model_dump(mode="json"),
+                },
+                "sources": [],
+                "provenance": {},
+                "context": None,
+            }
+        )
+        approved_parameters = copy.deepcopy(parameters or {})
+
+        async def execute_permitted(
+            permitted: AuthorizationDecision,
+        ) -> AuthorizationResult[ResultT]:
+            try:
+                value = await execute(approved_parameters)
+            except BaseException:
+                if permitted.lease is not None:
+                    try:
+                        await self.complete_lease(
+                            permitted.lease.id,
+                            CompleteAuthorizationLeaseRequest(
+                                status="canceled", outcome={"success": False}
+                            ),
+                        )
+                    except Exception:
+                        pass
+                raise
+            if permitted.lease is not None:
+                await self.complete_lease(
+                    permitted.lease.id,
+                    CompleteAuthorizationLeaseRequest(
+                        status="consumed", outcome={"success": True}
+                    ),
+                )
+            return AuthorizationResult(permitted, True, value)
+
+        decision = await self.submit_event(event)
+        if _wire_value(decision.effect) == "permit":
+            return await execute_permitted(decision)
+        if _wire_value(decision.effect) != "require_approval" or decision.approval is None:
+            return AuthorizationResult(decision, False)
+
+        approval_id = decision.approval.id
+        attempt_id = str(uuid.uuid4())
+        deadline = asyncio.get_running_loop().time() + timeout
+        while asyncio.get_running_loop().time() < deadline:
+            approval = await self.get_approval(approval_id)
+            status_value = _wire_value(approval.status)
+            if status_value == "approved":
+                if approval.grant_id is None:
+                    return AuthorizationResult(decision, False)
+                resumed = await self.resume_authorized_action(event, approval.grant_id, attempt_id)
+                if _wire_value(resumed.effect) == "permit" and resumed.lease is not None:
+                    return await execute_permitted(resumed)
+                return AuthorizationResult(resumed, False)
+            if status_value != "pending":
+                return AuthorizationResult(decision, False)
+            await asyncio.sleep(poll_interval or 1.0)
+        return AuthorizationResult(decision, False)
+
+    async def list_approvals(
+        self, *, timeout: float | None = None
+    ) -> AuthorizationApprovalListResponse:
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/authorization/approvals",
+                method="GET",
+                timeout=timeout,
+                model=AuthorizationApprovalListResponse,
+            )
+        )
+
+    async def decide_approval(
+        self,
+        approval_id: str,
+        request: DecideAuthorizationApprovalRequest,
+        *,
+        timeout: float | None = None,
+    ) -> DecideAuthorizationApprovalResponse:
+        return await self._send_json_model(
+            f"/v1/authorization/approvals/{quote(approval_id, safe='')}/decide",
+            method="POST",
+            body=request.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=DecideAuthorizationApprovalResponse,
+        )
+
+    async def create_grant(
+        self,
+        request: CreateAuthorizationGrantRequest,
+        *,
+        timeout: float | None = None,
+    ) -> AuthorizationGrant:
+        return await self._send_json_model(
+            "/v1/authorization/grants",
+            method="POST",
+            body=request.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=AuthorizationGrant,
+        )
+
+    async def list_grants(
+        self, *, timeout: float | None = None
+    ) -> AuthorizationGrantListResponse:
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/authorization/grants",
+                method="GET",
+                timeout=timeout,
+                model=AuthorizationGrantListResponse,
+            )
+        )
+
+    async def revoke_grant(
+        self, grant_id: str, *, timeout: float | None = None
+    ) -> AuthorizationGrant:
+        return await self._send_json_model(
+            f"/v1/authorization/grants/{quote(grant_id, safe='')}/revoke",
+            method="POST",
+            body={},
+            timeout=timeout,
+            model=AuthorizationGrant,
+        )
+
+    async def complete_lease(
+        self,
+        lease_id: str,
+        request: CompleteAuthorizationLeaseRequest,
+        *,
+        timeout: float | None = None,
+    ) -> AuthorizationLease:
+        return await self._send_json_model(
+            f"/v1/authorization/leases/{quote(lease_id, safe='')}/complete",
+            method="POST",
+            body=request.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=AuthorizationLease,
+        )
+
+    async def get_authorization_receipt(
+        self, receipt_id: str, *, timeout: float | None = None
+    ) -> AuthorizationReceipt:
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                f"/v1/authorization/receipts/{quote(receipt_id, safe='')}",
+                method="GET",
+                timeout=timeout,
+                model=AuthorizationReceipt,
             )
         )
 
@@ -1221,7 +1557,7 @@ class AsyncClient:
         sources: list[Any] | None = None,
         provenance: dict[str, list[str]] | None = None,
         context: dict[str, Any] | None = None,
-    ) -> Decision:
+    ) -> AuthorizationDecision:
         return await self.submit_event(
             GuardEvent.model_validate(
                 {
@@ -1273,7 +1609,7 @@ class AsyncClient:
         amount: Callable[[InputT, FactsT | None], MoneyAmount],
         idempotency_key: Callable[[InputT, FactsT | None], str],
         counterparty: Callable[[InputT, FactsT | None], CounterpartyRef | None] | None = None,
-        mandate: Callable[[InputT, FactsT | None], MandateRef | None] | None = None,
+        authorization: Callable[[InputT, FactsT | None], AuthorizationClaim | None] | None = None,
         memo: Callable[[InputT, FactsT | None], str | None] | None = None,
         metadata: Callable[[InputT, FactsT | None], dict[str, Any] | None] | None = None,
         evidence: Callable[[InputT, FactsT | None], list[EvidenceRef]] | None = None,
@@ -1288,7 +1624,7 @@ class AsyncClient:
             amount=amount,
             idempotency_key=idempotency_key,
             counterparty=counterparty,
-            mandate=mandate,
+            authorization=authorization,
             memo=memo,
             metadata=metadata,
             evidence=evidence,
@@ -1448,49 +1784,6 @@ class AsyncClient:
             )
         )
 
-    async def create_mandate(
-        self, req: CreateFinancialMandateRequest, *, timeout: float | None = None
-    ) -> FinancialMandate:
-        return await self._send_json_model(
-            "/v1/financial/mandates",
-            method="POST",
-            body=req.model_dump(mode="json", exclude_none=True),
-            timeout=timeout,
-            model=FinancialMandate,
-        )
-
-    async def list_mandates(
-        self, *, timeout: float | None = None
-    ) -> FinancialMandateListResponse:
-        return await self._run_with_retry(
-            lambda: self._send_get_or_post(
-                "/v1/financial/mandates",
-                method="GET",
-                timeout=timeout,
-                model=FinancialMandateListResponse,
-            )
-        )
-
-    async def list_approval_requests(
-        self, *, timeout: float | None = None
-    ) -> FinancialApprovalRequestListResponse:
-        return await self._run_with_retry(
-            lambda: self._send_get_or_post(
-                "/v1/financial/approval-requests",
-                method="GET",
-                timeout=timeout,
-                model=FinancialApprovalRequestListResponse,
-            )
-        )
-
-    async def revoke_mandate(
-        self, mandate_id: str, *, timeout: float | None = None
-    ) -> FinancialMandate:
-        path = f"/v1/financial/mandates/{quote(mandate_id, safe='')}/revoke"
-        return await self._send_get_or_post(
-            path, method="POST", timeout=timeout, model=FinancialMandate
-        )
-
     async def get_receipt(
         self, receipt_id: str, *, timeout: float | None = None
     ) -> FinancialReceipt:
@@ -1498,19 +1791,6 @@ class AsyncClient:
         return await self._run_with_retry(
             lambda: self._send_get_or_post(
                 path, method="GET", timeout=timeout, model=FinancialReceipt
-            )
-        )
-
-    async def get_financial_decision_receipt(
-        self, action_id: str, *, timeout: float | None = None
-    ) -> FinancialActionDecisionReceipt:
-        path = f"/v1/financial/actions/{quote(action_id, safe='')}/decision-receipt"
-        return await self._run_with_retry(
-            lambda: self._send_get_or_post(
-                path,
-                method="GET",
-                timeout=timeout,
-                model=FinancialActionDecisionReceipt,
             )
         )
 
@@ -1540,53 +1820,29 @@ class AsyncClient:
             )
         )
 
-    async def approve_action(
-        self, action_id: str, *, timeout: float | None = None
-    ) -> FinancialActionRecord:
-        return await self._transition_financial_action(action_id, "approve", timeout=timeout)
-
-    async def get_financial_approval_envelope(
-        self, action_id: str, *, timeout: float | None = None
-    ) -> FinancialApprovalEnvelope:
-        path = f"/v1/financial/actions/{quote(action_id, safe='')}/approval-envelope"
-        return await self._run_with_retry(
-            lambda: self._send_get_or_post(
-                path, method="GET", timeout=timeout, model=FinancialApprovalEnvelope
-            )
-        )
-
-    async def approve_matching_financial_actions(
+    async def execute_action(
         self,
         action_id: str,
-        request: ApproveMatchingFinancialActionsRequest,
         *,
+        authorization: AuthorizationClaim | None = None,
+        attempt_id: str | None = None,
         timeout: float | None = None,
-    ) -> ApproveMatchingFinancialActionsResponse:
-        path = f"/v1/financial/actions/{quote(action_id, safe='')}/approve-matching"
+    ) -> FinancialActionRecord:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/execute"
+        body = {
+            **(
+                {"authorization": authorization.model_dump(mode="json")}
+                if authorization is not None
+                else {}
+            ),
+            **({"attempt_id": attempt_id} if attempt_id is not None else {}),
+        }
         return await self._send_json_model(
             path,
             method="POST",
-            body=request.model_dump(mode="json", exclude_none=True),
+            body=body,
             timeout=timeout,
-            model=ApproveMatchingFinancialActionsResponse,
-        )
-
-    async def deny_action(
-        self, action_id: str, *, timeout: float | None = None
-    ) -> FinancialActionRecord:
-        return await self._transition_financial_action(action_id, "deny", timeout=timeout)
-
-    async def execute_action(
-        self, action_id: str, *, timeout: float | None = None
-    ) -> FinancialActionRecord:
-        return await self._transition_financial_action(action_id, "execute", timeout=timeout)
-
-    async def _transition_financial_action(
-        self, action_id: str, transition: str, *, timeout: float | None = None
-    ) -> FinancialActionRecord:
-        path = f"/v1/financial/actions/{quote(action_id, safe='')}/{transition}"
-        return await self._send_get_or_post(
-            path, method="POST", timeout=timeout, model=FinancialActionRecord
+            model=FinancialActionRecord,
         )
 
     async def generate_guardrails(

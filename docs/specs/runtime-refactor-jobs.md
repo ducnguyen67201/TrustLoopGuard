@@ -278,7 +278,7 @@ Evidence:
 
 - [x] RED command/result: `cargo test -p tl-engine --all-targets` initially
       failed after moving `Engine` because tests no longer inherited
-      `CheckRequest`, `Verdict`, `Policy`, and `Arc` imports from `lib.rs`.
+      `CheckRequest`, `AuthorizationEffect`, `Policy`, and `Arc` imports from `lib.rs`.
 - [x] GREEN command/result: `cargo fmt --check`, `cargo test -p tl-engine
       --all-targets`, and `cargo bench -p tl-engine --bench check_pipeline`
       passed with the `libpq` environment prefix.
@@ -611,7 +611,7 @@ Done:
       event normalization, analytics accumulator types, grouping helpers, and
       row sorting. The repository file is 391 lines after the split.
 - [x] `crates/tl-engine/src/tiers/llm.rs` now reads as Tier 3 orchestration
-      rather than judge transport, verdict interpretation, prompt rendering,
+      rather than judge transport, effect interpretation, prompt rendering,
       status helpers, and tests all in one file.
 - [x] `crates/tl-server/src/analytics.rs` now reads as endpoint flow rather
       than endpoint flow plus in-memory storage, membership authorization,

@@ -1,11 +1,11 @@
-import type { Decision } from '@trustloopguard/sdk';
+import type { AuthorizationDecision } from '@trustloopguard/sdk';
 
-export function blockedReply(decision: Decision): string {
-  return `[BLOCKED] ${decision.reason}`;
+export function blockedReply(decision: AuthorizationDecision): string {
+  return `[DENIED] ${decision.reason}`;
 }
 
-export function escalatedReply(decision: Decision): string {
-  return `[ESCALATED to human review] ${decision.reason}`;
+export function escalatedReply(decision: AuthorizationDecision): string {
+  return `[APPROVAL REQUIRED] ${decision.reason}`;
 }
 
 export function demoDraft(input: string): string {

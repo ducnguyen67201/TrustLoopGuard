@@ -2,11 +2,11 @@
 //!
 //! This module only evaluates fields already present on `FinancialAction` and
 //! its matching policy. Stateful checks such as daily/monthly spend windows,
-//! mandate lookup, approval records, eligibility evidence, and provider state
+//! grant matching, approval records, eligibility evidence, and provider state
 //! belong in `tl-server` services.
 
-use tl_core::{FinancialAction, SpendMeter, TriggeredPolicy, Verdict};
-use tl_policy::{Action, FamilyPolicy, FinancialPolicy};
+use tl_core::{AuthorizationEffect, FinancialAction, SpendMeter, TriggeredPolicy};
+use tl_policy::{FamilyPolicy, FinancialPolicy};
 
 use crate::event_policy::EventPolicyOutcome;
 
@@ -25,8 +25,8 @@ where
         if !financial_matches(financial, action) {
             continue;
         }
-        for (verdict, reason) in per_action_verdicts(financial, action) {
-            compose(&mut outcome, financial, verdict, reason);
+        for (effect, reason) in per_action_effects(financial, action) {
+            compose(&mut outcome, financial, effect, reason);
         }
     }
     outcome
@@ -70,22 +70,22 @@ pub fn financial_matches(financial: &FinancialPolicy, action: &FinancialAction) 
     true
 }
 
-fn per_action_verdicts(
+fn per_action_effects(
     financial: &FinancialPolicy,
     action: &FinancialAction,
-) -> Vec<(Verdict, String)> {
-    let mut verdicts = Vec::new();
+) -> Vec<(AuthorizationEffect, String)> {
+    let mut effects = Vec::new();
     let amount = action.amount.amount_minor;
 
     if amount <= 0 {
-        verdicts.push((
-            Verdict::Block,
+        effects.push((
+            AuthorizationEffect::Deny,
             format!(
                 "financial policy `{}`: non-positive amount {amount} — blocked",
                 financial.id
             ),
         ));
-        return verdicts;
+        return effects;
     }
 
     if let Some(counterparty) = &action.counterparty {
@@ -94,8 +94,8 @@ fn per_action_verdicts(
             .iter()
             .any(|id| id == &counterparty.id)
         {
-            verdicts.push((
-                Verdict::Block,
+            effects.push((
+                AuthorizationEffect::Deny,
                 format!(
                     "financial policy `{}`: denied counterparty `{}`",
                     financial.id, counterparty.id
@@ -108,15 +108,15 @@ fn per_action_verdicts(
                 .iter()
                 .any(|id| id == &counterparty.id)
         {
-            verdicts.push((
-                Verdict::Escalate,
+            effects.push((
+                AuthorizationEffect::RequireApproval,
                 format!(
                     "financial policy `{}`: counterparty `{}` is not allowed",
                     financial.id, counterparty.id
                 ),
             ));
         }
-        if financial.hold_new_counterparty
+        if financial.require_approval_for_new_counterparty
             && !financial
                 .allowed_counterparty_ids
                 .iter()
@@ -126,17 +126,19 @@ fn per_action_verdicts(
                 .iter()
                 .any(|id| id == &counterparty.id)
         {
-            verdicts.push((
-                Verdict::Escalate,
+            effects.push((
+                AuthorizationEffect::RequireApproval,
                 format!(
                     "financial policy `{}`: new counterparty `{}` requires approval",
                     financial.id, counterparty.id
                 ),
             ));
         }
-    } else if financial.hold_new_counterparty || !financial.allowed_counterparty_ids.is_empty() {
-        verdicts.push((
-            Verdict::Escalate,
+    } else if financial.require_approval_for_new_counterparty
+        || !financial.allowed_counterparty_ids.is_empty()
+    {
+        effects.push((
+            AuthorizationEffect::RequireApproval,
             format!(
                 "financial policy `{}`: missing counterparty requires approval",
                 financial.id
@@ -144,11 +146,11 @@ fn per_action_verdicts(
         ));
     }
 
-    if financial.mandate_required && action.mandate.is_none() {
-        verdicts.push((
-            Verdict::Escalate,
+    if financial.grant_required {
+        effects.push((
+            AuthorizationEffect::RequireApproval,
             format!(
-                "financial policy `{}`: mandate required before execution",
+                "financial policy `{}`: delegated authority required before execution",
                 financial.id
             ),
         ));
@@ -156,8 +158,8 @@ fn per_action_verdicts(
 
     if let Some(cap) = financial.per_transaction_minor {
         if amount > cap {
-            verdicts.push((
-                action_verdict(financial.on_breach),
+            effects.push((
+                action_effect(financial.on_breach),
                 format!(
                     "financial policy `{}`: amount {amount} over per-transaction cap {cap}",
                     financial.id
@@ -167,8 +169,8 @@ fn per_action_verdicts(
     }
     if let Some(threshold) = financial.approval_threshold_minor {
         if amount >= threshold {
-            verdicts.push((
-                Verdict::Escalate,
+            effects.push((
+                AuthorizationEffect::RequireApproval,
                 format!(
                     "financial policy `{}`: amount {amount} at or above approval threshold {threshold}",
                     financial.id
@@ -176,35 +178,23 @@ fn per_action_verdicts(
             ));
         }
     }
-    if let Some(threshold) = financial.hold_above_minor {
-        if amount >= threshold {
-            verdicts.push((
-                Verdict::Escalate,
-                format!(
-                    "financial policy `{}`: amount {amount} at or above hold threshold {threshold}",
-                    financial.id
-                ),
-            ));
-        }
-    }
-
-    verdicts
+    effects
 }
 
 /// Windowed financial cap check. The caller supplies ledger-derived spend
 /// already counted in each window; this adds the current action amount and
 /// reports a breach. Pure — no clock, no I/O.
-pub fn financial_windowed_verdict(
+pub fn financial_windowed_effect(
     financial: &FinancialPolicy,
     spent_today: i64,
     spent_week: i64,
     spent_month: i64,
     amount: i64,
-) -> Option<(Verdict, String)> {
+) -> Option<(AuthorizationEffect, String)> {
     if let Some(cap) = financial.daily_minor {
         if spent_today.saturating_add(amount) > cap {
             return Some((
-                action_verdict(financial.on_breach),
+                action_effect(financial.on_breach),
                 format!(
                     "financial policy `{}`: daily spend would exceed cap {cap}",
                     financial.id
@@ -215,7 +205,7 @@ pub fn financial_windowed_verdict(
     if let Some(cap) = financial.weekly_minor {
         if spent_week.saturating_add(amount) > cap {
             return Some((
-                action_verdict(financial.on_breach),
+                action_effect(financial.on_breach),
                 format!(
                     "financial policy `{}`: weekly spend would exceed cap {cap}",
                     financial.id
@@ -226,7 +216,7 @@ pub fn financial_windowed_verdict(
     if let Some(cap) = financial.monthly_minor {
         if spent_month.saturating_add(amount) > cap {
             return Some((
-                action_verdict(financial.on_breach),
+                action_effect(financial.on_breach),
                 format!(
                     "financial policy `{}`: monthly spend would exceed cap {cap}",
                     financial.id
@@ -237,18 +227,19 @@ pub fn financial_windowed_verdict(
     None
 }
 
-fn action_verdict(action: Action) -> Verdict {
+fn action_effect(action: AuthorizationEffect) -> AuthorizationEffect {
     match action {
-        Action::Block => Verdict::Block,
-        Action::Escalate => Verdict::Escalate,
-        Action::Allow | Action::Rewrite => Verdict::Block,
+        AuthorizationEffect::Deny => AuthorizationEffect::Deny,
+        AuthorizationEffect::RequireApproval => AuthorizationEffect::RequireApproval,
+        AuthorizationEffect::Defer => AuthorizationEffect::Defer,
+        AuthorizationEffect::Permit | AuthorizationEffect::Transform => AuthorizationEffect::Deny,
     }
 }
 
 fn compose(
     outcome: &mut EventPolicyOutcome,
     financial: &FinancialPolicy,
-    verdict: Verdict,
+    effect: AuthorizationEffect,
     reason: String,
 ) {
     outcome.triggered.push(TriggeredPolicy {
@@ -256,17 +247,17 @@ fn compose(
         severity: financial.severity,
         reason: reason.clone(),
     });
-    match outcome.verdict {
+    match outcome.effect {
         None => {
-            outcome.verdict = Some(verdict);
+            outcome.effect = Some(effect);
             outcome.reason = Some(reason);
         }
         Some(current) => {
-            let worst = current.worst_with(verdict);
-            if worst == verdict && verdict != current {
+            let worst = current.worst_with(effect);
+            if worst == effect && effect != current {
                 outcome.reason = Some(reason);
             }
-            outcome.verdict = Some(worst);
+            outcome.effect = Some(worst);
         }
     }
 }

@@ -12,10 +12,10 @@ use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{
-    new_trace_id, Action, CheckerFindingEvidence, CheckerRun, Confidentiality, Decision,
-    EnforcementMode, EventKind, GuardEvent, Integrity, LabelBasis, LabelBasisSet,
+    new_trace_id, Action, AuthorizationEffect, CheckerFindingEvidence, CheckerRun, Confidentiality,
+    Decision, EnforcementMode, EventKind, GuardEvent, Integrity, LabelBasis, LabelBasisSet,
     LabelPolicyStatus, LabelResolution, Labels, Principal, ProvenanceMap, SideEffectClass,
-    SourceLabelEvidence, Trust, Verdict,
+    SourceLabelEvidence, Trust,
 };
 use tl_storage::{
     connect_postgres, migrate_postgres,
@@ -92,7 +92,7 @@ async fn trace_environment_count(pool: &DbPool, environment_id: &str) -> i64 {
 
 fn fake_decision() -> Decision {
     let mut d = Decision::allow(new_trace_id());
-    d.verdict = Verdict::Allow;
+    d.effect = AuthorizationEffect::Permit;
     d.latency_ms = 12;
     d
 }
@@ -230,6 +230,9 @@ async fn event_evidence_round_trips_in_payload() {
             operation: "output".into(),
             parameters: serde_json::json!({ "text": "safe reply" }),
             side_effect: Some(SideEffectClass::None),
+            invocation_id: None,
+            tool_identity: None,
+            authorization: None,
         },
         sources: vec![],
         provenance: ProvenanceMap::default(),
@@ -266,10 +269,10 @@ async fn event_evidence_round_trips_in_payload() {
             findings: vec![CheckerFindingEvidence {
                 rule: "action-integrity".into(),
                 reason: "high-impact action is controlled by untrusted context".into(),
-                recommended_verdict: Some(Verdict::Block),
+                recommended_effect: Some(AuthorizationEffect::Deny),
                 source_chain: vec!["src.web".into()],
                 risk_source: Some("web".into()),
-                failure_mode: Some("untrusted_control".into()),
+                risk_code: Some("untrusted_control".into()),
                 harm_class: Some("integrity".into()),
             }],
         }],
@@ -316,10 +319,10 @@ async fn event_evidence_round_trips_in_payload() {
     assert_eq!(checks[0]["checker_id"], "information_flow");
     assert_eq!(checks[0]["mode"], "shadow");
     assert_eq!(checks[0]["findings"][0]["rule"], "action-integrity");
-    assert_eq!(checks[0]["findings"][0]["recommended_verdict"], "block");
+    assert_eq!(checks[0]["findings"][0]["recommended_effect"], "deny");
     // Enriched payload still parses as a Decision for existing readers.
     let parsed: Decision = serde_json::from_value(payload).expect("decision parse");
-    assert_eq!(parsed.verdict, Verdict::Allow);
+    assert_eq!(parsed.effect, AuthorizationEffect::Permit);
 }
 
 #[tokio::test]

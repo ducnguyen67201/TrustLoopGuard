@@ -14,7 +14,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
 import { CopyBlock } from '@/components/onboarding/CopyBlock';
-import { useFirstTrace, verdictVariant } from '@/components/onboarding/useFirstTrace';
+import { useFirstTrace, effectVariant } from '@/components/onboarding/useFirstTrace';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -126,10 +126,7 @@ export function ConnectAgentStep({
     return (
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:gap-10">
         <aside className="grid gap-5 lg:sticky lg:top-10">
-          <form
-            onSubmit={onSubmit}
-            className="grid gap-6 rounded-xl border bg-card p-6 shadow-sm"
-          >
+          <form onSubmit={onSubmit} className="grid gap-6 rounded-xl border bg-card p-6 shadow-sm">
             <div className="grid gap-2">
               <Label htmlFor="onboarding-agent-id">Name your agent</Label>
               <Input
@@ -217,9 +214,9 @@ export function ConnectAgentStep({
 
           <TabsContent value="payments" className="grid gap-3">
             <SurfaceIntro>
-              For ecommerce agents, place TrustLoopGuard between the merchant&apos;s 402 response and
-              the wallet signature. The mandate proves user intent; the policy enforces standing
-              limits.
+              For ecommerce agents, place TrustLoopGuard between the merchant&apos;s 402 response
+              and the wallet signature. A reusable grant proves delegated authority; policies
+              enforce standing limits through the same authorization flow.
             </SurfaceIntro>
             <CopyBlock
               label="Authorize x402 payment before signing"
@@ -318,9 +315,9 @@ function FirstEventStatus({ contextQuery }: { contextQuery: string }) {
           role="status"
           className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--badge-allow-border)] bg-[var(--badge-allow-bg)] px-4 py-3 text-sm"
         >
-          <IconCheck className="size-4 shrink-0 text-[var(--color-allow)]" aria-hidden />
+          <IconCheck className="size-4 shrink-0 text-[var(--color-permit)]" aria-hidden />
           <span className="font-medium">You&apos;re connected — we received your request.</span>
-          <Badge variant={verdictVariant(trace.decision)}>{trace.decision}</Badge>
+          <Badge variant={effectVariant(trace.decision)}>{trace.decision}</Badge>
           <span className="tabular-nums text-muted-foreground">{trace.elapsed_ms}ms</span>
         </div>
       ) : (

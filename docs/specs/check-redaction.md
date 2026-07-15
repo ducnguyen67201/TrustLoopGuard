@@ -215,7 +215,7 @@ For hosted TrustLoopGuard:
 - SDK-local redaction is the primary privacy path.
 - Server-side redaction is defense-in-depth only.
 - If workspace mode is `redacted_only`, `tl-server` should reject obvious raw sensitive data in `input`, `proposed_output`, or configured context fields when `CheckRequest.redaction` is absent or says `None`.
-- Logs must include `trace_id`, workspace, verdict, policy ids, and redaction status only.
+- Logs must include `trace_id`, workspace, authorization effect, policy ids, and redaction status only.
 - Logs must not include raw or sanitized bodies unless the workspace explicitly enables body logging.
 
 ## Local-Only Checks

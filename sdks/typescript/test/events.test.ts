@@ -3,10 +3,10 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { Client, Internal, guard, type Decision, type GuardEvent } from '../src';
+import { Client, Internal, guard, type AuthorizationDecision, type GuardEvent } from '../src';
 import { mockFetch } from './test-utils';
 
-const DEFAULT_EVENT_ALLOW_REASON = 'event allowed: no enforced checker or enabled policy matched';
+const DEFAULT_EVENT_ALLOW_REASON = 'current policy and authority permit the subject';
 
 function sendEmailEvent(): GuardEvent {
   return {
@@ -35,12 +35,11 @@ function sendEmailEvent(): GuardEvent {
 function observeOnlyDecision(): Record<string, unknown> {
   return {
     trace_id: 't-1',
-    verdict: 'allow',
+    domain: 'tool',
+    effect: 'permit',
     reason: DEFAULT_EVENT_ALLOW_REASON,
-    triggered_policies: [],
-    safe_output: null,
+    findings: [],
     latency_ms: 2,
-    tier_results: [],
   };
 }
 
@@ -104,9 +103,9 @@ describe('submitEvent', () => {
     });
     const client = new Client({ baseUrl: 'http://x', apiKey: 'secret', fetchImpl });
 
-    const decision: Decision = await client.submitEvent(sendEmailEvent());
+    const decision: AuthorizationDecision = await client.submitEvent(sendEmailEvent());
 
-    expect(decision.verdict).toBe('allow');
+    expect(decision.effect).toBe('permit');
     expect(decision.reason).toBe(DEFAULT_EVENT_ALLOW_REASON);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
@@ -114,10 +113,10 @@ describe('submitEvent', () => {
   it('maps server errors to typed SdkErrors', async () => {
     const fetchImpl = mockFetch(
       async () =>
-        new Response(
-          JSON.stringify({ code: 'internal', message: 'boom', retriable: false }),
-          { status: 500, headers: { 'content-type': 'application/json' } },
-        ),
+        new Response(JSON.stringify({ code: 'internal', message: 'boom', retriable: false }), {
+          status: 500,
+          headers: { 'content-type': 'application/json' },
+        }),
     );
     const client = new Client({ baseUrl: 'http://x', fetchImpl });
 
@@ -167,18 +166,15 @@ describe('submitEvent', () => {
           input: 'refund order 1',
           draft: 'I can help.',
           onBlock: () => 'blocked',
-          onEscalate: () => 'escalated',
+          onRequireApproval: () => 'approval required',
+          onDefer: () => 'deferred',
         });
       });
     });
 
-    expect((bodies[0] as GuardEvent).principal.run_id).toBe(
-      '018f1111-1111-7111-8111-111111111111',
-    );
+    expect((bodies[0] as GuardEvent).principal.run_id).toBe('018f1111-1111-7111-8111-111111111111');
     expect((bodies[0] as GuardEvent).principal.run_event_id).toBeUndefined();
-    expect((bodies[1] as GuardEvent).principal.run_id).toBe(
-      '018f1111-1111-7111-8111-111111111111',
-    );
+    expect((bodies[1] as GuardEvent).principal.run_id).toBe('018f1111-1111-7111-8111-111111111111');
     expect((bodies[1] as GuardEvent).principal.run_event_id).toBe(
       '018f2222-2222-7222-8222-222222222222',
     );

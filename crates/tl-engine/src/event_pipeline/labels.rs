@@ -3,7 +3,7 @@
 //! Deterministic, in-process logic: built-in origin defaults, workspace
 //! policy overrides read through a cached provider seam, and label
 //! propagation over `ProvenanceMap`. Evidence only — no checker changes
-//! a verdict because of labels.
+//! an authorization effect because of labels.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;

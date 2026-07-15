@@ -37,14 +37,14 @@ type FinancialControlForm = {
   currency: string;
   rail: 'payment_http' | 'x402' | 'card' | 'ach' | 'wire' | 'internal' | 'other';
   perAction: string;
-  holdAbove: string;
+  approvalAbove: string;
   daily: string;
   weekly: string;
   monthly: string;
-  mandateRequired: boolean;
-  onBreach: 'block' | 'escalate';
-  missingEvidenceAction: 'block' | 'escalate';
-  failedPreconditionAction: 'block' | 'escalate';
+  grantRequired: boolean;
+  onBreach: 'deny' | 'require_approval';
+  missingEvidenceEffect: 'deny' | 'require_approval';
+  failedPreconditionEffect: 'deny' | 'require_approval';
   requiredPreconditions: string[];
 };
 
@@ -62,7 +62,7 @@ const RAILS: ReadonlyArray<FinancialControlForm['rail']> = [
   'internal',
   'other',
 ];
-const ACTIONS: ReadonlyArray<'block' | 'escalate'> = ['block', 'escalate'];
+const EFFECTS: ReadonlyArray<'deny' | 'require_approval'> = ['deny', 'require_approval'];
 
 const REFUND_PRECONDITIONS = [
   { id: 'order_exists', label: 'Order exists' },
@@ -74,7 +74,7 @@ const REFUND_PRECONDITIONS = [
 ] as const;
 
 const DEFAULT_FORM: FinancialControlForm = {
-  id: 'x402-agentic-payment-mandate-required',
+  id: 'x402-agentic-payment-grant-required',
   description: 'x402 payment controls for commerce agents',
   meter: 'actions',
   agent: 'spid:commerce-agent',
@@ -83,14 +83,14 @@ const DEFAULT_FORM: FinancialControlForm = {
   currency: 'USD',
   rail: 'x402',
   perAction: '5',
-  holdAbove: '',
+  approvalAbove: '',
   daily: '50',
   weekly: '',
   monthly: '5000',
-  mandateRequired: true,
-  onBreach: 'block',
-  missingEvidenceAction: 'escalate',
-  failedPreconditionAction: 'block',
+  grantRequired: true,
+  onBreach: 'deny',
+  missingEvidenceEffect: 'require_approval',
+  failedPreconditionEffect: 'deny',
   requiredPreconditions: [],
 };
 
@@ -101,11 +101,11 @@ const DEFAULT_LLM_BUDGET_FORM: FinancialControlForm = {
   meter: 'llm_usage',
   agent: '',
   perAction: '',
-  holdAbove: '',
+  approvalAbove: '',
   daily: '',
   weekly: '50',
   monthly: '',
-  mandateRequired: false,
+  grantRequired: false,
   requiredPreconditions: [],
 };
 
@@ -176,7 +176,7 @@ export function FinancialPolicyCreateDialog({
           <DialogDescription>
             {form.meter === 'llm_usage'
               ? 'Cap gateway LLM spend per principal. Requests with max_tokens get strict preflight enforcement; unbounded requests are allowed below the cap, settled to actual usage, and may overshoot once before future calls stop. Trusted model pricing is required.'
-              : 'Define the mandate requirement, caps, evidence checks, and approval behavior TrustLoopGuard evaluates before agent execution.'}
+              : 'Define reusable-grant requirements, caps, evidence checks, and authorization effects TrustLoopGuard evaluates before execution.'}
           </DialogDescription>
         </DialogHeader>
         <div className="grid max-h-[70vh] gap-4 overflow-y-auto pr-1">
@@ -285,7 +285,12 @@ export function FinancialPolicyCreateDialog({
                   form={form}
                   setForm={setForm}
                 />
-                <MoneyField label="Hold above" valueKey="holdAbove" form={form} setForm={setForm} />
+                <MoneyField
+                  label="Require approval above"
+                  valueKey="approvalAbove"
+                  form={form}
+                  setForm={setForm}
+                />
               </>
             ) : null}
             <MoneyField label="Daily cap" valueKey="daily" form={form} setForm={setForm} />
@@ -296,9 +301,9 @@ export function FinancialPolicyCreateDialog({
             <div className="rounded-md border p-3">
               <label className="flex items-start gap-3 text-sm">
                 <Checkbox
-                  checked={form.mandateRequired}
+                  checked={form.grantRequired}
                   onCheckedChange={(checked) =>
-                    setFormValue(setForm, 'mandateRequired', checked === true)
+                    setFormValue(setForm, 'grantRequired', checked === true)
                   }
                 />
                 <span className="grid gap-2">
@@ -309,13 +314,13 @@ export function FinancialPolicyCreateDialog({
                   </span>
                   <span className="grid gap-1 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
                     <span>
-                      <span className="font-medium text-foreground">Where it comes from:</span>{' '}
-                      TrustLoopGuard can store an internal mandate from the user message, or the
-                      customer app can send an external mandate reference.
+                      <span className="font-medium text-foreground">Where it comes from:</span> The
+                      customer app can create a reusable authorization grant from verified user
+                      intent and pass its grant and attempt ids with the action.
                     </span>
                     <span>
                       <span className="font-medium text-foreground">What this policy does:</span>{' '}
-                      requires the payment action to include that mandate before signing.
+                      requires a matching, active grant before the common kernel permits signing.
                     </span>
                     <span>
                       <span className="font-medium text-foreground">What gets checked:</span> agent,
@@ -336,14 +341,14 @@ export function FinancialPolicyCreateDialog({
               <>
                 <ActionField
                   label="Missing evidence"
-                  value={form.missingEvidenceAction}
-                  onValueChange={(value) => setFormValue(setForm, 'missingEvidenceAction', value)}
+                  value={form.missingEvidenceEffect}
+                  onValueChange={(value) => setFormValue(setForm, 'missingEvidenceEffect', value)}
                 />
                 <ActionField
                   label="Failed evidence"
-                  value={form.failedPreconditionAction}
+                  value={form.failedPreconditionEffect}
                   onValueChange={(value) =>
-                    setFormValue(setForm, 'failedPreconditionAction', value)
+                    setFormValue(setForm, 'failedPreconditionEffect', value)
                   }
                 />
               </>
@@ -409,22 +414,22 @@ function formFromPolicy(policy: FamilyPolicyRow): FinancialControlForm {
     currency: policy.when?.currencies?.[0] ?? DEFAULT_FORM.currency,
     rail: pick(policy.when?.rails?.[0], RAILS, DEFAULT_FORM.rail),
     perAction: minorToDollars(policy.per_transaction_minor),
-    holdAbove: minorToDollars(policy.hold_above_minor),
+    approvalAbove: minorToDollars(policy.approval_threshold_minor),
     daily: minorToDollars(policy.daily_minor),
     weekly: minorToDollars(policy.weekly_minor),
     monthly: minorToDollars(policy.monthly_minor),
-    mandateRequired:
-      policy.mandate_required ?? (meter === 'llm_usage' ? false : DEFAULT_FORM.mandateRequired),
-    onBreach: pick(policy.on_breach, ACTIONS, DEFAULT_FORM.onBreach),
-    missingEvidenceAction: pick(
-      policy.missing_evidence_action,
-      ACTIONS,
-      DEFAULT_FORM.missingEvidenceAction,
+    grantRequired:
+      policy.grant_required ?? (meter === 'llm_usage' ? false : DEFAULT_FORM.grantRequired),
+    onBreach: pick(policy.on_breach, EFFECTS, DEFAULT_FORM.onBreach),
+    missingEvidenceEffect: pick(
+      policy.missing_evidence_effect,
+      EFFECTS,
+      DEFAULT_FORM.missingEvidenceEffect,
     ),
-    failedPreconditionAction: pick(
-      policy.failed_precondition_action,
-      ACTIONS,
-      DEFAULT_FORM.failedPreconditionAction,
+    failedPreconditionEffect: pick(
+      policy.failed_precondition_effect,
+      EFFECTS,
+      DEFAULT_FORM.failedPreconditionEffect,
     ),
     requiredPreconditions:
       policy.required_preconditions ??
@@ -448,12 +453,12 @@ function formForMeter(
           : form.description,
       agent: form.agent === DEFAULT_FORM.agent ? '' : form.agent,
       perAction: '',
-      holdAbove: '',
+      approvalAbove: '',
       daily: form.daily === DEFAULT_FORM.daily ? DEFAULT_LLM_BUDGET_FORM.daily : form.daily,
       weekly: form.weekly === DEFAULT_FORM.weekly ? DEFAULT_LLM_BUDGET_FORM.weekly : form.weekly,
       monthly:
         form.monthly === DEFAULT_FORM.monthly ? DEFAULT_LLM_BUDGET_FORM.monthly : form.monthly,
-      mandateRequired: false,
+      grantRequired: false,
       requiredPreconditions: [],
     };
   }
@@ -467,11 +472,11 @@ function formForMeter(
         : form.description,
     agent: form.agent === DEFAULT_LLM_BUDGET_FORM.agent ? DEFAULT_FORM.agent : form.agent,
     perAction: form.perAction === '' ? DEFAULT_FORM.perAction : form.perAction,
-    holdAbove: form.holdAbove === '' ? DEFAULT_FORM.holdAbove : form.holdAbove,
+    approvalAbove: form.approvalAbove === '' ? DEFAULT_FORM.approvalAbove : form.approvalAbove,
     daily: form.daily === DEFAULT_LLM_BUDGET_FORM.daily ? DEFAULT_FORM.daily : form.daily,
     weekly: form.weekly === DEFAULT_LLM_BUDGET_FORM.weekly ? DEFAULT_FORM.weekly : form.weekly,
     monthly: form.monthly === DEFAULT_LLM_BUDGET_FORM.monthly ? DEFAULT_FORM.monthly : form.monthly,
-    mandateRequired: form.mandateRequired || DEFAULT_FORM.mandateRequired,
+    grantRequired: form.grantRequired || DEFAULT_FORM.grantRequired,
   };
 }
 
@@ -504,7 +509,7 @@ function MoneyField({
   setForm,
 }: {
   label: string;
-  valueKey: 'perAction' | 'holdAbove' | 'daily' | 'weekly' | 'monthly';
+  valueKey: 'perAction' | 'approvalAbove' | 'daily' | 'weekly' | 'monthly';
   form: FinancialControlForm;
   setForm: Dispatch<SetStateAction<FinancialControlForm>>;
 }) {
@@ -525,18 +530,21 @@ function ActionField({
   onValueChange,
 }: {
   label: string;
-  value: 'block' | 'escalate';
-  onValueChange: (value: 'block' | 'escalate') => void;
+  value: 'deny' | 'require_approval';
+  onValueChange: (value: 'deny' | 'require_approval') => void;
 }) {
   return (
     <Field label={label}>
-      <Select value={value} onValueChange={(next) => onValueChange(next as 'block' | 'escalate')}>
+      <Select
+        value={value}
+        onValueChange={(next) => onValueChange(next as 'deny' | 'require_approval')}
+      >
         <SelectTrigger className="w-full">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="block">Deny</SelectItem>
-          <SelectItem value="escalate">Hold</SelectItem>
+          <SelectItem value="deny">Deny</SelectItem>
+          <SelectItem value="require_approval">Require approval</SelectItem>
         </SelectContent>
       </Select>
     </Field>
@@ -587,14 +595,14 @@ function formPayload(form: FinancialControlForm) {
       rails: [form.rail],
     },
     per_transaction_minor: dollarsToMinorOrUndefined(form.perAction),
-    hold_above_minor: dollarsToMinorOrUndefined(form.holdAbove),
+    approval_threshold_minor: dollarsToMinorOrUndefined(form.approvalAbove),
     daily_minor: dollarsToMinorOrUndefined(form.daily),
     weekly_minor: dollarsToMinorOrUndefined(form.weekly),
     monthly_minor: dollarsToMinorOrUndefined(form.monthly),
-    mandate_required: form.mandateRequired,
+    grant_required: form.grantRequired,
     required_preconditions: form.actionKind === 'refund' ? form.requiredPreconditions : [],
-    missing_evidence_action: form.missingEvidenceAction,
-    failed_precondition_action: form.failedPreconditionAction,
+    missing_evidence_effect: form.missingEvidenceEffect,
+    failed_precondition_effect: form.failedPreconditionEffect,
     on_breach: form.onBreach,
   };
 }

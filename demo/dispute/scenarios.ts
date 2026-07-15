@@ -14,14 +14,14 @@ import { runScenarios, type ScenarioRow } from './scenarios.core';
 function printTable(rows: ScenarioRow[]): void {
   const line = '─'.repeat(78);
   process.stdout.write(`${line}\n`);
-  process.stdout.write(` #  ${'scenario'.padEnd(34)}${'verdict'.padEnd(10)}${'control'.padEnd(15)}result\n`);
+  process.stdout.write(` #  ${'scenario'.padEnd(34)}${'effect'.padEnd(20)}${'control'.padEnd(15)}result\n`);
   rows.forEach((row, i) => {
     process.stdout.write(
-      ` ${String(i + 1).padEnd(3)}${row.label.padEnd(34)}${row.verdict.padEnd(10)}${row.control.padEnd(15)}${row.result}\n`,
+      ` ${String(i + 1).padEnd(3)}${row.label.padEnd(34)}${row.effect.padEnd(20)}${row.control.padEnd(15)}${row.result}\n`,
     );
   });
   process.stdout.write(`${line}\n`);
-  const paid = rows.filter((row) => row.verdict === 'allow').length;
+  const paid = rows.filter((row) => row.effect === 'permit').length;
   process.stdout.write(
     `${paid} payment(s) executed, ${rows.length - paid} stopped — every stop happened BEFORE money moved.\n`,
   );
@@ -29,7 +29,7 @@ function printTable(rows: ScenarioRow[]): void {
 
 /** If nothing was stopped, the workspace's checkers are off — fail loudly. */
 function assertEnforced(rows: ScenarioRow[]): void {
-  if (rows.every((row) => row.verdict === 'allow')) {
+  if (rows.every((row) => row.effect === 'permit')) {
     process.stderr.write(
       '\n⚠ Every scenario was ALLOWED — checker enforcement is OFF for this workspace.\n' +
         '  Run setup with TL_USER_ID set to a workspace owner, or set param_checker_mode and\n' +

@@ -87,7 +87,8 @@ test('reads action status directly from TrustLoopGuard', async () => {
   const actionId = '019f5d63-f8ca-77c3-ae7f-07b122daa7b3';
   const expected = {
     actionId,
-    status: 'held' as const,
+    authorizationEffect: 'require_approval' as const,
+    executionStatus: 'not_started' as const,
     orderId: 'ord_demo_1001',
     amountMinor: 7_500,
     currency: 'USD' as const,

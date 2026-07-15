@@ -1,6 +1,8 @@
 use std::time::Instant;
 
-use tl_core::{AgentProfile, Severity, Tier, TierResult, TierStatus, TriggeredPolicy, Verdict};
+use tl_core::{
+    AgentProfile, AuthorizationEffect, Severity, Tier, TierResult, TierStatus, TriggeredPolicy,
+};
 
 use super::judge_runtime::JudgeResult;
 use crate::pipeline::{BlockSignal, TierOutput};
@@ -15,16 +17,16 @@ pub(super) fn aggregate(
     let mut reasons: Vec<TriggeredPolicy> = vec![];
     let mut block: Option<BlockSignal> = None;
 
-    if let Some(verdict) = interpret_hallucination(&hallu) {
-        apply_hallucination_verdict(verdict, &mut reasons, &mut block);
+    if let Some(effect) = interpret_hallucination(&hallu) {
+        apply_hallucination_effect(effect, &mut reasons, &mut block);
     }
 
-    if let Some(verdict) = interpret_authority(&auth) {
-        apply_authority_verdict(verdict, &mut reasons, &mut block);
+    if let Some(effect) = interpret_authority(&auth) {
+        apply_authority_effect(effect, &mut reasons, &mut block);
     }
 
-    if let Some(verdict) = interpret_tone(&tone, profile) {
-        apply_tone_verdict(verdict, &mut reasons, &mut block);
+    if let Some(effect) = interpret_tone(&tone, profile) {
+        apply_tone_effect(effect, &mut reasons, &mut block);
     }
 
     TierOutput {
@@ -38,21 +40,21 @@ pub(super) fn aggregate(
     }
 }
 
-enum JudgeVerdict {
-    Allow,
-    BlockGrounded(Vec<String>),
-    Revise(String, Option<String>),
-    Escalate(String),
+enum JudgeEffect {
+    Permit,
+    DenyGrounded(Vec<String>),
+    Transform(String, Option<String>),
+    Defer(String),
 }
 
-fn apply_hallucination_verdict(
-    verdict: JudgeVerdict,
+fn apply_hallucination_effect(
+    effect: JudgeEffect,
     reasons: &mut Vec<TriggeredPolicy>,
     block: &mut Option<BlockSignal>,
 ) {
-    match verdict {
-        JudgeVerdict::Allow => {}
-        JudgeVerdict::BlockGrounded(violations) => {
+    match effect {
+        JudgeEffect::Permit => {}
+        JudgeEffect::DenyGrounded(violations) => {
             let reason = format!("hallucination: {}", violations.join("; "));
             reasons.push(TriggeredPolicy {
                 id: "tl:hallucination".into(),
@@ -60,35 +62,35 @@ fn apply_hallucination_verdict(
                 reason: reason.clone(),
             });
             block.get_or_insert(BlockSignal {
-                verdict: Verdict::Block,
+                effect: AuthorizationEffect::Deny,
                 reason,
                 safe_output: None,
             });
         }
-        JudgeVerdict::Escalate(reason) => {
+        JudgeEffect::Defer(reason) => {
             reasons.push(TriggeredPolicy {
                 id: "tl:hallucination_unavailable".into(),
                 severity: Severity::Medium,
                 reason: reason.clone(),
             });
             block.get_or_insert(BlockSignal {
-                verdict: Verdict::Escalate,
+                effect: AuthorizationEffect::Defer,
                 reason,
                 safe_output: None,
             });
         }
-        JudgeVerdict::Revise(_, _) => {}
+        JudgeEffect::Transform(_, _) => {}
     }
 }
 
-fn apply_authority_verdict(
-    verdict: JudgeVerdict,
+fn apply_authority_effect(
+    effect: JudgeEffect,
     reasons: &mut Vec<TriggeredPolicy>,
     block: &mut Option<BlockSignal>,
 ) {
-    match verdict {
-        JudgeVerdict::Allow => {}
-        JudgeVerdict::BlockGrounded(violations) => {
+    match effect {
+        JudgeEffect::Permit => {}
+        JudgeEffect::DenyGrounded(violations) => {
             let reason = format!("authority violation: {}", violations.join("; "));
             reasons.push(TriggeredPolicy {
                 id: "tl:authority".into(),
@@ -96,74 +98,74 @@ fn apply_authority_verdict(
                 reason: reason.clone(),
             });
             block.get_or_insert(BlockSignal {
-                verdict: Verdict::Block,
+                effect: AuthorizationEffect::Deny,
                 reason,
                 safe_output: None,
             });
         }
-        JudgeVerdict::Escalate(reason) => {
+        JudgeEffect::Defer(reason) => {
             reasons.push(TriggeredPolicy {
                 id: "tl:authority_unavailable".into(),
                 severity: Severity::Medium,
                 reason: reason.clone(),
             });
             block.get_or_insert(BlockSignal {
-                verdict: Verdict::Escalate,
+                effect: AuthorizationEffect::Defer,
                 reason,
                 safe_output: None,
             });
         }
-        JudgeVerdict::Revise(_, _) => {}
+        JudgeEffect::Transform(_, _) => {}
     }
 }
 
-fn apply_tone_verdict(
-    verdict: JudgeVerdict,
+fn apply_tone_effect(
+    effect: JudgeEffect,
     reasons: &mut Vec<TriggeredPolicy>,
     block: &mut Option<BlockSignal>,
 ) {
-    match verdict {
-        JudgeVerdict::Allow => {}
-        JudgeVerdict::Revise(reason, fallback) => {
+    match effect {
+        JudgeEffect::Permit => {}
+        JudgeEffect::Transform(reason, fallback) => {
             reasons.push(TriggeredPolicy {
                 id: "tl:tone".into(),
                 severity: Severity::Low,
                 reason: reason.clone(),
             });
             block.get_or_insert(BlockSignal {
-                verdict: Verdict::Rewrite,
+                effect: AuthorizationEffect::Transform,
                 reason,
                 safe_output: fallback,
             });
         }
-        JudgeVerdict::Escalate(reason) => {
+        JudgeEffect::Defer(reason) => {
             reasons.push(TriggeredPolicy {
                 id: "tl:tone_unavailable".into(),
                 severity: Severity::Low,
                 reason: reason.clone(),
             });
             block.get_or_insert(BlockSignal {
-                verdict: Verdict::Escalate,
+                effect: AuthorizationEffect::Defer,
                 reason,
                 safe_output: None,
             });
         }
-        JudgeVerdict::BlockGrounded(_) => {}
+        JudgeEffect::DenyGrounded(_) => {}
     }
 }
 
-fn interpret_hallucination(judge: &JudgeResult) -> Option<JudgeVerdict> {
+fn interpret_hallucination(judge: &JudgeResult) -> Option<JudgeEffect> {
     match judge {
         JudgeResult::Skipped => None,
-        JudgeResult::Err(error) => Some(JudgeVerdict::Escalate(format!(
-            "hallucination judge: {error}"
-        ))),
+        JudgeResult::Err(error) => {
+            Some(JudgeEffect::Defer(format!("hallucination judge: {error}")))
+        }
         JudgeResult::Ok(out) => {
             let grounded = out.json["grounded"].as_bool().unwrap_or(true);
             if grounded {
-                Some(JudgeVerdict::Allow)
+                Some(JudgeEffect::Permit)
             } else {
-                Some(JudgeVerdict::BlockGrounded(json_string_array(
+                Some(JudgeEffect::DenyGrounded(json_string_array(
                     &out.json["violations"],
                 )))
             }
@@ -171,18 +173,16 @@ fn interpret_hallucination(judge: &JudgeResult) -> Option<JudgeVerdict> {
     }
 }
 
-fn interpret_authority(judge: &JudgeResult) -> Option<JudgeVerdict> {
+fn interpret_authority(judge: &JudgeResult) -> Option<JudgeEffect> {
     match judge {
         JudgeResult::Skipped => None,
-        JudgeResult::Err(error) => {
-            Some(JudgeVerdict::Escalate(format!("authority judge: {error}")))
-        }
+        JudgeResult::Err(error) => Some(JudgeEffect::Defer(format!("authority judge: {error}"))),
         JudgeResult::Ok(out) => {
             let within = out.json["within_authority"].as_bool().unwrap_or(true);
             if within {
-                Some(JudgeVerdict::Allow)
+                Some(JudgeEffect::Permit)
             } else {
-                Some(JudgeVerdict::BlockGrounded(json_string_array(
+                Some(JudgeEffect::DenyGrounded(json_string_array(
                     &out.json["forbidden_promises"],
                 )))
             }
@@ -190,14 +190,14 @@ fn interpret_authority(judge: &JudgeResult) -> Option<JudgeVerdict> {
     }
 }
 
-fn interpret_tone(judge: &JudgeResult, _profile: &AgentProfile) -> Option<JudgeVerdict> {
+fn interpret_tone(judge: &JudgeResult, _profile: &AgentProfile) -> Option<JudgeEffect> {
     match judge {
         JudgeResult::Skipped => None,
-        JudgeResult::Err(error) => Some(JudgeVerdict::Escalate(format!("tone judge: {error}"))),
+        JudgeResult::Err(error) => Some(JudgeEffect::Defer(format!("tone judge: {error}"))),
         JudgeResult::Ok(out) => {
             let matches = out.json["matches_target"].as_bool().unwrap_or(true);
             if matches {
-                return Some(JudgeVerdict::Allow);
+                return Some(JudgeEffect::Permit);
             }
 
             let issues = json_string_array(&out.json["issues"]);
@@ -213,7 +213,7 @@ fn interpret_tone(judge: &JudgeResult, _profile: &AgentProfile) -> Option<JudgeV
                     issues.join("; ")
                 )
             };
-            Some(JudgeVerdict::Revise(reason, None))
+            Some(JudgeEffect::Transform(reason, None))
         }
     }
 }

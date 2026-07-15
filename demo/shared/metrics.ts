@@ -1,9 +1,9 @@
-import type { Decision, GuardLogEvent } from '@trustloopguard/sdk';
+import type { AuthorizationEffect, GuardLogEvent } from '@trustloopguard/sdk';
 
 interface DemoMetric {
   label: string;
   branch: GuardLogEvent['branch'];
-  verdict: Decision['verdict'];
+  effect: AuthorizationEffect;
   traceId: string;
   latencyMs: number;
 }
@@ -15,7 +15,7 @@ export class Metrics {
     this.rows.push({
       label,
       branch: event.branch,
-      verdict: event.verdict,
+      effect: event.effect,
       traceId: event.trace_id,
       latencyMs: event.latency_ms,
     });
@@ -36,7 +36,7 @@ export class Metrics {
     process.stdout.write(`Pipeline: ${this.rows.length} guard checks, avg=${avg} ms, p95=${p95} ms\n`);
     for (const row of this.rows) {
       process.stdout.write(
-        `  ${row.label.padEnd(30)} verdict=${row.verdict.padEnd(8)} branch=${row.branch.padEnd(
+        `  ${row.label.padEnd(30)} effect=${row.effect.padEnd(16)} branch=${row.branch.padEnd(
           8,
         )} latency=${String(row.latencyMs).padStart(4)} ms trace=${row.traceId || '(none)'}\n`,
       );

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { onboardingContextQuery } from '@/components/onboarding/ConnectAgentStep';
-import { useFirstTrace, verdictVariant } from '@/components/onboarding/useFirstTrace';
+import { useFirstTrace, effectVariant } from '@/components/onboarding/useFirstTrace';
 
 const QUIET_FAILURES_BEFORE_NOTE = 3;
 
@@ -37,7 +37,7 @@ export function VerifyStep({
             <p className="text-muted-foreground">&gt; connection established</p>
             <p className="flex flex-wrap items-center gap-2 text-foreground">
               &gt; first decision received
-              <Badge variant={verdictVariant(trace.decision)}>{trace.decision}</Badge>
+              <Badge variant={effectVariant(trace.decision)}>{trace.decision}</Badge>
               <span className="tabular-nums text-muted-foreground">{trace.elapsed_ms}ms</span>
             </p>
             <p className="break-all text-muted-foreground">&gt; trace {trace.trace_id}</p>

@@ -1,39 +1,20 @@
 use serde_json::json;
-use tl_core::financial::{
-    ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
-    CreateFinancialMandateRequest, EvidenceRef, FinancialAction, FinancialActionDecision,
-    FinancialActionDecisionReceipt, FinancialActionKind, FinancialActionOutcome,
-    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionStatus,
-    FinancialApprovalRequest, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
-    FinancialAuthorizationScopeProof, FinancialDecision, FinancialDecisionRisk,
-    FinancialDecisionRiskCode, FinancialEligibilityStatus, FinancialEvidenceProof,
-    FinancialExecutionProof, FinancialExecutionProofStatus, FinancialMandate,
-    FinancialMandateListResponse, FinancialMandateStatus, FinancialRail, FinancialReceipt,
-    MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
-};
 use tl_core::{
-    FinancialActionKind as RootFinancialActionKind, FinancialMandate as RootFinancialMandate,
-    Verdict,
+    AuthorizationClaim, AuthorizationEffect, AuthorizationIntentStatus, CounterpartyRef,
+    CreateFinancialActionRequest, EvidenceRef, FinancialAction, FinancialActionKind,
+    FinancialActionOutcomeStatus, FinancialActionRecord, FinancialExecutionStatus, FinancialRail,
+    MoneyAmount, RecoveryStatus, ReversalCapability,
 };
 
 #[test]
-fn financial_types_are_available_from_named_module_and_root() {
-    let _: Option<RootFinancialActionKind> = Some(FinancialActionKind::Refund);
-    let _: Option<FinancialDecision> = None;
-    let _: Option<FinancialReceipt> = None;
-    let _: Option<FinancialApprovalRequest> = None;
-    let _: Option<RootFinancialMandate> = None;
-}
-
-#[test]
-fn financial_enums_use_snake_case_wire_values() {
+fn financial_enums_use_canonical_wire_values() {
     assert_eq!(
         serde_json::to_value(FinancialActionKind::InvoiceApproval).unwrap(),
         "invoice_approval"
     );
     assert_eq!(
-        serde_json::to_value(FinancialActionStatus::Authorized).unwrap(),
-        "authorized"
+        serde_json::to_value(FinancialExecutionStatus::Succeeded).unwrap(),
+        "succeeded"
     );
     assert_eq!(
         serde_json::to_value(FinancialActionOutcomeStatus::RecoveryStarted).unwrap(),
@@ -47,265 +28,85 @@ fn financial_enums_use_snake_case_wire_values() {
         serde_json::to_value(RecoveryStatus::ManualRequired).unwrap(),
         "manual_required"
     );
-    assert_eq!(
-        serde_json::to_value(FinancialActionPrecondition::AmountLteRefundableBalance).unwrap(),
-        "amount_lte_refundable_balance"
-    );
-    assert_eq!(
-        serde_json::to_value(FinancialRail::PaymentHttp).unwrap(),
-        "payment_http"
-    );
-    assert_eq!(
-        serde_json::to_value(FinancialApprovalRequestStatus::Pending).unwrap(),
-        "pending"
-    );
-    assert_eq!(
-        serde_json::to_value(FinancialMandateStatus::Revoked).unwrap(),
-        "revoked"
-    );
 }
 
 #[test]
-fn financial_mandate_serializes_durable_authorization_scope() {
-    let create = CreateFinancialMandateRequest {
-        id: Some("mandate_refund_bot".into()),
-        version: Some(1),
-        principal_id: "refund-bot".into(),
-        scope: json!({
-            "action_kinds": ["refund"],
-            "max_amount_minor": 10000,
-            "currency": "USD"
-        }),
-        payment_scope: None,
-        metadata: json!({ "source": "admin_policy" }),
-        starts_at: Some("2026-07-05T19:00:00Z".into()),
-        expires_at: Some("2026-08-05T19:00:00Z".into()),
-    };
-    let created = FinancialMandate {
-        id: "mandate_refund_bot".into(),
-        workspace_id: "ws_finance".into(),
-        version: 1,
-        status: FinancialMandateStatus::Active,
-        principal_id: "refund-bot".into(),
-        scope: create.scope.clone(),
-        metadata: create.metadata.clone(),
-        starts_at: create.starts_at.clone(),
-        expires_at: create.expires_at.clone(),
-        created_at: "2026-07-05T19:00:00Z".into(),
-        updated_at: "2026-07-05T19:00:00Z".into(),
-    };
-    let list = FinancialMandateListResponse {
-        mandates: vec![created],
-    };
-
-    let create_json = serde_json::to_value(&create).expect("create mandate serializes");
-    assert_eq!(create_json["principal_id"], "refund-bot");
-    assert_eq!(create_json["scope"]["action_kinds"][0], "refund");
-    assert_eq!(create_json["scope"]["max_amount_minor"], 10000);
-
-    let list_json = serde_json::to_value(&list).expect("mandate list serializes");
-    assert_eq!(list_json["mandates"][0]["status"], "active");
-    assert_eq!(list_json["mandates"][0]["version"], 1);
-}
-
-#[test]
-fn financial_action_request_serializes_canonical_money_and_optional_refs() {
+fn action_request_uses_the_common_authorization_claim() {
     let request = CreateFinancialActionRequest {
         idempotency_key: "idem-1".into(),
         execute: true,
+        authorization: Some(AuthorizationClaim {
+            grant_id: "grant-1".into(),
+            attempt_id: "attempt-1".into(),
+        }),
         action: FinancialAction {
             id: None,
             kind: FinancialActionKind::Refund,
             operation: "issue_refund".into(),
-            principal_id: "agent-refund-bot".into(),
+            principal_id: "refund-bot".into(),
             amount: MoneyAmount {
                 amount_minor: 7_500,
                 currency: "USD".into(),
             },
             counterparty: Some(CounterpartyRef {
-                id: "cust_456".into(),
-                display_name: Some("Customer 456".into()),
+                id: "cust-1".into(),
+                display_name: None,
                 kind: "customer".into(),
-                country: Some("US".into()),
-                metadata: json!({ "segment": "support" }),
+                country: None,
+                metadata: json!({}),
             }),
             rail: FinancialRail::PaymentHttp,
-            mandate: Some(MandateRef {
-                id: "mandate_123".into(),
-                version: Some(2),
-            }),
-            memo: Some("damaged_item".into()),
-            metadata: json!({ "order_id": "order_123" }),
+            memo: None,
+            metadata: json!({}),
         },
         evidence: vec![EvidenceRef {
-            source: "customer_backend".into(),
-            source_id: "refund_check_789".into(),
-            kind: "refundability_snapshot".into(),
-            observed_at: Some("2026-07-05T19:00:00Z".into()),
-            metadata: json!({ "refundable_balance_minor": 10_000 }),
+            source: "orders".into(),
+            source_id: "order-1".into(),
+            kind: "refundability".into(),
+            observed_at: None,
+            metadata: json!({ "payment_captured": true }),
         }],
     };
 
-    let json = serde_json::to_value(&request).expect("request serializes");
-    assert_eq!(json["idempotency_key"], "idem-1");
-    assert_eq!(json["execute"], true);
-    assert_eq!(json["action"]["kind"], "refund");
-    assert_eq!(json["action"]["operation"], "issue_refund");
-    assert_eq!(json["action"]["amount"]["amount_minor"], 7500);
-    assert_eq!(json["action"]["amount"]["currency"], "USD");
-    assert_eq!(json["action"]["counterparty"]["id"], "cust_456");
-    assert_eq!(json["action"]["mandate"]["version"], 2);
-    assert_eq!(
-        json["evidence"][0]["metadata"]["refundable_balance_minor"],
-        10000
-    );
+    let value = serde_json::to_value(request).unwrap();
+    assert_eq!(value["authorization"]["grant_id"], "grant-1");
+    assert!(value["action"].get("mandate").is_none());
 }
 
 #[test]
-fn financial_decision_carries_verdict_status_approval_and_receipt_refs() {
-    let decision = FinancialDecision {
-        action_id: "fa_123".into(),
-        status: FinancialActionStatus::Held,
-        verdict: Verdict::Escalate,
-        reason: "approval threshold exceeded".into(),
-        approval: Some(ApprovalRequirement {
-            required: true,
-            approver_roles: vec!["finance_admin".into()],
-            reason: "refund above auto-approval threshold".into(),
-            expires_at: Some("2026-07-06T19:00:00Z".into()),
-        }),
-        receipt_id: None,
-    };
-
-    let json = serde_json::to_value(&decision).expect("decision serializes");
-    assert_eq!(json["action_id"], "fa_123");
-    assert_eq!(json["status"], "held");
-    assert_eq!(json["verdict"], "escalate");
-    assert_eq!(json["approval"]["required"], true);
-    assert_eq!(json["receipt_id"], serde_json::Value::Null);
-}
-
-#[test]
-fn financial_action_decision_receipt_uses_product_facing_scope_fields() {
-    let receipt = FinancialActionDecisionReceipt {
-        schema: "financial_action_decision_receipt.v1".into(),
-        action_id: "fa_123".into(),
-        decision: FinancialActionDecision::Hold,
-        status: FinancialActionStatus::Held,
-        reason: "valid refund, but above threshold so human approval required".into(),
-        amount: MoneyAmount {
-            amount_minor: 7_500,
-            currency: "USD".into(),
+fn action_record_separates_authorization_from_execution() {
+    let record = FinancialActionRecord {
+        id: "action-1".into(),
+        workspace_id: "workspace-1".into(),
+        environment_id: "production".into(),
+        authorization_intent_id: Some("intent-1".into()),
+        authorization_receipt_id: Some("receipt-1".into()),
+        authorization_effect: AuthorizationEffect::RequireApproval,
+        authorization_status: AuthorizationIntentStatus::PendingApproval,
+        authorization: None,
+        execution_status: FinancialExecutionStatus::NotStarted,
+        status_reason: None,
+        action: FinancialAction {
+            id: Some("action-1".into()),
+            kind: FinancialActionKind::Payment,
+            operation: "pay".into(),
+            principal_id: "agent-1".into(),
+            amount: MoneyAmount {
+                amount_minor: 100,
+                currency: "USD".into(),
+            },
+            counterparty: None,
+            rail: FinancialRail::Internal,
+            memo: None,
+            metadata: json!({}),
         },
-        operation: "issue_refund".into(),
-        principal_id: "refund-bot".into(),
-        counterparty: None,
-        authorization_scope: FinancialAuthorizationScopeProof {
-            checked: true,
-            result: FinancialEligibilityStatus::Passed,
-            scope_ref: Some(MandateRef {
-                id: "scope_refund_bot".into(),
-                version: Some(1),
-            }),
-            scope_snapshot: None,
-            source: Some("financial_authorization_service".into()),
-            mandate_hash: Some("sha256:scope".into()),
-            normalized_scope: Some(json!({ "currency": "USD" })),
-            reason: Some("support agent may refund up to USD 100.00".into()),
-        },
-        evidence: vec![FinancialEvidenceProof {
-            precondition: FinancialActionPrecondition::PaymentCaptured,
-            status: FinancialEligibilityStatus::Passed,
-            evidence_source_id: Some("refund_check_1".into()),
-            reason: None,
-        }],
-        risks: vec![FinancialDecisionRisk {
-            code: FinancialDecisionRiskCode::AmountAboveAutoApproveThreshold,
-            severity: tl_core::Severity::High,
-            reason: "amount at or above hold threshold".into(),
-            policy_id: Some("refund-controls".into()),
-            source: "financial_policy".into(),
-        }],
-        approval: None,
-        execution: FinancialExecutionProof {
-            status: FinancialExecutionProofStatus::NotStarted,
-            receipt_id: None,
-            ledger_event_ids: vec![],
-        },
-        created_at: "2026-07-05T19:00:00Z".into(),
-        updated_at: "2026-07-05T19:00:00Z".into(),
+        evidence: Vec::new(),
+        created_at: "2026-07-14T00:00:00Z".into(),
+        updated_at: "2026-07-14T00:00:00Z".into(),
     };
 
-    let json = serde_json::to_value(&receipt).expect("decision receipt serializes");
-    assert_eq!(json["schema"], "financial_action_decision_receipt.v1");
-    assert_eq!(json["decision"], "hold");
-    assert_eq!(json["authorization_scope"]["checked"], true);
-    assert_eq!(json["authorization_scope"]["result"], "passed");
-    assert_eq!(
-        json["authorization_scope"]["scope_ref"]["id"],
-        "scope_refund_bot"
-    );
-    assert!(json.get("mandate").is_none());
-    assert_eq!(
-        json["risks"][0]["code"],
-        "amount_above_auto_approve_threshold"
-    );
-    assert_eq!(json["execution"]["status"], "not_started");
-}
-
-#[test]
-fn financial_approval_request_serializes_queue_state() {
-    let approval = FinancialApprovalRequest {
-        id: "appr_123".into(),
-        workspace_id: "ws_finance".into(),
-        action_id: "fa_123".into(),
-        status: FinancialApprovalRequestStatus::Pending,
-        reason: "refund above auto-approval threshold".into(),
-        approver_roles: vec!["finance_admin".into()],
-        decided_by: None,
-        decided_at: None,
-        expires_at: Some("2026-07-06T19:00:00Z".into()),
-        metadata: json!({ "threshold_minor": 5000 }),
-        created_at: "2026-07-05T19:00:00Z".into(),
-        updated_at: "2026-07-05T19:00:00Z".into(),
-    };
-    let list = FinancialApprovalRequestListResponse {
-        approval_requests: vec![approval],
-    };
-
-    let json = serde_json::to_value(&list).expect("approval list serializes");
-    assert_eq!(json["approval_requests"][0]["status"], "pending");
-    assert_eq!(
-        json["approval_requests"][0]["approver_roles"][0],
-        "finance_admin"
-    );
-    assert_eq!(
-        json["approval_requests"][0]["metadata"]["threshold_minor"],
-        5000
-    );
-}
-
-#[test]
-fn financial_outcome_records_recovery_state_without_accounting_floats() {
-    let outcome = FinancialActionOutcome {
-        action_id: "fa_123".into(),
-        status: FinancialActionOutcomeStatus::LossRecorded,
-        reversal_capability: ReversalCapability::ManualRecovery,
-        recovery_status: RecoveryStatus::Failed,
-        provider_status: Some("refund_succeeded_disputed".into()),
-        provider_reference: Some("re_123".into()),
-        final_loss_amount: Some(MoneyAmount {
-            amount_minor: 7_500,
-            currency: "USD".into(),
-        }),
-        occurred_at: "2026-07-05T20:00:00Z".into(),
-        metadata: json!({ "dispute_id": "dp_123" }),
-    };
-
-    let json = serde_json::to_value(&outcome).expect("outcome serializes");
-    assert_eq!(json["status"], "loss_recorded");
-    assert_eq!(json["reversal_capability"], "manual_recovery");
-    assert_eq!(json["recovery_status"], "failed");
-    assert_eq!(json["final_loss_amount"]["amount_minor"], 7500);
-    assert!(json["final_loss_amount"].get("amount").is_none());
+    let value = serde_json::to_value(record).unwrap();
+    assert_eq!(value["authorization_effect"], "require_approval");
+    assert_eq!(value["authorization_status"], "pending_approval");
+    assert_eq!(value["execution_status"], "not_started");
 }

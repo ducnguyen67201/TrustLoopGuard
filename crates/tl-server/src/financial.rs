@@ -1,13 +1,16 @@
-//! Financial authorization endpoints.
+//! Financial domain persistence and execution boundaries.
+//!
+//! Authorization is owned by [`crate::authorization`]. This module keeps
+//! only financial action storage, budget/ledger accounting, provider
+//! execution, execution receipts, and outcomes.
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use tl_core::{
-    AgenticPaymentReservation, ApprovalRequirement, CreateFinancialActionRequest,
-    CreateFinancialMandateRequest, FinancialActionListResponse, FinancialActionOutcome,
-    FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequest,
-    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus, FinancialMandate,
-    FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialReceipt, MoneyAmount,
+    AgenticPaymentReservation, AuthorizationEffect, AuthorizationIntentStatus,
+    CreateFinancialActionRequest, FinancialActionListResponse, FinancialActionOutcome,
+    FinancialActionRecord, FinancialExecutionStatus, FinancialOutcomeListResponse,
+    FinancialReceipt, MoneyAmount,
 };
 
 mod executor;
@@ -23,21 +26,17 @@ pub use executor::{
     PaymentHttpFinancialExecutor,
 };
 pub use handlers::{
-    __path_approve_action, __path_approve_matching_actions, __path_authorize_agentic_payment,
-    __path_commit_agentic_payment, __path_create_action, __path_create_mandate,
-    __path_create_policy, __path_deny_action, __path_execute_action, __path_get_action,
-    __path_get_agentic_payment, __path_get_agentic_payment_receipt, __path_get_approval_envelope,
-    __path_get_decision_receipt, __path_get_receipt, __path_list_action_outcomes,
-    __path_list_actions, __path_list_approval_requests, __path_list_mandates, __path_list_policies,
-    __path_record_action_outcome, __path_revoke_mandate, __path_rollback_agentic_payment,
-    approve_action, approve_matching_actions, authorize_agentic_payment, commit_agentic_payment,
-    create_action, create_mandate, create_policy, deny_action, execute_action, get_action,
-    get_agentic_payment, get_agentic_payment_receipt, get_approval_envelope, get_decision_receipt,
-    get_receipt, list_action_outcomes, list_actions, list_approval_requests, list_mandates,
-    list_policies, record_action_outcome, revoke_mandate, rollback_agentic_payment,
+    __path_authorize_agentic_payment, __path_commit_agentic_payment, __path_create_action,
+    __path_create_policy, __path_execute_action, __path_get_action, __path_get_agentic_payment,
+    __path_get_agentic_payment_receipt, __path_get_receipt, __path_list_action_outcomes,
+    __path_list_actions, __path_list_policies, __path_record_action_outcome,
+    __path_rollback_agentic_payment, authorize_agentic_payment, commit_agentic_payment,
+    create_action, create_policy, execute_action, get_action, get_agentic_payment,
+    get_agentic_payment_receipt, get_receipt, list_action_outcomes, list_actions, list_policies,
+    record_action_outcome, rollback_agentic_payment,
 };
 pub use memory_store::MemoryFinancialStore;
-pub use service::{FinancialActionExecutionAttempt, FinancialAuthorizationService};
+pub use service::FinancialAuthorizationService;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FinancialStoreError {
@@ -128,48 +127,48 @@ pub trait FinancialStore: Send + Sync {
     async fn create_action(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         input: CreateFinancialActionRequest,
     ) -> Result<FinancialActionRecord, FinancialStoreError>;
 
     async fn get_action(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError>;
 
     async fn list_actions(
         &self,
         workspace_id: &str,
+        environment_id: Option<&str>,
     ) -> Result<FinancialActionListResponse, FinancialStoreError>;
 
-    async fn create_mandate(
+    async fn update_authorization(
         &self,
         workspace_id: &str,
-        input: CreateFinancialMandateRequest,
-    ) -> Result<FinancialMandate, FinancialStoreError>;
+        environment_id: &str,
+        action_id: &str,
+        intent_id: Option<&str>,
+        receipt_id: Option<&str>,
+        effect: AuthorizationEffect,
+        status: AuthorizationIntentStatus,
+    ) -> Result<FinancialActionRecord, FinancialStoreError>;
 
-    async fn list_mandates(
+    async fn transition_execution(
         &self,
         workspace_id: &str,
-    ) -> Result<FinancialMandateListResponse, FinancialStoreError>;
-
-    async fn get_mandate(
-        &self,
-        workspace_id: &str,
-        mandate_id: &str,
-        version: Option<i32>,
-    ) -> Result<FinancialMandate, FinancialStoreError>;
-
-    async fn revoke_mandate(
-        &self,
-        workspace_id: &str,
-        mandate_id: &str,
-    ) -> Result<FinancialMandate, FinancialStoreError>;
+        environment_id: &str,
+        action_id: &str,
+        status: FinancialExecutionStatus,
+        reason: Option<&str>,
+    ) -> Result<FinancialActionRecord, FinancialStoreError>;
 
     async fn create_receipt(
         &self,
         workspace_id: &str,
         action_id: &str,
+        authorization_receipt_id: &str,
         trace_id: Option<&str>,
         ledger_event_ids: Vec<String>,
         proof: serde_json::Value,
@@ -193,53 +192,6 @@ pub trait FinancialStore: Send + Sync {
         workspace_id: &str,
         action_id: &str,
     ) -> Result<FinancialOutcomeListResponse, FinancialStoreError>;
-
-    async fn create_approval_request(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-        approval: ApprovalRequirement,
-    ) -> Result<FinancialApprovalRequest, FinancialStoreError>;
-
-    async fn list_approval_requests(
-        &self,
-        workspace_id: &str,
-    ) -> Result<FinancialApprovalRequestListResponse, FinancialStoreError>;
-
-    async fn has_current_approved_request(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-    ) -> Result<bool, FinancialStoreError>;
-
-    async fn resolve_pending_approval_requests(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-        status: FinancialApprovalRequestStatus,
-        decided_by: Option<&str>,
-    ) -> Result<(), FinancialStoreError>;
-
-    async fn transition_action(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-        status: FinancialActionStatus,
-        event_type: &str,
-    ) -> Result<FinancialActionRecord, FinancialStoreError>;
-
-    async fn transition_action_with_reason(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-        status: FinancialActionStatus,
-        event_type: &str,
-        reason: &str,
-    ) -> Result<FinancialActionRecord, FinancialStoreError> {
-        let _ = reason;
-        self.transition_action(workspace_id, action_id, status, event_type)
-            .await
-    }
 
     async fn record_ledger_entry(
         &self,

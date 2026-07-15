@@ -74,12 +74,13 @@ pub trait TraceStore: Send + Sync {
     }
 }
 
-fn verdict_text(v: tl_core::Verdict) -> &'static str {
+fn effect_text(v: tl_core::AuthorizationEffect) -> &'static str {
     match v {
-        tl_core::Verdict::Allow => "allow",
-        tl_core::Verdict::Block => "block",
-        tl_core::Verdict::Rewrite => "rewrite",
-        tl_core::Verdict::Escalate => "escalate",
+        tl_core::AuthorizationEffect::Permit => "permit",
+        tl_core::AuthorizationEffect::Deny => "deny",
+        tl_core::AuthorizationEffect::Transform => "transform",
+        tl_core::AuthorizationEffect::RequireApproval => "require_approval",
+        tl_core::AuthorizationEffect::Defer => "defer",
     }
 }
 
@@ -152,7 +153,7 @@ impl TraceStore for MemoryTraceStore {
             environment_id: write.environment_id.clone(),
             environment: write.environment_id,
             domain: write.domain,
-            decision: verdict_text(write.decision.verdict).to_string(),
+            decision: effect_text(write.decision.effect).to_string(),
             elapsed_ms: write.decision.latency_ms as i32,
             latest_review_outcome: None,
             latest_reviewed_at: None,

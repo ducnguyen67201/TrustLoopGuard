@@ -18,7 +18,7 @@ describe('generatePolicyDraft', () => {
             description: 'Block password sharing',
             matchType: 'regex',
             matchValue: 'password',
-            action: 'block',
+            action: 'deny',
             severity: 'high',
           },
         }),

@@ -12,7 +12,7 @@ from trustloopguard import (
     CreateRunEventRequest,
     Client,
     CreateRunRequest,
-    Decision,
+    AuthorizationDecision,
     EventKind,
     GuardEvent,
     Labels,
@@ -25,7 +25,7 @@ from trustloopguard import (
     RunSummary,
     SideEffectClass,
     Source,
-    Verdict,
+    AuthorizationEffect,
 )
 
 def output_event(text: str = "hello") -> GuardEvent:
@@ -46,17 +46,18 @@ def test_submit_event_allow_round_trip() -> None:
             200,
             json={
                 "trace_id": "trace-1",
-                "verdict": "allow",
+                "domain": "content",
+                "effect": "permit",
                 "reason": "no policies triggered",
-                "triggered_policies": [],
-                "safe_output": None,
+                "findings": [],
+                "transformed_value": None,
                 "latency_ms": 1,
             },
         )
     )
     with Client("https://api.example.test", api_key="test") as client:
-        decision: Decision = client.submit_event(output_event())
-    assert decision.verdict is Verdict.allow
+        decision: AuthorizationDecision = client.submit_event(output_event())
+    assert decision.effect is AuthorizationEffect.permit
     assert decision.trace_id == "trace-1"
 
 
@@ -67,10 +68,11 @@ def test_bearer_header_is_sent() -> None:
             200,
             json={
                 "trace_id": "t",
-                "verdict": "allow",
+                "domain": "content",
+                "effect": "permit",
                 "reason": "",
-                "triggered_policies": [],
-                "safe_output": None,
+                "findings": [],
+                "transformed_value": None,
                 "latency_ms": 0,
             },
         )

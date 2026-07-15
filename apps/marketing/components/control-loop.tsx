@@ -1,16 +1,16 @@
 import type { ReactNode } from 'react';
 
 const AUTHORIZATION_CHECKS = [
-  'Mandate & authority',
+  'Grant & authority',
   'Trusted evidence',
   'Financial policy',
   'Spend window',
 ] as const;
 
 const OUTCOMES = [
-  { status: 'Authorized', detail: 'Continue to execution', className: 'journey-outcome-authorized' },
-  { status: 'Held', detail: 'Wait for approval', className: 'journey-outcome-held' },
-  { status: 'Denied', detail: 'Stop before execution', className: 'journey-outcome-denied' },
+  { status: 'permit', detail: 'Continue to execution', className: 'journey-outcome-authorized' },
+  { status: 'require_approval', detail: 'Wait for approval', className: 'journey-outcome-held' },
+  { status: 'deny', detail: 'Stop before execution', className: 'journey-outcome-denied' },
 ] as const;
 
 export function ControlLoop() {
@@ -44,18 +44,32 @@ export function ControlLoop() {
             a user, tool, or payment rail.
           </p>
           <dl className="journey-action">
-            <div><dt>action</dt><dd>issue_refund</dd></div>
-            <div><dt>amount</dt><dd>$75.00 USD</dd></div>
-            <div><dt>status</dt><dd>proposed</dd></div>
+            <div>
+              <dt>action</dt>
+              <dd>issue_refund</dd>
+            </div>
+            <div>
+              <dt>amount</dt>
+              <dd>$75.00 USD</dd>
+            </div>
+            <div>
+              <dt>status</dt>
+              <dd>proposed</dd>
+            </div>
           </dl>
         </StoryCard>
 
         <StoryCard className="journey-card-checks" number="02" label="Control boundary">
           <h3>TrustLoopGuard holds the action at the gate.</h3>
-          <p>Checks run against durable runtime context—not just another instruction in the prompt.</p>
+          <p>
+            Checks run against durable runtime context—not just another instruction in the prompt.
+          </p>
           <ul className="journey-checks">
             {AUTHORIZATION_CHECKS.map((check) => (
-              <li key={check}><span aria-hidden="true">✓</span>{check}</li>
+              <li key={check}>
+                <span aria-hidden="true">✓</span>
+                {check}
+              </li>
             ))}
           </ul>
         </StoryCard>
@@ -76,8 +90,8 @@ export function ControlLoop() {
         <StoryCard className="journey-card-execute" number="04" label="Authorized only">
           <h3>Your runtime performs the action.</h3>
           <p>
-            Held actions wait. Denied actions stop. Only an authorized action continues through the
-            gate to your existing execution code.
+            Approval-required actions wait. Denied actions stop. Only a permitted action continues
+            through the gate to your existing execution code.
           </p>
           <code>executeAction(action.id)</code>
         </StoryCard>
@@ -89,14 +103,17 @@ export function ControlLoop() {
             records what actually happened after it.
           </p>
           <div className="journey-receipts">
-            <span>Decision receipt</span><i aria-hidden="true">→</i><span>Execution receipt</span>
+            <span>Decision receipt</span>
+            <i aria-hidden="true">→</i>
+            <span>Execution receipt</span>
           </div>
         </StoryCard>
       </div>
 
       <p className="journey-footnote">
-        <strong>Non-financial actions:</strong> the same boundary returns <code>allow</code>,{' '}
-        <code>block</code>, <code>rewrite</code>, or <code>escalate</code> before execution.
+        <strong>Every domain:</strong> the same boundary returns <code>permit</code>,{' '}
+        <code>deny</code>, <code>transform</code>, <code>require_approval</code>, or{' '}
+        <code>defer</code>.
       </p>
     </section>
   );
@@ -115,7 +132,10 @@ function StoryCard({
 }) {
   return (
     <article className={`journey-card ${className}`}>
-      <div className="journey-card-label"><span>{number}</span><small>{label}</small></div>
+      <div className="journey-card-label">
+        <span>{number}</span>
+        <small>{label}</small>
+      </div>
       {children}
     </article>
   );

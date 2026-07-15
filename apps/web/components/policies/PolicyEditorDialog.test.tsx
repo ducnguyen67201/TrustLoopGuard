@@ -29,7 +29,7 @@ const ROUNDTRIP_YAML = [
   'description: Refund rule',
   'match:',
   '  literal: guaranteed refund',
-  'action: rewrite',
+  'action: transform',
   'severity: high',
   '',
 ].join('\n');
@@ -41,7 +41,7 @@ const NON_ROUNDTRIP_YAML = [
   'description: Legacy refund rule',
   'match:',
   '  contains: guaranteed refund',
-  'action: escalate',
+  'action: require_approval',
   'severity: high',
   '',
 ].join('\n');
@@ -77,11 +77,11 @@ describe('PolicyEditorDialog edit mode', () => {
       />,
     );
 
-    // The action dropdown reflects the real action (rewrite), not hardcoded block.
+    // The action dropdown reflects the real transform effect instead of hardcoding denial.
     await waitFor(() => {
       const actionTrigger = document.getElementById('action');
       expect(actionTrigger).not.toBeNull();
-      expect(actionTrigger).toHaveTextContent('Clean it up (rewrite)');
+      expect(actionTrigger).toHaveTextContent('Use a safe transformed value');
     });
   });
 

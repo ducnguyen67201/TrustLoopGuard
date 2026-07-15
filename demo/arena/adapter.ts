@@ -23,13 +23,13 @@ export interface ArenaAdapterChatRequest {
 }
 
 export type ArenaAdapterFinishReason = 'stop' | 'content_filter';
-export type ArenaAdapterVerdict = 'blocked' | 'rewritten' | 'escalated' | null;
+export type ArenaAdapterEffect = 'deny' | 'transform' | 'require_approval' | 'defer' | null;
 export type ArenaAdapterPhase = 'input' | 'output' | null;
 
 export interface ArenaAdapterChatResult {
   content: string;
   finishReason: ArenaAdapterFinishReason;
-  verdict: ArenaAdapterVerdict;
+  effect: ArenaAdapterEffect;
   phase: ArenaAdapterPhase;
   traceId: string | null;
 }
@@ -45,7 +45,7 @@ export interface ArenaAdapterWorkflowRequest {
 export interface ArenaAdapterWorkflowResult {
   content: string;
   finishReason: ArenaAdapterFinishReason;
-  verdict: ArenaAdapterVerdict;
+  effect: ArenaAdapterEffect;
   phase: 'tool' | null;
   traceId: string | null;
   result: ArenaJsonValue;
@@ -253,7 +253,7 @@ function openAiChatCompletion(
     },
     trustloopguard: {
       agent: profile.displayName,
-      verdict: result.verdict,
+      effect: result.effect,
       phase: result.phase,
       traceId: result.traceId,
       latencyMs: Date.now() - startedAt,

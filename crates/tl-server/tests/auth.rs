@@ -9,7 +9,7 @@ use axum::{
     http::{header, Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use tl_core::{ApiError, Verdict};
+use tl_core::{ApiError, AuthorizationEffect};
 use tl_engine::Engine;
 use tl_server::{jwt::JwtSigner, memory_app_state, router, AuthConfig, MemoryUserStore};
 use tower::ServiceExt;
@@ -113,7 +113,7 @@ when:
 match:
   regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
 action:
-  verdict: block
+  effect: block
 "#;
     let mut b = Request::builder()
         .method("POST")
@@ -319,7 +319,7 @@ async fn correct_bearer_returns_200() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body = read_body(resp).await;
-    assert_eq!(body["verdict"], "allow");
+    assert_eq!(body["effect"], "permit");
 }
 
 #[tokio::test]

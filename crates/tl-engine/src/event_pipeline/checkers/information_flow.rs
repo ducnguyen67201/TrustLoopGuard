@@ -1,6 +1,6 @@
 //! Information-flow checker: action-integrity and destination-permission.
 
-use tl_core::{Confidentiality, GuardEvent, Verdict};
+use tl_core::{AuthorizationEffect, Confidentiality, GuardEvent};
 
 use super::{
     contributing_sources, derived_labels, finding, has_unknown_trust, has_untrusted, FindingSpec,
@@ -27,8 +27,8 @@ fn is_sensitive(confidentiality: Confidentiality) -> bool {
 /// - **destination-permission**: sensitive data may flow to external sinks
 ///   only when policy labels allow it (v1: never).
 /// - **action-integrity**: high-impact actions must be controlled by
-///   trusted context; untrusted control blocks, unverifiable control
-///   escalates conservatively.
+///   trusted context; untrusted control denies, unverifiable control
+///   defers conservatively.
 pub struct InformationFlowChecker;
 
 impl Checker for InformationFlowChecker {
@@ -58,11 +58,11 @@ impl Checker for InformationFlowChecker {
             if !sensitive.is_empty() || derived_sensitive {
                 findings.push(finding(FindingSpec {
                     checker_id: INFORMATION_FLOW_CHECKER_ID,
-                    verdict: Verdict::Block,
+                    effect: AuthorizationEffect::Deny,
                     rule: RULE_DESTINATION_PERMISSION,
                     reason: "sensitive data flows to an external sink".into(),
                     offending: &sensitive,
-                    failure_mode: "data_exfiltration",
+                    risk_code: "data_exfiltration",
                     harm_class: "confidentiality",
                 }));
             }
@@ -76,11 +76,11 @@ impl Checker for InformationFlowChecker {
                 .collect();
             findings.push(finding(FindingSpec {
                 checker_id: INFORMATION_FLOW_CHECKER_ID,
-                verdict: Verdict::Block,
+                effect: AuthorizationEffect::Deny,
                 rule: RULE_ACTION_INTEGRITY,
                 reason: "high-impact action is controlled by untrusted context".into(),
                 offending: &untrusted,
-                failure_mode: "untrusted_control",
+                risk_code: "untrusted_control",
                 harm_class: "integrity",
             }));
         }
@@ -92,11 +92,11 @@ impl Checker for InformationFlowChecker {
         if unverifiable {
             let mut spec_finding = finding(FindingSpec {
                 checker_id: INFORMATION_FLOW_CHECKER_ID,
-                verdict: Verdict::Escalate,
+                effect: AuthorizationEffect::Defer,
                 rule: RULE_MISSING_PROVENANCE,
                 reason: "high-impact action has unverifiable control provenance".into(),
                 offending: &[],
-                failure_mode: "unverified_control",
+                risk_code: "unverified_control",
                 harm_class: "integrity",
             });
             spec_finding.source_chain = contributing
@@ -184,10 +184,10 @@ mod tests {
             finding.violated_rule.as_deref(),
             Some("destination-permission")
         );
-        assert_eq!(finding.verdict, Some(Verdict::Block));
+        assert_eq!(finding.effect, Some(AuthorizationEffect::Deny));
         assert_eq!(finding.source_chain, vec!["src.crm"]);
         assert_eq!(finding.risk_source.as_deref(), Some("api"));
-        assert_eq!(finding.failure_mode.as_deref(), Some("data_exfiltration"));
+        assert_eq!(finding.risk_code.as_deref(), Some("data_exfiltration"));
     }
 
     #[test]
@@ -205,7 +205,7 @@ mod tests {
             findings[0].violated_rule.as_deref(),
             Some("action-integrity")
         );
-        assert_eq!(findings[0].verdict, Some(Verdict::Block));
+        assert_eq!(findings[0].effect, Some(AuthorizationEffect::Deny));
         assert_eq!(findings[0].risk_source.as_deref(), Some("web"));
     }
 
@@ -222,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    fn escalates_missing_provenance_on_high_impact_action() {
+    fn defers_missing_provenance_on_high_impact_action() {
         let event = event(
             EventKind::ShellActionProposed,
             Some(SideEffectClass::ShellExec),
@@ -236,15 +236,12 @@ mod tests {
             findings[0].violated_rule.as_deref(),
             Some("missing-provenance")
         );
-        assert_eq!(findings[0].verdict, Some(Verdict::Escalate));
-        assert_eq!(
-            findings[0].failure_mode.as_deref(),
-            Some("unverified_control")
-        );
+        assert_eq!(findings[0].effect, Some(AuthorizationEffect::Defer));
+        assert_eq!(findings[0].risk_code.as_deref(), Some("unverified_control"));
     }
 
     #[test]
-    fn escalates_unattributed_provenance_paths() {
+    fn defers_unattributed_provenance_paths() {
         // A provenance entry with an empty source-id list claims coverage
         // while attributing nothing; it must not read as clean.
         let event = event(
@@ -260,7 +257,7 @@ mod tests {
             findings[0].violated_rule.as_deref(),
             Some("missing-provenance")
         );
-        assert_eq!(findings[0].verdict, Some(Verdict::Escalate));
+        assert_eq!(findings[0].effect, Some(AuthorizationEffect::Defer));
     }
 
     #[test]
@@ -282,7 +279,7 @@ mod tests {
     }
 
     #[test]
-    fn escalates_unknown_trust_control_on_high_impact_action() {
+    fn defers_unknown_trust_control_on_high_impact_action() {
         let event = event(
             EventKind::ToolCallProposed,
             Some(SideEffectClass::ApiMutation),
@@ -296,7 +293,7 @@ mod tests {
             findings[0].violated_rule.as_deref(),
             Some("missing-provenance")
         );
-        assert_eq!(findings[0].verdict, Some(Verdict::Escalate));
+        assert_eq!(findings[0].effect, Some(AuthorizationEffect::Defer));
     }
 
     #[test]

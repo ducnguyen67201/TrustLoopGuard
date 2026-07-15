@@ -17,11 +17,11 @@ use axum::{
 #[allow(unused_imports)]
 use tl_core::ApiError;
 use tl_core::{
-    ApiErrorCode, AttackVector, GuardrailGenerateResponse, RedteamPlanListResponse,
-    RedteamPlanRequest, RedteamPlanResponse, Severity, WorkflowPath,
+    ApiErrorCode, AttackVector, AuthorizationEffect, GuardrailGenerateResponse,
+    RedteamPlanListResponse, RedteamPlanRequest, RedteamPlanResponse, Severity, WorkflowPath,
 };
 use tl_policy::policy_ast::WhenClause;
-use tl_policy::{Action, MatchClause, Matcher, Policy};
+use tl_policy::{MatchClause, Matcher, Policy};
 
 use super::plan_store::{RedteamPlanStore, RedteamPlanStoreError};
 use super::runner_client::{
@@ -353,7 +353,7 @@ fn static_policies_for(agent_id: &str, paths: &[WorkflowPath]) -> Vec<Policy> {
                  (data exfiltration or unsafe action)",
                 path.source_category, path.sink_category
             ))),
-            action: Action::Block,
+            action: AuthorizationEffect::Deny,
             rewrite: None,
             severity: Severity::High,
             owner_agent_id: Some(agent_id.to_string()),
@@ -517,7 +517,7 @@ mod tests {
         assert_eq!(policies.len(), 2, "two distinct source→sink classes");
         for policy in &policies {
             assert!(tl_policy::validate_policy(policy).is_ok(), "id/shape valid");
-            assert!(matches!(policy.action, Action::Block));
+            assert!(matches!(policy.action, AuthorizationEffect::Deny));
             assert_eq!(policy.owner_agent_id.as_deref(), Some("acme-agent"));
             assert!(matches!(
                 policy.r#match,

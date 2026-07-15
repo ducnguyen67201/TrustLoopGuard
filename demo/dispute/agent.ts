@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { Client, Decision, GuardEvent, Source } from '@trustloopguard/sdk';
+import type { AuthorizationDecision, Client, GuardEvent, Source } from '@trustloopguard/sdk';
 
 import { createClient, DEFAULT_AGENT_ID } from '../shared/env';
 
@@ -34,7 +34,7 @@ export interface AgentTurn {
 export interface AgentChatResult {
   content: string;
   finishReason: 'stop' | 'content_filter';
-  verdict: 'blocked' | 'rewritten' | 'escalated' | null;
+  effect: 'deny' | 'transform' | 'require_approval' | 'defer' | null;
   phase: 'output' | null;
   traceId: string | null;
 }
@@ -170,12 +170,18 @@ export function createNorthPayDisputeAgent(options: NorthPayAgentOptions = {}) {
       const outputDecision = await client.submitEvent(
         outputEvent(agentId, message, turn.reply, runId, assistantEvent.id),
       );
-      if (outputDecision.verdict === 'block' || outputDecision.verdict === 'escalate') {
+      if (
+        outputDecision.effect === 'deny' ||
+        outputDecision.effect === 'require_approval' ||
+        outputDecision.effect === 'defer'
+      ) {
         await client.finishRun(runId);
         return blocked(outputDecision, "I can't help with that request.");
       }
 
-      const reply = outputDecision.safe_output ?? turn.reply;
+      const reply = typeof outputDecision.transformed_value === 'string'
+        ? outputDecision.transformed_value
+        : turn.reply;
       if (refund === null) {
         await client.finishRun(runId);
         return ok(reply, outputDecision.trace_id);
@@ -191,7 +197,7 @@ export function createNorthPayDisputeAgent(options: NorthPayAgentOptions = {}) {
       const decision = await client.submitEvent(refundEvent(agentId, refund, runId, toolEvent.id));
       await client.finishRun(runId);
 
-      if (decision.verdict !== 'allow') return blocked(decision);
+      if (decision.effect !== 'permit') return blocked(decision);
       issueRefund(guardedLedger, refund);
       return ok(reply, decision.trace_id);
     } catch {
@@ -205,7 +211,7 @@ export function createNorthPayDisputeAgent(options: NorthPayAgentOptions = {}) {
       return {
         content: "I can't process a refund right now - verification is unavailable.",
         finishReason: 'content_filter',
-        verdict: 'escalated',
+        effect: 'defer',
         phase: 'output',
         traceId: null,
       };
@@ -342,17 +348,17 @@ function refundEvent(
 }
 
 function ok(content: string, traceId: string | null = null): AgentChatResult {
-  return { content, finishReason: 'stop', verdict: null, phase: null, traceId };
+  return { content, finishReason: 'stop', effect: null, phase: null, traceId };
 }
 
 function blocked(
-  decision: Decision,
+  decision: AuthorizationDecision,
   fallback = "I've opened your dispute for review, but I can't send money to an account from chat.",
 ): AgentChatResult {
   return {
-    content: decision.safe_output ?? fallback,
+    content: typeof decision.transformed_value === 'string' ? decision.transformed_value : fallback,
     finishReason: 'content_filter',
-    verdict: decision.verdict === 'escalate' ? 'escalated' : 'blocked',
+    effect: decision.effect === 'permit' ? null : decision.effect,
     phase: 'output',
     traceId: decision.trace_id,
   };

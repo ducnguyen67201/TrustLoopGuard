@@ -74,7 +74,7 @@ when:
   channels: [chat]
 match:
   literal: unsafe input
-action: block
+action: deny
 "#;
     let policy_resp = app
         .clone()

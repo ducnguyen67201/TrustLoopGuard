@@ -11,7 +11,7 @@ id: refund-guarantee
 description: Prevent guaranteed refund promises.
 match:
   literal: guaranteed refund
-action: block
+action: deny
 severity: high
 "#;
 
@@ -46,7 +46,7 @@ id: payments-need-admin
 when:
   tools: [payment.transfer]
 approver_roles: [admin]
-action: escalate
+action: require_approval
 "#;
 
 fn write_family_policy_file() -> (tempfile::TempDir, std::path::PathBuf) {

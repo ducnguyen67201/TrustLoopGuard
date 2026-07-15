@@ -33,7 +33,7 @@ await createArenaAdapter({
   profile, // { displayName, systemPrompt, safeUserQuestion, protectedInformationName }
   async chat({ message }) {
     const reply = await myAgent(message);
-    return { content: reply, finishReason: 'stop', verdict: null, phase: null, traceId: null };
+    return { content: reply, finishReason: 'stop', effect: null, phase: null, traceId: null };
   },
 });`;
 
@@ -47,9 +47,7 @@ const WORKFLOW_PLACEHOLDER = `{
 
 type ImportKind = 'chat' | 'workflow';
 
-type WorkflowParse =
-  | { ok: true; value: Record<string, unknown> }
-  | { ok: false; error: string };
+type WorkflowParse = { ok: true; value: Record<string, unknown> } | { ok: false; error: string };
 
 /** Parse pasted n8n JSON. Requires an object with a `nodes` array so the
  *  attack planner has a graph to analyse. */
@@ -166,7 +164,9 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
                 autoFocus
                 required
               />
-              <FieldHint>What you&apos;ll call this agent in the dashboard, like &ldquo;Support bot&rdquo;.</FieldHint>
+              <FieldHint>
+                What you&apos;ll call this agent in the dashboard, like &ldquo;Support bot&rdquo;.
+              </FieldHint>
             </FormRow>
 
             <FormRow>

@@ -8,5 +8,5 @@ match:
   all:
     - regex: "(?i)recorded call"
     - semantic: "the agent claims legal compliance approval"
-action: rewrite
+action: transform
 rewrite: "This call may be recorded for quality and training. I can connect you with a teammate for compliance questions."

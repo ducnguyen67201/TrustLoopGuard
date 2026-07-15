@@ -51,7 +51,11 @@ export function RefundDemo() {
           setResponse((current) =>
             current === null ? current : mergeRefundDemoStatus(current, status),
           );
-          if (!['proposed', 'authorized', 'held'].includes(status.status)) return;
+          if (
+            status.authorizationEffect !== 'require_approval' &&
+            status.executionStatus !== 'not_started' &&
+            status.executionStatus !== 'executing'
+          ) return;
         }
       } catch {
         // A transient status failure must not change or falsely complete the held refund.
@@ -220,7 +224,7 @@ export function RefundDemo() {
             title="TrustLoopGuard"
             detail={
               traceSummary(response, 'prepare_refund') ??
-              'Evaluates amount, mandate, eligibility evidence, and policy.'
+              'Evaluates amount, grant scope, eligibility evidence, and policy.'
             }
             state={traceState(response, runState, 'prepare_refund')}
             emphasized
@@ -317,8 +321,8 @@ function decisionFrom(response: RefundDemoResponse | null, runState: RunState): 
   if (response === null) return 'ready';
   if (response.result.receiptId !== undefined) return 'executed';
   const authorization = traceSummary(response, 'prepare_refund')?.toLowerCase() ?? '';
-  if (authorization.includes('held')) return 'held';
-  if (authorization.includes('denied') || authorization.includes('block')) return 'blocked';
+  if (authorization.includes('require_approval')) return 'held';
+  if (authorization.includes('deny')) return 'blocked';
   return 'checked';
 }
 

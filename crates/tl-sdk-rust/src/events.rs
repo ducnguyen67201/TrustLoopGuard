@@ -1,6 +1,6 @@
 use tracing::{instrument, warn};
 
-use crate::{Client, Decision, GuardEvent, SdkError};
+use crate::{AuthorizationDecision, Client, GuardEvent, SdkError};
 
 impl Client {
     /// Submit a full `GuardEvent` (sources + provenance) for a runtime
@@ -19,7 +19,10 @@ impl Client {
             attempt = tracing::field::Empty,
         ),
     )]
-    pub async fn submit_event(&self, event: &GuardEvent) -> Result<Decision, SdkError> {
+    pub async fn submit_event(
+        &self,
+        event: &GuardEvent,
+    ) -> Result<AuthorizationDecision, SdkError> {
         let tagged = self.tag_event(event);
         let event = tagged.as_ref().unwrap_or(event);
         self.retry_loop("/v1/events", || self.send_post_json("/v1/events", event))
@@ -44,7 +47,7 @@ impl Client {
         let client = self.clone();
         tokio::spawn(async move {
             if let Err(err) = client
-                .send_post_json::<Decision, GuardEvent>("/v1/events", &event)
+                .send_post_json::<AuthorizationDecision, GuardEvent>("/v1/events", &event)
                 .await
             {
                 warn!(

@@ -33,18 +33,18 @@ interface PolicyBuilderEditorProps {
   disabled?: boolean;
 }
 
-type VerdictVariant = 'allow' | 'rewrite' | 'block' | 'escalate';
+type EffectVariant = 'permit' | 'transform' | 'deny' | 'require_approval';
 
-function actionVariant(action: PolicyDraft['action']): VerdictVariant {
-  if (action === 'rewrite') return 'rewrite';
-  if (action === 'escalate') return 'escalate';
-  return 'block';
+function actionVariant(action: PolicyDraft['action']): EffectVariant {
+  if (action === 'transform') return 'transform';
+  if (action === 'require_approval') return 'require_approval';
+  return 'deny';
 }
 
 const ACTION_LABEL: Record<PolicyDraft['action'], string> = {
-  block: 'Block it',
-  rewrite: 'Clean it up (rewrite)',
-  escalate: 'Send for review (escalate)',
+  deny: 'Deny it',
+  transform: 'Use a safe transformed value',
+  require_approval: 'Require approval',
 };
 
 const SEVERITY_LABEL: Record<PolicyDraft['severity'], string> = {
@@ -82,7 +82,7 @@ export function PolicyBuilderEditor({
     onYamlChange(draftToYaml({ ...draft, [key]: value }));
   };
 
-  const verdict = actionVariant(draft.action);
+  const effect = actionVariant(draft.action);
 
   return (
     <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.82fr)]">
@@ -195,7 +195,7 @@ export function PolicyBuilderEditor({
             <Field
               label="The guardrail will…"
               htmlFor="builder-action"
-              hint={<InfoHint term="verdict" />}
+              hint={<InfoHint term="effect" />}
             >
               <Select
                 value={draft.action}
@@ -231,7 +231,7 @@ export function PolicyBuilderEditor({
               </Select>
             </Field>
           </div>
-          {draft.action === 'rewrite' ? (
+          {draft.action === 'transform' ? (
             <Field
               label="Replace it with"
               htmlFor="builder-rewrite"
@@ -269,7 +269,7 @@ export function PolicyBuilderEditor({
           </div>
           <p className="mt-3 text-sm leading-relaxed text-foreground [text-wrap:pretty]">
             When a request {matchSummary(draft)},{' '}
-            <Badge variant={verdict} className="align-middle">
+            <Badge variant={effect} className="align-middle">
               {ACTION_LABEL[draft.action]}
             </Badge>
             .
@@ -277,9 +277,8 @@ export function PolicyBuilderEditor({
           <p className="mt-3 flex gap-2 text-xs leading-relaxed text-muted-foreground">
             <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
             <span>
-              This policy action is applied directly by both SDK checks and Gateway routes.
-              Rewrites use the safe replacement in this policy; blocks use the standard safe
-              response.
+              This policy action is applied directly by both SDK checks and Gateway routes. Rewrites
+              use the safe replacement in this policy; blocks use the standard safe response.
             </span>
           </p>
         </div>
@@ -328,14 +327,15 @@ function Field({
   const inlineHint = hint !== undefined && typeof hint !== 'string';
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={htmlFor} className="flex items-center gap-1 text-xs font-medium text-foreground">
+      <Label
+        htmlFor={htmlFor}
+        className="flex items-center gap-1 text-xs font-medium text-foreground"
+      >
         {label}
         {inlineHint ? hint : null}
       </Label>
       {children}
-      {typeof hint === 'string' ? (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      ) : null}
+      {typeof hint === 'string' ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }

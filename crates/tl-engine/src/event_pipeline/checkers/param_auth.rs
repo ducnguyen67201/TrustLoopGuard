@@ -1,6 +1,8 @@
 //! Parameter-source authorization: right tool, wrong source.
 
-use tl_core::{AllowedSource, EventKind, GuardEvent, Origin, ParamRole, ToolResolution, Verdict};
+use tl_core::{
+    AllowedSource, AuthorizationEffect, EventKind, GuardEvent, Origin, ParamRole, ToolResolution,
+};
 
 use super::origin_str;
 use crate::event_pipeline::{Checker, CheckerFinding};
@@ -164,7 +166,7 @@ fn violation_finding(violation: ParamViolation) -> CheckerFinding {
             // responses and dashboards verbatim.
             CheckerFinding {
                 checker_id: PARAMETER_AUTH_CHECKER_ID.to_string(),
-                verdict: Some(Verdict::Block),
+                effect: Some(AuthorizationEffect::Deny),
                 reason: format!(
                     "authority-bearing parameter '{path}' expects sources of origin \
                      {expected}, got {got}",
@@ -181,13 +183,13 @@ fn violation_finding(violation: ParamViolation) -> CheckerFinding {
                     .map(|(id, _)| id.clone())
                     .collect(),
                 risk_source: Some(origin_str(first_origin).to_string()),
-                failure_mode: Some(FAILURE_WRONG_SOURCE.to_string()),
+                risk_code: Some(FAILURE_WRONG_SOURCE.to_string()),
                 harm_class: Some("integrity".to_string()),
             }
         }
         ViolationKind::MissingProvenance => CheckerFinding {
             checker_id: PARAMETER_AUTH_CHECKER_ID.to_string(),
-            verdict: Some(Verdict::Escalate),
+            effect: Some(AuthorizationEffect::Defer),
             reason: format!(
                 "authority-bearing parameter '{path}' has no provenance; missing \
                  provenance is not proof of an allowed source"
@@ -198,7 +200,7 @@ fn violation_finding(violation: ParamViolation) -> CheckerFinding {
             )),
             source_chain: vec![],
             risk_source: None,
-            failure_mode: Some(FAILURE_MISSING_PROVENANCE.to_string()),
+            risk_code: Some(FAILURE_MISSING_PROVENANCE.to_string()),
             harm_class: Some("integrity".to_string()),
         },
     }
@@ -231,7 +233,7 @@ impl Checker for ParameterAuthChecker {
             {
                 vec![CheckerFinding {
                     checker_id: PARAMETER_AUTH_CHECKER_ID.to_string(),
-                    verdict: None,
+                    effect: None,
                     reason: format!(
                         "tool '{}' is not registered; parameter sources cannot be verified",
                         event.action.operation
@@ -244,7 +246,7 @@ impl Checker for ParameterAuthChecker {
                     )),
                     source_chain: vec![],
                     risk_source: None,
-                    failure_mode: Some(FAILURE_UNVERIFIED_PARAMETERS.to_string()),
+                    risk_code: Some(FAILURE_UNVERIFIED_PARAMETERS.to_string()),
                     harm_class: None,
                 }]
             }
@@ -419,7 +421,7 @@ mod tests {
         assert_eq!(findings.len(), 1);
         let finding = &findings[0];
         assert_eq!(finding.checker_id, "parameter_auth");
-        assert_eq!(finding.verdict, Some(Verdict::Block));
+        assert_eq!(finding.effect, Some(AuthorizationEffect::Deny));
         assert_eq!(
             finding.violated_rule.as_deref(),
             Some("parameter_source.recipient")
@@ -433,12 +435,12 @@ mod tests {
             .is_some_and(|text| text.contains("recipient")));
         assert_eq!(finding.source_chain, vec!["src.web"]);
         assert_eq!(finding.risk_source.as_deref(), Some("web"));
-        assert_eq!(finding.failure_mode.as_deref(), Some("wrong_source"));
+        assert_eq!(finding.risk_code.as_deref(), Some("wrong_source"));
         assert_eq!(finding.harm_class.as_deref(), Some("integrity"));
     }
 
     #[test]
-    fn missing_provenance_escalates() {
+    fn missing_provenance_defers() {
         let guard_event = tool_event(
             serde_json::json!({ "recipient": "a@b.c" }),
             ProvenanceMap::default(),
@@ -451,11 +453,8 @@ mod tests {
 
         let findings = ParameterAuthChecker.check(&guard_event);
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].verdict, Some(Verdict::Escalate));
-        assert_eq!(
-            findings[0].failure_mode.as_deref(),
-            Some("missing_provenance")
-        );
+        assert_eq!(findings[0].effect, Some(AuthorizationEffect::Defer));
+        assert_eq!(findings[0].risk_code.as_deref(), Some("missing_provenance"));
         assert_eq!(
             findings[0].violated_rule.as_deref(),
             Some("parameter_source.recipient")
@@ -465,7 +464,7 @@ mod tests {
     }
 
     #[test]
-    fn empty_provenance_source_list_escalates() {
+    fn empty_provenance_source_list_defers() {
         let guard_event = tool_event(
             serde_json::json!({ "recipient": "a@b.c" }),
             provenance("recipient", &[]),
@@ -478,7 +477,7 @@ mod tests {
 
         let findings = ParameterAuthChecker.check(&guard_event);
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].verdict, Some(Verdict::Escalate));
+        assert_eq!(findings[0].effect, Some(AuthorizationEffect::Defer));
     }
 
     #[test]
@@ -495,7 +494,7 @@ mod tests {
 
         let findings = ParameterAuthChecker.check(&guard_event);
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].verdict, Some(Verdict::Block));
+        assert_eq!(findings[0].effect, Some(AuthorizationEffect::Deny));
         assert_eq!(findings[0].source_chain, vec!["src.ghost"]);
         assert_eq!(findings[0].risk_source.as_deref(), Some("unknown"));
     }
@@ -558,7 +557,7 @@ mod tests {
 
         let findings = ParameterAuthChecker.check(&guard_event);
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].verdict, Some(Verdict::Block));
+        assert_eq!(findings[0].effect, Some(AuthorizationEffect::Deny));
         assert!(findings[0].reason.contains("origin none"));
     }
 
@@ -607,11 +606,8 @@ mod tests {
             let findings = ParameterAuthChecker.check(&guard_event);
             assert_eq!(findings.len(), 1);
             let finding = &findings[0];
-            assert_eq!(finding.verdict, None);
-            assert_eq!(
-                finding.failure_mode.as_deref(),
-                Some("unverified_parameters")
-            );
+            assert_eq!(finding.effect, None);
+            assert_eq!(finding.risk_code.as_deref(), Some("unverified_parameters"));
             assert!(finding.violated_rule.is_none());
             assert!(finding.reason.contains("'op' is not registered"));
         }

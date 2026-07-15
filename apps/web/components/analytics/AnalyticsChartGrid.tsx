@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useEffect, useMemo, useState, type HTMLAttributes } from 'react';
 import {
@@ -9,14 +9,20 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import {
-  arrayMove,
-  rectSortingStrategy,
-  SortableContext,
-  useSortable,
-} from '@dnd-kit/sortable';
+import { arrayMove, rectSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import {
   CheckCircle2,
   Eye,
@@ -28,14 +34,24 @@ import {
   X,
 } from 'lucide-react';
 
-import { analyticsDashboardViewSchema, analyticsQueryResponseSchema } from '@/lib/analytics-schemas';
+import {
+  analyticsDashboardViewSchema,
+  analyticsQueryResponseSchema,
+} from '@/lib/analytics-schemas';
 import { http } from '@/lib/http';
 import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InfoHint } from '@/components/ui/info-hint';
-import { VerdictLegend } from '@/components/ui/verdict-legend';
+import { AuthorizationEffectLegend } from '@/components/ui/authorization-effect-legend';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -84,7 +100,7 @@ const WIDGET_LIBRARY: AnalyticsDashboardWidget[] = [
     title: 'Trace volume',
     metric: 'trace_count',
     chart_type: 'bar',
-    group_by: 'decision',
+    group_by: 'authorization_effect',
     layout: { x: 0, y: 0, w: 6, h: 1 },
   },
   {
@@ -170,7 +186,8 @@ const WIDGET_COPY: Record<string, WidgetCopy> = {
   },
   'intervention-rate': {
     title: 'How often we stepped in',
-    caption: 'The share of requests the guardrail rewrote, flagged, or blocked instead of letting through.',
+    caption:
+      'The share of requests the guardrail rewrote, flagged, or blocked instead of letting through.',
     hint: 'Out of every 100 requests, this many were changed or stopped. A higher number means the guardrail acted more often.',
   },
   'p95-latency': {
@@ -201,10 +218,11 @@ const WIDGET_COPY: Record<string, WidgetCopy> = {
 // non-technical viewer never sees a snake_case token on an axis, legend, or label.
 const METRIC_LABELS: Record<string, string> = {
   trace_count: 'Number of requests',
-  allow_count: 'Allowed',
-  block_count: 'Blocked',
-  rewrite_count: 'Rewritten',
-  escalate_count: 'Flagged for review',
+  permit_count: 'Permitted',
+  deny_count: 'Denied',
+  transform_count: 'Transformed',
+  require_approval_count: 'Approval required',
+  defer_count: 'Deferred',
   intervention_rate: 'Step-in rate',
   p95_latency_ms: 'Check speed (p95)',
   human_review_count: 'Reviewed by a person',
@@ -217,7 +235,7 @@ const DIMENSION_LABELS: Record<string, string> = {
   environment: 'Environment',
   run_kind: 'Request type',
   run_status: 'Status',
-  decision: 'Outcome',
+  authorization_effect: 'Authorization effect',
   policy_id: 'Rule',
   workflow_step: 'Step',
   review_outcome: 'Review decision',
@@ -227,18 +245,19 @@ const DIMENSION_LABELS: Record<string, string> = {
 // Raw enum values that show up on axes and in filters. Map the ones a person
 // would otherwise misread; anything not listed falls back to title-casing.
 const VALUE_LABELS: Record<string, string> = {
-  allow: 'Allowed',
-  block: 'Blocked',
-  rewrite: 'Rewritten',
-  escalate: 'Flagged for review',
+  permit: 'Permitted',
+  deny: 'Denied',
+  transform: 'Transformed',
+  require_approval: 'Approval required',
+  defer: 'Deferred',
   approved: 'Approved',
   rejected: 'Rejected',
   pending: 'Awaiting review',
 };
 
-// Charts grouped by a verdict-style dimension get a VerdictLegend so the colors
+// Charts grouped by a effect-style dimension get a AuthorizationEffectLegend so the colors
 // and outcome words are explained right next to them.
-const VERDICT_DIMENSIONS = new Set<string>(['decision', 'review_outcome']);
+const EFFECT_DIMENSIONS = new Set<string>(['authorization_effect']);
 
 function widgetTitle(widget: AnalyticsDashboardWidget): string {
   return WIDGET_COPY[widget.id]?.title ?? widget.title;
@@ -356,7 +375,9 @@ export function AnalyticsChartGrid({ catalog, savedViews }: AnalyticsChartGridPr
     setSaveState('saved');
   }
 
-  const visibleWidgets = applyGridOrder(config.widgets.map((widget, index) => withLayout(widget, index)));
+  const visibleWidgets = applyGridOrder(
+    config.widgets.map((widget, index) => withLayout(widget, index)),
+  );
   const activeWidgetIds = new Set(visibleWidgets.map((widget) => widget.id));
 
   const facets = catalog.facets.filter((facet) => facet.values.length > 0).slice(0, 8);
@@ -375,7 +396,7 @@ export function AnalyticsChartGrid({ catalog, savedViews }: AnalyticsChartGridPr
           <CardTitle>Analytics controls</CardTitle>
           <CardAction className="flex items-center gap-3">
             {saveState === 'saved' ? (
-              <span className="hidden items-center gap-1.5 text-xs font-medium text-[var(--color-allow)] sm:flex">
+              <span className="hidden items-center gap-1.5 text-xs font-medium text-[var(--color-permit)] sm:flex">
                 <CheckCircle2 className="size-3.5" aria-hidden="true" />
                 View saved
               </span>
@@ -455,8 +476,14 @@ export function AnalyticsChartGrid({ catalog, savedViews }: AnalyticsChartGridPr
                   {activeFilters.length > 0 ? (
                     <div className="flex flex-wrap items-center gap-1.5">
                       {activeFilters.map((filter) => (
-                        <Badge key={filter.dimension} variant="secondary" className="gap-1.5 pr-1.5">
-                          <span className="text-muted-foreground">{facetLabel(filter.dimension)}:</span>
+                        <Badge
+                          key={filter.dimension}
+                          variant="secondary"
+                          className="gap-1.5 pr-1.5"
+                        >
+                          <span className="text-muted-foreground">
+                            {facetLabel(filter.dimension)}:
+                          </span>
                           <span>{valueLabel(filter.values[0] ?? '')}</span>
                           <button
                             type="button"
@@ -476,8 +503,8 @@ export function AnalyticsChartGrid({ catalog, savedViews }: AnalyticsChartGridPr
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   {facets.map((facet) => {
                     const selected =
-                      config.filters.find((filter) => filter.dimension === facet.dimension)?.values[0] ??
-                      'all';
+                      config.filters.find((filter) => filter.dimension === facet.dimension)
+                        ?.values[0] ?? 'all';
                     return (
                       <div key={facet.dimension} className="grid gap-1.5">
                         <Label
@@ -490,7 +517,10 @@ export function AnalyticsChartGrid({ catalog, savedViews }: AnalyticsChartGridPr
                           value={selected}
                           onValueChange={(value) => setFilter(facet.dimension, value)}
                         >
-                          <SelectTrigger id={`analytics-filter-${facet.dimension}`} aria-label={facet.label}>
+                          <SelectTrigger
+                            id={`analytics-filter-${facet.dimension}`}
+                            aria-label={facet.label}
+                          >
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -550,12 +580,11 @@ export function AnalyticsChartGrid({ catalog, savedViews }: AnalyticsChartGridPr
           </CardContent>
         </Card>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={reorderWidgets}
-        >
-          <SortableContext items={visibleWidgets.map((widget) => widget.id)} strategy={rectSortingStrategy}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={reorderWidgets}>
+          <SortableContext
+            items={visibleWidgets.map((widget) => widget.id)}
+            strategy={rectSortingStrategy}
+          >
             <div className="grid gap-4 lg:grid-cols-12">
               {visibleWidgets.map((widget) => (
                 <SortableAnalyticsWidget
@@ -624,7 +653,7 @@ function AnalyticsWidget({
   const copy = WIDGET_COPY[widget.id];
   const heading = copy?.title ?? widget.title;
   const caption = copy?.caption ?? metricLabel(widget.metric);
-  const showVerdictLegend = widget.group_by != null && VERDICT_DIMENSIONS.has(widget.group_by);
+  const showEffectLegend = widget.group_by != null && EFFECT_DIMENSIONS.has(widget.group_by);
 
   useEffect(() => {
     let canceled = false;
@@ -638,7 +667,11 @@ function AnalyticsWidget({
       };
       if (canceled) return;
       try {
-        const result = await http.post('/api/analytics/query', request, analyticsQueryResponseSchema);
+        const result = await http.post(
+          '/api/analytics/query',
+          request,
+          analyticsQueryResponseSchema,
+        );
         if (canceled) return;
         setData(result);
         setStatus('ready');
@@ -696,14 +729,18 @@ function AnalyticsWidget({
         </CardAction>
       </CardHeader>
       <CardContent>
-        {status === 'loading' && <WidgetSkeleton chartType={widget.chart_type} heightClass={heightClass} />}
+        {status === 'loading' && (
+          <WidgetSkeleton chartType={widget.chart_type} heightClass={heightClass} />
+        )}
         {status === 'error' && (
           <div
             className={`flex ${heightClass} flex-col items-center justify-center gap-2 rounded-md border border-dashed bg-card/40 px-6 text-center`}
             role="alert"
           >
             <p className="text-sm font-medium text-destructive">Could not load this chart.</p>
-            <p className="text-xs text-muted-foreground">Adjust the filters or reload the page to retry.</p>
+            <p className="text-xs text-muted-foreground">
+              Adjust the filters or reload the page to retry.
+            </p>
           </div>
         )}
         {status === 'ready' && data && (
@@ -714,8 +751,8 @@ function AnalyticsWidget({
               metric={widget.metric}
               heightClass={heightClass}
             />
-            {showVerdictLegend && data.points.length > 0 ? (
-              <VerdictLegend className="mt-4 border-t border-border/60 pt-4" />
+            {showEffectLegend && data.points.length > 0 ? (
+              <AuthorizationEffectLegend className="mt-4 border-t border-border/60 pt-4" />
             ) : null}
           </>
         )}
@@ -724,7 +761,13 @@ function AnalyticsWidget({
   );
 }
 
-function WidgetSkeleton({ chartType, heightClass }: { chartType: AnalyticsChartType; heightClass: string }) {
+function WidgetSkeleton({
+  chartType,
+  heightClass,
+}: {
+  chartType: AnalyticsChartType;
+  heightClass: string;
+}) {
   if (chartType === 'big_number') {
     return (
       <div className={`flex ${heightClass} flex-col justify-center gap-3`}>

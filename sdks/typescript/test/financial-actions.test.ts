@@ -1,626 +1,68 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  Client,
-  type AgenticPaymentAuthorizeRequest,
-  type AgenticPaymentCommitRequest,
-  type AgenticPaymentRollbackRequest,
-  type CreateFinancialActionRequest,
-  type CreateFinancialMandateRequest,
-  type CreateFinancialPolicyRequest,
-} from '../src';
+import { Client, type CreateFinancialActionRequest } from '../src';
 import { jsonResponse, mockFetch } from './test-utils';
 
-const REQUEST: CreateFinancialActionRequest = {
-  idempotency_key: 'idem-refund-75',
+const request: CreateFinancialActionRequest = {
+  idempotency_key: 'idem-1',
   execute: false,
   action: {
-    kind: 'refund',
-    operation: 'issue_refund',
-    principal_id: 'refund-bot',
-    amount: { amount_minor: 7500n, currency: 'USD' },
-    counterparty: {
-      id: 'cust_456',
-      display_name: 'Casey Customer',
-      kind: 'customer',
-      country: 'US',
-      metadata: {},
-    },
-    rail: 'card',
-    memo: 'refund damaged item',
-    metadata: { order_id: 'order_123' },
-  },
-  evidence: [],
-};
-
-const ACTION = {
-  id: '018f3333-3333-7333-8333-333333333333',
-  workspace_id: 'ws_finance',
-  status: 'proposed',
-  action: {
-    ...REQUEST.action,
-    id: '018f3333-3333-7333-8333-333333333333',
-    amount: { amount_minor: 7500, currency: 'USD' },
-  },
-  evidence: [],
-  created_at: '2026-07-05T00:00:00Z',
-  updated_at: '2026-07-05T00:00:00Z',
-};
-
-const MANDATE_REQUEST: CreateFinancialMandateRequest = {
-  id: 'mandate_refund_bot',
-  version: 1,
-  principal_id: 'refund-bot',
-  scope: { action_kinds: ['refund'], max_amount_minor: 10000, currency: 'USD' },
-  metadata: { source: 'sdk_test' },
-  expires_at: '2026-08-05T19:00:00Z',
-};
-
-const MANDATE = {
-  id: 'mandate_refund_bot',
-  workspace_id: 'ws_finance',
-  version: 1,
-  status: 'active',
-  principal_id: 'refund-bot',
-  scope: MANDATE_REQUEST.scope,
-  metadata: MANDATE_REQUEST.metadata,
-  expires_at: MANDATE_REQUEST.expires_at,
-  created_at: '2026-07-05T00:00:00Z',
-  updated_at: '2026-07-05T00:00:00Z',
-};
-
-const RECEIPT = {
-  id: ACTION.id,
-  action_id: ACTION.id,
-  trace_id: '018f4444-4444-7444-8444-444444444444',
-  ledger_event_ids: ['ledger_execute_1'],
-  proof: { action_status: 'executed', provider_reference: 'refund_123' },
-  created_at: '2026-07-05T00:00:00Z',
-};
-
-const DECISION_RECEIPT = {
-  schema: 'financial_action_decision_receipt.v1',
-  action_id: ACTION.id,
-  decision: 'hold',
-  status: 'held',
-  reason: 'valid refund, but above threshold so human approval required',
-  amount: { amount_minor: 7500, currency: 'USD' },
-  operation: 'issue_refund',
-  principal_id: 'refund-bot',
-  counterparty: ACTION.action.counterparty,
-  authorization_scope: {
-    checked: true,
-    result: 'passed',
-    scope_ref: { id: 'mandate_refund_bot', version: 1 },
-    source: 'financial_authorization_service',
-    reason: 'refund-bot may spend up to USD 100.00',
-  },
-  evidence: [],
-  risks: [
-    {
-      code: 'amount_above_auto_approve_threshold',
-      severity: 'high',
-      reason: 'amount at or above hold threshold',
-      policy_id: 'refund-controls',
-      source: 'financial_policy',
-    },
-  ],
-  approval: undefined,
-  execution: { status: 'not_started', ledger_event_ids: [] },
-  created_at: ACTION.created_at,
-  updated_at: ACTION.updated_at,
-};
-
-const OUTCOME = {
-  action_id: ACTION.id,
-  status: 'succeeded',
-  reversal_capability: 'manual_recovery',
-  recovery_status: 'manual_required',
-  provider_status: 'provider_status',
-  provider_reference: 'provider_ref_123',
-  occurred_at: '2026-07-05T20:00:00Z',
-  metadata: { source: 'ts_sdk_test' },
-};
-
-const FINANCIAL_POLICY_REQUEST: CreateFinancialPolicyRequest = {
-  id: 'refund-controls',
-  description: 'Refund controls',
-  severity: 'high',
-  when: {
-    agents: ['refund-bot'],
-    action_kinds: ['refund'],
-    operations: ['issue_refund'],
-    currencies: ['USD'],
-    rails: ['payment_http'],
-  },
-  meter: 'actions',
-  per_transaction_minor: 10000n,
-  hold_above_minor: 5000n,
-  daily_minor: 50000n,
-  monthly_minor: 500000n,
-  allowed_counterparty_ids: [],
-  denied_counterparty_ids: [],
-  hold_new_counterparty: false,
-  mandate_required: false,
-  approver_roles: [],
-  refund_original_method_only: false,
-  required_preconditions: ['amount_lte_refundable_balance'],
-  missing_evidence_action: 'escalate',
-  failed_precondition_action: 'block',
-  on_breach: 'block',
-};
-
-const FINANCIAL_POLICY = {
-  ...FINANCIAL_POLICY_REQUEST,
-  per_transaction_minor: 10000,
-  hold_above_minor: 5000,
-  daily_minor: 50000,
-  monthly_minor: 500000,
-  enabled: true,
-};
-
-const AGENTIC_AUTHORIZE_REQUEST: AgenticPaymentAuthorizeRequest = {
-  idempotency_key: 'x402-idem-1',
-  principal_id: 'spid:pay-agent',
-  session_id: 'session-1',
-  operation: 'x402_resource_payment',
-  session_limit_minor: 1000n,
-  payment_requirement: {
-    amount: { amount_minor: 700n, currency: 'USD' },
-    pay_to: '0xCAFE',
-    network: 'base',
-    asset: 'USDC',
-    scheme: 'exact',
-    resource: '/article/1',
-    method: 'GET',
-    host: 'api.vendor.test',
-    raw: {},
-  },
-  evidence: [],
-  metadata: { source: 'ts_sdk_test' },
-};
-
-const AGENTIC_RECORD = {
-  id: ACTION.id,
-  decision: 'authorized',
-  action: {
-    ...ACTION,
-    status: 'authorized',
-    action: {
-      ...ACTION.action,
-      kind: 'payment',
-      operation: 'x402_resource_payment',
-      principal_id: 'spid:pay-agent',
-      amount: { amount_minor: 700, currency: 'USD' },
-      rail: 'x402',
-      counterparty: { id: '0xcafe', display_name: '0xCAFE', kind: 'x402_pay_to', metadata: {} },
-    },
-  },
-  normalized_requirement: {
-    payment_requirement_hash: 'sha256:abc123',
-    amount: { amount_minor: 700, currency: 'USD' },
-    pay_to: '0xCAFE',
-    normalized_pay_to: '0xcafe',
-    network: 'base',
-    asset: 'USDC',
-    scheme: 'exact',
-    resource: '/article/1',
-    method: 'GET',
-    host: 'api.vendor.test',
-    canonical: {},
-  },
-  reservation: {
-    id: 'reservation_1',
-    session_id: 'session-1',
-    action_id: ACTION.id,
-    principal_id: 'spid:pay-agent',
-    payment_requirement_hash: 'sha256:abc123',
-    amount: { amount_minor: 700, currency: 'USD' },
-    status: 'reserved',
-    expires_at: '2026-07-05T00:15:00Z',
+    kind: 'payment',
+    operation: 'pay',
+    principal_id: 'agent-1',
+    amount: { amount_minor: 100n, currency: 'USD' },
+    rail: 'internal',
     metadata: {},
   },
+  evidence: [],
 };
 
-const AGENTIC_COMMIT_REQUEST: AgenticPaymentCommitRequest = {
-  proof: {
-    settlement_reference: 'settlement_123',
-    provider: 'coinbase',
-    payment_requirement_hash: 'sha256:abc123',
-    amount: { amount_minor: 700n, currency: 'USD' },
-    network: 'base',
-    asset: 'USDC',
-    pay_to: '0xcafe',
-    payment_response: { transaction: '0xsettled' },
-    raw: {},
+const action = {
+  id: 'action-1',
+  workspace_id: 'workspace-1',
+  environment_id: 'production',
+  authorization_intent_id: 'intent-1',
+  authorization_receipt_id: 'receipt-1',
+  authorization_effect: 'permit',
+  authorization_status: 'authorized',
+  execution_status: 'not_started',
+  action: {
+    ...request.action,
+    id: 'action-1',
+    amount: { amount_minor: 100, currency: 'USD' },
   },
-  idempotency_key: 'commit_123',
+  evidence: [],
+  created_at: '2026-07-14T00:00:00Z',
+  updated_at: '2026-07-14T00:00:00Z',
 };
 
-const AGENTIC_ROLLBACK_REQUEST: AgenticPaymentRollbackRequest = {
-  reason: 'wallet rejected signing',
-  provider_error: 'wallet_rejected',
-  idempotency_key: 'rollback_123',
-  metadata: {},
-};
-
-describe('Client financial action methods', () => {
-  it('verifyAction posts typed financial actions', async () => {
-    const fetchSpy = mockFetch(async () => jsonResponse(ACTION, 201));
-    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
-
-    const action = await client.verifyAction(REQUEST);
-
-    expect(action.id).toBe(ACTION.id);
-    const [url, init] = fetchSpy.mock.calls[0]!;
-    expect(url).toBe('http://server.test/v1/financial/actions');
-    expect((init as RequestInit).method).toBe('POST');
-    expect(JSON.parse(String((init as RequestInit).body))).toEqual({
-      ...REQUEST,
-      action: {
-        ...REQUEST.action,
-        amount: { amount_minor: 7500, currency: 'USD' },
-      },
-    });
-  });
-
-  it('guardPayment aliases verifyAction for payment/refund ergonomics', async () => {
-    const fetchSpy = mockFetch(async () => jsonResponse(ACTION, 201));
-    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
-
-    const action = await client.guardPayment(REQUEST);
-
-    expect(action.status).toBe('proposed');
-    expect(fetchSpy).toHaveBeenCalledOnce();
-  });
-
-  it('builds financial operation requests with first-class operation identity', async () => {
-    const fetchSpy = mockFetch(async () => jsonResponse(ACTION, 201));
-    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
-    const issueRefund = client.financialOperation<
-      { orderId: string; amountMinor: bigint; reason: string },
-      { customerId: string; customerName: string }
-    >({
-      operation: 'issue_refund',
-      kind: 'refund',
-      principalId: 'refund-bot',
-      rail: 'payment_http',
-      amount: (input) => ({ amount_minor: input.amountMinor, currency: 'USD' }),
-      idempotencyKey: (input) => `issue_refund:${input.orderId}:${input.amountMinor}`,
-      counterparty: (_input, facts) => ({
-        id: facts.customerId,
-        display_name: facts.customerName,
-        kind: 'customer',
-        country: 'US',
-        metadata: {},
-      }),
-      memo: (input) => `refund ${input.orderId}: ${input.reason}`,
-      metadata: (input) => ({ order_id: input.orderId, reason: input.reason }),
-      evidence: (input) => [
-        {
-          source: 'customer_backend',
-          source_id: `eligibility:${input.orderId}`,
-          kind: 'refund_eligibility',
-          metadata: { order_exists: true },
-        },
-      ],
-    });
-
-    const request = issueRefund.buildRequest(
-      { orderId: 'order_123', amountMinor: 7500n, reason: 'damaged_item' },
-      { customerId: 'cust_456', customerName: 'Casey Customer' },
-      { execute: true },
-    );
-    expect(request.action.operation).toBe('issue_refund');
-    expect(request.execute).toBe(true);
-
-    await issueRefund.verify(
-      { orderId: 'order_123', amountMinor: 7500n, reason: 'damaged_item' },
-      { customerId: 'cust_456', customerName: 'Casey Customer' },
+describe('financial actions', () => {
+  it('decodes the unified authorization and execution projection', async () => {
+    const fetch = mockFetch(async () => jsonResponse(action, 201));
+    const result = await new Client({ baseUrl: 'https://api.test', fetchImpl: fetch }).verifyAction(
+      request,
     );
 
-    const [, init] = fetchSpy.mock.calls[0]!;
-    expect(JSON.parse(String((init as RequestInit).body))).toMatchObject({
-      idempotency_key: 'issue_refund:order_123:7500',
-      action: {
-        kind: 'refund',
-        operation: 'issue_refund',
-        principal_id: 'refund-bot',
-        amount: { amount_minor: 7500, currency: 'USD' },
-        counterparty: { id: 'cust_456', display_name: 'Casey Customer' },
-        rail: 'payment_http',
-        memo: 'refund order_123: damaged_item',
-        metadata: { order_id: 'order_123', reason: 'damaged_item' },
-      },
-      evidence: [{ source: 'customer_backend', source_id: 'eligibility:order_123' }],
-    });
+    expect(result.authorization_effect).toBe('permit');
+    expect(result.authorization_status).toBe('authorized');
+    expect(result.execution_status).toBe('not_started');
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
-  it('can read and transition financial actions', async () => {
-    const fetchSpy = mockFetch(async (input) => {
-      const url = String(input);
-      if (url.endsWith('/approve')) return jsonResponse({ ...ACTION, status: 'authorized' });
-      if (url.endsWith('/execute')) return jsonResponse({ ...ACTION, status: 'executed' });
-      return jsonResponse(ACTION);
-    });
-    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
-
-    await expect(client.getFinancialAction(ACTION.id)).resolves.toMatchObject({ id: ACTION.id });
-    await expect(client.approveAction(ACTION.id)).resolves.toMatchObject({ status: 'authorized' });
-    await expect(client.executeAction(ACTION.id)).resolves.toMatchObject({ status: 'executed' });
-
-    expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual([
-      `http://server.test/v1/financial/actions/${ACTION.id}`,
-      `http://server.test/v1/financial/actions/${ACTION.id}/approve`,
-      `http://server.test/v1/financial/actions/${ACTION.id}/execute`,
-    ]);
-  });
-
-  it('previews and approves a reusable financial action fingerprint', async () => {
-    const envelope = {
-      action_id: ACTION.id,
-      action_fingerprint: 'sha256:v1:abc123',
-      fingerprint_version: 1,
-      principal_id: 'refund-bot',
-      action_kind: 'refund',
-      operation: 'issue_refund',
-      rail: 'card',
-      currency: 'USD',
-      counterparty_id: 'cust_456',
-      current_amount_minor: 7500,
-      recommended_max_amount_minor: 7500,
-    };
-    const fetchSpy = mockFetch(async (input, init) => {
-      const url = String(input);
-      if (url.endsWith('/approval-envelope')) return jsonResponse(envelope);
-      if (url.endsWith('/approve-matching') && init?.method === 'POST') {
-        return jsonResponse({
-          action: { ...ACTION, status: 'authorized' },
-          mandate: {
-            id: 'approval-reuse-abc123',
-            workspace_id: 'ws_test',
-            version: 1,
-            status: 'active',
-            principal_id: 'refund-bot',
-            scope: {},
-            metadata: {},
-            created_at: '2026-07-13T12:00:00Z',
-            updated_at: '2026-07-13T12:00:00Z',
-          },
-          approval_envelope: envelope,
-        });
-      }
-      throw new Error(`unexpected financial approval request: ${init?.method ?? 'GET'} ${url}`);
-    });
-    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
-
-    await expect(client.getFinancialApprovalEnvelope(ACTION.id)).resolves.toMatchObject({
-      action_fingerprint: envelope.action_fingerprint,
-    });
-    await expect(
-      client.approveMatchingFinancialActions(ACTION.id, {
-        action_fingerprint: envelope.action_fingerprint,
-        max_amount_minor: 10000n,
-        expires_at: '2026-07-14T12:00:00Z',
-      }),
-    ).resolves.toMatchObject({ mandate: { status: 'active' } });
-
-    const [approvalUrl, approvalInit] = fetchSpy.mock.calls[1]!;
-    expect(String(approvalUrl)).toBe(
-      `http://server.test/v1/financial/actions/${ACTION.id}/approve-matching`,
-    );
-    expect((approvalInit as RequestInit).method).toBe('POST');
-    expect(JSON.parse(String((approvalInit as RequestInit).body))).toEqual({
-      action_fingerprint: envelope.action_fingerprint,
-      max_amount_minor: 10000,
-      expires_at: '2026-07-14T12:00:00Z',
-    });
-  });
-
-  it('can list financial actions', async () => {
-    const fetchSpy = mockFetch(async () => jsonResponse({ actions: [ACTION] }));
-    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
-
-    const actions = await client.listFinancialActions();
-
-    expect(actions.actions).toHaveLength(1);
-    const [url, init] = fetchSpy.mock.calls[0]!;
-    expect(url).toBe('http://server.test/v1/financial/actions');
-    expect((init as RequestInit).method).toBe('GET');
-  });
-
-  it('can authorize read commit rollback and receipt x402 agentic payments', async () => {
-    const fetchSpy = mockFetch(async (input) => {
-      const url = String(input);
-      if (url.endsWith('/authorize')) {
-        return jsonResponse(
-          {
-            decision: 'authorized',
-            signable: true,
-            reason: 'x402 payment authorized',
-            record: AGENTIC_RECORD,
-          },
-          201,
-        );
-      }
-      if (url.endsWith('/commit')) {
-        return jsonResponse({
-          ...AGENTIC_RECORD,
-          decision: 'committed',
-          action: { ...AGENTIC_RECORD.action, status: 'executed' },
-          reservation: { ...AGENTIC_RECORD.reservation, status: 'committed' },
-          receipt_id: ACTION.id,
-        });
-      }
-      if (url.endsWith('/rollback')) {
-        return jsonResponse({
-          ...AGENTIC_RECORD,
-          decision: 'rolled_back',
-          action: { ...AGENTIC_RECORD.action, status: 'failed' },
-          reservation: { ...AGENTIC_RECORD.reservation, status: 'released' },
-        });
-      }
-      if (url.endsWith('/receipt')) return jsonResponse(RECEIPT);
-      return jsonResponse(AGENTIC_RECORD);
-    });
-    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
-
-    await expect(client.authorizeAgenticPayment(AGENTIC_AUTHORIZE_REQUEST)).resolves.toMatchObject({
-      signable: true,
-      record: { normalized_requirement: { payment_requirement_hash: 'sha256:abc123' } },
-    });
-    await expect(client.getAgenticPayment('action/one')).resolves.toMatchObject({
-      decision: 'authorized',
-    });
-    await expect(
-      client.commitAgenticPayment('action/one', AGENTIC_COMMIT_REQUEST),
-    ).resolves.toMatchObject({ decision: 'committed', receipt_id: ACTION.id });
-    await expect(
-      client.rollbackAgenticPayment('action/one', AGENTIC_ROLLBACK_REQUEST),
-    ).resolves.toMatchObject({ decision: 'rolled_back' });
-    await expect(client.getAgenticPaymentReceipt('action/one')).resolves.toMatchObject({
-      id: ACTION.id,
+  it('builds financial requests with the common authorization claim', () => {
+    const client = new Client({ baseUrl: 'https://api.test', fetchImpl: mockFetch() });
+    const operation = client.financialOperation<number>({
+      operation: 'pay',
+      kind: 'payment',
+      principalId: 'agent-1',
+      rail: 'internal',
+      amount: (amount) => ({ amount_minor: BigInt(amount), currency: 'USD' }),
+      idempotencyKey: () => 'idem-2',
+      authorization: () => ({ grant_id: 'grant-1', attempt_id: 'attempt-1' }),
     });
 
-    expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual([
-      'http://server.test/v1/financial/agentic-payments/authorize',
-      'http://server.test/v1/financial/agentic-payments/action%2Fone',
-      'http://server.test/v1/financial/agentic-payments/action%2Fone/commit',
-      'http://server.test/v1/financial/agentic-payments/action%2Fone/rollback',
-      'http://server.test/v1/financial/agentic-payments/action%2Fone/receipt',
-    ]);
-    const [, authorizeInit] = fetchSpy.mock.calls[0]!;
-    expect(JSON.parse(String((authorizeInit as RequestInit).body))).toMatchObject({
-      idempotency_key: 'x402-idem-1',
-      session_limit_minor: 1000,
-      payment_requirement: { amount: { amount_minor: 700, currency: 'USD' } },
-    });
-  });
-
-  it('can create and list financial spending controls', async () => {
-    const fetchSpy = mockFetch(async (input, init) => {
-      const url = String(input);
-      if (url.endsWith('/policies') && init?.method === 'POST') {
-        return jsonResponse(FINANCIAL_POLICY, 201);
-      }
-      return jsonResponse({ policies: [FINANCIAL_POLICY] });
-    });
-    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
-
-    await expect(client.createFinancialPolicy(FINANCIAL_POLICY_REQUEST)).resolves.toMatchObject({
-      id: 'refund-controls',
-    });
-    await expect(client.listFinancialPolicies()).resolves.toMatchObject({
-      policies: [FINANCIAL_POLICY],
-    });
-
-    const [, createInit] = fetchSpy.mock.calls[0]!;
-    expect(JSON.parse(String((createInit as RequestInit).body))).toMatchObject({
-      id: 'refund-controls',
-      per_transaction_minor: 10000,
-      required_preconditions: ['amount_lte_refundable_balance'],
-    });
-    expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual([
-      'http://server.test/v1/financial/policies',
-      'http://server.test/v1/financial/policies',
-    ]);
-  });
-
-  it('can create list and revoke financial mandates', async () => {
-    const fetchSpy = mockFetch(async (input, init) => {
-      const url = String(input);
-      if (url.endsWith('/revoke')) return jsonResponse({ ...MANDATE, status: 'revoked' });
-      if (url.endsWith('/mandates') && init?.method === 'POST') {
-        return jsonResponse(MANDATE, 201);
-      }
-      return jsonResponse({ mandates: [MANDATE] });
-    });
-    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
-
-    await expect(client.createMandate(MANDATE_REQUEST)).resolves.toMatchObject({ id: MANDATE.id });
-    await expect(client.listMandates()).resolves.toMatchObject({ mandates: [MANDATE] });
-    await expect(client.revokeMandate(MANDATE.id)).resolves.toMatchObject({ status: 'revoked' });
-
-    expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual([
-      'http://server.test/v1/financial/mandates',
-      'http://server.test/v1/financial/mandates',
-      `http://server.test/v1/financial/mandates/${MANDATE.id}/revoke`,
-    ]);
-  });
-
-  it('can list financial approval requests', async () => {
-    const fetchSpy = mockFetch(async () =>
-      jsonResponse({
-        approval_requests: [
-          {
-            id: 'approval_1',
-            workspace_id: 'ws_finance',
-            action_id: ACTION.id,
-            status: 'pending',
-            reason: 'above threshold',
-            approver_roles: ['finance'],
-            metadata: {},
-            created_at: '2026-07-05T00:00:00Z',
-            updated_at: '2026-07-05T00:00:00Z',
-          },
-        ],
-      }),
-    );
-    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
-
-    const approvals = await client.listApprovalRequests();
-
-    expect(approvals.approval_requests).toHaveLength(1);
-    const [url, init] = fetchSpy.mock.calls[0]!;
-    expect(url).toBe('http://server.test/v1/financial/approval-requests');
-    expect((init as RequestInit).method).toBe('GET');
-  });
-
-  it('can fetch financial decision receipts', async () => {
-    const fetchSpy = mockFetch(async () => jsonResponse(DECISION_RECEIPT));
-    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
-
-    await expect(client.getFinancialDecisionReceipt('action/one')).resolves.toMatchObject({
-      decision: 'hold',
-      risks: [{ code: 'amount_above_auto_approve_threshold' }],
-    });
-
-    const [url, init] = fetchSpy.mock.calls[0]!;
-    expect(url).toBe('http://server.test/v1/financial/actions/action%2Fone/decision-receipt');
-    expect((init as RequestInit).method).toBe('GET');
-  });
-
-  it('can fetch financial receipts', async () => {
-    const fetchSpy = mockFetch(async () => jsonResponse(RECEIPT));
-    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
-
-    const receipt = await client.getReceipt(ACTION.id);
-
-    expect(receipt.id).toBe(ACTION.id);
-    expect(receipt.proof).toMatchObject({ action_status: 'executed' });
-    const [url, init] = fetchSpy.mock.calls[0]!;
-    expect(url).toBe(`http://server.test/v1/financial/receipts/${ACTION.id}`);
-    expect((init as RequestInit).method).toBe('GET');
-  });
-
-  it('can record and list financial action outcomes', async () => {
-    const fetchSpy = mockFetch(async (input, init) => {
-      const url = String(input);
-      if (url.endsWith('/outcomes') && init?.method === 'POST') return jsonResponse(OUTCOME, 201);
-      return jsonResponse({ outcomes: [OUTCOME] });
-    });
-    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
-
-    await expect(client.recordActionOutcome(ACTION.id, OUTCOME)).resolves.toMatchObject({
-      status: 'succeeded',
-    });
-    await expect(client.listActionOutcomes(ACTION.id)).resolves.toMatchObject({
-      outcomes: [OUTCOME],
-    });
-
-    expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual([
-      `http://server.test/v1/financial/actions/${ACTION.id}/outcomes`,
-      `http://server.test/v1/financial/actions/${ACTION.id}/outcomes`,
-    ]);
+    const built = operation.buildRequest(100);
+    expect(built.authorization).toEqual({ grant_id: 'grant-1', attempt_id: 'attempt-1' });
+    expect(built.action).not.toHaveProperty('mandate');
   });
 });

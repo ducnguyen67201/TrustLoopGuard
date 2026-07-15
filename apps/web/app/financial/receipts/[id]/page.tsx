@@ -27,6 +27,7 @@ export default async function FinancialReceiptPage({
     workspaceId,
     `/v1/financial/receipts/${encodeURIComponent(id)}`,
     null,
+    shell.activeEnvironment.id,
   );
   if (receipt === null) notFound();
   const [action, outcomes] = await Promise.all([
@@ -34,11 +35,13 @@ export default async function FinancialReceiptPage({
       workspaceId,
       `/v1/financial/actions/${encodeURIComponent(receipt.action_id)}`,
       null,
+      shell.activeEnvironment.id,
     ),
     safeLoad<FinancialOutcomeListResponse>(
       workspaceId,
       `/v1/financial/actions/${encodeURIComponent(receipt.action_id)}/outcomes`,
       { outcomes: [] },
+      shell.activeEnvironment.id,
     ),
   ]);
 
@@ -64,9 +67,10 @@ async function safeLoad<T>(
   workspaceId: string,
   path: string,
   fallback: T | null,
+  environmentId: string,
 ): Promise<T | null> {
   try {
-    return await rustApiForWorkspace<T>(workspaceId, path, { method: 'GET' });
+    return await rustApiForWorkspace<T>(workspaceId, path, { method: 'GET' }, environmentId);
   } catch (error) {
     console.error('[financial receipt] failed to load', path, error);
     return fallback;

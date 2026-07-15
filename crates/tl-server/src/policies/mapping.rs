@@ -1,5 +1,5 @@
 use tl_core::{PolicyDocument, PolicySummary};
-use tl_policy::{Action, AnyPolicy, Policy};
+use tl_policy::{AnyPolicy, AuthorizationEffect, Policy};
 
 pub(super) fn policy_document(policy: &Policy, source_yaml: &str, enabled: bool) -> PolicyDocument {
     PolicyDocument {
@@ -68,12 +68,13 @@ pub(super) fn normalize_policy_ids(ids: Vec<String>) -> Result<Vec<String>, Stri
     Ok(normalized)
 }
 
-fn policy_action(action: &Action) -> String {
+fn policy_action(action: &AuthorizationEffect) -> String {
     match action {
-        Action::Allow => "allow",
-        Action::Block => "block",
-        Action::Rewrite => "rewrite",
-        Action::Escalate => "escalate",
+        AuthorizationEffect::Permit => "permit",
+        AuthorizationEffect::Deny => "deny",
+        AuthorizationEffect::Transform => "transform",
+        AuthorizationEffect::RequireApproval => "require_approval",
+        AuthorizationEffect::Defer => "defer",
     }
     .to_string()
 }

@@ -1,21 +1,20 @@
 import assert from 'node:assert/strict';
 
-import type { Decision } from '@trustloopguard/sdk';
+import type { AuthorizationDecision, AuthorizationEffect } from '@trustloopguard/sdk';
 
 import type { PayFn, SubmitFn } from './scenarios.core';
 import { buildEvent, runScenarios, SCENARIOS } from './scenarios.core';
 
-function makeDecision(verdict: Decision['verdict'], violatedRule?: string): Decision {
+function makeDecision(effect: AuthorizationEffect, findingId?: string): AuthorizationDecision {
   return {
     trace_id: 'trace-test',
-    verdict,
+    domain: 'tool',
+    effect,
     reason: 'test',
-    triggered_policies: [],
-    safe_output: null,
+    findings: findingId === undefined ? [] : [{
+      id: findingId, source: 'test', effect, reason: 'test', severity: 'high', evidence: {},
+    }],
     latency_ms: 0n,
-    tier_results: [],
-    redaction: null,
-    violated_rule: violatedRule,
   };
 }
 
@@ -43,33 +42,33 @@ async function main(): Promise<void> {
     assert.equal(event.sources?.[0]?.id, expectedSource);
   }
 
-  // 2) The core guarantee: a payment fires ONLY on `allow`.
+  // 2) The core guarantee: a payment fires ONLY on `permit`.
   let payCalls = 0;
   const spyPay: PayFn = async () => {
     payCalls += 1;
     return { ref: '[spy]', mode: 'simulated' };
   };
 
-  const blockAll: SubmitFn = async () => makeDecision('block', 'parameter_value.amount');
+  const blockAll: SubmitFn = async () => makeDecision('deny', 'parameter_value.amount');
   const blockedRows = await runScenarios({ agentId: 'a', submit: blockAll, pay: spyPay });
   assert.equal(payCalls, 0, 'no payment is executed when blocked');
   assert.ok(blockedRows.every((row) => row.result === 'stopped before payment'));
   assert.ok(blockedRows.every((row) => row.control === 'value_limit'));
 
   payCalls = 0;
-  const allowAll: SubmitFn = async () => makeDecision('allow');
+  const allowAll: SubmitFn = async () => makeDecision('permit');
   const allowedRows = await runScenarios({ agentId: 'a', submit: allowAll, pay: spyPay });
-  assert.equal(payCalls, SCENARIOS.length, 'a payment is executed on every allow');
+  assert.equal(payCalls, SCENARIOS.length, 'a payment is executed on every permit');
   assert.ok(allowedRows.every((row) => row.control === 'none'));
 
   // 3) The printed control is read from the decision's own evidence.
-  const escalateRows = await runScenarios({
+  const approvalRows = await runScenarios({
     agentId: 'a',
-    submit: async () => makeDecision('escalate', 'approval.wire_transfer'),
+    submit: async () => makeDecision('require_approval', 'approval.wire_transfer'),
     pay: spyPay,
   });
-  assert.equal(escalateRows[0]?.verdict, 'escalate');
-  assert.equal(escalateRows[0]?.control, 'approval');
+  assert.equal(approvalRows[0]?.effect, 'require_approval');
+  assert.equal(approvalRows[0]?.control, 'approval');
 
   process.stdout.write('scenarios check: all assertions passed\n');
 }

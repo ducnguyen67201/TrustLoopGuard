@@ -20,7 +20,7 @@ match:
     - literal: "guaranteed refund"
     - regex: "(?i)money[- ]back guarantee"
 
-action: rewrite
+action: transform
 rewrite: "I can help check refund eligibility, but I can't guarantee the outcome."
 ```
 
@@ -165,8 +165,8 @@ match:
 Semantic matching is opt-in and uses the configured `semantic_policy` LLM judge
 route. Literal and regex matchers are evaluated deterministically first; semantic
 matchers are skipped if the route is not configured. A high-confidence semantic
-match applies the policy action. Ambiguous or unavailable judge results escalate
-high and critical policies, while lower-severity policies fail open.
+match applies the policy effect. Ambiguous or unavailable judge results produce
+`defer` for high and critical policies, while lower-severity policies fail open.
 
 ## `action`
 
@@ -174,18 +174,19 @@ Required. What TrustLoopGuard should do if the policy triggers.
 
 Allowed values:
 
-- `allow`
-- `block`
-- `rewrite`
-- `escalate`
+- `permit`
+- `deny`
+- `transform`
+- `require_approval`
+- `defer`
 
 ## `rewrite`
 
-Required when `action: rewrite`.
+Required when `action: transform`.
 
 ```yaml
-action: rewrite
+action: transform
 rewrite: "I can help review eligibility, but I can't guarantee the outcome."
 ```
 
-Do not include `rewrite` for rules that only block or escalate.
+Do not include `rewrite` unless the action is `transform`.

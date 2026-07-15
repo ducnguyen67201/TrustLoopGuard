@@ -16,13 +16,13 @@ interface AuthScreenProps {
 }
 
 // Canonical order: allow -> rewrite -> escalate -> block, read as escalating
-// intervention (matches VerdictLegend and the rest of the app). Each chip carries
+// intervention (matches AuthorizationEffectLegend and the rest of the app). Each chip carries
 // a one-word plain gloss so it isn't an unexplained colored word.
-const VERDICTS = [
-  { variant: 'allow', label: 'allow', gloss: 'let through' },
-  { variant: 'rewrite', label: 'rewrite', gloss: 'cleaned up' },
-  { variant: 'escalate', label: 'escalate', gloss: 'sent to review' },
-  { variant: 'block', label: 'block', gloss: 'stopped' },
+const EFFECTS = [
+  { variant: 'permit', label: 'permit', gloss: 'let through' },
+  { variant: 'transform', label: 'transform', gloss: 'cleaned up' },
+  { variant: 'require_approval', label: 'require_approval', gloss: 'sent to review' },
+  { variant: 'deny', label: 'deny', gloss: 'stopped' },
 ] as const;
 
 /**
@@ -74,7 +74,7 @@ interface BrandRailProps {
 
 /**
  * The left identity rail. Hidden below lg; the auth card reuses the same copy in
- * its own header for small screens. Signal-over-decoration: the verdict chips are
+ * its own header for small screens. Signal-over-decoration: the effect chips are
  * the only saturated color, and they carry meaning.
  */
 function BrandRail({ eyebrow, title, description }: BrandRailProps) {
@@ -90,22 +90,24 @@ function BrandRail({ eyebrow, title, description }: BrandRailProps) {
 
       <div className="grid max-w-md gap-5">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-primary">{eyebrow}</p>
-        <h1 className="text-balance text-4xl font-semibold leading-[1.1] tracking-tight">{title}</h1>
+        <h1 className="text-balance text-4xl font-semibold leading-[1.1] tracking-tight">
+          {title}
+        </h1>
         <p className="text-pretty text-base leading-relaxed text-muted-foreground">{description}</p>
       </div>
 
       <div className="grid gap-3">
         <p className="flex items-center gap-1.5 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
           Every request gets one of these
-          <InfoHint term="verdict" side="top" />
+          <InfoHint term="effect" side="top" />
         </p>
         <dl className="flex flex-wrap gap-x-5 gap-y-2.5">
-          {VERDICTS.map((verdict) => (
-            <div key={verdict.variant} className="flex items-center gap-2">
+          {EFFECTS.map((effect) => (
+            <div key={effect.variant} className="flex items-center gap-2">
               <dt>
-                <Badge variant={verdict.variant}>{verdict.label}</Badge>
+                <Badge variant={effect.variant}>{effect.label}</Badge>
               </dt>
-              <dd className="text-xs text-muted-foreground">{verdict.gloss}</dd>
+              <dd className="text-xs text-muted-foreground">{effect.gloss}</dd>
             </div>
           ))}
         </dl>

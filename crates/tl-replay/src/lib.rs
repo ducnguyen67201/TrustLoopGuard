@@ -3,23 +3,23 @@
 //! to yesterday's traffic?"
 
 use serde::{Deserialize, Serialize};
-use tl_core::{Decision, Verdict};
+use tl_core::{AuthorizationEffect, Decision};
 use tl_engine::Engine;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReplayDiff {
     pub trace_id: String,
-    pub before: Verdict,
-    pub after: Verdict,
+    pub before: AuthorizationEffect,
+    pub after: AuthorizationEffect,
     pub changed: bool,
 }
 
 pub fn diff(original: &Decision, replayed: &Decision) -> ReplayDiff {
     ReplayDiff {
         trace_id: original.trace_id.clone(),
-        before: original.verdict,
-        after: replayed.verdict,
-        changed: original.verdict != replayed.verdict,
+        before: original.effect,
+        after: replayed.effect,
+        changed: original.effect != replayed.effect,
     }
 }
 

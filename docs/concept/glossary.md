@@ -20,20 +20,7 @@ The medium an agent is operating on: `chat` or `email`. Channel drives the laten
 
 ### Decision
 
-What TrustLoopGuard returns. The ground truth of a check.
-- `trace_id` — set by caller or generated
-- `verdict` — `Allow | Block | Rewrite | Escalate`
-- `reason` — human-readable summary
-- `triggered_policies` — list of every policy that fired
-- `safe_output` — present when `verdict = Rewrite`; the suggested replacement
-- `checked_input_excerpt` / `checked_output_excerpt` — optional bounded gateway debug excerpts, populated only when retention allows full body capture
-- `latency_ms` — wall-clock time the engine spent
-- Optional event-engine evidence, omitted from JSON when empty:
-  - `violated_rule` — machine-readable rule id that decided the verdict; `parameter_source.{path}` uses the tool's registered `ParamSpec.path` (e.g. `parameter_source.to` for a `send_email` tool whose path is `to`), `approval.{tool}` uses the tool name (e.g. `approval.payment.transfer`)
-  - `remediation` — operator-actionable next step (fix the source, register the tool, obtain approval)
-  - `source_chain` — the offending data path: which sources fed the value that violated the rule
-  - `risk_source` / `failure_mode` / `harm_class` — forensic classification of where the risk entered, how it would fail, and what harm it maps to
-  - `constraints` — reserved for future sandbox/adapter enforcement hints; never populated today
+`AuthorizationDecision` is what TrustLoopGuard returns from every runtime authorization domain. It contains a trace id, domain, one canonical effect, a human reason, all findings, optional durable intent status, transformed value, approval/grant/lease references, receipt id, and latency. Findings retain the rule, source, severity, requirement, remediation, and evidence even when a stronger effect wins.
 
 ### GuardEvent
 
@@ -89,15 +76,15 @@ A workspace-scoped per-origin label override managed via `/v1/label-policies`. E
 
 ### Checker
 
-A deterministic, in-process, pure evaluation of the resolved event in the event pipeline — no I/O, no clock, no LLM. Five exist: `information_flow` (sensitive-data-to-external-sink and untrusted-control rules), `memory` (write-time memory protection), `parameter_auth` (parameter-source authorization against tool registry `allowed_sources`), `value_limit` (numeric bounds on a parameter value against a registry [Value limit](#value-limit)), and `approval` (escalation for tools whose registry metadata requires human approval). Each runs under an enforcement mode resolved per workspace and environment; `value_limit` shares the `parameter_auth` mode. The pure-checker contract is also a boundary: a per-call cap is a checker, but a rate/quota limit (needs state and a clock) is not. See [event-engine.md](event-engine.md).
+A deterministic, in-process, pure evaluation of the resolved event in the event pipeline — no I/O, no clock, no LLM. Five exist: `information_flow` (sensitive-data-to-external-sink and untrusted-control rules), `memory` (write-time memory protection), `parameter_auth` (parameter-source authorization against tool registry `allowed_sources`), `value_limit` (numeric bounds on a parameter value against a registry [Value limit](#value-limit)), and `approval` (an explicit `require_approval` requirement for tools whose registry metadata requires human sign-off). Each runs under an enforcement mode resolved per workspace and environment; `value_limit` shares the `parameter_auth` mode. The pure-checker contract is also a boundary: a per-call cap is a checker, but a rate/quota limit (needs state and a clock) is not. See [event-engine.md](event-engine.md).
 
 ### Checker finding
 
-One rule violation observed by a checker: the violated rule, a recommended verdict, the offending source chain, and forensic fields (`risk_source`, `failure_mode`, `harm_class`). Findings persist as trace evidence in `CheckerRun` entries on the event (`checks`), including in shadow mode where they carry the full hypothetical verdict without affecting the decision.
+One rule violation observed by a checker: the stable rule id, recommended effect, source chain, severity, requirement, remediation, and evidence. Findings persist in shadow mode without affecting the final effect.
 
 ### Enforcement mode
 
-Per-checker rollout state: `off` (default — checker not evaluated, no evidence), `shadow` (evaluated, full hypothetical evidence persisted, decision unchanged), `enforce` (evaluated, findings change the decision via worst-verdict-wins). Workspace-level modes live in workspace settings; per-environment overrides (see Environment checker-mode override) win per checker. Mode is configuration data, not a code fork: the same checker code runs in shadow and enforce.
+Per-checker rollout state: `off` (not evaluated), `shadow` (hypothetical findings persisted, decision unchanged), or `enforce` (findings contribute to canonical effect composition). Per-environment overrides win over workspace defaults.
 
 ### Environment checker-mode override
 
@@ -119,11 +106,11 @@ is present.
 
 ### Authority-bearing parameter
 
-A tool parameter whose value controls what an action does or where its effects land — a recipient, destination, file path, or payment target — declared with role `authority_bearing` in tool metadata, in contrast to `content_bearing` parameters that only carry payload. The `parameter_auth` checker requires every authority-bearing parameter to carry provenance whose sources all match the tool's `allowed_sources`: a wrong source blocks and missing proof escalates in enforce mode, because missing provenance is never treated as clean.
+A tool parameter whose value controls what an action does or where its effects land — a recipient, destination, file path, or payment target — declared with role `authority_bearing` in tool metadata, in contrast to `content_bearing` parameters that only carry payload. The `parameter_auth` checker requires every authority-bearing parameter to carry provenance whose sources all match the tool's `allowed_sources`: a wrong source produces `deny` and missing proof produces `defer` in enforce mode, because missing provenance is never treated as clean.
 
 ### Value limit
 
-A tool-metadata field (`ParamLimit` on a `ParamSpec`) declaring inclusive numeric bounds on a parameter's value — `max`, `min`, and an `on_breach` verdict (`block` by default, or `escalate`). Bounds are integers in the tool's own minor units (e.g. cents), which keeps the type comparison exact and currency-agnostic. The `value_limit` checker reads the parameter at the spec's `path`, and a value over `max` or under `min` recommends `on_breach`; a present-but-non-integer value escalates as unverifiable, because a configured money cap is never silently passed. This caps *how much* an action moves, complementing the [authority-bearing parameter](#authority-bearing-parameter) check on *where* it moves. Per-call only — rate and periodic-quota limits need state and a clock and are out of the pure-checker contract. Registration rejects a limit that sets no bound or whose `min` exceeds its `max`. Authors should set a `min` (e.g. `1`) for amount parameters: a `max`-only limit does not catch a zero or negative value. The cap binds the *proposed* value the collector submits, so it only protects a real payment when the integrator submits the same amount it will execute.
+A tool-metadata field (`ParamLimit` on a `ParamSpec`) declaring inclusive numeric bounds on a parameter's value: `max`, `min`, and an `on_breach` effect (`deny` by default, or `require_approval`). Bounds are integers in the tool's own minor units. A present but unverifiable value produces `defer`; a configured cap is never silently passed.
 
 ### Redaction
 
@@ -133,20 +120,13 @@ Replacement of sensitive values in check content with typed placeholders such as
 
 Workspace-level runtime setting that controls how `/v1/events` may handle request bodies. `raw_allowed` is the default for event submissions. `redacted_only`, `no_body_retention`, and `private_deployment` are reserved modes for deployments with different processing or persistence rules.
 
-### Verdict
+### Authorization effect
 
-The four outcomes. Only ever one per `Decision`.
-
-| Verdict | Meaning | What customer should do |
-|---|---|---|
-| `Allow` | No policy triggered. Output is safe to ship. | Send `proposed_output` as-is. |
-| `Block` | At least one critical policy fired and there's no safe rewrite. | Suppress the output. Tell the user something neutral or escalate. |
-| `Rewrite` | A policy fired and provided `safe_output`. | Send `safe_output` instead of `proposed_output`. |
-| `Escalate` | Policy says "human in the loop." | Hand off to a human. Don't auto-send anything. |
+The one runtime outcome on an `AuthorizationDecision`: `permit`, `transform`, `deny`, `require_approval`, or `defer`. Composition precedence is `deny > defer > require_approval > transform > permit`. Only `require_approval` may be satisfied by a matching grant; `defer` means evidence or system state must change.
 
 ### Severity
 
-How bad a triggered policy is: `Low`, `Medium`, `High`, `Critical`. Used for sorting and dashboards. Does **not** by itself determine the verdict — that's what `Action` is for.
+How bad a finding is: `Low`, `Medium`, `High`, `Critical`. Used for sorting and dashboards. It does not by itself determine the authorization effect.
 
 ### Policy
 
@@ -156,8 +136,8 @@ cloud policy store. Has:
 - `description` — human-readable purpose for reviewers and dashboard users
 - `when` — guard clauses (e.g. only on chat channel, one agent, or one domain)
 - `match` — what triggers it (regex / literal / semantic / combinations)
-- `action` — what to do if matched: `Allow`, `Block`, `Rewrite`, `Escalate`
-- `rewrite` — replacement text when action is `Rewrite`
+- `effect` — what finding to emit if matched: `permit`, `deny`, `transform`, `require_approval`, or `defer`
+- `transform` — replacement value when the effect is `transform`
 - `severity` — `Low | Medium | High | Critical`
 
 Example: see [`policies/refund-promise.yaml`](../../policies/refund-promise.yaml).
@@ -169,11 +149,11 @@ The category a policy document belongs to, selected by a top-level `family:` tag
 
 ### Financial action
 
-A typed domain command for money-bearing or regulated financial work, such as a refund, payment, payout, purchase, invoice approval, or treasury transfer. A `FinancialAction` carries integer-minor-unit money, action kind, principal, rail, optional counterparty and mandate refs, and metadata. It is not a generic [GuardEvent](#guardevent): guard events observe proposed behavior, while financial actions are the contract that future authorization services, ledgers, receipts, and outcomes use. See [financial-authorization.md](financial-authorization.md).
+A typed domain command for money-bearing or regulated work, such as a refund, payment, payout, purchase, invoice approval, or treasury transfer. It carries integer-minor-unit money, action kind, principal, rail, optional counterparty, and metadata. Authorization is supplied separately as a common `AuthorizationClaim`. See [financial-authorization.md](financial-authorization.md).
 
 ### Financial policy family
 
-A `family: financial` policy applying only to typed [Financial action](#financial-action) requests. Selectors include agent ids, action kinds, operation labels, currencies, and rails. Controls include per-action caps, daily/monthly ledger windows, hold and approval thresholds, approver roles for policy-created holds, mandate requirements, counterparty allow/deny rules, new-counterparty holds, refund-original-method-only rules, and required eligibility preconditions. The pure `tl-engine` evaluator checks action-local fields and exposes a pure helper for caller-supplied window totals; the Rust financial service owns ledger-window queries, referenced-mandate validity checks, eligibility evidence, approval request creation, approver actor capture, and provider execution. Broader approval recovery workflows remain future work.
+A `family: financial` policy applying only to typed [Financial action](#financial-action) requests. Selectors include agent ids, action kinds, operations, currencies, and rails. Controls include hard caps, approval thresholds, grant requirements, counterparty rules, and trusted eligibility preconditions. It emits common findings and authority requirements; the financial service supplies live ledger and evidence state.
 
 ### Financial spending control
 
@@ -195,21 +175,17 @@ semantic judge. Exact nano-USD values are serialized as decimal strings to avoid
 loss; legacy minor-unit fields remain compatibility projections. Provider invoices are still the
 authoritative billing record.
 
-### Financial mandate
+### Authorization grant
 
-A tenant-scoped authorization boundary for a specific financial task. A mandate answers what the user or customer app authorized this agent to do, such as paying up to $5 in USD for one x402 resource on a specific host, network, asset, and `pay_to` address. A mandate is not a standing policy: financial policies set general rules and spend limits; mandates prove task-specific intent. TrustLoopGuard-managed mandates are stored by Rust financial APIs and referenced by `MandateRef` during runtime authorization.
+Database-backed, revocable authority for one principal, domain, capability, set of requirement IDs, and typed scope. A grant is either `exact_once` or reusable `scoped`, may expire or be use-limited, and comes from authenticated user intent, reviewer approval, or a workspace administrator. It can satisfy matching approval requirements but never widens current policy.
 
-### Approval fingerprint
+### Approval envelope
 
-A versioned, server-computed SHA-256 identity for the stable semantic fields of a held [Financial action](#financial-action). Fingerprint v1 binds principal, action kind, operation, rail, currency, counterparty identity, and normalized x402 destination fields while leaving amount to an explicit mandate cap. The approval queue can turn a reviewed fingerprint into a time-bounded reusable mandate; future actions receive that mandate only when both the fingerprint and the full scope match. Reuse removes only the repeated human-review gate. Current mandate validity, hard policy, eligibility, and live ledger budget are still checked and the individual action's budget is atomically reserved before execution.
+The immutable reviewer view of one authorization intent: domain, principal, subject and fingerprint, capability, requirement IDs, proposed reusable scope, policy versions, and expiry. The server hashes the canonical envelope as `sha256:v1:<hex>`; the reviewer decision must echo that hash.
 
-### Payment mandate scope
+### Financial grant scope
 
-The structured boundary inside a financial mandate for agentic payments. The typed `payment_scope` create field normalizes into durable mandate `scope` JSON and can constrain action kind, operation, rail, currency, max amount, counterparty, x402 host/resource/network/asset/payee, and required evidence preconditions.
-
-### External mandate
-
-A mandate created by a customer's own authorization system and supplied to TrustLoopGuard for runtime checking. The current product model distinguishes this from TrustLoopGuard-managed mandates, but cryptographic verifier configuration is a separate hardening slice. Bearer API authentication proves the caller can call TrustLoopGuard; it does not by itself prove an external mandate signature.
+The typed financial variant of an authorization grant. It can constrain action kind, operation, rail, currency, maximum amount, counterparties, x402 host/resource/network/asset/payee, and required preconditions.
 
 ### Financial action eligibility
 
@@ -221,7 +197,7 @@ An opaque reference to trusted evidence used by financial eligibility or proof g
 
 ### Financial receipt
 
-A tenant-scoped proof record for a financial action. A `FinancialReceipt` links to the action id, optional trace id, ledger entry ids, and a structured proof payload. The current financial authorization service includes action, evidence, mandate, approval-request, policy, ledger, and provider proof snapshots for executed actions.
+A tenant-scoped execution proof for a financial action. It links the action and common authorization receipt to ledger entry ids and provider proof.
 
 ### Financial action outcome
 
@@ -257,11 +233,31 @@ OAuth 2.1 authentication machinery for workspace-scoped API access. tl-server is
 
 ### Approval rule
 
-A tool-metadata field (`ApprovalRule`) declaring that a tool requires human approval before execution: `required`, optional `approver_roles`, and an optional `reason` surfaced as remediation. Consumed by the `approval` checker, which escalates matching tool calls under its enforcement mode.
+A tool-metadata field (`ApprovalRule`) declaring that a tool requires human approval before execution: `required`, optional `approver_roles`, and an optional `reason` surfaced as remediation. Consumed by the `approval` checker, which emits an explicit `require_approval` requirement for matching tool calls under its enforcement mode.
+
+### Invocation id
+
+A caller-generated stable identifier for one proposed action. Initial transport retries retain it; a changed action under the same workspace, environment, and invocation id conflicts. See [authorization-kernel.md](authorization-kernel.md).
+
+### Tool identity
+
+The exact execution target bound to an approval: downstream server id, tool name, and canonical schema hash.
+
+### Action fingerprint
+
+A Rust-computed versioned SHA-256 binding for one generic tool invocation, including server-resolved scope, principal/run identity, invocation id, operation, tool identity, and parameters. Unlike a reusable financial approval fingerprint, it authorizes no family of later actions.
+
+### Tool approval request
+
+The one-attempt execution right claimed after current authorization returns `permit`. It is `claimed`, `consumed`, `canceled`, or `expired`; same-attempt retries return the same claimed/consumed lease. See [authorization-kernel.md](authorization-kernel.md).
+
+### MCP proxy
+
+The separate `apps/mcp-proxy` process that mirrors one downstream stdio MCP server and uses durable exact-action approval before forwarding a tool call. It is not the operator-facing TrustLoopGuard MCP server.
 
 ### Signal evidence
 
-Advisory evidence from one LLM/classifier signal provider, attached by the event pipeline as `signals` on the event and persisted in traces. Signals never decide action verdicts; they exist so traces show what advisory layers observed alongside deterministic checker findings.
+Advisory evidence from one LLM/classifier signal provider, attached by the event pipeline as `signals` on the event and persisted in traces. Signals never decide authorization effects; they exist so traces show what advisory layers observed alongside deterministic checker findings.
 
 ### Environment
 
@@ -321,7 +317,7 @@ Flexible lifecycle marker for monitoring: `warming`, `running`, `completed`, `fa
 
 ### Automated intervention
 
-A TrustLoopGuard `Decision` whose verdict is `block`, `rewrite`, or `escalate`.
+A TrustLoopGuard decision whose effect is `deny`, `transform`, `require_approval`, or `defer`.
 
 ### Human review event
 
@@ -331,13 +327,9 @@ An append-only record of a customer reviewer outcome for one trace. The latest e
 
 A human review outcome of `corrected`, `rejected`, or `missed_issue`. This is separate from automated guardrail intervention.
 
-### Action vs Verdict
+### Policy effect vs authorization effect
 
-**Action** lives on a `Policy`. It's the policy's *wish* if it triggers.
-**Verdict** lives on a `Decision`. It's the *outcome* the engine actually picked.
-
-When multiple policies trigger, the engine chooses the resulting verdict from
-the active tier output and returns the matching decision metadata.
+A policy or checker emits a finding effect. The coordinator composes every finding, resolves only explicit requirements against matching grants, and returns the final authorization effect without discarding weaker evidence.
 
 ---
 
@@ -357,7 +349,7 @@ A matcher whose decision does not depend on a model: regex, literal, fixed PII r
 
 ### LLM judge
 
-A semantic matcher evaluator that calls the configured `semantic_policy` model route to decide whether a policy fires. If that route is absent, semantic matchers are skipped. High-confidence matches apply the policy action; ambiguous or unavailable judge results escalate high and critical policies and fail open for lower severities.
+A semantic matcher evaluator that calls the configured `semantic_policy` model route to decide whether a policy fires. If that route is absent, semantic matchers are skipped. High-confidence matches apply the policy action; ambiguous or unavailable evidence produces `defer` for high and critical policies and fails open for lower severities. A reviewer cannot approve around missing evidence.
 
 ### Tier orchestrator
 
@@ -379,9 +371,9 @@ The single chokepoint for all outbound LLM traffic. Lives in `tl-llm`. Routes ea
 
 The background `tokio` task spawned by `tl-storage::spawn_writer`. Drains an `mpsc::Receiver<Trace>` and flushes to the daily-partitioned `traces` table in batches of up to 50 rows or every 100 ms, whichever comes first. The hot path only does `try_send` — if the channel is full the trace is dropped rather than blocking the request.
 
-### Escalation worker
+### Operational escalation worker
 
-The background task spawned by `tl-server` that POSTs `Escalate` decisions to `TL_ESCALATION_WEBHOOK_URL`. Retries with the policy `1s, 5s, 30s, 2m` (max 4 attempts) and marks the row `sent` or `failed` in the `escalations` table. On boot, drains any `pending` rows older than five minutes to recover from a process restart.
+The background task spawned by `tl-server` that POSTs `defer` decisions to `TL_ESCALATION_WEBHOOK_URL`. Retries with the policy `1s, 5s, 30s, 2m` (max 4 attempts) and marks the delivery row `sent` or `failed` in the `escalations` table. Authorization decisions with `require_approval` enter the approval queue instead; they are not operational escalation deliveries. On boot, the worker drains pending deliveries older than five minutes to recover from a process restart.
 
 ### Embedded mode
 
@@ -413,14 +405,14 @@ The committed p99 for each channel. See [architecture.md](architecture.md#latenc
 ### Fail-open vs fail-closed
 
 When the SDK can't reach the server (network blip, server down):
-- **Fail-open**: caller proceeds as if `verdict = Allow`. Better availability, worse safety.
-- **Fail-closed**: caller treats it as `Block` or `Escalate`. Better safety, worse availability.
+- **Fail-open**: caller proceeds as if the effect were `permit`. Better availability, worse safety.
+- **Fail-closed**: caller treats it as `deny` or `defer`. Better safety, worse availability.
 
-SDK callers choose this behavior with their error handler. Server-side semantic policy judge uncertainty is handled by the policy evaluator: high and critical semantic policies escalate, while lower-severity semantic policies fail open.
+SDK callers choose this behavior with their error handler. Server-side semantic policy judge uncertainty is handled by the policy evaluator: high and critical semantic policies defer, while lower-severity semantic policies fail open.
 
 ### Shadow mode
 
-A policy that *evaluates* but does not *enforce*. Used to A/B test new policies on production traffic before turning them on. Logs would-be triggers without affecting the verdict.
+A policy or checker that evaluates but does not enforce. It records hypothetical findings without affecting the authorization effect.
 
 ### Workspace member
 

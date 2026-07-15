@@ -826,6 +826,190 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/authorization/approvals:
+    get:
+      tags:
+      - authorization
+      operationId: list_approvals
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationApprovalListResponse'
+  /v1/authorization/approvals/{id}:
+    get:
+      tags:
+      - authorization
+      operationId: get_approval
+      parameters:
+      - name: id
+        in: path
+        description: Approval id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationApproval'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/authorization/approvals/{id}/decide:
+    post:
+      tags:
+      - authorization
+      operationId: decide_approval
+      parameters:
+      - name: id
+        in: path
+        description: Approval id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecideAuthorizationApprovalRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecideAuthorizationApprovalResponse'
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/authorization/grants:
+    get:
+      tags:
+      - authorization
+      operationId: list_grants
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationGrantListResponse'
+    post:
+      tags:
+      - authorization
+      operationId: create_grant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAuthorizationGrantRequest'
+        required: true
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationGrant'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/authorization/grants/{id}/revoke:
+    post:
+      tags:
+      - authorization
+      operationId: revoke_grant
+      parameters:
+      - name: id
+        in: path
+        description: Grant id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationGrant'
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/authorization/leases/{id}/complete:
+    post:
+      tags:
+      - authorization
+      operationId: complete_lease
+      parameters:
+      - name: id
+        in: path
+        description: Lease id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteAuthorizationLeaseRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationLease'
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/authorization/receipts/{id}:
+    get:
+      tags:
+      - authorization
+      operationId: get_receipt
+      parameters:
+      - name: id
+        in: path
+        description: Receipt id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationReceipt'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/environments:
     get:
       tags:
@@ -1043,11 +1227,11 @@ paths:
         required: true
       responses:
         '200':
-          description: Event evaluated; decision returned
+          description: Event evaluated; authorization decision returned
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Decision'
+                $ref: '#/components/schemas/AuthorizationDecision'
         '400':
           description: Malformed request or workspace data handling mode rejects raw events
           content:
@@ -1090,12 +1274,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FinancialActionListResponse'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
     post:
       tags:
       - financial
@@ -1108,7 +1286,7 @@ paths:
         required: true
       responses:
         '201':
-          description: Financial action created
+          description: Financial action created and authorized
           content:
             application/json:
               schema:
@@ -1137,6 +1315,12 @@ paths:
         required: true
         schema:
           type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteFinancialActionRequest'
+        required: true
       responses:
         '200':
           description: Financial action
@@ -1144,209 +1328,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FinancialActionRecord'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Financial action not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-  /v1/financial/actions/{id}/approval-envelope:
-    get:
-      tags:
-      - financial
-      operationId: get_approval_envelope
-      parameters:
-      - name: id
-        in: path
-        description: Held financial action id
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Versioned reusable approval envelope
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FinancialApprovalEnvelope'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Financial action not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '409':
-          description: Action is not awaiting approval
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-  /v1/financial/actions/{id}/approve:
-    post:
-      tags:
-      - financial
-      operationId: approve_action
-      parameters:
-      - name: id
-        in: path
-        description: Financial action id
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Financial action authorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FinancialActionRecord'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Financial action not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '409':
-          description: Invalid status transition
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-  /v1/financial/actions/{id}/approve-matching:
-    post:
-      tags:
-      - financial
-      operationId: approve_matching_actions
-      parameters:
-      - name: id
-        in: path
-        description: Held financial action id
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ApproveMatchingFinancialActionsRequest'
-        required: true
-      responses:
-        '200':
-          description: Action approved and reusable mandate activated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApproveMatchingFinancialActionsResponse'
-        '400':
-          description: Invalid mandate bounds
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Financial action not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '409':
-          description: Action or fingerprint changed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-  /v1/financial/actions/{id}/decision-receipt:
-    get:
-      tags:
-      - financial
-      operationId: get_decision_receipt
-      parameters:
-      - name: id
-        in: path
-        description: Financial action id
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Financial action decision receipt
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FinancialActionDecisionReceipt'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Financial action not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-  /v1/financial/actions/{id}/deny:
-    post:
-      tags:
-      - financial
-      operationId: deny_action
-      parameters:
-      - name: id
-        in: path
-        description: Financial action id
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Financial action denied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FinancialActionRecord'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Financial action not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '409':
-          description: Invalid status transition
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
   /v1/financial/actions/{id}/execute:
     post:
       tags:
@@ -1359,31 +1340,19 @@ paths:
         required: true
         schema:
           type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteFinancialActionRequest'
+        required: true
       responses:
         '200':
-          description: Financial action executed
+          description: Financial action execution state
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/FinancialActionRecord'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Financial action not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '409':
-          description: Invalid status transition
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
   /v1/financial/actions/{id}/outcomes:
     get:
       tags:
@@ -1398,23 +1367,11 @@ paths:
           type: string
       responses:
         '200':
-          description: Financial action outcomes
+          description: Financial outcomes
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/FinancialOutcomeListResponse'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Financial action not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
     post:
       tags:
       - financial
@@ -1434,29 +1391,11 @@ paths:
         required: true
       responses:
         '201':
-          description: Financial action outcome recorded
+          description: Financial outcome recorded
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/FinancialActionOutcome'
-        '400':
-          description: Malformed or invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Financial action not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
   /v1/financial/agentic-payments/authorize:
     post:
       tags:
@@ -1470,29 +1409,11 @@ paths:
         required: true
       responses:
         '201':
-          description: x402 agentic payment authorized or held
+          description: x402 payment authorization
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AgenticPaymentAuthorizationResponse'
-        '400':
-          description: Malformed or invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '409':
-          description: Reservation conflict or budget exceeded
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
   /v1/financial/agentic-payments/{id}:
     get:
       tags:
@@ -1501,29 +1422,17 @@ paths:
       parameters:
       - name: id
         in: path
-        description: Canonical financial action id
+        description: Financial action id
         required: true
         schema:
           type: string
       responses:
         '200':
-          description: x402 agentic payment record
+          description: x402 payment
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AgenticPaymentRecord'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Agentic payment not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
   /v1/financial/agentic-payments/{id}/commit:
     post:
       tags:
@@ -1532,7 +1441,7 @@ paths:
       parameters:
       - name: id
         in: path
-        description: Canonical financial action id
+        description: Financial action id
         required: true
         schema:
           type: string
@@ -1544,35 +1453,11 @@ paths:
         required: true
       responses:
         '200':
-          description: x402 agentic payment committed
+          description: x402 payment committed
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AgenticPaymentRecord'
-        '400':
-          description: Malformed or invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Agentic payment not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '409':
-          description: Invalid lifecycle transition
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
   /v1/financial/agentic-payments/{id}/receipt:
     get:
       tags:
@@ -1581,29 +1466,17 @@ paths:
       parameters:
       - name: id
         in: path
-        description: Canonical financial action id
+        description: Financial action id
         required: true
         schema:
           type: string
       responses:
         '200':
-          description: x402 agentic payment receipt
+          description: Financial execution receipt
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/FinancialReceipt'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Agentic payment receipt not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
   /v1/financial/agentic-payments/{id}/rollback:
     post:
       tags:
@@ -1612,7 +1485,7 @@ paths:
       parameters:
       - name: id
         in: path
-        description: Canonical financial action id
+        description: Financial action id
         required: true
         schema:
           type: string
@@ -1624,53 +1497,11 @@ paths:
         required: true
       responses:
         '200':
-          description: x402 agentic payment reservation released
+          description: x402 payment reservation released
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AgenticPaymentRecord'
-        '400':
-          description: Malformed or invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Agentic payment not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '409':
-          description: Invalid lifecycle transition
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-  /v1/financial/approval-requests:
-    get:
-      tags:
-      - financial
-      operationId: list_approval_requests
-      responses:
-        '200':
-          description: Financial approval requests
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FinancialApprovalRequestListResponse'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
   /v1/financial/budget-alerts:
     get:
       tags:
@@ -1859,84 +1690,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
-  /v1/financial/mandates:
-    get:
-      tags:
-      - financial
-      operationId: list_mandates
-      responses:
-        '200':
-          description: Financial mandates
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FinancialMandateListResponse'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-    post:
-      tags:
-      - financial
-      operationId: create_mandate
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateFinancialMandateRequest'
-        required: true
-      responses:
-        '201':
-          description: Financial mandate created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FinancialMandate'
-        '400':
-          description: Malformed or invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-  /v1/financial/mandates/{id}/revoke:
-    post:
-      tags:
-      - financial
-      operationId: revoke_mandate
-      parameters:
-      - name: id
-        in: path
-        description: Financial mandate id
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Financial mandate revoked
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FinancialMandate'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Financial mandate not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
   /v1/financial/policies:
     get:
       tags:
@@ -1944,17 +1697,11 @@ paths:
       operationId: list_policies
       responses:
         '200':
-          description: Financial spending controls
+          description: Financial policies
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/FinancialPolicyListResponse'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
     post:
       tags:
       - financial
@@ -1967,23 +1714,11 @@ paths:
         required: true
       responses:
         '201':
-          description: Financial spending control created
+          description: Financial policy created
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/FinancialPolicyRecord'
-        '400':
-          description: Malformed or invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
   /v1/financial/receipts/{id}:
     get:
       tags:
@@ -1998,23 +1733,11 @@ paths:
           type: string
       responses:
         '200':
-          description: Financial receipt
+          description: Financial execution receipt
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/FinancialReceipt'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Financial receipt not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
   /v1/gateway/provider-connections:
     get:
       tags:
@@ -4173,6 +3896,17 @@ components:
       required:
       - operation
       properties:
+        authorization:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AuthorizationClaim'
+            description: |-
+              Opaque grant claim submitted only on a resumed attempt. The
+              server extracts and clears it before trace persistence.
+        invocation_id:
+          type:
+          - string
+          - 'null'
         operation:
           type: string
         parameters: {}
@@ -4180,6 +3914,46 @@ components:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/SideEffectClass'
+        tool_identity:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/ToolIdentity'
+    ActionGrantScope:
+      type: object
+      properties:
+        allowed_destinations:
+          type: array
+          items:
+            type: string
+        maximum_data_confidentiality:
+          type:
+          - string
+          - 'null'
+        minimum_source_trust:
+          type:
+          - string
+          - 'null'
+        operations:
+          type: array
+          items:
+            type: string
+        parameters: {}
+        schema_hash:
+          type:
+          - string
+          - 'null'
+        server_id:
+          type:
+          - string
+          - 'null'
+        side_effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SideEffectClass'
+        tool_name:
+          type:
+          - string
+          - 'null'
     AgentAuthority:
       type: object
       properties:
@@ -4294,14 +4068,14 @@ components:
     AgenticPaymentAuthorizationResponse:
       type: object
       required:
-      - decision
+      - authorization
       - signable
       - reason
       - record
       properties:
-        decision:
-          $ref: '#/components/schemas/AgenticPaymentDecision'
-        decision_receipt_id:
+        authorization:
+          $ref: '#/components/schemas/AuthorizationDecision'
+        authorization_receipt_id:
           type:
           - string
           - 'null'
@@ -4319,16 +4093,16 @@ components:
       - session_id
       - payment_requirement
       properties:
+        authorization:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AuthorizationClaim'
         evidence:
           type: array
           items:
             $ref: '#/components/schemas/EvidenceRef'
         idempotency_key:
           type: string
-        mandate:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/MandateRef'
         metadata: {}
         operation:
           type:
@@ -4368,83 +4142,18 @@ components:
           - 'null'
         proof:
           $ref: '#/components/schemas/X402SettlementProof'
-    AgenticPaymentDecision:
-      type: string
-      enum:
-      - authorized
-      - held
-      - denied
-      - committed
-      - rolled_back
-      - failed
-    AgenticPaymentMandateScope:
-      type: object
-      properties:
-        action_kinds:
-          type: array
-          items:
-            $ref: '#/components/schemas/FinancialActionKind'
-        allowed_assets:
-          type: array
-          items:
-            type: string
-        allowed_counterparty_ids:
-          type: array
-          items:
-            type: string
-        allowed_hosts:
-          type: array
-          items:
-            type: string
-        allowed_networks:
-          type: array
-          items:
-            type: string
-        allowed_pay_to:
-          type: array
-          items:
-            type: string
-        allowed_resources:
-          type: array
-          items:
-            type: string
-        currency:
-          type:
-          - string
-          - 'null'
-        intent_label:
-          type:
-          - string
-          - 'null'
-        max_amount_minor:
-          type:
-          - integer
-          - 'null'
-          format: int64
-        operation:
-          type:
-          - string
-          - 'null'
-        rail:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/FinancialRail'
-        required_preconditions:
-          type: array
-          items:
-            $ref: '#/components/schemas/FinancialActionPrecondition'
     AgenticPaymentRecord:
       type: object
       required:
       - id
-      - decision
+      - authorization
       - action
       - normalized_requirement
       properties:
         action:
           $ref: '#/components/schemas/FinancialActionRecord'
-        decision:
-          $ref: '#/components/schemas/AgenticPaymentDecision'
+        authorization:
+          $ref: '#/components/schemas/AuthorizationDecision'
         id:
           type: string
         normalized_requirement:
@@ -4642,7 +4351,7 @@ components:
       - environment
       - run_kind
       - run_status
-      - decision
+      - authorization_effect
       - policy_id
       - workflow_step
       - review_outcome
@@ -4702,10 +4411,11 @@ components:
       type: string
       enum:
       - trace_count
-      - allow_count
-      - block_count
-      - rewrite_count
-      - escalate_count
+      - permit_count
+      - deny_count
+      - transform_count
+      - require_approval_count
+      - defer_count
       - intervention_rate
       - p95_latency_ms
       - human_review_count
@@ -4854,24 +4564,61 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DashboardApiKey'
-    ApprovalRequirement:
+    ApprovalDecision:
+      type: string
+      enum:
+      - approve
+      - deny
+    ApprovalEnvelope:
       type: object
       required:
-      - required
-      - reason
+      - schema
+      - intent_id
+      - domain
+      - capability
+      - principal_id
+      - subject_id
+      - subject_hash
+      - exact_fingerprint
+      - fingerprint_version
+      - issued_at
+      - expires_at
       properties:
-        approver_roles:
+        capability:
+          $ref: '#/components/schemas/AuthorizationCapabilityId'
+        domain:
+          $ref: '#/components/schemas/AuthorizationDomain'
+        exact_fingerprint:
+          type: string
+        expires_at:
+          type: string
+        fingerprint_version:
+          type: integer
+          format: int32
+        intent_id:
+          type: string
+        issued_at:
+          type: string
+        policy_versions:
           type: array
           items:
             type: string
-        expires_at:
-          type:
-          - string
-          - 'null'
-        reason:
+        principal_id:
           type: string
-        required:
-          type: boolean
+        proposed_scope:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AuthorizationGrantScope'
+        requirement_ids:
+          type: array
+          items:
+            type: string
+        schema:
+          type: string
+        subject_hash:
+          type: string
+        subject_id:
+          type: string
     ApprovalRule:
       type: object
       required:
@@ -4887,36 +4634,14 @@ components:
           - 'null'
         required:
           type: boolean
-    ApproveMatchingFinancialActionsRequest:
-      type: object
-      required:
-      - action_fingerprint
-      - max_amount_minor
-      - expires_at
-      properties:
-        action_fingerprint:
-          type: string
-          description: |-
-            The fingerprint shown to the approver. The server recomputes it before
-            creating the mandate so an action cannot change underneath the dialog.
-        expires_at:
-          type: string
-        max_amount_minor:
-          type: integer
-          format: int64
-    ApproveMatchingFinancialActionsResponse:
-      type: object
-      required:
-      - action
-      - mandate
-      - approval_envelope
-      properties:
-        action:
-          $ref: '#/components/schemas/FinancialActionRecord'
-        approval_envelope:
-          $ref: '#/components/schemas/FinancialApprovalEnvelope'
-        mandate:
-          $ref: '#/components/schemas/FinancialMandate'
+    ApprovalStatus:
+      type: string
+      enum:
+      - pending
+      - approved
+      - denied
+      - canceled
+      - expired
     AttackVector:
       type: object
       description: One tailored attack vector derived from the agent's definition.
@@ -4992,6 +4717,552 @@ components:
           type: string
         username:
           type: string
+    AuthorityRequirement:
+      type: object
+      required:
+      - id
+      - capability
+      - required_scope
+      - reason
+      - reusable_allowed
+      properties:
+        approver_roles:
+          type: array
+          items:
+            type: string
+        capability:
+          $ref: '#/components/schemas/AuthorizationCapabilityId'
+        id:
+          type: string
+        max_grant_ttl_seconds:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          minimum: 0
+        reason:
+          type: string
+        required_scope:
+          $ref: '#/components/schemas/AuthorizationGrantScope'
+        reusable_allowed:
+          type: boolean
+    AuthorizationApproval:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - environment_id
+      - intent_id
+      - status
+      - envelope
+      - envelope_hash
+      - expires_at
+      - created_at
+      - updated_at
+      properties:
+        approver_roles:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+        decided_at:
+          type:
+          - string
+          - 'null'
+        decided_by:
+          type:
+          - string
+          - 'null'
+        decision_reason:
+          type:
+          - string
+          - 'null'
+        envelope:
+          $ref: '#/components/schemas/ApprovalEnvelope'
+        envelope_hash:
+          type: string
+        environment_id:
+          type: string
+        expires_at:
+          type: string
+        grant_id:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+        intent_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/ApprovalStatus'
+        updated_at:
+          type: string
+        workspace_id:
+          type: string
+    AuthorizationApprovalListResponse:
+      type: object
+      required:
+      - approvals
+      properties:
+        approvals:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorizationApproval'
+    AuthorizationApprovalSummary:
+      type: object
+      required:
+      - id
+      - status
+      - envelope_hash
+      - expires_at
+      - poll_after_ms
+      properties:
+        envelope_hash:
+          type: string
+        expires_at:
+          type: string
+        id:
+          type: string
+        poll_after_ms:
+          type: integer
+          format: int64
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/ApprovalStatus'
+    AuthorizationCapabilityId:
+      type: string
+    AuthorizationClaim:
+      type: object
+      required:
+      - grant_id
+      - attempt_id
+      properties:
+        attempt_id:
+          type: string
+        grant_id:
+          type: string
+    AuthorizationDecision:
+      type: object
+      required:
+      - trace_id
+      - domain
+      - effect
+      - reason
+      - latency_ms
+      properties:
+        applied_grant:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AuthorizationGrantRef'
+        approval:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AuthorizationApprovalSummary'
+        domain:
+          $ref: '#/components/schemas/AuthorizationDomain'
+        effect:
+          $ref: '#/components/schemas/AuthorizationEffect'
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorizationFinding'
+        intent_id:
+          type:
+          - string
+          - 'null'
+        latency_ms:
+          type: integer
+          format: int64
+          minimum: 0
+        lease:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AuthorizationLease'
+        reason:
+          type: string
+        receipt_id:
+          type:
+          - string
+          - 'null'
+        status:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AuthorizationIntentStatus'
+        trace_id:
+          type: string
+        transformed_value: {}
+    AuthorizationDomain:
+      type: string
+      enum:
+      - content
+      - tool
+      - financial
+    AuthorizationDomainEvidence:
+      oneOf:
+      - type: object
+        required:
+        - evidence
+        - domain
+        properties:
+          domain:
+            type: string
+            enum:
+            - content
+          evidence: {}
+      - type: object
+        required:
+        - evidence
+        - domain
+        properties:
+          domain:
+            type: string
+            enum:
+            - tool
+          evidence: {}
+      - type: object
+        required:
+        - evidence
+        - domain
+        properties:
+          domain:
+            type: string
+            enum:
+            - financial
+          evidence: {}
+    AuthorizationEffect:
+      type: string
+      description: The only runtime decision vocabulary.
+      enum:
+      - permit
+      - deny
+      - transform
+      - require_approval
+      - defer
+    AuthorizationFinding:
+      type: object
+      required:
+      - id
+      - source
+      - effect
+      - reason
+      - severity
+      properties:
+        effect:
+          $ref: '#/components/schemas/AuthorizationEffect'
+        evidence: {}
+        id:
+          type: string
+        policy_id:
+          type:
+          - string
+          - 'null'
+        reason:
+          type: string
+        remediation:
+          type:
+          - string
+          - 'null'
+        requirement_id:
+          type:
+          - string
+          - 'null'
+        severity:
+          $ref: '#/components/schemas/Severity'
+        source:
+          type: string
+    AuthorizationGrant:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - environment_id
+      - principal_id
+      - domain
+      - capability
+      - mode
+      - status
+      - source
+      - fingerprint_version
+      - use_count
+      - created_by
+      - created_at
+      - updated_at
+      properties:
+        capability:
+          $ref: '#/components/schemas/AuthorizationCapabilityId'
+        created_at:
+          type: string
+        created_by:
+          type: string
+        domain:
+          $ref: '#/components/schemas/AuthorizationDomain'
+        environment_id:
+          type: string
+        exact_fingerprint:
+          type:
+          - string
+          - 'null'
+        expires_at:
+          type:
+          - string
+          - 'null'
+        fingerprint_version:
+          type: integer
+          format: int32
+        id:
+          type: string
+        max_uses:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+        mode:
+          $ref: '#/components/schemas/GrantMode'
+        principal_id:
+          type: string
+        requirement_ids:
+          type: array
+          items:
+            type: string
+        scope:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AuthorizationGrantScope'
+        source:
+          $ref: '#/components/schemas/AuthorizationGrantSource'
+        source_approval_id:
+          type:
+          - string
+          - 'null'
+        starts_at:
+          type:
+          - string
+          - 'null'
+        status:
+          $ref: '#/components/schemas/GrantStatus'
+        updated_at:
+          type: string
+        use_count:
+          type: integer
+          format: int32
+          minimum: 0
+        workspace_id:
+          type: string
+    AuthorizationGrantListResponse:
+      type: object
+      required:
+      - grants
+      properties:
+        grants:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorizationGrant'
+    AuthorizationGrantRef:
+      type: object
+      required:
+      - id
+      - capability
+      - mode
+      - source
+      properties:
+        capability:
+          $ref: '#/components/schemas/AuthorizationCapabilityId'
+        id:
+          type: string
+        mode:
+          $ref: '#/components/schemas/GrantMode'
+        source:
+          $ref: '#/components/schemas/AuthorizationGrantSource'
+    AuthorizationGrantScope:
+      oneOf:
+      - type: object
+        required:
+        - scope
+        - scope_type
+        properties:
+          scope:
+            $ref: '#/components/schemas/ActionGrantScope'
+          scope_type:
+            type: string
+            enum:
+            - action
+      - type: object
+        required:
+        - scope
+        - scope_type
+        properties:
+          scope:
+            $ref: '#/components/schemas/FinancialGrantScope'
+          scope_type:
+            type: string
+            enum:
+            - financial
+    AuthorizationGrantSource:
+      type: string
+      enum:
+      - user_intent
+      - reviewer_approval
+      - workspace_admin
+    AuthorizationIntentStatus:
+      type: string
+      enum:
+      - evaluating
+      - pending_approval
+      - authorized
+      - denied
+      - deferred
+      - canceled
+      - expired
+    AuthorizationLease:
+      type: object
+      required:
+      - id
+      - intent_id
+      - attempt_id
+      - fingerprint
+      - status
+      - claimed_at
+      - expires_at
+      properties:
+        attempt_id:
+          type: string
+        claimed_at:
+          type: string
+        completed_at:
+          type:
+          - string
+          - 'null'
+        expires_at:
+          type: string
+        fingerprint:
+          type: string
+        grant_id:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+        intent_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/LeaseStatus'
+    AuthorizationReceipt:
+      type: object
+      required:
+      - id
+      - domain
+      - effect
+      - subject_hash
+      - reason
+      - domain_evidence
+      - created_at
+      properties:
+        approval_id:
+          type:
+          - string
+          - 'null'
+        created_at:
+          type: string
+        domain:
+          $ref: '#/components/schemas/AuthorizationDomain'
+        domain_evidence:
+          $ref: '#/components/schemas/AuthorizationDomainEvidence'
+        effect:
+          $ref: '#/components/schemas/AuthorizationEffect'
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorizationFinding'
+        grant_id:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+        intent_id:
+          type:
+          - string
+          - 'null'
+        intent_status:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AuthorizationIntentStatus'
+        lease_id:
+          type:
+          - string
+          - 'null'
+        policy_versions:
+          type: array
+          items:
+            type: string
+        reason:
+          type: string
+        subject_hash:
+          type: string
+        trace_id:
+          type:
+          - string
+          - 'null'
+    AuthorizationSubject:
+      oneOf:
+      - type: object
+        required:
+        - event_kind
+        - channel
+        - input
+        - output
+        - domain
+        properties:
+          channel:
+            $ref: '#/components/schemas/Channel'
+          domain:
+            type: string
+            enum:
+            - content
+          event_kind:
+            $ref: '#/components/schemas/EventKind'
+          input:
+            type: string
+          output:
+            type: string
+      - type: object
+        required:
+        - invocation_id
+        - operation
+        - tool_identity
+        - parameters
+        - side_effect
+        - domain
+        properties:
+          domain:
+            type: string
+            enum:
+            - tool
+          invocation_id:
+            type: string
+          operation:
+            type: string
+          parameters: {}
+          side_effect:
+            $ref: '#/components/schemas/SideEffectClass'
+          tool_identity:
+            $ref: '#/components/schemas/ToolIdentity'
+      - type: object
+        required:
+        - action_id
+        - action
+        - domain
+        properties:
+          action:
+            $ref: '#/components/schemas/FinancialAction'
+          action_id:
+            type: string
+          domain:
+            type: string
+            enum:
+            - financial
     BudgetAlertConfig:
       type: object
       description: One configured alert threshold.
@@ -5159,28 +5430,28 @@ components:
       description: |-
         One rule violation observed by a checker.
 
-        `recommended_verdict` is what enforce mode applies; in shadow mode it is
+        `recommended_effect` is what enforce mode applies; in shadow mode it is
         the hypothetical outcome and the decision is left untouched. It is
-        absent for verdict-free evidence findings (e.g. "tool not registered,
+        absent for effect-free evidence findings (e.g. "tool not registered,
         parameters unverifiable") that never affect the decision in any mode.
       required:
       - rule
       - reason
       properties:
-        failure_mode:
-          type:
-          - string
-          - 'null'
         harm_class:
           type:
           - string
           - 'null'
         reason:
           type: string
-        recommended_verdict:
+        recommended_effect:
           oneOf:
           - type: 'null'
-          - $ref: '#/components/schemas/Verdict'
+          - $ref: '#/components/schemas/AuthorizationEffect'
+        risk_code:
+          type:
+          - string
+          - 'null'
         risk_source:
           type:
           - string
@@ -5219,6 +5490,14 @@ components:
       - still_vulnerable
       - regressed
       - unchanged
+    CompleteAuthorizationLeaseRequest:
+      type: object
+      required:
+      - status
+      properties:
+        outcome: {}
+        status:
+          $ref: '#/components/schemas/LeaseStatus'
     Confidentiality:
       type: string
       enum:
@@ -5276,7 +5555,7 @@ components:
           description: |-
             Optional principal to bind the key to (free-form, e.g.
             `user:daniel`). Requests authenticated with the key resolve to
-            this principal for mandates, budgets, and the audit trail.
+            this principal for grants, budgets, and the audit trail.
     CreateApiKeyResponse:
       type: object
       required:
@@ -5288,6 +5567,40 @@ components:
         plaintext_key:
           type: string
           description: Full bearer key. Returned only once at creation time.
+    CreateAuthorizationGrantRequest:
+      type: object
+      required:
+      - principal_id
+      - domain
+      - capability
+      - scope
+      properties:
+        capability:
+          $ref: '#/components/schemas/AuthorizationCapabilityId'
+        domain:
+          $ref: '#/components/schemas/AuthorizationDomain'
+        expires_at:
+          type:
+          - string
+          - 'null'
+        max_uses:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+        principal_id:
+          type: string
+        requirement_ids:
+          type: array
+          items:
+            type: string
+        scope:
+          $ref: '#/components/schemas/AuthorizationGrantScope'
+        starts_at:
+          type:
+          - string
+          - 'null'
     CreateBudgetAlertConfigRequest:
       type: object
       required:
@@ -5328,6 +5641,10 @@ components:
       properties:
         action:
           $ref: '#/components/schemas/FinancialAction'
+        authorization:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AuthorizationClaim'
         evidence:
           type: array
           items:
@@ -5336,36 +5653,6 @@ components:
           type: boolean
         idempotency_key:
           type: string
-    CreateFinancialMandateRequest:
-      type: object
-      required:
-      - principal_id
-      properties:
-        expires_at:
-          type:
-          - string
-          - 'null'
-        id:
-          type:
-          - string
-          - 'null'
-        metadata: {}
-        payment_scope:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/AgenticPaymentMandateScope'
-        principal_id:
-          type: string
-        scope: {}
-        starts_at:
-          type:
-          - string
-          - 'null'
-        version:
-          type:
-          - integer
-          - 'null'
-          format: int32
     CreateFinancialPolicyRequest:
       type: object
       required:
@@ -5397,28 +5684,21 @@ components:
           type:
           - string
           - 'null'
-        failed_precondition_action:
+        failed_precondition_effect:
           oneOf:
           - type: 'null'
-          - $ref: '#/components/schemas/PolicyAction'
-        hold_above_minor:
-          type:
-          - integer
-          - 'null'
-          format: int64
-        hold_new_counterparty:
+          - $ref: '#/components/schemas/AuthorizationEffect'
+        grant_required:
           type: boolean
         id:
           type: string
-        mandate_required:
-          type: boolean
         meter:
           $ref: '#/components/schemas/SpendMeter'
           description: Spend meter this policy governs; omitted means `actions`.
-        missing_evidence_action:
+        missing_evidence_effect:
           oneOf:
           - type: 'null'
-          - $ref: '#/components/schemas/PolicyAction'
+          - $ref: '#/components/schemas/AuthorizationEffect'
         monthly_minor:
           type:
           - integer
@@ -5427,13 +5707,15 @@ components:
         on_breach:
           oneOf:
           - type: 'null'
-          - $ref: '#/components/schemas/PolicyAction'
+          - $ref: '#/components/schemas/AuthorizationEffect'
         per_transaction_minor:
           type:
           - integer
           - 'null'
           format: int64
         refund_original_method_only:
+          type: boolean
+        require_approval_for_new_counterparty:
           type: boolean
         required_preconditions:
           type: array
@@ -5728,80 +6010,46 @@ components:
       - redacted_only
       - no_body_retention
       - private_deployment
-    Decision:
+    DecideAuthorizationApprovalRequest:
       type: object
       required:
-      - trace_id
-      - verdict
-      - reason
-      - triggered_policies
-      - latency_ms
+      - decision
+      - mode
+      - envelope_hash
       properties:
-        checked_input_excerpt:
-          type:
-          - string
-          - 'null'
-        checked_output_excerpt:
-          type:
-          - string
-          - 'null'
-        constraints: {}
-        failure_mode:
-          type:
-          - string
-          - 'null'
-        harm_class:
-          type:
-          - string
-          - 'null'
-        latency_ms:
-          type: integer
-          format: int64
-          minimum: 0
-        reason:
+        decision:
+          $ref: '#/components/schemas/ApprovalDecision'
+        envelope_hash:
           type: string
-        redaction:
+        expires_at:
+          type:
+          - string
+          - 'null'
+        mode:
+          $ref: '#/components/schemas/GrantMode'
+        reason:
+          type:
+          - string
+          - 'null'
+        scope:
           oneOf:
           - type: 'null'
-          - $ref: '#/components/schemas/RedactionInfo'
-        remediation:
+          - $ref: '#/components/schemas/AuthorizationGrantScope'
+        starts_at:
           type:
           - string
           - 'null'
-        risk_source:
-          type:
-          - string
-          - 'null'
-        safe_output:
-          type:
-          - string
-          - 'null'
-        source_chain:
-          type:
-          - array
-          - 'null'
-          items:
-            type: string
-        tier_results:
-          type: array
-          items:
-            $ref: '#/components/schemas/TierResult'
-          description: |-
-            Per-tier breakdown produced by the parallel-cancel orchestrator.
-            Empty for callers that only ran the synchronous `Engine::check`
-            path; populated when `Engine::check_async` is used.
-        trace_id:
-          type: string
-        triggered_policies:
-          type: array
-          items:
-            $ref: '#/components/schemas/TriggeredPolicy'
-        verdict:
-          $ref: '#/components/schemas/Verdict'
-        violated_rule:
-          type:
-          - string
-          - 'null'
+    DecideAuthorizationApprovalResponse:
+      type: object
+      required:
+      - approval
+      properties:
+        approval:
+          $ref: '#/components/schemas/AuthorizationApproval'
+        grant:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AuthorizationGrant'
     EnforcementMode:
       type: string
       description: |-
@@ -5811,7 +6059,7 @@ components:
         - `Shadow`: the checker is evaluated and full hypothetical evidence is
           recorded, but the decision is never changed.
         - `Enforce`: the checker is evaluated and its findings can change the
-          decision (worst verdict wins).
+          decision (the strongest authorization effect wins).
       enum:
       - off
       - shadow
@@ -5881,6 +6129,17 @@ components:
           type: string
         source_id:
           type: string
+    ExecuteFinancialActionRequest:
+      type: object
+      properties:
+        attempt_id:
+          type:
+          - string
+          - 'null'
+        authorization:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AuthorizationClaim'
     FinancialAction:
       type: object
       required:
@@ -5902,10 +6161,6 @@ components:
           - 'null'
         kind:
           $ref: '#/components/schemas/FinancialActionKind'
-        mandate:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/MandateRef'
         memo:
           type:
           - string
@@ -5917,69 +6172,6 @@ components:
           type: string
         rail:
           $ref: '#/components/schemas/FinancialRail'
-    FinancialActionDecision:
-      type: string
-      enum:
-      - allow
-      - hold
-      - block
-      - escalate
-    FinancialActionDecisionReceipt:
-      type: object
-      required:
-      - schema
-      - action_id
-      - decision
-      - status
-      - reason
-      - amount
-      - operation
-      - principal_id
-      - authorization_scope
-      - execution
-      - created_at
-      - updated_at
-      properties:
-        action_id:
-          type: string
-        amount:
-          $ref: '#/components/schemas/MoneyAmount'
-        approval:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/ApprovalRequirement'
-        authorization_scope:
-          $ref: '#/components/schemas/FinancialAuthorizationScopeProof'
-        counterparty:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/CounterpartyRef'
-        created_at:
-          type: string
-        decision:
-          $ref: '#/components/schemas/FinancialActionDecision'
-        evidence:
-          type: array
-          items:
-            $ref: '#/components/schemas/FinancialEvidenceProof'
-        execution:
-          $ref: '#/components/schemas/FinancialExecutionProof'
-        operation:
-          type: string
-        principal_id:
-          type: string
-        reason:
-          type: string
-        risks:
-          type: array
-          items:
-            $ref: '#/components/schemas/FinancialDecisionRisk'
-        schema:
-          type: string
-        status:
-          $ref: '#/components/schemas/FinancialActionStatus'
-        updated_at:
-          type: string
     FinancialActionKind:
       type: string
       enum:
@@ -6056,30 +6248,51 @@ components:
       - no_duplicate_refund
       - invoice_matches_po
       - vendor_approved
-      - mandate_valid
+      - grant_valid
       - custom
     FinancialActionRecord:
       type: object
       required:
       - id
       - workspace_id
-      - status
+      - environment_id
+      - authorization_effect
+      - authorization_status
+      - execution_status
       - action
       - created_at
       - updated_at
       properties:
         action:
           $ref: '#/components/schemas/FinancialAction'
+        authorization:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AuthorizationDecision'
+        authorization_effect:
+          $ref: '#/components/schemas/AuthorizationEffect'
+        authorization_intent_id:
+          type:
+          - string
+          - 'null'
+        authorization_receipt_id:
+          type:
+          - string
+          - 'null'
+        authorization_status:
+          $ref: '#/components/schemas/AuthorizationIntentStatus'
         created_at:
+          type: string
+        environment_id:
           type: string
         evidence:
           type: array
           items:
             $ref: '#/components/schemas/EvidenceRef'
+        execution_status:
+          $ref: '#/components/schemas/FinancialExecutionStatus'
         id:
           type: string
-        status:
-          $ref: '#/components/schemas/FinancialActionStatus'
         status_reason:
           type:
           - string
@@ -6088,289 +6301,67 @@ components:
           type: string
         workspace_id:
           type: string
-    FinancialActionStatus:
-      type: string
-      enum:
-      - proposed
-      - authorized
-      - held
-      - executed
-      - denied
-      - failed
-      - reversed
-      - expired
-    FinancialApprovalEnvelope:
-      type: object
-      description: |-
-        A server-computed, versioned summary of the action identity that a human
-        is about to authorize for reuse. Amount is intentionally represented as a
-        separate bound so matching actions can vary in value without changing the
-        fingerprint.
-      required:
-      - action_id
-      - action_fingerprint
-      - fingerprint_version
-      - principal_id
-      - action_kind
-      - operation
-      - rail
-      - currency
-      - current_amount_minor
-      - recommended_max_amount_minor
-      properties:
-        action_fingerprint:
-          type: string
-        action_id:
-          type: string
-        action_kind:
-          $ref: '#/components/schemas/FinancialActionKind'
-        counterparty_id:
-          type:
-          - string
-          - 'null'
-        currency:
-          type: string
-        current_amount_minor:
-          type: integer
-          format: int64
-        fingerprint_version:
-          type: integer
-          format: int32
-        operation:
-          type: string
-        principal_id:
-          type: string
-        rail:
-          $ref: '#/components/schemas/FinancialRail'
-        recommended_max_amount_minor:
-          type: integer
-          format: int64
-    FinancialApprovalRequest:
-      type: object
-      required:
-      - id
-      - workspace_id
-      - action_id
-      - status
-      - reason
-      - created_at
-      - updated_at
-      properties:
-        action_id:
-          type: string
-        approver_roles:
-          type: array
-          items:
-            type: string
-        created_at:
-          type: string
-        decided_at:
-          type:
-          - string
-          - 'null'
-        decided_by:
-          type:
-          - string
-          - 'null'
-        expires_at:
-          type:
-          - string
-          - 'null'
-        id:
-          type: string
-        metadata: {}
-        reason:
-          type: string
-        status:
-          $ref: '#/components/schemas/FinancialApprovalRequestStatus'
-        updated_at:
-          type: string
-        workspace_id:
-          type: string
-    FinancialApprovalRequestListResponse:
-      type: object
-      required:
-      - approval_requests
-      properties:
-        approval_requests:
-          type: array
-          items:
-            $ref: '#/components/schemas/FinancialApprovalRequest'
-    FinancialApprovalRequestStatus:
-      type: string
-      enum:
-      - pending
-      - approved
-      - denied
-      - expired
-      - canceled
-    FinancialAuthorizationScopeProof:
-      type: object
-      required:
-      - checked
-      - result
-      properties:
-        checked:
-          type: boolean
-        mandate_hash:
-          type:
-          - string
-          - 'null'
-        normalized_scope: {}
-        reason:
-          type:
-          - string
-          - 'null'
-        result:
-          $ref: '#/components/schemas/FinancialEligibilityStatus'
-        scope_ref:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/MandateRef'
-        scope_snapshot:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/FinancialMandate'
-        source:
-          type:
-          - string
-          - 'null'
-    FinancialDecisionRisk:
-      type: object
-      required:
-      - code
-      - severity
-      - reason
-      - source
-      properties:
-        code:
-          $ref: '#/components/schemas/FinancialDecisionRiskCode'
-        policy_id:
-          type:
-          - string
-          - 'null'
-        reason:
-          type: string
-        severity:
-          $ref: '#/components/schemas/Severity'
-        source:
-          type: string
-    FinancialDecisionRiskCode:
-      type: string
-      enum:
-      - amount_above_auto_approve_threshold
-      - amount_over_per_transaction_cap
-      - missing_authorization_scope
-      - authorization_scope_invalid
-      - counterparty_denied
-      - counterparty_not_allowed
-      - new_counterparty
-      - missing_evidence
-      - failed_evidence
-      - daily_cap_exceeded
-      - weekly_cap_exceeded
-      - monthly_cap_exceeded
-      - provider_not_executed
-      - provider_failed
-      - unknown
-    FinancialEligibilityStatus:
-      type: string
-      enum:
-      - passed
-      - failed
-      - missing
-    FinancialEvidenceProof:
-      type: object
-      required:
-      - precondition
-      - status
-      properties:
-        evidence_source_id:
-          type:
-          - string
-          - 'null'
-        precondition:
-          $ref: '#/components/schemas/FinancialActionPrecondition'
-        reason:
-          type:
-          - string
-          - 'null'
-        status:
-          $ref: '#/components/schemas/FinancialEligibilityStatus'
-    FinancialExecutionProof:
-      type: object
-      required:
-      - status
-      properties:
-        ledger_event_ids:
-          type: array
-          items:
-            type: string
-        receipt_id:
-          type:
-          - string
-          - 'null'
-        status:
-          $ref: '#/components/schemas/FinancialExecutionProofStatus'
-    FinancialExecutionProofStatus:
+    FinancialExecutionStatus:
       type: string
       enum:
       - not_started
-      - not_required
-      - executed
+      - executing
+      - succeeded
       - failed
-      - receipt_missing
-    FinancialMandate:
+      - canceled
+      - reversed
+    FinancialGrantScope:
       type: object
-      required:
-      - id
-      - workspace_id
-      - version
-      - status
-      - principal_id
-      - created_at
-      - updated_at
       properties:
-        created_at:
-          type: string
-        expires_at:
-          type:
-          - string
-          - 'null'
-        id:
-          type: string
-        metadata: {}
-        principal_id:
-          type: string
-        scope: {}
-        starts_at:
-          type:
-          - string
-          - 'null'
-        status:
-          $ref: '#/components/schemas/FinancialMandateStatus'
-        updated_at:
-          type: string
-        version:
-          type: integer
-          format: int32
-        workspace_id:
-          type: string
-    FinancialMandateListResponse:
-      type: object
-      required:
-      - mandates
-      properties:
-        mandates:
+        action_kinds:
           type: array
           items:
-            $ref: '#/components/schemas/FinancialMandate'
-    FinancialMandateStatus:
-      type: string
-      enum:
-      - active
-      - revoked
-      - expired
+            $ref: '#/components/schemas/FinancialActionKind'
+        counterparties:
+          type: array
+          items:
+            type: string
+        currency:
+          type:
+          - string
+          - 'null'
+        maximum_amount_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        operation:
+          type:
+          - string
+          - 'null'
+        rail:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/FinancialRail'
+        required_preconditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialActionPrecondition'
+        x402_assets:
+          type: array
+          items:
+            type: string
+        x402_hosts:
+          type: array
+          items:
+            type: string
+        x402_networks:
+          type: array
+          items:
+            type: string
+        x402_payees:
+          type: array
+          items:
+            type: string
+        x402_resources:
+          type: array
+          items:
+            type: string
     FinancialOutcomeListResponse:
       type: object
       required:
@@ -6395,8 +6386,8 @@ components:
       - id
       - severity
       - when
-      - missing_evidence_action
-      - failed_precondition_action
+      - missing_evidence_effect
+      - failed_precondition_effect
       - on_breach
       - enabled
       properties:
@@ -6428,37 +6419,32 @@ components:
           - 'null'
         enabled:
           type: boolean
-        failed_precondition_action:
-          $ref: '#/components/schemas/PolicyAction'
-        hold_above_minor:
-          type:
-          - integer
-          - 'null'
-          format: int64
-        hold_new_counterparty:
+        failed_precondition_effect:
+          $ref: '#/components/schemas/AuthorizationEffect'
+        grant_required:
           type: boolean
         id:
           type: string
-        mandate_required:
-          type: boolean
         meter:
           $ref: '#/components/schemas/SpendMeter'
           description: Spend meter this policy governs.
-        missing_evidence_action:
-          $ref: '#/components/schemas/PolicyAction'
+        missing_evidence_effect:
+          $ref: '#/components/schemas/AuthorizationEffect'
         monthly_minor:
           type:
           - integer
           - 'null'
           format: int64
         on_breach:
-          $ref: '#/components/schemas/PolicyAction'
+          $ref: '#/components/schemas/AuthorizationEffect'
         per_transaction_minor:
           type:
           - integer
           - 'null'
           format: int64
         refund_original_method_only:
+          type: boolean
+        require_approval_for_new_counterparty:
           type: boolean
         required_preconditions:
           type: array
@@ -6511,9 +6497,12 @@ components:
       required:
       - id
       - action_id
+      - authorization_receipt_id
       - created_at
       properties:
         action_id:
+          type: string
+        authorization_receipt_id:
           type: string
         created_at:
           type: string
@@ -6997,6 +6986,18 @@ components:
           type: boolean
         repository_id:
           type: string
+    GrantMode:
+      type: string
+      enum:
+      - exact_once
+      - scoped
+    GrantStatus:
+      type: string
+      enum:
+      - active
+      - revoked
+      - expired
+      - exhausted
     GuardEvent:
       type: object
       required:
@@ -7599,7 +7600,7 @@ components:
       description: |-
         Label resolution + propagation evidence attached by the event
         pipeline. `None` until the pipeline has run. Observe-only: no
-        checker changes a verdict because of this value.
+        checker changes an authorization effect because of this value.
       required:
       - policy_status
       properties:
@@ -7627,14 +7628,21 @@ components:
           $ref: '#/components/schemas/Integrity'
         trust:
           $ref: '#/components/schemas/Trust'
+    LeaseStatus:
+      type: string
+      enum:
+      - claimed
+      - consumed
+      - canceled
+      - expired
     LimitAction:
       type: string
       description: |-
-        The verdict a [`ParamLimit`] breach maps to. `Block` is the safe default
-        for money movement; `Escalate` routes a breach to a human instead.
+        The authorization effect a [`ParamLimit`] breach maps to. `Deny` is the safe
+        default for money movement; `RequireApproval` routes a breach to review.
       enum:
-      - block
-      - escalate
+      - deny
+      - require_approval
     LlmModelPrice:
       type: object
       description: One effective model price row.
@@ -7826,18 +7834,6 @@ components:
         `GET /v1/llm-usage` 200 body: the raw event list, or grouped buckets
         when `group_by` is set. Untagged — the two shapes are distinguished
         by their sole field (`events` vs `buckets`).
-    MandateRef:
-      type: object
-      required:
-      - id
-      properties:
-        id:
-          type: string
-        version:
-          type:
-          - integer
-          - 'null'
-          format: int32
     MemberListResponse:
       type: object
       required:
@@ -7960,7 +7956,7 @@ components:
           description: Inclusive minimum. A value less than this breaches the limit.
         on_breach:
           $ref: '#/components/schemas/LimitAction'
-          description: Verdict to recommend when a bound is breached. Defaults to `Block`.
+          description: Authorization effect to recommend when a bound is breached. Defaults to `Deny`.
     ParamRole:
       type: string
       enum:
@@ -7987,13 +7983,6 @@ components:
           type: string
         role:
           $ref: '#/components/schemas/ParamRole'
-    PolicyAction:
-      type: string
-      description: Action a policy takes when matched.
-      enum:
-      - block
-      - rewrite
-      - escalate
     PolicyBatchSetEnabledRequest:
       type: object
       required:
@@ -8052,7 +8041,7 @@ components:
       - severity
       properties:
         action:
-          $ref: '#/components/schemas/PolicyAction'
+          $ref: '#/components/schemas/AuthorizationEffect'
         description:
           type: string
         id:
@@ -9252,8 +9241,8 @@ components:
         Advisory evidence from one LLM/classifier signal provider, attached
         by the event pipeline.
 
-        Signals never decide action verdicts: the composer ignores them for
-        verdict computation, and this evidence exists so traces and review
+        Signals never decide authorization effects: the composer ignores them for
+        effect composition, and this evidence exists so traces and review
         show what advisory layers observed.
       required:
       - provider_id
@@ -9390,6 +9379,19 @@ components:
       - cancelled
       - timed_out
       - skipped
+    ToolIdentity:
+      type: object
+      required:
+      - server_id
+      - tool_name
+      - schema_hash
+      properties:
+        schema_hash:
+          type: string
+        server_id:
+          type: string
+        tool_name:
+          type: string
     ToolMetadata:
       type: object
       required:
@@ -9817,14 +9819,6 @@ components:
       description: |-
         Upsert body for `POST /v1/tool-metadata`: the wire `ToolMetadata`
         plus an optional `enabled` flag (defaults to `true`).
-    Verdict:
-      type: string
-      description: What TrustLoopGuard tells the caller to do with the proposed output.
-      enum:
-      - allow
-      - block
-      - rewrite
-      - escalate
     VerifyResult:
       type: object
       description: |-
@@ -10196,6 +10190,8 @@ tags:
   description: Real-time guard checks
 - name: events
   description: Direct event runtime decisions
+- name: authorization
+  description: Unified approvals, grants, leases, and receipts
 - name: agents
   description: Agent profile registration and lookup
 - name: tool-metadata

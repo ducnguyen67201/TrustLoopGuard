@@ -18,7 +18,7 @@ async function main(): Promise<void> {
       return {
         content: `echo:${message}:${sessionId ?? 'none'}`,
         finishReason: 'stop',
-        verdict: null,
+        effect: null,
         phase: null,
         traceId: 'trace-check',
       };

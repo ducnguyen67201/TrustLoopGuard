@@ -1,8 +1,8 @@
 // Pure, importable core of the money-agent showcase: the scenario list, the
-// GuardEvent builder, and the verdict-gated runner. No I/O at module load, so
+// GuardEvent builder, and the effect-gated runner. No I/O at module load, so
 // tests can import it without triggering a run (scenarios.ts is the entry).
 
-import type { Decision, GuardEvent, Source } from '@trustloopguard/sdk';
+import type { AuthorizationDecision, GuardEvent, Source } from '@trustloopguard/sdk';
 
 import type { PaymentRequest, PaymentResult } from './payments';
 
@@ -68,9 +68,9 @@ export function buildEvent(scenario: Scenario, agentId: string): GuardEvent {
   };
 }
 
-/** The control a decision was actually decided by, read from the verdict evidence. */
-export function controlFor(decision: Decision): Control {
-  const rule = decision.violated_rule ?? '';
+/** The control that contributed the strongest authorization finding. */
+export function controlFor(decision: AuthorizationDecision): Control {
+  const rule = decision.findings[0]?.id ?? '';
   if (rule.startsWith('parameter_value')) return 'value_limit';
   if (rule.startsWith('parameter_source')) return 'parameter_auth';
   if (rule.startsWith('approval')) return 'approval';
@@ -79,12 +79,12 @@ export function controlFor(decision: Decision): Control {
 
 export interface ScenarioRow {
   label: string;
-  verdict: Decision['verdict'];
+  effect: AuthorizationDecision['effect'];
   control: Control;
   result: string;
 }
 
-export type SubmitFn = (event: GuardEvent) => Promise<Decision>;
+export type SubmitFn = (event: GuardEvent) => Promise<AuthorizationDecision>;
 export type PayFn = (req: PaymentRequest) => Promise<PaymentResult>;
 
 export async function runScenarios(deps: {
@@ -96,7 +96,7 @@ export async function runScenarios(deps: {
   for (const scenario of SCENARIOS) {
     const decision = await deps.submit(buildEvent(scenario, deps.agentId));
     let result: string;
-    if (decision.verdict === 'allow') {
+    if (decision.effect === 'permit') {
       const payment = await deps.pay({
         kind: scenario.tool === 'wire_transfer' ? 'wire' : 'refund',
         amountCents: scenario.amountCents,
@@ -106,7 +106,7 @@ export async function runScenarios(deps: {
     } else {
       result = 'stopped before payment';
     }
-    rows.push({ label: scenario.label, verdict: decision.verdict, control: controlFor(decision), result });
+    rows.push({ label: scenario.label, effect: decision.effect, control: controlFor(decision), result });
   }
   return rows;
 }

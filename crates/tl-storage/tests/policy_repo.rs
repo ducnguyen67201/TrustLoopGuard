@@ -8,8 +8,9 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
+use tl_core::AuthorizationEffect;
 use tl_core::Severity;
-use tl_policy::{Action, MatchClause, Matcher, Policy};
+use tl_policy::{MatchClause, Matcher, Policy};
 use tl_storage::{connect_postgres, migrate_postgres, schema::policies, PolicyRepo, StorageError};
 
 async fn fresh_repo() -> (PolicyRepo, testcontainers::ContainerAsync<PostgresImage>) {
@@ -34,7 +35,7 @@ fn sample_policy(id: &str) -> Policy {
         description: Some(format!("{id} description")),
         when: Default::default(),
         r#match: MatchClause::Single(Matcher::Literal("guaranteed refund".into())),
-        action: Action::Block,
+        action: AuthorizationEffect::Deny,
         rewrite: None,
         severity: Severity::High,
         owner_agent_id: None,
@@ -48,7 +49,7 @@ id: {id}
 description: Prevents guaranteed refund promises.
 match:
   literal: guaranteed refund
-action: block
+action: deny
 severity: high
 "#
     )
@@ -63,7 +64,7 @@ async fn upsert_and_get_round_trips_policy() {
 
     let fetched = repo.get("refund-guarantee").await.expect("get");
     assert_eq!(fetched.id, "refund-guarantee");
-    assert!(matches!(fetched.action, Action::Block));
+    assert!(matches!(fetched.action, AuthorizationEffect::Deny));
     assert_eq!(fetched.severity, Severity::High);
 }
 

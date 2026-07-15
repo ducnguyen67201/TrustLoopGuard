@@ -5,37 +5,37 @@ Use these recipes as starting points. Copy the closest complete example from
 
 ## Prevent Refund Promises
 
-Use `action: rewrite` when the user can still receive a safe response.
+Use `action: transform` when the user can still receive a safe response.
 
 ```yaml
 match:
   any:
     - literal: "guaranteed refund"
     - regex: "(?i)money[- ]back guarantee"
-action: rewrite
+action: transform
 rewrite: "I can help check refund eligibility, but I can't guarantee the outcome."
 ```
 
 ## Block PII Leakage
 
-Use `action: block` when the output should not be sent at all.
+Use `action: deny` when the output should not be sent at all.
 
 ```yaml
 match:
   regex: "(?i)(ssn|social security number)"
-action: block
+action: deny
 ```
 
 ## Escalate Legal Advice
 
-Use `action: escalate` when a human should review the conversation.
+Use `action: require_approval` when a human should review the conversation.
 
 ```yaml
 match:
   any:
     - regex: "(?i)you should sue"
     - semantic: "the agent gives legal advice"
-action: escalate
+action: require_approval
 ```
 
 ## Apply A Rule To One Agent

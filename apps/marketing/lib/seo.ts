@@ -67,7 +67,7 @@ export const landingPages = [
         body: 'Per-transaction, daily, monthly, merchant, and category caps before the action is allowed.',
       },
       {
-        title: 'Policy verdicts',
+        title: 'Policy effects',
         body: 'Return allow, cap, block, or hold-for-approval with a reason the app can show or log.',
       },
       {
@@ -86,7 +86,7 @@ export const landingPages = [
       {
         question: 'Where does TrustLoopGuard sit?',
         answer:
-          'It sits before the tool or payment action fires. Your agent proposes an action, your app checks it with TrustLoopGuard, then applies the returned verdict.',
+          'It sits before the tool or payment action fires. Your agent proposes an action, your app checks it with TrustLoopGuard, then applies the returned effect.',
       },
       {
         question: 'Does this replace payment rails?',
@@ -133,7 +133,7 @@ export const landingPages = [
     proof: [
       'Route and provider context',
       'Action metadata checked before forwarding',
-      'Allow, block, cap, or hold verdict',
+      'Allow, block, cap, or hold effect',
       'Trace id attached to the decision path',
     ],
     faq: [
@@ -158,7 +158,7 @@ export const landingPages = [
     eyebrow: 'MCP spend guard',
     h1: 'Gate MCP tool calls before they spend.',
     intro:
-      'MCP is where agents ask tools to act. TrustLoopGuard is designed for that boundary: the agent proposes a checkout, payment, refund, booking, or account action, and the guard returns a verdict before the tool runs.',
+      'MCP is where agents ask tools to act. TrustLoopGuard is designed for that boundary: the agent proposes a checkout, payment, refund, booking, or account action, and the guard returns a effect before the tool runs.',
     primaryCta: 'Talk through MCP',
     secondaryCta: 'Read the docs',
     problemHeading: 'Tool calls need action policy, not just prompt policy.',
@@ -185,7 +185,7 @@ export const landingPages = [
     ],
     proofHeading: 'Built around the tool-call boundary',
     proof: [
-      'Action-level verdicts',
+      'Action-level effects',
       'Policy context for each proposed side effect',
       'Audit records that explain why a transaction was allowed or blocked',
       'A path from soft software gates to harder payment controls later',
@@ -253,7 +253,7 @@ export const landingPages = [
       {
         question: 'Does this slow the booking path?',
         answer:
-          'The check is designed for the runtime path and returns a compact verdict your app can apply immediately.',
+          'The check is designed for the runtime path and returns a compact effect your app can apply immediately.',
       },
     ],
   },
@@ -295,7 +295,7 @@ export const landingPages = [
     proof: [
       'Cart state at checkout',
       'Final price and merchant',
-      'Policy verdict and reason',
+      'Policy effect and reason',
       'Trace id for support or dispute review',
     ],
     faq: [
@@ -392,7 +392,7 @@ export const landingPages = [
       },
       {
         title: 'Policy outcome',
-        body: 'Attach the rule, cap, checker, and verdict that shaped the response.',
+        body: 'Attach the rule, cap, checker, and effect that shaped the response.',
       },
       {
         title: 'Human review',
@@ -401,7 +401,7 @@ export const landingPages = [
     ],
     proofHeading: 'Useful audit records are action-level',
     proof: [
-      'Allow, cap, block, or hold verdict',
+      'Allow, cap, block, or hold effect',
       'Reason shown to the app or operator',
       'Trace id for follow-up',
       'Review outcome for escalated decisions',

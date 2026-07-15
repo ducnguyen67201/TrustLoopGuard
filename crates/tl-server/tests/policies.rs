@@ -16,7 +16,7 @@ id: refund-guarantee
 description: Prevents guaranteed refund promises.
 match:
   literal: guaranteed refund
-action: block
+action: deny
 severity: high
 "#;
 
@@ -167,7 +167,7 @@ async fn create_json_policy_canonicalizes_source_yaml() {
         "id": "json-policy",
         "description": "JSON policy",
         "match": { "literal": "refund" },
-        "action": "block",
+        "action": "deny",
         "severity": "medium"
     });
     let resp = app

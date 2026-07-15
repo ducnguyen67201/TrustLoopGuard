@@ -3,17 +3,15 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use tl_core::{
-    AgenticPaymentReservation, AgenticPaymentReservationStatus, ApprovalRequirement,
-    CreateFinancialActionRequest, CreateFinancialMandateRequest, FinancialActionListResponse,
-    FinancialActionOutcome, FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequest,
-    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus, FinancialMandate,
-    FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
-    FinancialReceipt, MoneyAmount,
+    AgenticPaymentReservation, AgenticPaymentReservationStatus, AuthorizationEffect,
+    AuthorizationIntentStatus, CreateFinancialActionRequest, FinancialActionListResponse,
+    FinancialActionOutcome, FinancialActionRecord, FinancialExecutionStatus,
+    FinancialOutcomeListResponse, FinancialReceipt, MoneyAmount,
 };
 use tokio::sync::{Mutex, RwLock};
 
 use super::{
-    validation::{is_valid_transition, validate_create_action},
+    validation::{is_valid_execution_transition, validate_create_action},
     AgenticPaymentBudgetReservationRequest, FinancialBudgetReservationOutcome,
     FinancialBudgetReservationRequest, FinancialBudgetViolation, FinancialBudgetWindow,
     FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
@@ -23,8 +21,6 @@ use super::{
 pub struct MemoryFinancialStore {
     actions: RwLock<HashMap<String, FinancialActionRecord>>,
     idempotency: RwLock<HashMap<String, String>>,
-    approval_requests: RwLock<HashMap<String, FinancialApprovalRequest>>,
-    mandates: RwLock<HashMap<String, FinancialMandate>>,
     receipts: RwLock<HashMap<String, FinancialReceipt>>,
     outcomes: RwLock<HashMap<String, Vec<FinancialActionOutcome>>>,
     ledger_entries: RwLock<HashMap<String, MemoryLedgerEntry>>,
@@ -36,6 +32,20 @@ pub struct MemoryFinancialStore {
 impl MemoryFinancialStore {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    async fn find_action(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        self.actions
+            .read()
+            .await
+            .values()
+            .find(|action| action.workspace_id == workspace_id && action.id == action_id)
+            .cloned()
+            .ok_or(FinancialStoreError::NotFound)
     }
 }
 
@@ -76,14 +86,21 @@ impl FinancialStore for MemoryFinancialStore {
     async fn create_action(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         input: CreateFinancialActionRequest,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
         validate_create_action(&input)?;
-        let idempotency_key = format!("{workspace_id}:{}", input.idempotency_key.trim());
+        let environment_id = clean_required("environment_id", environment_id)?;
+        let idempotency_key = format!(
+            "{workspace_id}:{environment_id}:{}",
+            input.idempotency_key.trim()
+        );
         let mut idempotency = self.idempotency.write().await;
         if let Some(action_id) = idempotency.get(&idempotency_key).cloned() {
             drop(idempotency);
-            return self.get_action(workspace_id, &action_id).await;
+            return self
+                .get_action(workspace_id, &environment_id, &action_id)
+                .await;
         }
 
         let principal_id = clean_required("principal_id", &input.action.principal_id)?;
@@ -97,7 +114,13 @@ impl FinancialStore for MemoryFinancialStore {
         let mut record = FinancialActionRecord {
             id: id.clone(),
             workspace_id: workspace_id.to_string(),
-            status: FinancialActionStatus::Proposed,
+            environment_id: environment_id.clone(),
+            authorization_intent_id: None,
+            authorization_receipt_id: None,
+            authorization_effect: AuthorizationEffect::Defer,
+            authorization_status: AuthorizationIntentStatus::Evaluating,
+            authorization: None,
+            execution_status: FinancialExecutionStatus::NotStarted,
             status_reason: None,
             action: tl_core::FinancialAction {
                 id: Some(id.clone()),
@@ -111,7 +134,7 @@ impl FinancialStore for MemoryFinancialStore {
         record.action.amount.currency = currency;
 
         let mut actions = self.actions.write().await;
-        let action_key = key(workspace_id, &id);
+        let action_key = action_key(workspace_id, &environment_id, &id);
         if actions.contains_key(&action_key) {
             return Err(FinancialStoreError::Conflict);
         }
@@ -123,12 +146,13 @@ impl FinancialStore for MemoryFinancialStore {
     async fn get_action(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
         self.actions
             .read()
             .await
-            .get(&key(workspace_id, action_id))
+            .get(&action_key(workspace_id, environment_id, action_id))
             .cloned()
             .ok_or(FinancialStoreError::NotFound)
     }
@@ -136,13 +160,17 @@ impl FinancialStore for MemoryFinancialStore {
     async fn list_actions(
         &self,
         workspace_id: &str,
+        environment_id: Option<&str>,
     ) -> Result<FinancialActionListResponse, FinancialStoreError> {
         let mut actions = self
             .actions
             .read()
             .await
             .values()
-            .filter(|action| action.workspace_id == workspace_id)
+            .filter(|action| {
+                action.workspace_id == workspace_id
+                    && environment_id.map_or(true, |id| action.environment_id == id)
+            })
             .cloned()
             .collect::<Vec<_>>();
         actions.sort_by(|a, b| {
@@ -153,120 +181,61 @@ impl FinancialStore for MemoryFinancialStore {
         Ok(FinancialActionListResponse { actions })
     }
 
-    async fn create_mandate(
+    async fn update_authorization(
         &self,
         workspace_id: &str,
-        input: CreateFinancialMandateRequest,
-    ) -> Result<FinancialMandate, FinancialStoreError> {
-        let principal_id = clean_required("principal_id", &input.principal_id)?;
-        let id = input
-            .id
-            .and_then(clean_optional)
-            .unwrap_or_else(|| uuid::Uuid::now_v7().to_string());
-        let version = input.version.unwrap_or(1);
-        if version <= 0 {
-            return Err(FinancialStoreError::Validation(
-                "mandate version must be positive".into(),
-            ));
-        }
-        let now = chrono::Utc::now().to_rfc3339();
-        let mandate = FinancialMandate {
-            id: id.clone(),
-            workspace_id: workspace_id.to_string(),
-            version,
-            status: FinancialMandateStatus::Active,
-            principal_id,
-            scope: input.scope,
-            metadata: input.metadata,
-            starts_at: input.starts_at,
-            expires_at: input.expires_at,
-            created_at: now.clone(),
-            updated_at: now,
-        };
-        let mut mandates = self.mandates.write().await;
-        let key = mandate_key(workspace_id, &id, version);
-        if mandates.contains_key(&key) {
+        environment_id: &str,
+        action_id: &str,
+        intent_id: Option<&str>,
+        receipt_id: Option<&str>,
+        effect: AuthorizationEffect,
+        status: AuthorizationIntentStatus,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        let mut actions = self.actions.write().await;
+        let record = actions
+            .get_mut(&action_key(workspace_id, environment_id, action_id))
+            .ok_or(FinancialStoreError::NotFound)?;
+        record.authorization_intent_id = intent_id.map(str::to_string);
+        record.authorization_receipt_id = receipt_id.map(str::to_string);
+        record.authorization_effect = effect;
+        record.authorization_status = status;
+        record.updated_at = Utc::now().to_rfc3339();
+        Ok(record.clone())
+    }
+
+    async fn transition_execution(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        action_id: &str,
+        status: FinancialExecutionStatus,
+        reason: Option<&str>,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        let mut actions = self.actions.write().await;
+        let record = actions
+            .get_mut(&action_key(workspace_id, environment_id, action_id))
+            .ok_or(FinancialStoreError::NotFound)?;
+        if record.execution_status != status
+            && !is_valid_execution_transition(record.execution_status, status)
+        {
             return Err(FinancialStoreError::Conflict);
         }
-        mandates.insert(key, mandate.clone());
-        Ok(mandate)
-    }
-
-    async fn list_mandates(
-        &self,
-        workspace_id: &str,
-    ) -> Result<FinancialMandateListResponse, FinancialStoreError> {
-        let mut mandates = self
-            .mandates
-            .read()
-            .await
-            .values()
-            .filter(|mandate| mandate.workspace_id == workspace_id)
-            .cloned()
-            .collect::<Vec<_>>();
-        mandates.sort_by(|a, b| {
-            b.created_at
-                .cmp(&a.created_at)
-                .then_with(|| b.id.cmp(&a.id))
-        });
-        Ok(FinancialMandateListResponse { mandates })
-    }
-
-    async fn get_mandate(
-        &self,
-        workspace_id: &str,
-        mandate_id: &str,
-        version: Option<i32>,
-    ) -> Result<FinancialMandate, FinancialStoreError> {
-        self.mandates
-            .read()
-            .await
-            .values()
-            .filter(|mandate| {
-                mandate.workspace_id == workspace_id
-                    && mandate.id == mandate_id
-                    && version.map_or(true, |expected| mandate.version == expected)
-            })
-            .max_by_key(|mandate| mandate.version)
-            .cloned()
-            .ok_or(FinancialStoreError::NotFound)
-    }
-
-    async fn revoke_mandate(
-        &self,
-        workspace_id: &str,
-        mandate_id: &str,
-    ) -> Result<FinancialMandate, FinancialStoreError> {
-        let mut mandates = self.mandates.write().await;
-        let mut latest_key: Option<String> = None;
-        let mut latest_version = i32::MIN;
-        for (key, mandate) in mandates.iter() {
-            if mandate.workspace_id == workspace_id
-                && mandate.id == mandate_id
-                && mandate.version > latest_version
-            {
-                latest_version = mandate.version;
-                latest_key = Some(key.clone());
-            }
-        }
-        let latest_key = latest_key.ok_or(FinancialStoreError::NotFound)?;
-        let latest = mandates
-            .get_mut(&latest_key)
-            .ok_or(FinancialStoreError::NotFound)?;
-        latest.status = FinancialMandateStatus::Revoked;
-        latest.updated_at = chrono::Utc::now().to_rfc3339();
-        Ok(latest.clone())
+        record.execution_status = status;
+        record.status_reason = reason.map(str::to_string);
+        record.updated_at = Utc::now().to_rfc3339();
+        Ok(record.clone())
     }
 
     async fn create_receipt(
         &self,
         workspace_id: &str,
         action_id: &str,
+        authorization_receipt_id: &str,
         trace_id: Option<&str>,
         ledger_event_ids: Vec<String>,
         proof: serde_json::Value,
     ) -> Result<FinancialReceipt, FinancialStoreError> {
-        self.get_action(workspace_id, action_id).await?;
+        self.find_action(workspace_id, action_id).await?;
         let id = action_id.to_string();
         if let Some(receipt) = self
             .receipts
@@ -280,6 +249,10 @@ impl FinancialStore for MemoryFinancialStore {
         let receipt = FinancialReceipt {
             id: id.clone(),
             action_id: action_id.to_string(),
+            authorization_receipt_id: clean_required(
+                "authorization_receipt_id",
+                authorization_receipt_id,
+            )?,
             trace_id: trace_id.map(str::to_string),
             ledger_event_ids,
             proof,
@@ -311,7 +284,7 @@ impl FinancialStore for MemoryFinancialStore {
         action_id: &str,
         outcome: FinancialActionOutcome,
     ) -> Result<FinancialActionOutcome, FinancialStoreError> {
-        self.get_action(workspace_id, action_id).await?;
+        self.find_action(workspace_id, action_id).await?;
         if outcome.action_id != action_id {
             return Err(FinancialStoreError::Validation(
                 "outcome action_id must match path action id".into(),
@@ -331,7 +304,7 @@ impl FinancialStore for MemoryFinancialStore {
         workspace_id: &str,
         action_id: &str,
     ) -> Result<FinancialOutcomeListResponse, FinancialStoreError> {
-        self.get_action(workspace_id, action_id).await?;
+        self.find_action(workspace_id, action_id).await?;
         let mut outcomes = self
             .outcomes
             .read()
@@ -341,133 +314,6 @@ impl FinancialStore for MemoryFinancialStore {
             .unwrap_or_default();
         outcomes.sort_by(|a, b| b.occurred_at.cmp(&a.occurred_at));
         Ok(FinancialOutcomeListResponse { outcomes })
-    }
-
-    async fn create_approval_request(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-        approval: ApprovalRequirement,
-    ) -> Result<FinancialApprovalRequest, FinancialStoreError> {
-        self.get_action(workspace_id, action_id).await?;
-        if let Some(expires_at) = &approval.expires_at {
-            DateTime::parse_from_rfc3339(expires_at).map_err(|_| {
-                FinancialStoreError::Validation("approval expires_at must be RFC3339".into())
-            })?;
-        }
-        let now = chrono::Utc::now().to_rfc3339();
-        let id = uuid::Uuid::now_v7().to_string();
-        let request = FinancialApprovalRequest {
-            id: id.clone(),
-            workspace_id: workspace_id.to_string(),
-            action_id: action_id.to_string(),
-            status: FinancialApprovalRequestStatus::Pending,
-            reason: approval.reason,
-            approver_roles: approval.approver_roles,
-            decided_by: None,
-            decided_at: None,
-            expires_at: approval.expires_at,
-            metadata: serde_json::json!({}),
-            created_at: now.clone(),
-            updated_at: now,
-        };
-        self.approval_requests
-            .write()
-            .await
-            .insert(key(workspace_id, &id), request.clone());
-        Ok(request)
-    }
-
-    async fn list_approval_requests(
-        &self,
-        workspace_id: &str,
-    ) -> Result<FinancialApprovalRequestListResponse, FinancialStoreError> {
-        let mut approval_requests = self
-            .approval_requests
-            .read()
-            .await
-            .values()
-            .filter(|request| request.workspace_id == workspace_id)
-            .cloned()
-            .collect::<Vec<_>>();
-        approval_requests.sort_by(|a, b| {
-            b.created_at
-                .cmp(&a.created_at)
-                .then_with(|| b.id.cmp(&a.id))
-        });
-        Ok(FinancialApprovalRequestListResponse { approval_requests })
-    }
-
-    async fn has_current_approved_request(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-    ) -> Result<bool, FinancialStoreError> {
-        let now = Utc::now();
-        Ok(self.approval_requests.read().await.values().any(|request| {
-            request.workspace_id == workspace_id
-                && request.action_id == action_id
-                && request.status == FinancialApprovalRequestStatus::Approved
-                && match request.expires_at.as_deref() {
-                    None => true,
-                    Some(expires_at) => DateTime::parse_from_rfc3339(expires_at)
-                        .map(|expires_at| expires_at.with_timezone(&Utc) > now)
-                        .unwrap_or(false),
-                }
-        }))
-    }
-
-    async fn resolve_pending_approval_requests(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-        status: FinancialApprovalRequestStatus,
-        decided_by: Option<&str>,
-    ) -> Result<(), FinancialStoreError> {
-        if !matches!(
-            status,
-            FinancialApprovalRequestStatus::Approved | FinancialApprovalRequestStatus::Denied
-        ) {
-            return Err(FinancialStoreError::Validation(
-                "approval request resolution must be approved or denied".into(),
-            ));
-        }
-        self.get_action(workspace_id, action_id).await?;
-        let now = chrono::Utc::now().to_rfc3339();
-        for request in self.approval_requests.write().await.values_mut() {
-            if request.workspace_id == workspace_id
-                && request.action_id == action_id
-                && request.status == FinancialApprovalRequestStatus::Pending
-            {
-                request.status = status;
-                request.decided_by = decided_by.map(str::to_string);
-                request.decided_at = Some(now.clone());
-                request.updated_at = now.clone();
-            }
-        }
-        Ok(())
-    }
-
-    async fn transition_action(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-        status: FinancialActionStatus,
-        _event_type: &str,
-    ) -> Result<FinancialActionRecord, FinancialStoreError> {
-        transition_action_with_status_reason(self, workspace_id, action_id, status, _event_type)
-            .await
-    }
-
-    async fn transition_action_with_reason(
-        &self,
-        workspace_id: &str,
-        action_id: &str,
-        status: FinancialActionStatus,
-        _event_type: &str,
-        reason: &str,
-    ) -> Result<FinancialActionRecord, FinancialStoreError> {
-        transition_action_with_status_reason(self, workspace_id, action_id, status, reason).await
     }
 
     async fn record_ledger_entry(
@@ -504,7 +350,7 @@ impl FinancialStore for MemoryFinancialStore {
             return Ok(entry_id);
         }
 
-        let action = self.get_action(workspace_id, action_id).await?;
+        let action = self.find_action(workspace_id, action_id).await?;
         let id = uuid::Uuid::now_v7().to_string();
         let entry = MemoryLedgerEntry {
             workspace_id: workspace_id.to_string(),
@@ -592,7 +438,7 @@ impl FinancialStore for MemoryFinancialStore {
                 violations: vec![],
             });
         }
-        let action = self.get_action(&workspace_id, &action_id).await?;
+        let action = self.find_action(&workspace_id, &action_id).await?;
         let currency = clean_required("currency", &amount.currency)?.to_uppercase();
         if action.action.principal_id != principal_id
             || action.action.amount.amount_minor != amount.amount_minor
@@ -930,28 +776,8 @@ fn key(workspace_id: &str, action_id: &str) -> String {
     format!("{workspace_id}:{action_id}")
 }
 
-async fn transition_action_with_status_reason(
-    store: &MemoryFinancialStore,
-    workspace_id: &str,
-    action_id: &str,
-    status: FinancialActionStatus,
-    status_reason: &str,
-) -> Result<FinancialActionRecord, FinancialStoreError> {
-    let mut actions = store.actions.write().await;
-    let record = actions
-        .get_mut(&key(workspace_id, action_id))
-        .ok_or(FinancialStoreError::NotFound)?;
-    if !is_valid_transition(record.status, status) {
-        return Err(FinancialStoreError::Conflict);
-    }
-    record.status = status;
-    record.status_reason = Some(status_reason.to_string());
-    record.updated_at = chrono::Utc::now().to_rfc3339();
-    Ok(record.clone())
-}
-
-fn mandate_key(workspace_id: &str, mandate_id: &str, version: i32) -> String {
-    format!("{workspace_id}:{mandate_id}:{version}")
+fn action_key(workspace_id: &str, environment_id: &str, action_id: &str) -> String {
+    format!("{workspace_id}:{environment_id}:{action_id}")
 }
 
 fn clean_required(name: &str, value: &str) -> Result<String, FinancialStoreError> {
@@ -962,15 +788,6 @@ fn clean_required(name: &str, value: &str) -> Result<String, FinancialStoreError
         )));
     }
     Ok(trimmed.to_string())
-}
-
-fn clean_optional(value: String) -> Option<String> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
 }
 
 fn signed_ledger_amount(kind: FinancialLedgerEntryKind, amount_minor: i64) -> i64 {

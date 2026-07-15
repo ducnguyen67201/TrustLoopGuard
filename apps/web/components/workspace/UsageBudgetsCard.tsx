@@ -45,7 +45,7 @@ export function UsageBudgetsCard({
       {
         id: 'action',
         header: 'On breach',
-        cell: (row) => <span className="capitalize">{row.on_breach ?? 'block'}</span>,
+        cell: (row) => <span className="capitalize">{row.on_breach ?? 'deny'}</span>,
       },
     ],
     [],

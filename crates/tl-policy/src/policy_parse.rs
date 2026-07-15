@@ -1,7 +1,8 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::policy_ast::{Action, MatchClause, Matcher, Policy};
+use crate::policy_ast::{MatchClause, Matcher, Policy};
+use tl_core::AuthorizationEffect;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ValidationIssue {
@@ -43,12 +44,12 @@ pub fn validate_policy(policy: &Policy) -> Result<(), Vec<ValidationIssue>> {
     validate_scope_list("when.agents", &policy.when.agents, &mut issues);
     validate_match_clause("match", &policy.r#match, &mut issues);
 
-    if matches!(policy.action, Action::Rewrite) {
+    if matches!(policy.action, AuthorizationEffect::Transform) {
         match policy.rewrite.as_deref().map(str::trim) {
             Some(s) if !s.is_empty() => {}
             _ => issues.push(ValidationIssue::new(
                 "rewrite",
-                "rewrite is required when action is rewrite",
+                "rewrite is required when effect is transform",
             )),
         }
     }
@@ -178,7 +179,7 @@ id: refund-promise
 description: Prevents unsupported refund promises
 match:
   regex: "(?i)refund"
-action: rewrite
+action: transform
 rewrite: "I'll connect you with a teammate."
 "#;
         let p = load_str(yaml).expect("parse");
@@ -199,7 +200,7 @@ when:
   channels: [chat, email]
 match:
   literal: "refund"
-action: block
+action: deny
 "#;
         let p = load_str(yaml).expect("parse");
         assert_eq!(p.when.domains, vec!["customer_support"]);
@@ -215,7 +216,7 @@ when:
   channel: [voice, chat]
 match:
   literal: "refund"
-action: block
+action: deny
 "#;
         let p = load_str(yaml).expect("parse");
         assert_eq!(p.when.channels.len(), 2);
@@ -227,7 +228,7 @@ action: block
 id: missing-rewrite
 match:
   literal: "refund"
-action: rewrite
+action: transform
 "#;
         let err = load_str(yaml).unwrap_err().to_string();
         assert!(err.contains("rewrite is required"));
@@ -239,7 +240,7 @@ action: rewrite
 id: bad-regex
 match:
   regex: "["
-action: block
+action: deny
 "#;
         let err = load_str(yaml).unwrap_err().to_string();
         assert!(err.contains("regex failed to compile"));
@@ -251,7 +252,7 @@ action: block
 id: "Refund Promise"
 match:
   literal: "refund"
-action: block
+action: deny
 "#;
         let err = load_str(yaml).unwrap_err().to_string();
         assert!(err.contains("lowercase letters"));
@@ -268,7 +269,7 @@ family: content
 id: tagged-content
 match:
   literal: "refund"
-action: block
+action: deny
 "#;
         let p = load_str(yaml).expect("parse");
         assert_eq!(p.id, "tagged-content");

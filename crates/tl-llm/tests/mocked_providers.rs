@@ -23,7 +23,7 @@ fn ok_response() -> ResponseTemplate {
 
 fn schema() -> JsonSchema {
     JsonSchema {
-        name: "Verdict".into(),
+        name: "AuthorizationEffect".into(),
         schema: json!({
             "type": "object",
             "properties": {
@@ -72,7 +72,10 @@ async fn openai_sends_bearer_auth_and_json_schema_body() {
     assert_eq!(body["messages"][0]["content"], "judge this");
     assert_eq!(body["response_format"]["type"], "json_schema");
     assert_eq!(body["response_format"]["json_schema"]["strict"], true);
-    assert_eq!(body["response_format"]["json_schema"]["name"], "Verdict");
+    assert_eq!(
+        body["response_format"]["json_schema"]["name"],
+        "AuthorizationEffect"
+    );
 }
 
 #[tokio::test]

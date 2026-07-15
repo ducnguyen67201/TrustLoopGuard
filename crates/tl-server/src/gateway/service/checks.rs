@@ -59,6 +59,9 @@ pub(super) async fn check_gateway_content(
             operation: "output".to_string(),
             parameters: json!({ "text": check.proposed_output }),
             side_effect: Some(SideEffectClass::None),
+            invocation_id: None,
+            tool_identity: None,
+            authorization: None,
         },
         sources: vec![
             Source {
@@ -82,7 +85,7 @@ pub(super) async fn check_gateway_content(
         context,
     };
 
-    let decision = execute_event_submission(
+    let result = execute_event_submission(
         state,
         check.workspace_id,
         check.environment_id,
@@ -91,7 +94,7 @@ pub(super) async fn check_gateway_content(
     )
     .await?;
 
-    Ok(decision)
+    Ok(result.decision)
 }
 
 pub(super) struct GatewayDecisionLog<'a> {
@@ -120,7 +123,7 @@ pub(super) fn log_gateway_decision(fields: GatewayDecisionLog<'_>) {
         route_id = %fields.route_id,
         run_id = fields.run_id.unwrap_or(""),
         phase = %fields.phase,
-        verdict = ?fields.decision.verdict,
+        effect = ?fields.decision.effect,
         trace_id = %fields.decision.trace_id,
         latency_ms = fields.decision.latency_ms,
         triggered_policy_count = fields.decision.triggered_policies.len(),
