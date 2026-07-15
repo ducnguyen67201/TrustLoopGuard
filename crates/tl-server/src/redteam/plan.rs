@@ -117,7 +117,10 @@ pub async fn plan_attack_vectors(
     body: Option<Json<RedteamPlanRequest>>,
 ) -> Response {
     let request = body.map(|Json(b)| b).unwrap_or_default();
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match crate::environments::resolve_environment_id(
         &headers,
         state.environment_store.as_ref(),
@@ -243,7 +246,10 @@ pub async fn list_plans(
     headers: HeaderMap,
     Path(agent_id): Path<String>,
 ) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state
         .plan_store
         .list(&workspace_id, &agent_id, PLAN_LIST_LIMIT)
@@ -270,7 +276,10 @@ pub async fn delete_plan(
     headers: HeaderMap,
     Path(plan_id): Path<String>,
 ) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.plan_store.delete(&workspace_id, &plan_id).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => plan_store_error_response(e),
@@ -384,7 +393,10 @@ pub async fn generate_static_policies(
     headers: HeaderMap,
     Path(agent_id): Path<String>,
 ) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match crate::environments::resolve_environment_id(
         &headers,
         state.environment_store.as_ref(),

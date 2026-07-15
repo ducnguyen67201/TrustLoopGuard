@@ -83,7 +83,10 @@ pub async fn harden_job(
     body: Option<Json<HardenRequest>>,
 ) -> Response {
     let request = body.map(|Json(b)| b).unwrap_or_default();
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match crate::environments::resolve_environment_id(
         &headers,
         state.environment_store.as_ref(),

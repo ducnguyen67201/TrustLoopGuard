@@ -116,7 +116,10 @@ pub async fn upsert_label_policy(
     headers: HeaderMap,
     Json(req): Json<UpsertSourceLabelPolicyRequest>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
 
     if let Err(msg) = validate_policy(&req.policy) {
         return api_error_response(
@@ -161,7 +164,10 @@ pub async fn get_label_policy(
     headers: HeaderMap,
     Path(origin): Path<String>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let Some(parsed) = parse_origin(&origin) else {
         return invalid_origin_response();
     };
@@ -194,7 +200,10 @@ pub async fn delete_label_policy(
     headers: HeaderMap,
     Path(origin): Path<String>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let Some(parsed) = parse_origin(&origin) else {
         return invalid_origin_response();
     };
@@ -224,7 +233,10 @@ pub async fn list_label_policies(
     State(state): State<LabelPolicyState>,
     headers: HeaderMap,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.list(&workspace_id).await {
         Ok(policies) => Json(SourceLabelPolicyListResponse { policies }).into_response(),
         Err(e) => store_error_response("list", &e),

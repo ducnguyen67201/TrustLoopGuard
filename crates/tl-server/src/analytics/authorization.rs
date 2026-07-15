@@ -31,7 +31,7 @@ pub(super) async fn authorize_analytics_workspace(
         ));
     }
 
-    let workspace_id = crate::policies::workspace_id_from_headers(headers);
+    let workspace_id = crate::policies::workspace_id_from_headers(headers)?;
     match analytics_user_id(headers, user, internal) {
         AnalyticsUserId::Some(user_id) => {
             require_workspace_member(&state.team_store, &workspace_id, user_id).await?;

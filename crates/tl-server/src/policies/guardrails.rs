@@ -59,7 +59,10 @@ pub async fn generate_guardrails(
     headers: HeaderMap,
     Path(agent_id): Path<String>,
 ) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,
@@ -204,7 +207,10 @@ pub async fn list_guardrails(
     headers: HeaderMap,
     Path(agent_id): Path<String>,
 ) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,

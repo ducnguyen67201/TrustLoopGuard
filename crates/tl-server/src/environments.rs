@@ -84,7 +84,10 @@ pub async fn list_environments(
     State(state): State<EnvironmentState>,
     headers: HeaderMap,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.list(&workspace_id).await {
         Ok(environments) => Json(WorkspaceEnvironmentListResponse { environments }).into_response(),
         Err(e) => environment_error_response(e),
@@ -107,7 +110,10 @@ pub async fn create_environment(
     headers: HeaderMap,
     Json(input): Json<CreateWorkspaceEnvironmentRequest>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.create(&workspace_id, input).await {
         Ok(environment) => (StatusCode::CREATED, Json(environment)).into_response(),
         Err(e) => environment_error_response(e),
@@ -133,7 +139,10 @@ pub async fn update_environment(
     Path(id): Path<String>,
     Json(input): Json<UpdateWorkspaceEnvironmentRequest>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.update(&workspace_id, &id, input).await {
         Ok(environment) => Json(environment).into_response(),
         Err(e) => environment_error_response(e),
@@ -157,7 +166,10 @@ pub async fn delete_environment(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.delete(&workspace_id, &id).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => environment_error_response(e),

@@ -36,7 +36,10 @@ pub async fn list_gateway_provider_connections(
     if let Some(response) = reject_runtime_key_config_access(runtime_key) {
         return response;
     }
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.list_provider_connections(&workspace_id).await {
         Ok(provider_connections) => Json(GatewayProviderConnectionListResponse {
             provider_connections,
@@ -67,7 +70,10 @@ pub async fn create_gateway_provider_connection(
     if let Some(response) = reject_runtime_key_config_access(runtime_key) {
         return response;
     }
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let input = match normalize_provider_connection(&workspace_id, req, &state.seal_key) {
         Ok(input) => input,
         Err(message) => return api_error_response(StatusCode::BAD_REQUEST, message),
@@ -101,7 +107,10 @@ pub async fn patch_gateway_provider_connection(
     if let Some(response) = reject_runtime_key_config_access(runtime_key) {
         return response;
     }
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let patch = match normalize_provider_connection_patch(req, &state.seal_key) {
         Ok(patch) => patch,
         Err(message) => return api_error_response(StatusCode::BAD_REQUEST, message),
@@ -137,7 +146,10 @@ pub async fn delete_gateway_provider_connection(
     if let Some(response) = reject_runtime_key_config_access(runtime_key) {
         return response;
     }
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state
         .store
         .delete_provider_connection(&workspace_id, &id)

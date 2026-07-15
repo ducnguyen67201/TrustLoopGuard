@@ -286,7 +286,10 @@ pub async fn list_traces(
     headers: HeaderMap,
     uri: Uri,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match crate::environments::resolve_environment_id(
         &headers,
         state.environment_store.as_ref(),

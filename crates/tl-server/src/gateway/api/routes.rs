@@ -33,7 +33,10 @@ pub async fn list_gateway_routes(
     if let Some(response) = reject_runtime_key_config_access(runtime_key) {
         return response;
     }
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.list_gateway_routes(&workspace_id).await {
         Ok(gateway_routes) => Json(GatewayRouteListResponse { gateway_routes }).into_response(),
         Err(error) => gateway_store_error_response(error),
@@ -59,7 +62,10 @@ pub async fn create_gateway_route(
     if let Some(response) = reject_runtime_key_config_access(runtime_key) {
         return response;
     }
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let input = match normalize_gateway_route(&workspace_id, req) {
         Ok(input) => input,
         Err(message) => return api_error_response(StatusCode::BAD_REQUEST, message),
@@ -91,7 +97,10 @@ pub async fn patch_gateway_route(
     if let Some(response) = reject_runtime_key_config_access(runtime_key) {
         return response;
     }
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let patch = match normalize_gateway_route_patch(req) {
         Ok(patch) => patch,
         Err(message) => return api_error_response(StatusCode::BAD_REQUEST, message),

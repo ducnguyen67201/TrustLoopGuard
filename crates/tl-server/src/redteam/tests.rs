@@ -79,6 +79,16 @@ fn dispatch_message(job_id: &str) -> DispatchJob {
     }
 }
 
+fn workspace_headers() -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.insert("x-tlg-workspace-id", "ws".parse().unwrap());
+    headers
+}
+
+fn test_workspace_id() -> String {
+    workspace_id_from_headers(&workspace_headers()).unwrap()
+}
+
 /// Fake runner with canned poll output. Optionally cancels the job via a
 /// shared store handle on first poll to exercise the cooperative cancel path.
 struct FakeRunner {
@@ -852,7 +862,7 @@ async fn dispatch_returns_201_and_queues_job() {
         llm: Arc::new(LlmRouter::empty()),
     };
 
-    let response = dispatch_job(State(state), HeaderMap::new(), Json(dispatch_req())).await;
+    let response = dispatch_job(State(state), workspace_headers(), Json(dispatch_req())).await;
     assert_eq!(response.status(), StatusCode::CREATED);
 
     let queued = rx.try_recv().expect("job should be queued");
@@ -871,7 +881,7 @@ async fn dispatch_returns_503_when_worker_disabled() {
         llm: Arc::new(LlmRouter::empty()),
     };
 
-    let response = dispatch_job(State(state), HeaderMap::new(), Json(dispatch_req())).await;
+    let response = dispatch_job(State(state), workspace_headers(), Json(dispatch_req())).await;
     assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
     let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
@@ -896,7 +906,7 @@ async fn dispatch_rejects_invalid_target() {
 
     let response = dispatch_job(
         State(state),
-        HeaderMap::new(),
+        workspace_headers(),
         Json(req_with("not-a-url", "fast")),
     )
     .await;
@@ -956,7 +966,7 @@ async fn seed_job(
     agent_id: Option<&str>,
     sessions: &[RedteamAttackSession],
 ) -> String {
-    let workspace_id = crate::policies::workspace_id_from_headers(&HeaderMap::new());
+    let workspace_id = test_workspace_id();
     let request = RedteamDispatchRequest {
         target_url: "http://127.0.0.1:9101".into(),
         profile: "fast".into(),
@@ -1013,7 +1023,7 @@ async fn get_report_returns_payload_with_severity() {
     let uri: Uri = format!("/v1/redteam/jobs/{id}/report").parse().unwrap();
     let response = get_report(
         State(report_state(store)),
-        HeaderMap::new(),
+        workspace_headers(),
         Path(id.clone()),
         uri,
     )
@@ -1032,7 +1042,7 @@ async fn get_report_404_for_unknown_job() {
     let uri: Uri = "/v1/redteam/jobs/missing/report".parse().unwrap();
     let response = get_report(
         State(report_state(store)),
-        HeaderMap::new(),
+        workspace_headers(),
         Path("missing".into()),
         uri,
     )
@@ -1073,7 +1083,7 @@ async fn get_report_compares_same_agent_runs() {
         .unwrap();
     let response = get_report(
         State(report_state(store)),
-        HeaderMap::new(),
+        workspace_headers(),
         Path(baseline.clone()),
         uri,
     )
@@ -1107,7 +1117,7 @@ async fn get_report_rejects_compare_from_different_agent() {
         .unwrap();
     let response = get_report(
         State(report_state(store)),
-        HeaderMap::new(),
+        workspace_headers(),
         Path(a.clone()),
         uri,
     )
@@ -1163,7 +1173,7 @@ async fn create_report_mints_share_for_complete_job() {
 
     let response = create_report(
         State(redteam),
-        HeaderMap::new(),
+        workspace_headers(),
         axum::Json(CreateReportRequest {
             job_id: id.clone(),
             compare_job_id: None,
@@ -1183,7 +1193,7 @@ async fn create_report_mints_share_for_complete_job() {
 async fn create_report_rejects_incomplete_job() {
     let (redteam, _public, job_store) = share_states();
     // A freshly created job is Queued, not Complete.
-    let workspace_id = crate::policies::workspace_id_from_headers(&HeaderMap::new());
+    let workspace_id = test_workspace_id();
     let job = job_store
         .create(&workspace_id, "env", &dispatch_req())
         .await
@@ -1191,7 +1201,7 @@ async fn create_report_rejects_incomplete_job() {
 
     let response = create_report(
         State(redteam),
-        HeaderMap::new(),
+        workspace_headers(),
         axum::Json(CreateReportRequest {
             job_id: job.id,
             compare_job_id: None,
@@ -1221,7 +1231,7 @@ async fn public_report_reads_then_404s_after_revoke() {
     // Mint.
     let minted = create_report(
         State(redteam.clone()),
-        HeaderMap::new(),
+        workspace_headers(),
         axum::Json(CreateReportRequest {
             job_id: id.clone(),
             compare_job_id: None,
@@ -1238,7 +1248,12 @@ async fn public_report_reads_then_404s_after_revoke() {
     assert_eq!(payload.aggregates.risk_level, ReportSeverity::Critical);
 
     // Revoke, then the same token 404s.
-    let revoked = revoke_report(State(redteam), HeaderMap::new(), Path(share.token.clone())).await;
+    let revoked = revoke_report(
+        State(redteam),
+        workspace_headers(),
+        Path(share.token.clone()),
+    )
+    .await;
     assert_eq!(revoked.status(), StatusCode::NO_CONTENT);
 
     let after = get_public_report(State(public), Path(share.token)).await;
@@ -1278,7 +1293,7 @@ async fn public_report_429s_over_the_per_token_limit() {
     .await;
     let minted = create_report(
         State(redteam),
-        HeaderMap::new(),
+        workspace_headers(),
         axum::Json(CreateReportRequest {
             job_id: id,
             compare_job_id: None,
@@ -1306,7 +1321,7 @@ async fn create_report_rejects_self_comparison() {
     .await;
     let response = create_report(
         State(redteam),
-        HeaderMap::new(),
+        workspace_headers(),
         axum::Json(CreateReportRequest {
             job_id: id.clone(),
             compare_job_id: Some(id),
@@ -1332,7 +1347,7 @@ fn harden_state(store: Arc<MemoryRedteamJobStore>) -> RedteamState {
 }
 
 async fn seed_landed_credential_job(store: &MemoryRedteamJobStore) -> String {
-    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let ws = test_workspace_id();
     let job = store
         .create(&ws, "production", &dispatch_req())
         .await
@@ -1349,7 +1364,7 @@ async fn seed_landed_credential_job(store: &MemoryRedteamJobStore) -> String {
 }
 
 async fn seed_landed_refund_action_job(store: &MemoryRedteamJobStore) -> String {
-    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let ws = test_workspace_id();
     let job = store
         .create(&ws, "production", &dispatch_req())
         .await
@@ -1369,7 +1384,7 @@ async fn seed_landed_refund_action_job(store: &MemoryRedteamJobStore) -> String 
 }
 
 async fn seed_landed_account_workflow_job(store: &MemoryRedteamJobStore) -> String {
-    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let ws = test_workspace_id();
     let job = store
         .create(&ws, "production", &dispatch_req())
         .await
@@ -1419,7 +1434,7 @@ async fn harden_recommends_disabled_candidate_for_landed_credential() {
 
     let response = harden_job(
         State(state),
-        HeaderMap::new(),
+        workspace_headers(),
         Path(job_id),
         Some(Json(HardenRequest { persist: false })),
     )
@@ -1455,7 +1470,7 @@ async fn harden_rejects_refund_workflow_without_semantic_judge() {
 
     let response = harden_job(
         State(state),
-        HeaderMap::new(),
+        workspace_headers(),
         Path(job_id),
         Some(Json(HardenRequest { persist: false })),
     )
@@ -1480,7 +1495,7 @@ async fn harden_uses_agent_workflow_requirements_for_non_refund_workflow() {
     let store = Arc::new(MemoryRedteamJobStore::new());
     let job_id = seed_landed_account_workflow_job(&store).await;
     let agent_store = Arc::new(MemoryAgentStore::new());
-    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let ws = test_workspace_id();
     agent_store
         .upsert(&ws, &account_workflow_profile(), "agent yaml")
         .await
@@ -1490,7 +1505,7 @@ async fn harden_uses_agent_workflow_requirements_for_non_refund_workflow() {
 
     let response = harden_job(
         State(state),
-        HeaderMap::new(),
+        workspace_headers(),
         Path(job_id),
         Some(Json(HardenRequest { persist: false })),
     )
@@ -1515,9 +1530,9 @@ async fn harden_persists_when_requested() {
     let job_id = seed_landed_credential_job(&store).await;
     let env_store = Arc::new(MemoryEnvironmentStore::new());
     let policy_store = Arc::new(MemoryPolicyStore::new());
-    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let ws = test_workspace_id();
     let env_id =
-        crate::environments::resolve_environment_id(&HeaderMap::new(), env_store.as_ref(), &ws)
+        crate::environments::resolve_environment_id(&workspace_headers(), env_store.as_ref(), &ws)
             .await
             .unwrap();
     let state = RedteamState {
@@ -1532,7 +1547,7 @@ async fn harden_persists_when_requested() {
 
     let response = harden_job(
         State(state),
-        HeaderMap::new(),
+        workspace_headers(),
         Path(job_id),
         Some(Json(HardenRequest { persist: true })),
     )
@@ -1554,9 +1569,9 @@ async fn harden_tightens_existing_candidate_and_preserves_enabled_state() {
     let job_id = seed_landed_credential_job(&store).await;
     let env_store = Arc::new(MemoryEnvironmentStore::new());
     let policy_store = Arc::new(MemoryPolicyStore::new());
-    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let ws = test_workspace_id();
     let env_id =
-        crate::environments::resolve_environment_id(&HeaderMap::new(), env_store.as_ref(), &ws)
+        crate::environments::resolve_environment_id(&workspace_headers(), env_store.as_ref(), &ws)
             .await
             .unwrap();
 
@@ -1571,7 +1586,7 @@ async fn harden_tightens_existing_candidate_and_preserves_enabled_state() {
     };
     let first = harden_job(
         State(first_state),
-        HeaderMap::new(),
+        workspace_headers(),
         Path(job_id.clone()),
         Some(Json(HardenRequest { persist: true })),
     )
@@ -1593,7 +1608,7 @@ async fn harden_tightens_existing_candidate_and_preserves_enabled_state() {
     };
     let second = harden_job(
         State(second_state),
-        HeaderMap::new(),
+        workspace_headers(),
         Path(job_id),
         Some(Json(HardenRequest { persist: true })),
     )
@@ -1619,7 +1634,7 @@ async fn harden_tightens_existing_candidate_and_preserves_enabled_state() {
 #[tokio::test]
 async fn harden_reports_rejection_when_candidate_cannot_be_verified() {
     let store = Arc::new(MemoryRedteamJobStore::new());
-    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let ws = test_workspace_id();
     let job = store
         .create(&ws, "production", &dispatch_req())
         .await
@@ -1636,7 +1651,7 @@ async fn harden_reports_rejection_when_candidate_cannot_be_verified() {
 
     let response = harden_job(
         State(state),
-        HeaderMap::new(),
+        workspace_headers(),
         Path(job.id),
         Some(Json(HardenRequest::default())),
     )
@@ -1659,7 +1674,7 @@ async fn harden_reports_rejection_when_candidate_cannot_be_verified() {
 #[tokio::test]
 async fn harden_returns_no_candidates_when_nothing_landed() {
     let store = Arc::new(MemoryRedteamJobStore::new());
-    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let ws = test_workspace_id();
     let job = store
         .create(&ws, "production", &dispatch_req())
         .await
@@ -1676,7 +1691,7 @@ async fn harden_returns_no_candidates_when_nothing_landed() {
 
     let response = harden_job(
         State(state),
-        HeaderMap::new(),
+        workspace_headers(),
         Path(job.id),
         Some(Json(HardenRequest::default())),
     )
@@ -1692,7 +1707,7 @@ async fn harden_returns_no_candidates_when_nothing_landed() {
 #[tokio::test]
 async fn harden_rejects_incomplete_job() {
     let store = Arc::new(MemoryRedteamJobStore::new());
-    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let ws = test_workspace_id();
     // A queued (not complete) job has partial/no results — harden must refuse.
     let job = store
         .create(&ws, "production", &dispatch_req())
@@ -1702,7 +1717,7 @@ async fn harden_rejects_incomplete_job() {
 
     let response = harden_job(
         State(state),
-        HeaderMap::new(),
+        workspace_headers(),
         Path(job.id),
         Some(Json(HardenRequest::default())),
     )

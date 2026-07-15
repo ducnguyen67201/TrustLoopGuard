@@ -188,7 +188,10 @@ async fn submit_event_returns_default_allow_when_nothing_matches() {
     let app = app();
 
     let resp = app
-        .oneshot(submit_request(&send_email_event(), None))
+        .oneshot(submit_request(
+            &send_email_event(),
+            Some(DEFAULT_WORKSPACE_ID),
+        ))
         .await
         .unwrap();
     let status = resp.status();
@@ -611,7 +614,10 @@ async fn validation_rejections() {
     ];
 
     for (body, expected_fragment) in cases {
-        let resp = app().oneshot(submit_request(&body, None)).await.unwrap();
+        let resp = app()
+            .oneshot(submit_request(&body, Some(DEFAULT_WORKSPACE_ID)))
+            .await
+            .unwrap();
         assert_eq!(
             resp.status(),
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -630,6 +636,18 @@ async fn validation_rejections() {
 }
 
 #[tokio::test]
+async fn event_requires_explicit_workspace_context() {
+    let mut body = send_email_event();
+    body["principal"]["workspace_id"] = serde_json::json!("");
+
+    let resp = app().oneshot(submit_request(&body, None)).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let value = read_body(resp).await;
+    assert_eq!(value["message"], "workspace id is required");
+}
+
+#[tokio::test]
 async fn run_id_must_be_uuid_and_exist() {
     let app = app();
 
@@ -637,7 +655,7 @@ async fn run_id_must_be_uuid_and_exist() {
     body["principal"]["run_id"] = serde_json::json!("not-a-uuid");
     let resp = app
         .clone()
-        .oneshot(submit_request(&body, None))
+        .oneshot(submit_request(&body, Some(DEFAULT_WORKSPACE_ID)))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
@@ -646,7 +664,7 @@ async fn run_id_must_be_uuid_and_exist() {
     body["principal"]["run_id"] = serde_json::json!("018f9999-9999-7999-8999-999999999999");
     let resp = app
         .clone()
-        .oneshot(submit_request(&body, None))
+        .oneshot(submit_request(&body, Some(DEFAULT_WORKSPACE_ID)))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
@@ -656,7 +674,7 @@ async fn run_id_must_be_uuid_and_exist() {
     body["principal"]["run_event_id"] = serde_json::json!("018f9999-9999-7999-8999-999999999999");
     let resp = app
         .clone()
-        .oneshot(submit_request(&body, None))
+        .oneshot(submit_request(&body, Some(DEFAULT_WORKSPACE_ID)))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
@@ -664,7 +682,10 @@ async fn run_id_must_be_uuid_and_exist() {
     // run_event_id must itself be a UUID.
     let mut body = send_email_event();
     body["principal"]["run_event_id"] = serde_json::json!("not-a-uuid");
-    let resp = app.oneshot(submit_request(&body, None)).await.unwrap();
+    let resp = app
+        .oneshot(submit_request(&body, Some(DEFAULT_WORKSPACE_ID)))
+        .await
+        .unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
 
@@ -675,7 +696,10 @@ async fn oversized_body_rejected_before_deserialization() {
     // 600 KiB body exceeds the route's 512 KiB cap.
     let mut body = send_email_event();
     body["context"] = serde_json::json!({ "blob": "x".repeat(600 * 1024) });
-    let resp = app.oneshot(submit_request(&body, None)).await.unwrap();
+    let resp = app
+        .oneshot(submit_request(&body, Some(DEFAULT_WORKSPACE_ID)))
+        .await
+        .unwrap();
     assert_eq!(resp.status(), StatusCode::PAYLOAD_TOO_LARGE);
 }
 
@@ -714,7 +738,10 @@ async fn non_raw_allowed_workspace_rejected() {
     let app = router(state, None, [0u8; 32]);
 
     let resp = app
-        .oneshot(submit_request(&send_email_event(), None))
+        .oneshot(submit_request(
+            &send_email_event(),
+            Some(DEFAULT_WORKSPACE_ID),
+        ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);

@@ -17,12 +17,13 @@ use tl_core::{
 use super::{response::financial_error_response, FinancialState};
 use crate::auth::WorkspaceKeyContext;
 
-fn scope(headers: &HeaderMap) -> (String, String) {
-    (
-        crate::policies::workspace_id_from_headers(headers),
+fn scope(headers: &HeaderMap) -> Result<(String, String), Response> {
+    let workspace_id = crate::policies::workspace_id_from_headers(headers)?;
+    Ok((
+        workspace_id,
         crate::environments::environment_id_from_headers(headers)
             .unwrap_or_else(|| DEFAULT_ENVIRONMENT_ID.to_string()),
-    )
+    ))
 }
 
 #[utoipa::path(
@@ -41,7 +42,10 @@ pub async fn create_action(
     headers: HeaderMap,
     Json(input): Json<CreateFinancialActionRequest>,
 ) -> Response {
-    let (workspace_id, environment_id) = scope(&headers);
+    let (workspace_id, environment_id) = match scope(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return response,
+    };
     match state
         .service
         .create_action_in_environment(&workspace_id, &environment_id, input)
@@ -59,7 +63,10 @@ pub async fn create_action(
     responses((status = 200, description = "Financial actions", body = FinancialActionListResponse)),
 )]
 pub async fn list_actions(State(state): State<FinancialState>, headers: HeaderMap) -> Response {
-    let (workspace_id, environment_id) = scope(&headers);
+    let (workspace_id, environment_id) = match scope(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return response,
+    };
     match state
         .service
         .list_actions(&workspace_id, Some(&environment_id))
@@ -83,7 +90,10 @@ pub async fn get_action(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    let (workspace_id, environment_id) = scope(&headers);
+    let (workspace_id, environment_id) = match scope(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return response,
+    };
     match state
         .service
         .get_action(&workspace_id, &environment_id, &id)
@@ -107,7 +117,10 @@ pub async fn execute_action(
     Path(id): Path<String>,
     Json(input): Json<tl_core::ExecuteFinancialActionRequest>,
 ) -> Response {
-    let (workspace_id, environment_id) = scope(&headers);
+    let (workspace_id, environment_id) = match scope(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return response,
+    };
     match state
         .service
         .execute_action(&workspace_id, &environment_id, &id, input)
@@ -131,7 +144,10 @@ pub async fn authorize_agentic_payment(
     headers: HeaderMap,
     Json(input): Json<AgenticPaymentAuthorizeRequest>,
 ) -> Response {
-    let (workspace_id, environment_id) = scope(&headers);
+    let (workspace_id, environment_id) = match scope(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return response,
+    };
     match state
         .service
         .authorize_agentic_payment_in_environment(
@@ -159,7 +175,10 @@ pub async fn get_agentic_payment(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    let (workspace_id, environment_id) = scope(&headers);
+    let (workspace_id, environment_id) = match scope(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return response,
+    };
     match state
         .service
         .get_agentic_payment(&workspace_id, &environment_id, &id)
@@ -185,7 +204,10 @@ pub async fn commit_agentic_payment(
     Path(id): Path<String>,
     Json(input): Json<AgenticPaymentCommitRequest>,
 ) -> Response {
-    let (workspace_id, environment_id) = scope(&headers);
+    let (workspace_id, environment_id) = match scope(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return response,
+    };
     match state
         .service
         .commit_agentic_payment(
@@ -217,7 +239,10 @@ pub async fn rollback_agentic_payment(
     Path(id): Path<String>,
     Json(input): Json<AgenticPaymentRollbackRequest>,
 ) -> Response {
-    let (workspace_id, environment_id) = scope(&headers);
+    let (workspace_id, environment_id) = match scope(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return response,
+    };
     match state
         .service
         .rollback_agentic_payment(
@@ -261,7 +286,10 @@ pub async fn get_receipt(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    let (workspace_id, _) = scope(&headers);
+    let (workspace_id, _) = match scope(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return response,
+    };
     match state.service.get_receipt(&workspace_id, &id).await {
         Ok(receipt) => Json(receipt).into_response(),
         Err(error) => financial_error_response(error),
@@ -275,7 +303,10 @@ pub async fn get_receipt(
     responses((status = 200, description = "Financial policies", body = FinancialPolicyListResponse)),
 )]
 pub async fn list_policies(State(state): State<FinancialState>, headers: HeaderMap) -> Response {
-    let (workspace_id, environment_id) = scope(&headers);
+    let (workspace_id, environment_id) = match scope(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return response,
+    };
     match state
         .service
         .list_financial_policies(&workspace_id, &environment_id)
@@ -298,7 +329,10 @@ pub async fn create_policy(
     headers: HeaderMap,
     Json(input): Json<CreateFinancialPolicyRequest>,
 ) -> Response {
-    let (workspace_id, environment_id) = scope(&headers);
+    let (workspace_id, environment_id) = match scope(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return response,
+    };
     match state
         .service
         .create_financial_policy(&workspace_id, &environment_id, input)
@@ -323,7 +357,10 @@ pub async fn record_action_outcome(
     Path(id): Path<String>,
     Json(input): Json<FinancialActionOutcome>,
 ) -> Response {
-    let (workspace_id, _) = scope(&headers);
+    let (workspace_id, _) = match scope(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return response,
+    };
     match state
         .service
         .record_action_outcome(&workspace_id, &id, input)
@@ -346,9 +383,25 @@ pub async fn list_action_outcomes(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    let (workspace_id, _) = scope(&headers);
+    let (workspace_id, _) = match scope(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return response,
+    };
     match state.service.list_action_outcomes(&workspace_id, &id).await {
         Ok(outcomes) => Json(outcomes).into_response(),
         Err(error) => financial_error_response(error),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::http::{HeaderMap, StatusCode};
+
+    use super::scope;
+
+    #[test]
+    fn financial_scope_requires_workspace_header() {
+        let response = scope(&HeaderMap::new()).expect_err("workspace is required");
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 }

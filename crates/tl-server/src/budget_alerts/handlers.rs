@@ -112,7 +112,10 @@ pub async fn list_budget_alerts(
     State(state): State<BudgetAlertApiState>,
     headers: HeaderMap,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.list_configs(&workspace_id).await {
         Ok(configs) => Json(BudgetAlertConfigListResponse { configs }).into_response(),
         Err(error) => budget_alert_error_response(error),
@@ -259,7 +262,10 @@ pub async fn list_budget_alert_firings(
     Path(config_id): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     if let Err(error) = state.store.get_config(&workspace_id, &config_id).await {
         return budget_alert_error_response(error);
     }

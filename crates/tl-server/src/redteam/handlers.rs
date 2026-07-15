@@ -46,7 +46,10 @@ pub async fn dispatch_job(
     if let Err(e) = validate_dispatch(&input) {
         return job_error_response(e);
     }
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,
@@ -119,7 +122,10 @@ pub async fn list_jobs(
     headers: HeaderMap,
     uri: Uri,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state
         .store
         .list(&workspace_id, read_filter(uri.query()))
@@ -147,7 +153,10 @@ pub async fn get_job(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let job = match state.store.get(&workspace_id, &id).await {
         Ok(job) => job,
         Err(e) => return job_error_response(e),
@@ -175,7 +184,10 @@ pub async fn cancel_job(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.cancel(&workspace_id, &id).await {
         Ok(job) => Json(job).into_response(),
         Err(e) => job_error_response(e),
@@ -206,7 +218,10 @@ pub async fn get_report(
     Path(id): Path<String>,
     uri: Uri,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let job = match state.store.get(&workspace_id, &id).await {
         Ok(job) => job,
         Err(e) => return job_error_response(e),
@@ -274,7 +289,10 @@ pub async fn create_report(
     headers: HeaderMap,
     Json(input): Json<CreateReportRequest>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
 
     let job = match state.store.get(&workspace_id, &input.job_id).await {
         Ok(job) => job,
@@ -434,7 +452,10 @@ pub async fn revoke_report(
     headers: HeaderMap,
     Path(token): Path<String>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.report_share_store.revoke(&workspace_id, &token).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => job_error_response(e),
@@ -461,7 +482,10 @@ pub async fn list_attack_records(
     headers: HeaderMap,
     uri: Uri,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state
         .store
         .list_attack_records(&workspace_id, read_attack_filter(uri.query()))

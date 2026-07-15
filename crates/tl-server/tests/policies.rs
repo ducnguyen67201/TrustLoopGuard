@@ -45,11 +45,16 @@ async fn request(
             .method(method)
             .uri(uri)
             .header(header::CONTENT_TYPE, "application/yaml")
+            .header("x-tlg-workspace-id", "ws")
             .body(body.into())
             .unwrap(),
     )
     .await
     .unwrap()
+}
+
+fn workspace_request() -> axum::http::request::Builder {
+    Request::builder().header("x-tlg-workspace-id", "ws")
 }
 
 include!("policies/validation.rs");
@@ -172,7 +177,7 @@ async fn create_json_policy_canonicalizes_source_yaml() {
     });
     let resp = app
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/policies")
                 .header(header::CONTENT_TYPE, "application/json")

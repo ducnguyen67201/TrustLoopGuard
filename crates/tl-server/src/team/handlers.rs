@@ -23,7 +23,10 @@ use crate::jwt::UserContext;
 
 /// GET /v1/team/members
 pub async fn list_members(State(state): State<TeamState>, headers: HeaderMap) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.list_members(&workspace_id).await {
         Ok(members) => Json(MemberListResponse { members }).into_response(),
         Err(e) => internal_error(e),
@@ -32,7 +35,10 @@ pub async fn list_members(State(state): State<TeamState>, headers: HeaderMap) ->
 
 /// GET /v1/team/invites
 pub async fn list_invites(State(state): State<TeamState>, headers: HeaderMap) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.list_pending_invites(&workspace_id).await {
         Ok(invites) => Json(InviteListResponse { invites }).into_response(),
         Err(e) => internal_error(e),
@@ -45,7 +51,10 @@ pub async fn create_invite(
     headers: HeaderMap,
     Json(req): Json<CreateInviteRequest>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let email = req.email.trim();
     if email.is_empty() || !email.contains('@') {
         return api_error(
@@ -89,7 +98,10 @@ pub async fn revoke_invite(
     headers: HeaderMap,
     Path(invite_id): Path<String>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.revoke_invite(&workspace_id, &invite_id).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(TeamStoreError::NotFound) => api_error(

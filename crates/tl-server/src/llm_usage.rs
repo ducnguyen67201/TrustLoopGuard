@@ -211,7 +211,10 @@ pub async fn list_llm_usage(
     headers: HeaderMap,
     uri: Uri,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let (mut filter, group_by) = match read_query(uri.query()) {
         Ok(parsed) => parsed,
         Err(message) => return llm_usage_error_response(LlmUsageStoreError::Validation(message)),

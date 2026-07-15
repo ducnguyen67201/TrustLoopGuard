@@ -48,13 +48,21 @@ async fn read_body(resp: axum::response::Response) -> serde_json::Value {
     }
 }
 
+fn request_with_workspace(workspace_id: &str) -> axum::http::request::Builder {
+    Request::builder().header("x-tlg-workspace-id", workspace_id)
+}
+
+fn workspace_request() -> axum::http::request::Builder {
+    request_with_workspace("ws")
+}
+
 #[tokio::test]
 async fn upsert_yaml_then_get_round_trips() {
     let app = build_app();
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/agents")
                 .header(header::CONTENT_TYPE, "application/yaml")
@@ -67,7 +75,7 @@ async fn upsert_yaml_then_get_round_trips() {
 
     let resp = app
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("GET")
                 .uri("/v1/agents/acme-support-v3")
                 .body(Body::empty())
@@ -96,7 +104,7 @@ async fn upsert_json_body_works() {
     });
     let resp = app
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/agents")
                 .header(header::CONTENT_TYPE, "application/json")
@@ -117,7 +125,7 @@ async fn upsert_overwrites_existing() {
         let resp = app
             .clone()
             .oneshot(
-                Request::builder()
+                workspace_request()
                     .method("POST")
                     .uri("/v1/agents")
                     .header(header::CONTENT_TYPE, "application/yaml")
@@ -130,7 +138,7 @@ async fn upsert_overwrites_existing() {
     }
     let resp = app
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("GET")
                 .uri("/v1/agents/acme-support-v3")
                 .body(Body::empty())
@@ -152,11 +160,10 @@ async fn same_agent_id_is_isolated_by_workspace_header() {
         let resp = app
             .clone()
             .oneshot(
-                Request::builder()
+                request_with_workspace(workspace_id)
                     .method("POST")
                     .uri("/v1/agents")
                     .header(header::CONTENT_TYPE, "application/yaml")
-                    .header("x-tlg-workspace-id", workspace_id)
                     .body(Body::from(body))
                     .unwrap(),
             )
@@ -169,10 +176,9 @@ async fn same_agent_id_is_isolated_by_workspace_header() {
         let resp = app
             .clone()
             .oneshot(
-                Request::builder()
+                request_with_workspace(workspace_id)
                     .method("GET")
                     .uri("/v1/agents/acme-support-v3")
-                    .header("x-tlg-workspace-id", workspace_id)
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -193,7 +199,7 @@ async fn same_agent_id_is_isolated_by_workspace_header() {
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
@@ -202,7 +208,7 @@ async fn delete_then_get_returns_404() {
     let _ = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("POST")
                 .uri("/v1/agents")
                 .header(header::CONTENT_TYPE, "application/yaml")
@@ -215,7 +221,7 @@ async fn delete_then_get_returns_404() {
     let resp = app
         .clone()
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("DELETE")
                 .uri("/v1/agents/acme-support-v3")
                 .body(Body::empty())
@@ -227,7 +233,7 @@ async fn delete_then_get_returns_404() {
 
     let resp = app
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("GET")
                 .uri("/v1/agents/acme-support-v3")
                 .body(Body::empty())
@@ -245,7 +251,7 @@ async fn delete_unknown_yields_404() {
     let app = build_app();
     let resp = app
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("DELETE")
                 .uri("/v1/agents/nope")
                 .body(Body::empty())
@@ -266,7 +272,7 @@ async fn list_returns_all_agents() {
         let _ = app
             .clone()
             .oneshot(
-                Request::builder()
+                workspace_request()
                     .method("POST")
                     .uri("/v1/agents")
                     .header(header::CONTENT_TYPE, "application/yaml")
@@ -278,7 +284,7 @@ async fn list_returns_all_agents() {
     }
     let resp = app
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("GET")
                 .uri("/v1/agents")
                 .body(Body::empty())
@@ -301,7 +307,7 @@ async fn missing_agent_yields_404() {
     let app = build_app();
     let resp = app
         .oneshot(
-            Request::builder()
+            workspace_request()
                 .method("GET")
                 .uri("/v1/agents/never-registered")
                 .body(Body::empty())

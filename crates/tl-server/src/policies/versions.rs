@@ -15,7 +15,10 @@ pub async fn list_policy_versions(
     headers: HeaderMap,
     Path(policy_id): Path<String>,
 ) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state.store.list_versions(&workspace_id, &policy_id).await {
         Ok(resp) => Json(resp).into_response(),
         Err(e) => policy_store_error_response(e),
@@ -28,7 +31,10 @@ pub async fn get_policy_version(
     headers: HeaderMap,
     Path((policy_id, version)): Path<(String, i32)>,
 ) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     match state
         .store
         .get_version(&workspace_id, &policy_id, version)
