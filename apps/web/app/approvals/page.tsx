@@ -4,7 +4,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { AuthorizationApprovalsContent } from '@/components/workspace/AuthorizationApprovalsContent';
 import { readParam, readWorkspaceSlug } from '@/lib/search-params';
 import { getDashboardShell } from '@/lib/server/dashboard-data';
-import { rustApiForWorkspace } from '@/lib/server/tl-client';
+import { rustApiForUserWorkspace } from '@/lib/server/tl-client';
 
 export default async function ApprovalsPage({
   searchParams,
@@ -17,7 +17,8 @@ export default async function ApprovalsPage({
   const shell = await getDashboardShell(workspaceSlug, environmentId);
   let response: AuthorizationApprovalListResponse = { approvals: [] };
   try {
-    response = await rustApiForWorkspace<AuthorizationApprovalListResponse>(
+    response = await rustApiForUserWorkspace<AuthorizationApprovalListResponse>(
+      shell.user,
       shell.activeWorkspace.id,
       '/v1/authorization/approvals',
       { method: 'GET' },
