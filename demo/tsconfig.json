@@ -15,6 +15,7 @@
     "types": ["node"]
   },
   "include": [
+    "agent-visibility/**/*.ts",
     "arena/**/*.ts",
     "dispute/**/*.ts",
     "financial-refund/**/*.ts",

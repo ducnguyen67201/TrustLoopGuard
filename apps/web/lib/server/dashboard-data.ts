@@ -8,6 +8,7 @@ import { getAppUrl } from '@/env';
 import { analyticsCatalogSchema, analyticsDashboardViewListSchema } from '@/lib/analytics-schemas';
 import { http } from '@/lib/http';
 import { parseRunDetailSnapshot, type RunDetailSnapshot } from '@/lib/run-detail-live';
+import { readTraceAgent, type AgentTracePayload } from '@/lib/trace-payload';
 import type {
   ApiKeyListResponse,
   GatewayProviderConnection,
@@ -340,7 +341,7 @@ export class UserApprovalRequiredError extends Error {
   }
 }
 
-type RuntimeDecisionPayload = {
+type RuntimeDecisionPayload = AgentTracePayload & {
   trace_id?: string;
   effect?: string;
   reason?: string;
@@ -1276,10 +1277,6 @@ function agentScope(profile: AgentProfileWire): string {
   const inScope = profile.scope?.in_scope?.filter(Boolean) ?? [];
   if (inScope.length > 0) return inScope.join(', ');
   return 'Runtime agent';
-}
-
-function readTraceAgent(payload: RuntimeDecisionPayload): string {
-  return payload.agent_id?.trim() || 'Runtime agent';
 }
 
 function readTracePolicy(payload: RuntimeDecisionPayload): string {

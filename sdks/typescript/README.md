@@ -18,7 +18,7 @@ sendToUser(reply);
 ```
 
 `guardAgent(...)` is the decorator. Put it where the agent is created, then
-leave every `agent.reply(...)` call site alone.
+leave every `agent.reply(...)` and local tool call site alone.
 
 ## Before you start
 
@@ -64,6 +64,12 @@ sendToUser(reply);
 `guardAgent(...)` returns the same agent type. Existing `agent.reply(...)` call
 sites stay unchanged. The decorator:
 
+- discovers supported local tools from OpenAI Agents JS `agent.tools`, LiveKit
+  `agent.toolCtx`, Mastra `getToolsForExecution()`, and compatible object maps;
+- wraps each local tool `execute()` through `POST /v1/events` before the real
+  side effect runs;
+- sends the exact tool name, proposed parameters, framework identity, and a
+  stable schema identity;
 - delegates to the original `reply()` method;
 - submits the final returned string to `POST /v1/events`;
 - returns the original or safely transformed reply on success;
@@ -151,8 +157,8 @@ workspace and environment scope from the runtime key.
 
 The raw user message is used locally to call the agent and support optional
 regeneration, but this output wrapper does not include the raw message text in
-the event by default. It guards the final reply boundary, not hidden framework
-internals.
+the event by default. Local executable tools exposed through a supported
+registry are guarded separately before execution.
 
 | Server effect | What `reply()` returns |
 | --- | --- |
@@ -163,10 +169,10 @@ internals.
 | `defer` | The configured retry-later message |
 | Transport failure | A safe block by default for wrapped agents |
 
-### Agent contract
+### Agent and tool contracts
 
-The first `reply()` argument must be the user message string and the method must
-return `Promise<string>`:
+When the agent exposes `reply()`, its first argument must be the user message
+string and it must return `Promise<string>`:
 
 ```ts
 interface ReplyAgent {
@@ -174,10 +180,58 @@ interface ReplyAgent {
 }
 ```
 
-This root decorator intercepts each invocation crossing `reply()` and guards
-the final returned response. Calls hidden inside a framework, such as tools or
-payments, still use framework adapters or explicit typed helpers because they
-require exact parameters and execution guarantees.
+For local tools, the SDK looks for an `execute(input, ...context)` function plus
+the framework's name, description, and input schema fields. It preserves
+additional execution context arguments while replacing the proposed input with
+the exact parameters authorized by TrustLoopGuard.
+
+```ts
+const agent = guardAgent(
+  createAgent({
+    tools: { weatherTool, bookAppointment, sendEmail },
+  }),
+  { agentId: 'support-agent' },
+);
+```
+
+No `withAuthorizedAction(...)` call is added to those three tool
+implementations. The decorator installs that authorization boundary once.
+
+OpenAI-hosted tools, remote MCP tools hidden behind a framework, and any tool
+whose local `execute()` is not exposed cannot be intercepted before execution.
+Use their host adapter or an explicit typed helper at the boundary you own.
+
+### Optional tool metadata registration
+
+Discovery and tool-call guarding are automatic. Control-plane metadata
+registration is off by default because it writes workspace configuration.
+Enable lazy registration when the application should own that setup:
+
+```ts
+import { ToolRegistrationMode, guardAgent } from '@trustloopguard/sdk';
+
+const agent = guardAgent(createAgent({ tools }), {
+  agentId: 'support-agent',
+  tools: {
+    register: ToolRegistrationMode.BestEffort,
+    inferMetadata(tool) {
+      return {
+        side_effect: tool.name === 'send-email' ? 'external_communication' : 'read',
+        reversible: false,
+        params: [],
+      };
+    },
+    onDiscoveryWarning(warning) {
+      logger.warn(warning);
+    },
+  },
+});
+```
+
+`best_effort` reports a warning and continues to authorization when
+registration fails. `strict` stops the first tool call before authorization or
+execution. Registration occurs once, lazily, before the first call to each
+discovered tool.
 
 ### Function-Only Integrations
 
@@ -252,10 +306,10 @@ const reply = await protect.stream({
 
 ## Explicit action helpers
 
-Tool calls, payments, and other side effects remain explicit because they need
-exact parameters, provenance, and at-most-once execution guarantees. Use
-`guardToolCall`, `withAuthorizedAction`, or the typed financial helpers for
-those boundaries.
+Use `withAuthorizedAction` when a framework does not expose its local tool
+registry, when tools are created dynamically outside the decorated agent, or
+when the caller must attach explicit provenance. Payments and typed financial
+actions remain on their dedicated helpers.
 
 ## Requirements
 
@@ -268,8 +322,12 @@ those boundaries.
   the dashboard agent.
 - `401 Unauthorized`: create or copy a runtime key for the same workspace and
   environment as the agent.
-- Your framework does not expose `reply(): Promise<string>`: use the
-  function-only `.wrap()` form or a framework adapter.
+- Your framework does not expose `reply(): Promise<string>`: local tools can
+  still be discovered, but guard the final framework result with the
+  function-only `.wrap()` form.
+- A hosted or hidden tool was not wrapped: provide
+  `tools.onDiscoveryWarning`, then use the framework host adapter or
+  `withAuthorizedAction` for that boundary.
 - Streaming: buffer the complete response with `protect.stream(...)` before
   sending any tokens to the user.
 

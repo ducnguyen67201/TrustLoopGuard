@@ -34,7 +34,7 @@ export function AgentFilter({ agents }: AgentFilterProps) {
 
   return (
     <div className="px-2 pb-2 pt-1">
-      <p className="mb-1 px-1 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">
+      <p className="mb-1 px-1 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
         Agent filter
       </p>
       <div className="flex items-center gap-1">

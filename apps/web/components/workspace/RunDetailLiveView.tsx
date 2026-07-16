@@ -527,7 +527,12 @@ function TraceDetail({ trace, turn }: { trace: RunTrace; turn: TraceTurn | null 
         <p className="mb-3 text-xs text-muted-foreground">{displayReason(trace)}</p>
       ) : null}
 
-      {trace.checkedInput ? <Excerpt label="Checked input" value={trace.checkedInput} /> : null}
+      {trace.checkedInput ? (
+        <Excerpt
+          label={trace.side === 'tool' ? 'Proposed tool parameters' : 'Checked input'}
+          value={trace.checkedInput}
+        />
+      ) : null}
       {trace.checkedOutput ? <Excerpt label="Checked output" value={trace.checkedOutput} /> : null}
       {!trace.checkedOutput && linkedEventOutput(turn) ? (
         <Excerpt label={linkedEventOutputLabel(turn)} value={linkedEventOutput(turn)!} />
@@ -994,7 +999,9 @@ function buildGuardFlow(snapshot: RunDetailSnapshot): GuardFlowStep[] {
   const eventById = new Map(snapshot.events.map((event) => [event.id, event]));
   const userTurns = snapshot.events.filter((event) => event.kind === 'User Turn').length;
   const assistantTurns = snapshot.events.filter((event) => event.kind === 'Assistant Turn').length;
-  const toolCalls = snapshot.events.filter((event) => event.kind === 'Tool Call').length;
+  const loggedToolCalls = snapshot.events.filter((event) => event.kind === 'Tool Call').length;
+  const guardedToolCalls = snapshot.traces.filter((trace) => trace.side === 'tool').length;
+  const toolCalls = Math.max(loggedToolCalls, guardedToolCalls);
   const outputChecks = snapshot.traces.filter((trace) => {
     const event = trace.runEventId ? eventById.get(trace.runEventId) : undefined;
     return event?.kind === 'Assistant Turn' || trace.side === 'output';
@@ -1002,7 +1009,9 @@ function buildGuardFlow(snapshot: RunDetailSnapshot): GuardFlowStep[] {
   const actionChecks = snapshot.traces.filter((trace) => {
     const event = trace.runEventId ? eventById.get(trace.runEventId) : undefined;
     return (
-      event?.kind === 'Tool Call' || (trace.side === 'other' && event?.kind !== 'Assistant Turn')
+      trace.side === 'tool' ||
+      event?.kind === 'Tool Call' ||
+      (trace.side === 'other' && event?.kind !== 'Assistant Turn')
     );
   });
 
@@ -1088,6 +1097,7 @@ function worstTraceTone(traces: RunTrace[]): FlowStepTone {
 function sideLabel(trace: RunTrace): string {
   if (trace.side === 'input') return 'Input check';
   if (trace.side === 'output') return 'Output check';
+  if (trace.side === 'tool') return 'Tool check';
   return trace.phase;
 }
 
@@ -1099,6 +1109,7 @@ function sideLabel(trace: RunTrace): string {
 function stageLabel(side: RunTrace['side']): string {
   if (side === 'input') return 'Before the AI replied';
   if (side === 'output') return 'After the AI replied';
+  if (side === 'tool') return 'Before the tool ran';
   return 'During the request';
 }
 
@@ -1112,6 +1123,10 @@ function traceSummary(trace: RunTrace, tone: Tone, turn: TraceTurn | null): stri
     const reason = displayReason(trace);
     if (isParameterAccountSourceFailure(trace)) return reason ?? 'Denied unsafe refund account';
     return `${tone.label} · ${trace.policy}${reason ? ` — ${reason}` : ''}`;
+  }
+  if (trace.side === 'tool') {
+    const operation = trace.operation ?? trace.toolName ?? 'Tool call';
+    return `${titleCase(operation)} · ${tone.label} · ${trace.policy}`;
   }
   const text =
     trace.side === 'output'

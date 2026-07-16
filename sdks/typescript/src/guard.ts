@@ -1,7 +1,8 @@
-// `guardAgent()` and `guard()` — output-boundary helpers.
+// `guardAgent()` and `guard()` — agent/tool and output-boundary helpers.
 //
 // Most integrations should decorate the agent once at startup. The returned
-// object keeps the same interface, so existing reply call sites stay unchanged:
+// object keeps the same interface, so existing reply and local-tool call sites
+// stay unchanged:
 //
 //   const agent = guardAgent(createAgent(), { agentId: 'acme-support-v3' });
 //   const reply = await agent.reply(userMessage);
@@ -37,6 +38,7 @@ import type { CreateRunEventRequest } from './generated/CreateRunEventRequest.js
 import type { AuthorizationDecision as Decision } from './generated/AuthorizationDecision.js';
 import type { GuardEvent } from './generated/GuardEvent.js';
 import { SdkError } from './errors.js';
+import { decorateAgentTools, type GuardToolDiscoveryOptions } from './tool-discovery.js';
 
 const DEFAULT_BLOCK_MESSAGE = "I can't help with that request.";
 const DEFAULT_REQUIRE_APPROVAL_MESSAGE = 'A human teammate should review this before we continue.';
@@ -240,6 +242,11 @@ export interface GuardFactoryOptions {
   log?: (event: GuardLogEvent) => void;
 }
 
+export interface GuardAgentOptions extends GuardFactoryOptions {
+  /** Automatic discovery and guarding for supported local tool registries. */
+  tools?: GuardToolDiscoveryOptions;
+}
+
 export interface GuardCallOptions {
   /** What the user said. */
   input: string;
@@ -342,23 +349,33 @@ export function guard(opts: GuardFactoryOptions | GuardOptions): OutputGuard | P
 }
 
 /**
- * Decorate an agent object at its output boundary.
+ * Decorate an agent object at its output and local-tool boundaries.
  *
- * The returned object keeps the agent's public interface, but `reply()` is
- * intercepted so its final string passes through TrustLoopGuard before it
- * reaches the caller. Existing `agent.reply(...)` call sites do not change.
+ * The returned object keeps the agent's public interface. When `reply()` is
+ * present, its final string passes through TrustLoopGuard before it reaches the
+ * caller. Supported local tool registries are discovered and their `execute()`
+ * methods are authorized before side effects run.
  */
-export function guardAgent<Args extends unknown[], Agent extends ReplyAgent<Args>>(
-  agent: Agent,
-  opts: GuardFactoryOptions,
-): Agent {
-  const reply = agent.reply.bind(agent);
-  const guardedReply = createOutputGuard(opts).wrap(reply);
+export function guardAgent<Agent extends object>(agent: Agent, opts: GuardAgentOptions): Agent {
+  const client = opts.client ?? new Client(clientOptions(opts));
+  const toolOptions = {
+    agentId: opts.agentId,
+    client,
+    ...(opts.context !== undefined ? { context: opts.context } : {}),
+    ...(opts.tools !== undefined ? { tools: opts.tools } : {}),
+  };
+  decorateAgentTools(agent, toolOptions);
+
+  const reply = Reflect.get(agent, 'reply', agent);
+  const guardedReply =
+    typeof reply === 'function'
+      ? createOutputGuard({ ...opts, client }).wrap(reply.bind(agent))
+      : undefined;
   const boundMethods = new WeakMap<object, unknown>();
 
   return new Proxy(agent, {
     get(target, property) {
-      if (property === 'reply') return guardedReply;
+      if (property === 'reply' && guardedReply !== undefined) return guardedReply;
 
       const value = Reflect.get(target, property, target);
       if (typeof value !== 'function') return value;

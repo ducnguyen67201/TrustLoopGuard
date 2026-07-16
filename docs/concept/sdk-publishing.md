@@ -20,8 +20,9 @@ matches `sdk-v*` is pushed.
 - `package.json` uses one export map for local and published consumers. Runtime
   imports resolve to `dist/index.js`; declarations resolve to `dist/index.d.ts`.
 - `pnpm --filter @trustloopguard/sdk test:package` packs the exact npm artifact,
-  imports it in Node, compiles a TypeScript consumer, verifies `guardAgent`, and
-  rejects source or generated runtime files that should not ship.
+  imports it in Node, compiles a TypeScript consumer, verifies `guardAgent` and
+  its tool-discovery exports, and rejects source or generated runtime files
+  that should not ship.
 - Relative ESM imports in emitted JavaScript include `.js` extensions so the
   packed artifact loads in Node without a custom resolver.
 

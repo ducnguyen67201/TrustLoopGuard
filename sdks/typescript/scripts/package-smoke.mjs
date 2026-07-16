@@ -44,7 +44,9 @@ try {
       '--input-type=module',
       '--eval',
       "const sdk = await import('@trustloopguard/sdk');" +
-        "if (typeof sdk.guardAgent !== 'function') process.exit(1);",
+        "if (typeof sdk.guardAgent !== 'function') process.exit(1);" +
+        "if (sdk.ToolRegistrationMode?.Strict !== 'strict') process.exit(1);" +
+        "if (typeof sdk.GuardedToolBlocked !== 'function') process.exit(1);",
     ],
     {
       cwd: temporaryDirectory,
@@ -58,9 +60,18 @@ try {
   await writeFile(
     join(temporaryDirectory, 'consumer.ts'),
     [
-      "import { guardAgent, type AuthorizationDecision } from '@trustloopguard/sdk';",
-      'const agent = guardAgent({ async reply(message: string) { return message; } },',
-      "  { agentId: 'smoke-agent', baseUrl: 'https://api.example.test' });",
+      "import { guardAgent, ToolRegistrationMode, type AuthorizationDecision, type GuardToolDiscoveryWarning } from '@trustloopguard/sdk';",
+      'const agent = guardAgent({',
+      '  tools: { echo: { id: "echo", description: "Echo input", inputSchema: { type: "object" }, async execute(input: { text: string }) { return input.text; } } },',
+      '  async reply(message: string) { return message; },',
+      '}, {',
+      "  agentId: 'smoke-agent',",
+      "  baseUrl: 'https://api.example.test',",
+      '  tools: {',
+      '    register: ToolRegistrationMode.Off,',
+      '    onDiscoveryWarning(warning: GuardToolDiscoveryWarning) { void warning; },',
+      '  },',
+      '});',
       'const decision: AuthorizationDecision | undefined = undefined;',
       'void agent;',
       'void decision;',

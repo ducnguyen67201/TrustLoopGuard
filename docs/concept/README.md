@@ -10,7 +10,7 @@ new, or use the visual map below to jump to the part you need.
 Customers integrate one primitive into their agent loop:
 
 ```
-agent.reply(...) → guardAgent(...) → GuardEvent → authorization kernel → safe reply + trace
+agent tool/reply → guardAgent(...) → GuardEvent → authorization kernel → safe execution + trace
 ```
 
 That runtime check is the product. SDK callers receive the decision and handle it in code; gateway callers route provider traffic through TrustLoopGuard and let the Rust proxy apply dashboard-managed enforcement.
@@ -24,6 +24,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 | The product concept | [architecture.md](architecture.md) | TrustLoopGuard is a gate in the agent output path, not the agent itself. |
 | Runtime data ownership | [architecture.md](architecture.md#runtime-data-flow) | SDKs and the dashboard both reach Rust; the dashboard does not own guardrail state. |
 | Event-engine contract | [event-engine.md](event-engine.md) | `GuardEvent` vocabulary, event-stage seams, policy evaluation, and decision evidence. |
+| TypeScript agent adapters | [sdk-agent-adapters.md](sdk-agent-adapters.md) | How one agent wrapper discovers and guards supported local tools. |
 | Authorization kernel | [authorization-kernel.md](authorization-kernel.md) | Shared effects, approvals, grants, leases, and receipts across every domain. |
 | Shell command safety | [command-safety.md](command-safety.md) | Tool policies, deterministic shell facts, and the Claude Code lease lifecycle. |
 | Financial authorization | [financial-authorization.md](financial-authorization.md) | Typed financial policy, execution, ledger, outcome, and reversal semantics. |
@@ -47,6 +48,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 10. [gateway.md](gateway.md) — how proxy/gateway mode differs from SDK mode.
 11. [agent-breakaway-arena.md](agent-breakaway-arena.md) — the raw-vs-guarded comparison concept and the agent adapter contract the demos use.
 12. [sdk-publishing.md](sdk-publishing.md) — how `@trustloopguard/sdk` is released to npm.
+13. [sdk-agent-adapters.md](sdk-agent-adapters.md) — how TypeScript agent wrappers discover local tools and where visibility stops.
 
 ## When to update these docs
 
@@ -59,6 +61,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 - Changed the proxy integration path? → update `gateway.md`.
 - Added or changed execution grouping? → update `runs.md`.
 - Changed the SDK release workflow or npm package process? → update `sdk-publishing.md`.
+- Changed TypeScript framework discovery or automatic tool wrapping? → update `sdk-agent-adapters.md`.
 - Changed the raw-vs-guarded comparison concept or the agent adapter contract? → update `agent-breakaway-arena.md`.
 - Changed PostHog initialization, identity, or product event names? → update `product-analytics.md`.
 

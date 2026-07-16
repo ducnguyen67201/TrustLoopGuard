@@ -19,6 +19,27 @@ const triggeredPolicySchema = z
   })
   .passthrough();
 
+const runtimeEventSchema = z
+  .object({
+    kind: z.string().optional(),
+    action: z
+      .object({
+        operation: z.string().optional(),
+        parameters: objectSchema.optional(),
+        tool_identity: z
+          .object({
+            server_id: z.string().optional(),
+            tool_name: z.string().optional(),
+            schema_hash: z.string().optional(),
+          })
+          .passthrough()
+          .optional(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+
 const runtimeDecisionPayloadSchema = z
   .object({
     trace_id: z.string().optional(),
@@ -30,6 +51,7 @@ const runtimeDecisionPayloadSchema = z
     checked_output_excerpt: z.string().nullable().optional(),
     latency_ms: z.number().optional(),
     agent_id: z.string().optional(),
+    event: runtimeEventSchema.optional(),
   })
   .passthrough();
 
@@ -184,6 +206,8 @@ export type RunDetailSnapshot = {
     safeOutput: string | null;
     checkedInput: string | null;
     checkedOutput: string | null;
+    operation: string | null;
+    toolName: string | null;
     latency: string;
     time: string;
     clock: string;
@@ -194,7 +218,7 @@ export type RunDetailSnapshot = {
   budgetDecision: z.infer<typeof budgetDecisionSchema> | null;
 };
 
-export type TraceSide = 'input' | 'output' | 'other';
+export type TraceSide = 'input' | 'output' | 'tool' | 'other';
 
 export function parseRunDetailSnapshot(value: Awaited<ReturnType<Response['json']>>) {
   const parsed = runDetailWireSchema.safeParse(value);
@@ -277,11 +301,13 @@ function traceSnapshot(
 ): RunDetailSnapshot['traces'][number] {
   const topPolicy = trace.payload.triggered_policies?.[0];
   const createdAt = new Date(trace.created_at);
+  const eventKind = trace.payload.event?.kind;
+  const action = trace.payload.event?.action;
   return {
     id: trace.trace_id,
     runEventId: trace.run_event_id ?? null,
-    side: traceSide(trace.domain),
-    phase: titleize(trace.domain),
+    side: traceSide(trace.domain, eventKind),
+    phase: titleize((eventKind ?? trace.domain).replaceAll('.', '_')),
     effect: titleize(trace.decision),
     outcome: trace.decision.toLowerCase(),
     triggered: (trace.payload.triggered_policies?.length ?? 0) > 0,
@@ -289,8 +315,11 @@ function traceSnapshot(
     policy: readTracePolicy(trace.payload),
     reason: trace.payload.reason?.trim() || 'No reason recorded',
     safeOutput: trace.payload.safe_output?.trim() || null,
-    checkedInput: trace.payload.checked_input_excerpt?.trim() || null,
+    checkedInput:
+      trace.payload.checked_input_excerpt?.trim() || formatActionParameters(trace.payload),
     checkedOutput: trace.payload.checked_output_excerpt?.trim() || null,
+    operation: action?.operation?.trim() || null,
+    toolName: action?.tool_identity?.tool_name?.trim() || null,
     latency: `${trace.elapsed_ms}ms`,
     time: relativeTime(createdAt),
     clock: formatClockTime(createdAt),
@@ -298,11 +327,20 @@ function traceSnapshot(
   };
 }
 
-function traceSide(domain: string): TraceSide {
+function traceSide(domain: string, eventKind?: string): TraceSide {
+  const kind = eventKind?.toLowerCase();
+  if (kind === 'tool.call.proposed' || kind === 'shell.action.proposed') return 'tool';
+  if (kind === 'output.proposed') return 'output';
   const lower = domain.toLowerCase();
   if (lower.includes('input')) return 'input';
   if (lower.includes('output')) return 'output';
   return 'other';
+}
+
+function formatActionParameters(payload: RuntimeDecisionPayloadWire): string | null {
+  const parameters = payload.event?.action?.parameters;
+  if (parameters === undefined || Object.keys(parameters).length === 0) return null;
+  return JSON.stringify(parameters, null, 2);
 }
 
 function synthesizeGatewayTurnEvents(

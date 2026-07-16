@@ -19,8 +19,8 @@ sendToUser(reply);
 ```
 
 Install one package, decorate the agent once where it is created, and keep the
-rest of the app calling `agent.reply(...)`. Do not add a guard check to every
-handler or helper.
+rest of the app calling `agent.reply(...)` and its existing local tools. Do not
+add a guard check to every handler, helper, or tool.
 
 ## Agent reply
 
@@ -43,9 +43,11 @@ const reply = await agent.reply(userMessage);
 sendToUser(reply);
 ```
 
-The decorator calls the original `reply()`, submits its returned draft directly
-to `POST /v1/events`, then applies the `AuthorizationDecision` before returning
-to the caller. The dashboard is not in this runtime path.
+The decorator discovers supported local tools and routes their `execute()`
+functions through `POST /v1/events` before side effects run. When the agent also
+has `reply()`, it submits the returned draft and applies the
+`AuthorizationDecision` before returning to the caller. The dashboard is not
+in this runtime path.
 
 For an existing helper like this:
 
@@ -66,10 +68,12 @@ const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
 
 The helper and every downstream call site stay unchanged.
 
-This integration guards the final reply string. It does not automatically
-observe hidden framework tool calls, payments, or other side effects, and the
-output event does not contain the raw user message by default. Use the explicit
-typed helpers below when the application owns one of those boundaries.
+This integration automatically guards local tools exposed by OpenAI Agents JS,
+LiveKit, Mastra, and compatible registries. It cannot intercept provider-hosted
+tools, hidden closures, or remote execution surfaces without a local
+`execute()` function. The output event does not contain the raw user message by
+default. Use the explicit typed helpers below for unsupported boundaries,
+explicit provenance, and financial actions.
 
 ## Canonical response
 
@@ -86,6 +90,22 @@ Every runtime domain returns `AuthorizationDecision` with one effect:
 All findings remain in `decision.findings`. Preserve `trace_id` and `receipt_id` for support and audit.
 
 ## Tool call
+
+For a supported local registry, no per-tool wrapper is needed:
+
+```ts
+const agent = guardAgent(createAgent({
+  tools: { weatherTool, bookAppointment, sendEmail },
+}), {
+  agentId: 'support-agent',
+});
+```
+
+Each discovered tool call sends `tool.call.proposed` with the exact operation,
+parameters, and tool identity. The original `execute()` runs only after permit.
+
+Use the lower-level helper when the framework hides execution or the caller
+needs to provide exact provenance:
 
 ```ts
 const result = await client.withAuthorizedAction(

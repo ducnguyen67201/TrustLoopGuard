@@ -2,7 +2,7 @@
   <img src="apps/web/public/trustloop-logo.svg" alt="TrustLoopGuard" width="80" />
   <h1>TrustLoopGuard</h1>
   <p><strong>The runtime firewall for AI agents.</strong><br/>
-  Guard an agent's final reply <em>before</em> it ships — then <code>allow</code>, <code>block</code>, <code>rewrite</code>, or <code>escalate</code>.</p>
+  Guard local tool calls and the final reply <em>before</em> they ship — then <code>allow</code>, <code>block</code>, <code>rewrite</code>, or <code>escalate</code>.</p>
 
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache 2.0" /></a>
   <img src="https://img.shields.io/badge/SDKs-TypeScript%20%C2%B7%20Python%20%C2%B7%20Rust-informational.svg" alt="SDKs" />
@@ -39,11 +39,11 @@ sendToUser(reply);
 ```
 
 That is the intended SDK path: install one package, decorate the agent once
-where it is created, and keep the rest of the app calling `agent.reply(...)`.
-No scattered `look.check(...)`, no wrapper at every call site, no repository
-clone, and no provider proxy setup.
+where it is created, and keep the rest of the app calling `agent.reply(...)`
+and its local tools. No scattered `look.check(...)`, no wrapper at every call
+site, no repository clone, and no provider proxy setup.
 
-- 🛡️ **Inspect** agent output before it reaches users or downstream systems
+- 🛡️ **Inspect** local tool calls and agent output before they reach users or downstream systems
 - 🚫 **Enforce** — block, rewrite, or escalate risky responses instead of only logging them
 - 🔌 **Integrate** with `npm install @trustloopguard/sdk` and one `guardAgent()` call
 
@@ -52,41 +52,50 @@ clone, and no provider proxy setup.
 The SDK is the customer integration path. It calls the Rust runtime directly
 and keeps enforcement at the application boundary the developer already owns.
 
-Think of `guardAgent(...)` as a decorator around the agent object. The original
-agent still produces the draft reply; the decorator catches that draft, sends it
-to `POST /v1/events`, applies the returned decision, and only then resolves
-`reply()`.
+Think of `guardAgent(...)` as a decorator around the agent object. It discovers
+supported local tool registries, authorizes each exposed `execute()` before the
+side effect, and still catches the final draft returned by `reply()` when that
+method exists.
 
 ## How it works
 
 ```mermaid
 flowchart LR
     call["agent.reply(message)"] --> agent["Original agent"]
-    agent --> draft["Draft reply"]
-    draft --> sdk["guardAgent() decorator"]
-    sdk --> event["POST /v1/events"]
+    agent --> tool["Local tool execute(params)"]
+    tool --> sdk["guardAgent() decorator"]
+    sdk --> toolEvent["tool.call.proposed"]
+    toolEvent --> event["POST /v1/events"]
     event --> runtime["Rust policy runtime"]
     runtime --> decision["permit / transform / deny<br/>require approval / defer"]
     decision --> sdk
-    sdk --> caller["Safe string returned to caller"]
+    sdk -->|permit| tool
+    agent --> draft["Draft reply"]
+    draft --> sdk
+    sdk --> outputEvent["output.proposed"]
+    outputEvent --> event
+    sdk --> caller["Safe result returned to caller"]
 ```
 
 <details>
 <summary>Plain-text version (for renderers without Mermaid)</summary>
 
 ```text
+agent tool execute(params)
+   -> guardAgent sends tool.call.proposed to POST /v1/events
+   -> the original tool runs only after permit
+
 agent.reply(message)
    -> original agent returns a draft
-   -> guardAgent sends the draft to POST /v1/events
-   -> Rust returns a decision
+   -> guardAgent sends output.proposed to POST /v1/events
    -> guardAgent returns the permitted, transformed, or safe fallback string
 ```
 
 </details>
 
-TrustLoopGuard sits in the runtime path before an agent response reaches a
-user or downstream system. `guardAgent()` wraps `reply()` once, so existing
-call sites do not add checks, branches, or extra guard calls.
+TrustLoopGuard sits in the runtime path before an agent response or local tool
+side effect reaches a user or downstream system. `guardAgent()` installs those
+boundaries once, so existing call sites do not add checks or extra guard calls.
 
 ## Use cases
 
@@ -182,7 +191,7 @@ Threats TrustLoopGuard is built to stop at the boundary:
 ## Features
 
 - **Four actionable verdicts**: `allow`, `block`, `rewrite` with a safe alternative, or `escalate` to a human
-- **Package-first SDK integration**: install one library and decorate your agent once without changing its reply call sites
+- **Package-first SDK integration**: install one library and decorate your agent once without changing its reply or local tool call sites
 - **⚡ Sub-millisecond hot path**: Tier 1 static matchers return in microseconds; Tier 2 adds 5-20 ms
 - **Parallel-cancel orchestrator**: Tier 1/2/3 run in parallel; early verdicts cancel slower tiers
 - **Channel-aware latency budgets**: chat and email can carry different deadline constraints
@@ -219,9 +228,9 @@ const reply = await agent.reply(userMessage);
 sendToUser(reply);
 ```
 
-The SDK calls `POST /v1/events` with the agent ID and draft reply, using
-`Authorization: Bearer <TLG_API_KEY>`. It applies the returned decision before
-`reply()` resolves.
+The SDK calls `POST /v1/events` with the agent ID and proposed tool call or
+draft reply, using `Authorization: Bearer <TLG_API_KEY>`. It applies the
+returned decision before a local tool executes or `reply()` resolves.
 
 If your app currently has a function like this:
 
@@ -250,12 +259,13 @@ Send one test message, then open the agent's trace in the dashboard. No
 TrustLoopGuard repository clone, Doppler setup, local Rust server, or provider
 proxy is required for the hosted SDK path.
 
-The reply decorator guards the final returned string. It does not automatically
-capture hidden framework tool calls or payments; use the SDK's typed action
-helpers when those boundaries also need enforcement.
+The decorator automatically guards supported local tool registries. It cannot
+capture provider-hosted tools, hidden framework closures, or payments; use the
+SDK's host adapters or typed action helpers for those boundaries.
 
 See the [TypeScript SDK README](sdks/typescript/README.md) for the agent contract,
-guard modes, streaming, and explicit side-effect helpers.
+guard modes, streaming, automatic local-tool discovery, and explicit fallback
+helpers.
 
 ## SDKs
 

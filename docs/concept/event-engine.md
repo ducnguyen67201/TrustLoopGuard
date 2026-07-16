@@ -10,7 +10,7 @@ The event engine evaluates normalized proposed agent steps. `POST /v1/events` re
 | Pure policies, checkers, and finding composition | `crates/tl-policy`, `crates/tl-engine` |
 | Authentication, workspace/environment resolution, coordinator, traces | `crates/tl-server` |
 | Tool metadata, policies, authorization records, traces | `crates/tl-storage` |
-| SDK and MCP host translation | SDK packages and `apps/mcp-proxy` |
+| SDK and MCP host translation | SDK packages and `apps/mcp-proxy`; TypeScript agent discovery is defined in [sdk-agent-adapters.md](sdk-agent-adapters.md) |
 
 The web dashboard may display persisted traces through Rust APIs. It is not in the runtime path and does not evaluate or store decisions.
 
