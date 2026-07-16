@@ -402,6 +402,8 @@ class Client:
         operation: str,
         tool_identity: ToolIdentity,
         execute: Callable[[dict[str, Any]], ResultT],
+        event_kind: str | EventKind = EventKind.tool_call_proposed,
+        invocation_id: str | None = None,
         parameters: dict[str, Any] | None = None,
         side_effect: str | SideEffectClass | None = None,
         timeout: float = 60.0,
@@ -410,7 +412,7 @@ class Client:
     ) -> AuthorizationResult[ResultT]:
         event = GuardEvent.model_validate(
             {
-                "kind": EventKind.tool_call_proposed,
+                "kind": event_kind,
                 "principal": {
                     "workspace_id": "",
                     "environment_id": "",
@@ -420,7 +422,7 @@ class Client:
                     "operation": operation,
                     "parameters": copy.deepcopy(parameters or {}),
                     "side_effect": side_effect,
-                    "invocation_id": str(uuid.uuid4()),
+                    "invocation_id": invocation_id or str(uuid.uuid4()),
                     "tool_identity": tool_identity.model_dump(mode="json"),
                 },
                 "sources": [],
@@ -479,6 +481,48 @@ class Client:
                 return AuthorizationResult(decision, False)
             sleep(poll_interval or 1.0)
         return AuthorizationResult(decision, False)
+
+    def with_authorized_shell_action(
+        self,
+        *,
+        agent_id: str,
+        command: str,
+        tool_identity: ToolIdentity,
+        execute: Callable[[dict[str, Any]], ResultT],
+        shell: str = "bash",
+        cwd: str | None = None,
+        workspace_root: str | None = None,
+        command_timeout_ms: int | None = None,
+        run_in_background: bool = False,
+        invocation_id: str | None = None,
+        timeout: float = 60.0,
+        poll_interval: float | None = None,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> AuthorizationResult[ResultT]:
+        parameters: dict[str, Any] = {
+            "command": command,
+            "shell": shell,
+            "run_in_background": run_in_background,
+        }
+        if cwd is not None:
+            parameters["cwd"] = cwd
+        if workspace_root is not None:
+            parameters["workspace_root"] = workspace_root
+        if command_timeout_ms is not None:
+            parameters["timeout_ms"] = command_timeout_ms
+        return self.with_authorized_action(
+            agent_id=agent_id,
+            operation="Bash",
+            tool_identity=tool_identity,
+            execute=execute,
+            event_kind=EventKind.shell_action_proposed,
+            invocation_id=invocation_id,
+            parameters=parameters,
+            side_effect=SideEffectClass.shell_exec,
+            timeout=timeout,
+            poll_interval=poll_interval,
+            sleep=sleep,
+        )
 
     def list_approvals(
         self, *, timeout: float | None = None
@@ -603,11 +647,14 @@ class Client:
         sources: list[Any] | None = None,
         provenance: dict[str, list[str]] | None = None,
         context: dict[str, Any] | None = None,
+        event_kind: str | EventKind = EventKind.tool_call_proposed,
+        invocation_id: str | None = None,
+        tool_identity: ToolIdentity | None = None,
     ) -> AuthorizationDecision:
         return self.submit_event(
             GuardEvent.model_validate(
                 {
-                    "kind": EventKind.tool_call_proposed,
+                    "kind": event_kind,
                     "principal": {
                         "workspace_id": "",
                         "environment_id": "",
@@ -617,12 +664,58 @@ class Client:
                         "operation": operation,
                         "parameters": parameters or {},
                         **({"side_effect": side_effect} if side_effect else {}),
+                        "invocation_id": invocation_id or str(uuid.uuid4()),
+                        "tool_identity": (
+                            tool_identity.model_dump(mode="json")
+                            if tool_identity is not None
+                            else {
+                                "server_id": "trustloopguard-sdk",
+                                "tool_name": operation,
+                                "schema_hash": "sdk-legacy-untyped-v1",
+                            }
+                        ),
                     },
                     "sources": sources or [],
                     "provenance": provenance or {},
                     "context": context,
                 }
             )
+        )
+
+    def guard_shell_command(
+        self,
+        *,
+        agent_id: str,
+        command: str,
+        tool_identity: ToolIdentity,
+        shell: str = "bash",
+        cwd: str | None = None,
+        workspace_root: str | None = None,
+        command_timeout_ms: int | None = None,
+        run_in_background: bool = False,
+        invocation_id: str | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> AuthorizationDecision:
+        parameters: dict[str, Any] = {
+            "command": command,
+            "shell": shell,
+            "run_in_background": run_in_background,
+        }
+        if cwd is not None:
+            parameters["cwd"] = cwd
+        if workspace_root is not None:
+            parameters["workspace_root"] = workspace_root
+        if command_timeout_ms is not None:
+            parameters["timeout_ms"] = command_timeout_ms
+        return self.guard_tool_call(
+            agent_id=agent_id,
+            operation="Bash",
+            parameters=parameters,
+            side_effect=SideEffectClass.shell_exec,
+            event_kind=EventKind.shell_action_proposed,
+            invocation_id=invocation_id,
+            tool_identity=tool_identity,
+            context=context,
         )
 
     def verify_action(
@@ -1357,6 +1450,8 @@ class AsyncClient:
         operation: str,
         tool_identity: ToolIdentity,
         execute: Callable[[dict[str, Any]], Awaitable[ResultT]],
+        event_kind: str | EventKind = EventKind.tool_call_proposed,
+        invocation_id: str | None = None,
         parameters: dict[str, Any] | None = None,
         side_effect: str | SideEffectClass | None = None,
         timeout: float = 60.0,
@@ -1364,7 +1459,7 @@ class AsyncClient:
     ) -> AuthorizationResult[ResultT]:
         event = GuardEvent.model_validate(
             {
-                "kind": EventKind.tool_call_proposed,
+                "kind": event_kind,
                 "principal": {
                     "workspace_id": "",
                     "environment_id": "",
@@ -1374,7 +1469,7 @@ class AsyncClient:
                     "operation": operation,
                     "parameters": copy.deepcopy(parameters or {}),
                     "side_effect": side_effect,
-                    "invocation_id": str(uuid.uuid4()),
+                    "invocation_id": invocation_id or str(uuid.uuid4()),
                     "tool_identity": tool_identity.model_dump(mode="json"),
                 },
                 "sources": [],
@@ -1433,6 +1528,46 @@ class AsyncClient:
                 return AuthorizationResult(decision, False)
             await asyncio.sleep(poll_interval or 1.0)
         return AuthorizationResult(decision, False)
+
+    async def with_authorized_shell_action(
+        self,
+        *,
+        agent_id: str,
+        command: str,
+        tool_identity: ToolIdentity,
+        execute: Callable[[dict[str, Any]], Awaitable[ResultT]],
+        shell: str = "bash",
+        cwd: str | None = None,
+        workspace_root: str | None = None,
+        command_timeout_ms: int | None = None,
+        run_in_background: bool = False,
+        invocation_id: str | None = None,
+        timeout: float = 60.0,
+        poll_interval: float | None = None,
+    ) -> AuthorizationResult[ResultT]:
+        parameters: dict[str, Any] = {
+            "command": command,
+            "shell": shell,
+            "run_in_background": run_in_background,
+        }
+        if cwd is not None:
+            parameters["cwd"] = cwd
+        if workspace_root is not None:
+            parameters["workspace_root"] = workspace_root
+        if command_timeout_ms is not None:
+            parameters["timeout_ms"] = command_timeout_ms
+        return await self.with_authorized_action(
+            agent_id=agent_id,
+            operation="Bash",
+            tool_identity=tool_identity,
+            execute=execute,
+            event_kind=EventKind.shell_action_proposed,
+            invocation_id=invocation_id,
+            parameters=parameters,
+            side_effect=SideEffectClass.shell_exec,
+            timeout=timeout,
+            poll_interval=poll_interval,
+        )
 
     async def list_approvals(
         self, *, timeout: float | None = None
@@ -1557,11 +1692,14 @@ class AsyncClient:
         sources: list[Any] | None = None,
         provenance: dict[str, list[str]] | None = None,
         context: dict[str, Any] | None = None,
+        event_kind: str | EventKind = EventKind.tool_call_proposed,
+        invocation_id: str | None = None,
+        tool_identity: ToolIdentity | None = None,
     ) -> AuthorizationDecision:
         return await self.submit_event(
             GuardEvent.model_validate(
                 {
-                    "kind": EventKind.tool_call_proposed,
+                    "kind": event_kind,
                     "principal": {
                         "workspace_id": "",
                         "environment_id": "",
@@ -1571,12 +1709,58 @@ class AsyncClient:
                         "operation": operation,
                         "parameters": parameters or {},
                         **({"side_effect": side_effect} if side_effect else {}),
+                        "invocation_id": invocation_id or str(uuid.uuid4()),
+                        "tool_identity": (
+                            tool_identity.model_dump(mode="json")
+                            if tool_identity is not None
+                            else {
+                                "server_id": "trustloopguard-sdk",
+                                "tool_name": operation,
+                                "schema_hash": "sdk-legacy-untyped-v1",
+                            }
+                        ),
                     },
                     "sources": sources or [],
                     "provenance": provenance or {},
                     "context": context,
                 }
             )
+        )
+
+    async def guard_shell_command(
+        self,
+        *,
+        agent_id: str,
+        command: str,
+        tool_identity: ToolIdentity,
+        shell: str = "bash",
+        cwd: str | None = None,
+        workspace_root: str | None = None,
+        command_timeout_ms: int | None = None,
+        run_in_background: bool = False,
+        invocation_id: str | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> AuthorizationDecision:
+        parameters: dict[str, Any] = {
+            "command": command,
+            "shell": shell,
+            "run_in_background": run_in_background,
+        }
+        if cwd is not None:
+            parameters["cwd"] = cwd
+        if workspace_root is not None:
+            parameters["workspace_root"] = workspace_root
+        if command_timeout_ms is not None:
+            parameters["timeout_ms"] = command_timeout_ms
+        return await self.guard_tool_call(
+            agent_id=agent_id,
+            operation="Bash",
+            parameters=parameters,
+            side_effect=SideEffectClass.shell_exec,
+            event_kind=EventKind.shell_action_proposed,
+            invocation_id=invocation_id,
+            tool_identity=tool_identity,
+            context=context,
         )
 
     async def verify_action(

@@ -1,0 +1,18 @@
+family: tool
+id: block-system-recursive-delete
+description: Blocks recursive deletion of root and operating-system paths.
+severity: critical
+when:
+  operations: [Bash]
+  side_effects: [shell_exec]
+match:
+  all:
+    - fact:
+        key: shell.risk
+        equals: filesystem_recursive_delete
+    - fact:
+        key: shell.target_scope
+        one_of: [root, system]
+action: deny
+reason: Recursive deletion of system paths is prohibited.
+remediation: Restrict deletion to a named disposable workspace directory.

@@ -16,6 +16,7 @@ from trustloopguard import (
     RunEventKind,
     RunKind,
     RunStatus,
+    ToolIdentity,
     AuthorizationEffect,
 )
 from trustloopguard.retry import RetryConfig
@@ -204,7 +205,58 @@ def test_explicit_run_id_wins_and_tool_helper_inherits_context() -> None:
     assert first["principal"]["run_id"] == "explicit-run"
     assert "run_event_id" not in first["principal"]
     assert second["kind"] == "tool.call.proposed"
+    assert second["action"]["invocation_id"]
+    assert second["action"]["tool_identity"] == {
+        "server_id": "trustloopguard-sdk",
+        "tool_name": "issue_refund",
+        "schema_hash": "sdk-legacy-untyped-v1",
+    }
     assert second["principal"]["run_id"] == "018f1111-1111-7111-8111-111111111111"
+
+
+@respx.mock
+def test_shell_helper_builds_protocol_complete_event() -> None:
+    event_route = respx.post("https://api.example.test/v1/events").mock(
+        return_value=httpx.Response(200, json=default_allow_decision())
+    )
+
+    with Client("https://api.example.test") as client:
+        client.guard_shell_command(
+            agent_id="agent-1",
+            command="rm -rf ./build",
+            cwd="/workspace/project",
+            workspace_root="/workspace",
+            command_timeout_ms=5000,
+            invocation_id="tool-use-1",
+            tool_identity=ToolIdentity(
+                server_id="claude-code",
+                tool_name="Bash",
+                schema_hash="sha256:v1:bash",
+            ),
+        )
+
+    import json
+
+    body = json.loads(event_route.calls[0].request.content)
+    assert body["kind"] == "shell.action.proposed"
+    assert body["action"] == {
+        "operation": "Bash",
+        "parameters": {
+            "command": "rm -rf ./build",
+            "shell": "bash",
+            "cwd": "/workspace/project",
+            "workspace_root": "/workspace",
+            "timeout_ms": 5000,
+            "run_in_background": False,
+        },
+        "side_effect": "shell_exec",
+        "invocation_id": "tool-use-1",
+        "tool_identity": {
+            "server_id": "claude-code",
+            "tool_name": "Bash",
+            "schema_hash": "sha256:v1:bash",
+        },
+    }
 
 
 @respx.mock

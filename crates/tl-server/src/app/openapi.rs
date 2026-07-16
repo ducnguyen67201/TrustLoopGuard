@@ -179,6 +179,8 @@ use crate::{
         tl_core::Principal,
         tl_core::Action,
         tl_core::SideEffectClass,
+        tl_core::ShellLanguage,
+        tl_core::ShellActionParameters,
         tl_core::Tier,
         tl_core::TierStatus,
         tl_core::TierResult,

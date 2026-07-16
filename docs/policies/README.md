@@ -1,7 +1,9 @@
 # Write Your First Policy
 
 A policy is a YAML rule that tells TrustLoopGuard what an agent is not allowed
-to say, and what to do when the rule matches.
+to say or execute, and what to do when the rule matches. This guide starts with
+the default content family; executable shell controls are covered in
+[Shell command safety](../concept/command-safety.md).
 
 ![Policy lifecycle](../concept/assets/policy-lifecycle.svg)
 
@@ -130,6 +132,7 @@ cargo run -p tl-cli -- policy pull refund-guarantee \
 
 - [YAML reference](yaml-reference.md) for every field.
 - [Examples](examples.md) for complete copyable policies.
+- [Shell command safety](../concept/command-safety.md) for `family: tool` facts, bounds, and approval.
 - [Validation errors](validation-errors.md)
 - [Local to cloud migration](migration-local-to-cloud.md)
 - [Cookbook](cookbook.md)

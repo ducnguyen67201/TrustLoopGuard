@@ -95,4 +95,52 @@ describe('withAuthorizedAction', () => {
     expect(submitted[1]?.action.authorization?.grant_id).toBe(grantId);
     expect(completions).toEqual([{ status: 'consumed', outcome: { success: true } }]);
   });
+
+  it('keeps one shell invocation through approval resume and lease completion', async () => {
+    const submitted: GuardEvent[] = [];
+    const fetchImpl = mockFetch(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes(`/authorization/approvals/${approvalId}`)) {
+        return Response.json({ id: approvalId, status: 'approved', grant_id: grantId });
+      }
+      if (url.includes(`/authorization/leases/${leaseId}/complete`)) {
+        return Response.json({ ...decision('permit', false, true).lease, status: 'consumed' });
+      }
+      submitted.push(JSON.parse(String(init?.body)) as GuardEvent);
+      return Response.json(
+        submitted.length === 1
+          ? decision('require_approval', true)
+          : decision('permit', false, true),
+      );
+    });
+    const client = new Client({ baseUrl: 'http://x', fetchImpl });
+
+    const result = await client.withAuthorizedShellAction(
+      {
+        agentId: 'agent-1',
+        command: 'rm -rf ./build',
+        invocationId: 'tool-use-shell',
+        toolIdentity: {
+          server_id: 'claude-code',
+          tool_name: 'Bash',
+          schema_hash: 'sha256:v1:bash',
+        },
+        pollIntervalMs: 1,
+      },
+      async (parameters) => parameters.command,
+    );
+
+    expect(result).toMatchObject({ executed: true, value: 'rm -rf ./build' });
+    expect(submitted).toHaveLength(2);
+    expect(submitted[0]).toMatchObject({
+      kind: 'shell.action.proposed',
+      action: {
+        operation: 'Bash',
+        invocation_id: 'tool-use-shell',
+        side_effect: 'shell_exec',
+      },
+    });
+    expect(submitted[1]?.action.invocation_id).toBe('tool-use-shell');
+    expect(submitted[1]?.action.authorization?.grant_id).toBe(grantId);
+  });
 });

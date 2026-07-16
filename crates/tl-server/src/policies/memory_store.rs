@@ -28,6 +28,10 @@ impl MemoryPolicyStore {
     }
 
     pub fn with_policies(policies: &[Policy]) -> Self {
+        Self::with_policy_sets(policies, &[])
+    }
+
+    pub fn with_policy_sets(policies: &[Policy], families: &[FamilyPolicy]) -> Self {
         let mut deployments = HashMap::new();
         let records = policies
             .iter()
@@ -49,11 +53,31 @@ impl MemoryPolicyStore {
                 )
             })
             .collect();
+        let mut family_records = HashMap::new();
+        let mut family_sources = HashMap::new();
+        for policy in families {
+            deployments.insert(
+                (
+                    DEFAULT_WORKSPACE_ID.to_string(),
+                    DEFAULT_ENVIRONMENT_ID.to_string(),
+                    policy.id().to_string(),
+                ),
+                true,
+            );
+            family_records.insert(
+                (DEFAULT_WORKSPACE_ID.to_string(), policy.id().to_string()),
+                Arc::new(policy.clone()),
+            );
+            family_sources.insert(
+                (DEFAULT_WORKSPACE_ID.to_string(), policy.id().to_string()),
+                serde_yaml::to_string(policy).unwrap_or_default(),
+            );
+        }
         Self {
             inner: RwLock::new(records),
             deployments: RwLock::new(deployments),
-            families: RwLock::new(HashMap::new()),
-            family_sources: RwLock::new(HashMap::new()),
+            families: RwLock::new(family_records),
+            family_sources: RwLock::new(family_sources),
         }
     }
 }

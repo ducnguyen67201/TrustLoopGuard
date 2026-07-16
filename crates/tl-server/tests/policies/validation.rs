@@ -128,3 +128,68 @@ async fn validate_policy_rejects_non_utf8_body() {
     let body = read_body(resp).await;
     assert_eq!(body["code"], "invalid");
 }
+
+#[tokio::test]
+async fn validate_tool_policy_returns_family_and_path_addressed_errors() {
+    let app = build_app();
+    let valid = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/policies/validate")
+                .header(header::CONTENT_TYPE, "application/yaml")
+                .body(Body::from(
+                    r#"
+family: tool
+id: block-system-delete
+when: { side_effects: [shell_exec] }
+match:
+  fact: { key: shell.risk, equals: filesystem_recursive_delete }
+action: deny
+reason: System deletion is prohibited.
+"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(valid.status(), StatusCode::OK);
+    let valid = read_body(valid).await;
+    assert_eq!(valid["valid"], true);
+    assert_eq!(valid["policy_id"], "block-system-delete");
+
+    let invalid = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/policies/validate")
+                .header(header::CONTENT_TYPE, "application/yaml")
+                .body(Body::from(
+                    r#"
+family: tool
+id: invalid-tool-policy
+when: { side_effects: [shell_exec] }
+match:
+  parameter: { path: command, regex: '[' }
+action: transform
+reason: Invalid.
+"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(invalid.status(), StatusCode::OK);
+    let invalid = read_body(invalid).await;
+    assert_eq!(invalid["valid"], false);
+    let paths = invalid["errors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|error| error["path"].as_str())
+        .collect::<Vec<_>>();
+    assert!(paths.contains(&"match.parameter.path"));
+    assert!(paths.contains(&"match.parameter.regex"));
+    assert!(paths.contains(&"action"));
+}

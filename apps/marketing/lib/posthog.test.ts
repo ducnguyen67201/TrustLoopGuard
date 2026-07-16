@@ -97,6 +97,29 @@ test('captures the existing typed marketing event and its funnel properties', ()
   ]);
 });
 
+test('captures the demo activation funnel with normalized properties', () => {
+  const { client, captureCalls } = fakeClient();
+
+  capturePostHogMarketingEvent(client, 'demo_decision_shown', {
+    page: '/demo',
+    location: 'refund_workflow',
+    decision: 'require_approval',
+    outcome: 'success',
+  });
+
+  assert.deepEqual(captureCalls, [
+    {
+      event: 'demo_decision_shown',
+      properties: {
+        page: '/demo',
+        location: 'refund_workflow',
+        decision: 'require_approval',
+        outcome: 'success',
+      },
+    },
+  ]);
+});
+
 test('sends one marketing interaction to both GTM and PostHog', () => {
   const { client, captureCalls } = fakeClient();
   const browser = { dataLayer: [] as Array<Record<string, string>> };

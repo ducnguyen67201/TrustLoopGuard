@@ -5,7 +5,7 @@ use std::time::Duration;
 use tl_sdk_rust::{
     Action, AuthorizationEffect, Client, CreateRunEventRequest, CreateRunRequest, EventKind,
     GuardEvent, Labels, Origin, Principal, ProvenanceMap, RetryConfig, RunEventKind, RunKind,
-    SdkError, Source,
+    SdkError, ShellActionParameters, ShellLanguage, SideEffectClass, Source, ToolIdentity,
 };
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -113,6 +113,53 @@ async fn submit_event_maps_server_error() {
 
     let err = client.submit_event(&send_email_event()).await.unwrap_err();
     assert!(matches!(err, SdkError::Internal(_)), "got {err:?}");
+}
+
+#[tokio::test]
+async fn shared_shell_types_build_a_protocol_complete_event() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/events"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(observe_only_decision()))
+        .mount(&server)
+        .await;
+
+    let mut event = send_email_event();
+    event.kind = EventKind::ShellActionProposed;
+    event.action = Action {
+        operation: "Bash".into(),
+        parameters: serde_json::to_value(ShellActionParameters {
+            command: "rm -rf ./build".into(),
+            shell: ShellLanguage::Bash,
+            cwd: Some("/workspace/project".into()),
+            workspace_root: Some("/workspace".into()),
+            timeout_ms: Some(5_000),
+            run_in_background: false,
+        })
+        .unwrap(),
+        side_effect: Some(SideEffectClass::ShellExec),
+        invocation_id: Some("tool-use-1".into()),
+        tool_identity: Some(ToolIdentity {
+            server_id: "claude-code".into(),
+            tool_name: "Bash".into(),
+            schema_hash: "sha256:test-bash".into(),
+        }),
+        authorization: None,
+    };
+
+    Client::new(server.uri())
+        .with_retry(one_shot_retry())
+        .submit_event(&event)
+        .await
+        .unwrap();
+
+    let requests = server.received_requests().await.unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
+    assert_eq!(body["kind"], "shell.action.proposed");
+    assert_eq!(body["action"]["invocation_id"], "tool-use-1");
+    assert_eq!(body["action"]["parameters"]["shell"], "bash");
+    assert_eq!(body["action"]["parameters"]["timeout_ms"], 5_000);
+    assert_eq!(body["action"]["tool_identity"]["server_id"], "claude-code");
 }
 
 #[tokio::test]

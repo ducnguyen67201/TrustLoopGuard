@@ -46,6 +46,8 @@ callers provide exact parameters, provenance, and execution identity.
 
 Executable tool calls include stable invocation identity. Approval creates a common grant; resume sends `AuthorizationClaim { grant_id, attempt_id }`. The server re-evaluates current policy and issues a one-attempt lease before execution.
 
+Shell helpers use `shell.action.proposed`, `shell_exec`, a stable invocation id, explicit `ToolIdentity`, and the shared `ShellActionParameters` shape. TypeScript exposes `guardShellCommand` and `withAuthorizedShellAction`; Python exposes sync/async `guard_shell_command` and `with_authorized_shell_action`. Rust re-exports `ShellActionParameters` and `ShellLanguage` for callers constructing a full `GuardEvent`. Transport retries and approval resume reuse the same invocation id and change only `action.authorization`.
+
 ## Guarded execution helpers
 
 TypeScript exposes `withAuthorizedAction`; Python exposes sync and async `with_authorized_action`; Rust exposes `with_authorized_action`. Each helper:
@@ -113,4 +115,4 @@ The common `AuthorizationReceipt` proves why execution was permitted. `Financial
 
 `apps/mcp-proxy` uses the TypeScript guarded-action helper. It mirrors the downstream tool schema, submits exact parameters, waits for authorization, calls the downstream MCP server once after `permit`, and completes or cancels the lease. A timeout, cancellation, denial, deferral, changed schema, or changed parameters never reaches the downstream tool.
 
-See [authorization-kernel.md](concept/authorization-kernel.md), [event-engine.md](concept/event-engine.md), and [financial-authorization.md](concept/financial-authorization.md).
+See [authorization-kernel.md](concept/authorization-kernel.md), [event-engine.md](concept/event-engine.md), [command-safety.md](concept/command-safety.md), and [financial-authorization.md](concept/financial-authorization.md).

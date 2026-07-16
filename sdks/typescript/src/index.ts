@@ -33,6 +33,8 @@ export type * from './generated/CompleteAuthorizationLeaseRequest.js';
 export type * from './generated/Channel.js';
 export type * from './generated/Severity.js';
 export type * from './generated/TriggeredPolicy.js';
+export type * from './generated/ShellActionParameters.js';
+export type * from './generated/ShellLanguage.js';
 export type * from './generated/AgentAuthority.js';
 export type * from './generated/AgentListResponse.js';
 export type * from './generated/AgentProfile.js';
@@ -224,6 +226,7 @@ export type {
   ActiveRun,
   AuthorizedActionOptions,
   AuthorizedActionResult,
+  AuthorizedShellActionOptions,
   ClientOptions,
   FinancialOperation,
   FinancialOperationRunOptions,

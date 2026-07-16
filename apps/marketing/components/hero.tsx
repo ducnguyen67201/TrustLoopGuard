@@ -1,23 +1,22 @@
 import { GITHUB_URL } from '@/lib/github';
 import { MarketingEventLink } from './marketing-event-link';
 
-const EXAMPLE_ACTION_ID = '0195f2a4-7c31-7a4e-a50e-2d36fb38ec42';
 const FINANCIAL_CONTRACT_URL = `${GITHUB_URL}/blob/main/docs/concept/financial-authorization.md`;
 
 const PROOF_POINTS = [
   {
     label: 'Apache-2.0',
-    detail: 'Open source',
+    detail: 'Inspect every decision path',
     href: `${GITHUB_URL}/blob/main/LICENSE`,
   },
   {
-    label: 'Your infrastructure',
-    detail: 'Self-hostable Rust runtime',
+    label: 'Self-hostable',
+    detail: 'Rust runtime in your infrastructure',
     href: `${GITHUB_URL}#quickstart`,
   },
   {
     label: 'TypeScript · Python · Rust',
-    detail: 'One generated wire contract',
+    detail: 'One generated decision contract',
     href: `${GITHUB_URL}#sdk-quickstarts`,
   },
   {
@@ -30,54 +29,61 @@ const PROOF_POINTS = [
 export function Hero() {
   return (
     <section id="product" className="hero" aria-labelledby="hero-heading">
-      <div className="founder-proof-bar" aria-label="Founder production experience">
-        <p className="founder-proof-label">
-          <span aria-hidden="true" />
-          Founder proof
+      <div className="hero-signal" aria-label="TrustLoopGuard product status">
+        <p>
+          <span className="hero-signal-dot" aria-hidden="true" />
+          Open-source control boundary
         </p>
-        <p className="founder-proof-statement">
-          <strong>Tested AI voice agents in production.</strong>
-          <span>Saw how they failed every day.</span>
-        </p>
-        <a href="#trust">
-          Why this exists <span aria-hidden="true">↓</span>
-        </a>
+        <span>Proposed action in. Typed decision out. Side effect stays on your side.</span>
       </div>
+
       <div className="hero-inner">
         <div className="hero-copy">
           <p className="eyebrow">Runtime control for production AI agents</p>
           <h1 id="hero-heading" className="hero-title">
-            Assume the agent will fail.
-            <span>Control what happens next.</span>
+            Stop AI agents
+            <span>before they send, spend, or execute.</span>
           </h1>
           <p className="hero-sub">
-            TrustLoopGuard sits between an agent&apos;s intent and execution. It returns an
-            actionable decision before the side effect—and gives money-bearing actions durable
-            authorization state and receipts.
+            TrustLoopGuard checks a proposed output or action before it becomes a real side effect.
+            Your runtime gets <strong>permit, deny, transform, require approval, or defer</strong>—
+            plus a receipt showing why.
           </p>
           <div className="hero-actions">
             <MarketingEventLink
-              href="#how"
+              href="/demo"
               className="button-primary h-12 px-6"
-              event="landing_cta_click"
-              eventParams={{ page: '/', location: 'hero', label: 'See how it works' }}
+              event="demo_click"
+              eventParams={{ page: '/', location: 'hero', label: 'Try the live refund demo' }}
             >
-              See how it works
+              <PlayIcon />
+              Try the live refund demo
+            </MarketingEventLink>
+            <MarketingEventLink
+              href="#how"
+              className="button-secondary h-12 px-6"
+              event="landing_cta_click"
+              eventParams={{ page: '/', location: 'hero', label: 'See the control flow' }}
+            >
+              See the control flow
               <ArrowIcon />
             </MarketingEventLink>
+          </div>
+          <div className="hero-source-row">
+            <span>No card. No signup. Runs against the real authorization path.</span>
             <MarketingEventLink
               href={GITHUB_URL}
               target="_blank"
-              className="button-secondary h-12 px-6"
+              className="hero-source-link"
               event="github_click"
               eventParams={{ page: '/', location: 'hero', label: 'Inspect the source' }}
             >
-              Inspect the source
+              Inspect the source ↗
             </MarketingEventLink>
           </div>
         </div>
 
-        <AuthorizationRecord />
+        <ControlBoundaryPreview />
       </div>
 
       <div className="proof-strip" aria-label="Inspectable product facts">
@@ -104,73 +110,94 @@ export function Hero() {
   );
 }
 
-function AuthorizationRecord() {
+function ControlBoundaryPreview() {
   return (
     <article
-      className="decision-record"
-      aria-label="Example TrustLoopGuard financial authorization"
+      className="control-preview"
+      aria-label="Example control boundary: refund-bot proposes a 75 dollar refund, TrustLoopGuard requires approval, and execution does not start."
     >
-      <header className="record-header">
+      <header className="control-preview-header">
         <div>
-          <p>Example authorization</p>
-          <strong>POST /v1/financial/actions</strong>
+          <span className="control-live-dot" aria-hidden="true" />
+          Live control boundary
         </div>
-        <span className="record-state record-state-held">Held</span>
+        <code>POST /v1/financial/actions</code>
       </header>
 
-      <ol className="record-chain">
-        <li>
-          <span className="record-step">01</span>
-          <div>
-            <p className="record-label">Proposed action</p>
-            <strong>refund · issue_refund</strong>
-            <dl className="record-fields">
-              <div>
-                <dt>principal</dt>
-                <dd>refund-bot</dd>
-              </div>
-              <div>
-                <dt>amount</dt>
-                <dd>$75.00 USD</dd>
-              </div>
-            </dl>
-          </div>
-        </li>
-        <li>
-          <span className="record-step">02</span>
-          <div>
-            <p className="record-label">Authorization checks</p>
-            <strong>Grant scope passed</strong>
-            <p className="record-note">Financial policy requires approval above $50.</p>
-          </div>
-        </li>
-        <li>
-          <span className="record-step">03</span>
-          <div>
-            <p className="record-label">Authorization</p>
-            <div className="record-effect-row">
-              <strong className="effect-held">HELD</strong>
-              <span>finance approval required</span>
+      <div className="control-proposal">
+        <span className="control-node-number">01</span>
+        <div>
+          <p>Agent proposes</p>
+          <strong>issue_refund</strong>
+          <dl>
+            <div>
+              <dt>principal</dt>
+              <dd>refund-bot</dd>
             </div>
-          </div>
-        </li>
-        <li>
-          <span className="record-step">04</span>
-          <div>
-            <p className="record-label">Execution</p>
-            <strong>NOT STARTED</strong>
-            <code>action_id · {EXAMPLE_ACTION_ID}</code>
-          </div>
-        </li>
-      </ol>
+            <div>
+              <dt>amount</dt>
+              <dd>$75.00 USD</dd>
+            </div>
+          </dl>
+        </div>
+        <span className="control-proposal-state">Proposed</span>
+      </div>
 
-      <footer className="record-footer">
-        <span>Example data · authentic wire fields</span>
-        <a href={FINANCIAL_CONTRACT_URL} target="_blank" rel="noreferrer">
-          Inspect authorization ↗
-        </a>
+      <div className="control-gate">
+        <div className="control-gate-rail" aria-hidden="true">
+          <span />
+        </div>
+        <div className="control-gate-copy">
+          <p>TrustLoopGuard checks</p>
+          <ul>
+            <li>
+              <span>Authority</span>
+              <strong>pass</strong>
+            </li>
+            <li>
+              <span>Order evidence</span>
+              <strong>pass</strong>
+            </li>
+            <li>
+              <span>Refund policy</span>
+              <strong className="control-check-held">approval</strong>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="control-decision">
+        <div className="control-decision-stamp">
+          <small>Effect</small>
+          <strong>REQUIRE</strong>
+          <strong>APPROVAL</strong>
+        </div>
+        <div className="control-decision-copy">
+          <p>Typed decision returned</p>
+          <code>effect: require_approval</code>
+          <div>
+            <span>Execution not started</span>
+            <span>Receipt reserved</span>
+          </div>
+        </div>
+      </div>
+
+      <footer className="control-preview-footer">
+        <span>
+          <StopIcon />
+          Side effect stopped at the boundary
+        </span>
+        <strong>No Stripe call made</strong>
       </footer>
     </article>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M5.25 3.5 12 8l-6.75 4.5v-9Z" fill="currentColor" />
+    </svg>
   );
 }
 
@@ -184,6 +211,19 @@ function ArrowIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function StopIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path
+        d="M4.1 1.5h5.8l2.6 2.6v5.8l-2.6 2.6H4.1L1.5 9.9V4.1l2.6-2.6Z"
+        stroke="currentColor"
+        strokeWidth="1.2"
+      />
+      <path d="M4.25 7h5.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );
 }

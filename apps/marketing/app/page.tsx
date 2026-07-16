@@ -7,7 +7,6 @@ import { Why } from '@/components/why';
 import { TrustStory } from '@/components/trust-story';
 import { Cta } from '@/components/cta';
 import { Footer } from '@/components/footer';
-import { ScrollTopButton } from '@/components/scroll-top-button';
 
 export default function Page() {
   return (
@@ -15,15 +14,14 @@ export default function Page() {
       <Nav />
       <main>
         <Hero />
-        <TrustStory />
         <ControlLoop />
         <Evidence />
         <Sdk />
+        <TrustStory />
         <Why />
         <Cta />
       </main>
       <Footer />
-      <ScrollTopButton />
     </>
   );
 }

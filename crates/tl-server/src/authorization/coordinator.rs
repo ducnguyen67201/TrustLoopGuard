@@ -102,7 +102,12 @@ impl AuthorizationCoordinator {
             .policies
             .list_enabled_families(&request.workspace_id, &request.environment_id)
             .await?;
-        let boundary = adapter.policy_boundary(&subject, &enabled, &enabled_families)?;
+        let boundary = adapter.policy_boundary(
+            &request.principal_id,
+            &subject,
+            &enabled,
+            &enabled_families,
+        )?;
 
         let mut findings = request.findings;
         findings.extend(boundary.findings);

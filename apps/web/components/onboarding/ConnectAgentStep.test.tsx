@@ -110,6 +110,8 @@ describe('ConnectAgentStep', () => {
     // Claude Code hook panel.
     await userEvent.click(screen.getByRole('tab', { name: /Guard Claude Code/i }));
     expect(screen.getByText(/paste into claude code to guard it directly/i)).toBeDefined();
+    expect(screen.getByText(/authorizes before execution/i)).toBeDefined();
+    expect(screen.getByText(/high-impact guard failures stop the tool/i)).toBeDefined();
 
     // The plaintext secret must never leak into any snippet body, on any tab.
     for (const tab of [/^SDK$/i, /AI assistant/i, /Guard Claude Code/i]) {

@@ -22,6 +22,7 @@ const policyFamilySchema = z.enum([
   'memory',
   'financial',
   'source_label',
+  'tool',
 ]) satisfies z.ZodType<PolicyFamily>;
 
 const policySummaryWireSchema = z.object({

@@ -927,6 +927,7 @@ class PolicyFamily(Enum):
     memory = 'memory'
     financial = 'financial'
     source_label = 'source_label'
+    tool = 'tool'
 
 
 class PolicyMatchType(Enum):
@@ -1224,6 +1225,12 @@ class Severity(Enum):
     medium = 'medium'
     high = 'high'
     critical = 'critical'
+
+
+class ShellLanguage(Enum):
+    bash = 'bash'
+    sh = 'sh'
+    zsh = 'zsh'
 
 
 class SideEffectClass(Enum):
@@ -2314,6 +2321,15 @@ class RunEventListResponse(BaseModel):
 
 class RunListResponse(BaseModel):
     runs: list[RunSummary]
+
+
+class ShellActionParameters(BaseModel):
+    command: str
+    cwd: str | None = None
+    run_in_background: bool | None = None
+    shell: ShellLanguage | None = None
+    timeout_ms: conint(ge=0) | None = None
+    workspace_root: str | None = None
 
 
 class Source(BaseModel):

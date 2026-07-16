@@ -1,5 +1,5 @@
 //! YAML loader for policy families. Mirrors `policy_parse::load_str` for
-//! the family documents introduced in event-engine phase 6.
+//! typed family documents.
 //!
 //! A document without a `family:` field (or with `family: content`)
 //! parses through the legacy content path unchanged; any other family
@@ -11,13 +11,13 @@ use tl_core::{AuthorizationEffect, SpendMeter};
 
 use crate::family_ast::{
     AnyPolicy, ApprovalPolicy, FamilyPolicy, FinancialPolicy, FinancialWhen, FlowPolicy, FlowRule,
-    SourceLabelFamilyPolicy,
+    SourceLabelFamilyPolicy, ToolMatchClause, ToolMatcher, ToolPolicy, ToolValueMatcher,
 };
 use crate::policy_parse::{format_issues, load_str, PolicyError, ValidationIssue};
 
 /// Every recognized `family:` tag value. `content` selects the legacy
 /// `Policy` shape; the rest select `FamilyPolicy` variants.
-pub const KNOWN_FAMILIES: [&str; 7] = [
+pub const KNOWN_FAMILIES: [&str; 8] = [
     "content",
     "flow",
     "parameter_source",
@@ -25,6 +25,7 @@ pub const KNOWN_FAMILIES: [&str; 7] = [
     "memory",
     "financial",
     "source_label",
+    "tool",
 ];
 
 #[derive(Debug, Deserialize)]
@@ -77,6 +78,7 @@ pub fn validate_family_policy(policy: &FamilyPolicy) -> Result<(), Vec<Validatio
         }
         FamilyPolicy::Financial(financial) => validate_financial(financial, &mut issues),
         FamilyPolicy::SourceLabel(source_label) => validate_source_label(source_label, &mut issues),
+        FamilyPolicy::Tool(tool) => validate_tool(tool, &mut issues),
     }
 
     if issues.is_empty() {
@@ -137,6 +139,172 @@ fn validate_approval(approval: &ApprovalPolicy, issues: &mut Vec<ValidationIssue
         }
     }
     validate_enforcing_action("action", approval.action, issues);
+}
+
+fn validate_tool(tool: &ToolPolicy, issues: &mut Vec<ValidationIssue>) {
+    let when = &tool.when;
+    if when.agents.is_empty()
+        && when.operations.is_empty()
+        && when.side_effects.is_empty()
+        && when.tools.is_empty()
+    {
+        issues.push(ValidationIssue::new(
+            "when",
+            "must set at least one agent, operation, side_effect, or tool selector",
+        ));
+    }
+    validate_non_empty_strings("when.agents", &when.agents, issues);
+    validate_non_empty_strings("when.operations", &when.operations, issues);
+    for (index, selector) in when.tools.iter().enumerate() {
+        let fields = [
+            selector.server_id.as_deref(),
+            selector.tool_name.as_deref(),
+            selector.schema_hash.as_deref(),
+        ];
+        if fields.iter().all(Option::is_none) {
+            issues.push(ValidationIssue::new(
+                format!("when.tools[{index}]"),
+                "must set at least one of server_id, tool_name, or schema_hash",
+            ));
+        }
+        for (name, value) in [
+            ("server_id", selector.server_id.as_deref()),
+            ("tool_name", selector.tool_name.as_deref()),
+            ("schema_hash", selector.schema_hash.as_deref()),
+        ] {
+            if value.is_some_and(|value| value.trim().is_empty()) {
+                issues.push(ValidationIssue::new(
+                    format!("when.tools[{index}].{name}"),
+                    "must not be empty",
+                ));
+            }
+        }
+    }
+
+    match &tool.r#match {
+        ToolMatchClause::Single(matcher) => validate_tool_matcher("match", matcher, issues),
+        ToolMatchClause::Any { any } => validate_tool_matcher_list("match.any", any, issues),
+        ToolMatchClause::All { all } => validate_tool_matcher_list("match.all", all, issues),
+    }
+    validate_required_text("reason", &tool.reason, issues);
+    validate_non_empty_strings("approver_roles", &tool.approver_roles, issues);
+    validate_enforcing_action("action", tool.action, issues);
+
+    if tool.action == AuthorizationEffect::RequireApproval {
+        if matches!(tool.max_grant_ttl_seconds, Some(0 | 86_401..)) {
+            issues.push(ValidationIssue::new(
+                "max_grant_ttl_seconds",
+                "must be between 1 and 86400",
+            ));
+        }
+    } else {
+        if !tool.approver_roles.is_empty() {
+            issues.push(ValidationIssue::new(
+                "approver_roles",
+                "is only valid for require_approval",
+            ));
+        }
+        if tool.max_grant_ttl_seconds.is_some() {
+            issues.push(ValidationIssue::new(
+                "max_grant_ttl_seconds",
+                "is only valid for require_approval",
+            ));
+        }
+    }
+}
+
+fn validate_tool_matcher_list(
+    path: &str,
+    matchers: &[ToolMatcher],
+    issues: &mut Vec<ValidationIssue>,
+) {
+    if matchers.is_empty() || matchers.len() > 64 {
+        issues.push(ValidationIssue::new(
+            path,
+            "must contain between 1 and 64 matchers",
+        ));
+    }
+    for (index, matcher) in matchers.iter().enumerate() {
+        validate_tool_matcher(&format!("{path}[{index}]"), matcher, issues);
+    }
+}
+
+fn validate_tool_matcher(path: &str, matcher: &ToolMatcher, issues: &mut Vec<ValidationIssue>) {
+    match matcher {
+        ToolMatcher::Fact { fact } => {
+            let key_path = format!("{path}.fact.key");
+            if fact.key.len() > 128
+                || !fact.key.chars().enumerate().all(|(index, character)| {
+                    if index == 0 {
+                        character.is_ascii_lowercase()
+                    } else {
+                        character.is_ascii_lowercase()
+                            || character.is_ascii_digit()
+                            || matches!(character, '_' | '.' | '-')
+                    }
+                })
+            {
+                issues.push(ValidationIssue::new(
+                    key_path,
+                    "must be a lowercase fact key up to 128 characters",
+                ));
+            }
+            validate_tool_value(&format!("{path}.fact"), &fact.value, issues);
+        }
+        ToolMatcher::Parameter { parameter } => {
+            let pointer_path = format!("{path}.parameter.path");
+            if parameter.path.len() > 512 || !is_valid_json_pointer(&parameter.path) {
+                issues.push(ValidationIssue::new(
+                    pointer_path,
+                    "must be an RFC 6901 JSON pointer up to 512 bytes",
+                ));
+            }
+            validate_tool_value(&format!("{path}.parameter"), &parameter.value, issues);
+        }
+    }
+}
+
+fn validate_tool_value(path: &str, value: &ToolValueMatcher, issues: &mut Vec<ValidationIssue>) {
+    let comparator_count = usize::from(value.equals.is_some())
+        + usize::from(!value.one_of.is_empty())
+        + usize::from(value.regex.is_some());
+    if comparator_count != 1 {
+        issues.push(ValidationIssue::new(
+            path,
+            "must set exactly one of equals, one_of, or regex",
+        ));
+    }
+    if value.equals.as_ref().is_some_and(|item| item.is_empty()) {
+        issues.push(ValidationIssue::new(
+            format!("{path}.equals"),
+            "must not be empty",
+        ));
+    }
+    validate_non_empty_strings(&format!("{path}.one_of"), &value.one_of, issues);
+    if let Some(pattern) = value.regex.as_deref() {
+        if pattern.is_empty() || pattern.len() > 4_096 {
+            issues.push(ValidationIssue::new(
+                format!("{path}.regex"),
+                "must contain between 1 and 4096 bytes",
+            ));
+        } else if let Err(error) = regex::Regex::new(pattern) {
+            issues.push(ValidationIssue::new(
+                format!("{path}.regex"),
+                format!("invalid regex: {error}"),
+            ));
+        }
+    }
+}
+
+fn is_valid_json_pointer(pointer: &str) -> bool {
+    (pointer.is_empty() || pointer.starts_with('/'))
+        && !pointer.split('/').skip(1).any(|segment| {
+            segment
+                .as_bytes()
+                .windows(2)
+                .any(|pair| pair[0] == b'~' && !matches!(pair[1], b'0' | b'1'))
+                || segment.ends_with('~')
+        })
 }
 
 fn validate_financial(financial: &FinancialPolicy, issues: &mut Vec<ValidationIssue>) {
@@ -296,7 +464,7 @@ fn validate_enforcing_action(
 mod tests {
     use super::*;
     use crate::family_ast::ParameterSourcePolicy;
-    use tl_core::{Origin, SideEffectClass};
+    use tl_core::{Origin, PolicyFamily, SideEffectClass};
 
     fn family(src: &str) -> FamilyPolicy {
         match load_any_str(src).expect("parse") {
@@ -783,6 +951,22 @@ action: deny
                 "memory-untrusted-writes",
                 include_str!("../../../docs/policies/examples/memory-untrusted-writes.yaml"),
             ),
+            (
+                "tool-shell-block-system-delete",
+                include_str!("../../../docs/policies/examples/tool-shell-block-system-delete.yaml"),
+            ),
+            (
+                "tool-shell-approve-destructive-workspace",
+                include_str!(
+                    "../../../docs/policies/examples/tool-shell-approve-destructive-workspace.yaml"
+                ),
+            ),
+            (
+                "tool-shell-block-disk-overwrite",
+                include_str!(
+                    "../../../docs/policies/examples/tool-shell-block-disk-overwrite.yaml"
+                ),
+            ),
         ] {
             match load_any_str(yaml) {
                 Ok(AnyPolicy::Family(_)) => {}
@@ -821,6 +1005,101 @@ action: deny
                 }
                 Err(e) => panic!("content example `{name}` failed via load_any_str: {e}"),
             }
+        }
+    }
+
+    #[test]
+    fn tool_policy_parses_and_round_trips() {
+        let yaml = r#"
+family: tool
+id: block-system-delete
+description: Block recursive deletion of system paths.
+severity: critical
+when:
+  side_effects: [shell_exec]
+  tools:
+    - server_id: claude-code
+      tool_name: Bash
+match:
+  all:
+    - fact:
+        key: shell.risk
+        equals: filesystem_recursive_delete
+    - fact:
+        key: shell.target_scope
+        one_of: [root, system]
+action: deny
+reason: System deletion is prohibited.
+remediation: Restrict deletion to a disposable workspace path.
+"#;
+
+        let FamilyPolicy::Tool(tool) = family(yaml) else {
+            panic!("expected tool policy");
+        };
+        assert_eq!(tool.id, "block-system-delete");
+        assert_eq!(tool.action, AuthorizationEffect::Deny);
+
+        let serialized = serde_yaml::to_string(&FamilyPolicy::Tool(tool)).expect("serialize");
+        assert!(serialized.contains("family: tool"), "{serialized}");
+        let reparsed = load_any_str(&serialized).expect("round trip");
+        assert_eq!(reparsed.family(), PolicyFamily::Tool);
+    }
+
+    #[test]
+    fn tool_policy_validation_rejects_ambiguous_or_unsafe_shapes() {
+        for (needle, yaml) in [
+            (
+                "when",
+                r#"
+family: tool
+id: empty-scope
+when: {}
+match:
+  fact: { key: shell.risk, equals: disk_overwrite }
+action: deny
+reason: blocked
+"#,
+            ),
+            (
+                "match.any",
+                r#"
+family: tool
+id: empty-match
+when: { side_effects: [shell_exec] }
+match: { any: [] }
+action: deny
+reason: blocked
+"#,
+            ),
+            (
+                "parameter.path",
+                r#"
+family: tool
+id: bad-pointer
+when: { side_effects: [shell_exec] }
+match:
+  parameter: { path: command, equals: rm }
+action: deny
+reason: blocked
+"#,
+            ),
+            (
+                "action",
+                r#"
+family: tool
+id: non-enforcing
+when: { side_effects: [shell_exec] }
+match:
+  fact: { key: shell.risk, equals: disk_overwrite }
+action: permit
+reason: invalid
+"#,
+            ),
+        ] {
+            let error = load_any_str(yaml)
+                .expect_err("policy must fail")
+                .to_string();
+            assert!(error.contains(needle), "expected {needle} in {error}");
         }
     }
 }

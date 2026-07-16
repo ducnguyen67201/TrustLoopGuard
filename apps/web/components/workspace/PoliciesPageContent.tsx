@@ -109,9 +109,10 @@ const ACTION_HELP: Record<string, string> = {
 const FAMILY_LABEL: Record<string, string> = {
   content: 'Protection',
   financial: 'Financial',
+  tool: 'Tool command',
 };
 
-const SUPPORTED_POLICY_FAMILIES = ['content', 'financial'] as const;
+const SUPPORTED_POLICY_FAMILIES = ['content', 'tool', 'financial'] as const;
 
 function ActionBadge({ action }: { action: string }) {
   const key = action.toLowerCase();

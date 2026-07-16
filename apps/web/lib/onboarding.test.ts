@@ -103,11 +103,15 @@ describe('buildClaudeCodeHookPrompt', () => {
     agentId: 'support-ai',
   });
 
-  test('installs a PreToolUse hook that checks tool calls at /v1/events', () => {
+  test('installs pre and post hooks around executable events', () => {
     expect(prompt).toContain('PreToolUse');
+    expect(prompt).toContain('PostToolUse');
+    expect(prompt).toContain('PostToolUseFailure');
     expect(prompt).toContain('.claude/hooks/tlg-guard.mjs');
     expect(prompt).toContain("'/v1/events'");
-    expect(prompt).toContain("kind: 'tool.call.proposed'");
+    expect(prompt).toContain("Bash: 'shell.action.proposed'");
+    expect(prompt).toContain('"command": "node"');
+    expect(prompt).toContain('"timeout": 330');
   });
 
   test('interpolates base url and agent id into the settings env block', () => {
@@ -115,8 +119,11 @@ describe('buildClaudeCodeHookPrompt', () => {
     expect(prompt).toContain('"TLG_AGENT_ID": "support-ai"');
   });
 
-  test('maps effects onto Claude Code permission decisions', () => {
-    expect(prompt).toContain("permissionDecision: decision.effect === 'deny' ? 'deny' : 'ask'");
+  test('keeps TrustLoopGuard approval and lease authority in the bridge', () => {
+    expect(prompt).toContain("decision.effect === 'require_approval'");
+    expect(prompt).toContain("decision.effect !== 'permit' || !decision.lease");
+    expect(prompt).toContain('permissionDecision: decision');
+    expect(prompt).not.toContain("permissionDecision: 'ask'");
   });
 
   test('keeps the API key out of files and out of the prompt', () => {

@@ -58,6 +58,7 @@ pub enum PolicyFamily {
     Memory,
     Financial,
     SourceLabel,
+    Tool,
 }
 
 impl PolicyFamily {
@@ -70,6 +71,7 @@ impl PolicyFamily {
             Self::Memory => "memory",
             Self::Financial => "financial",
             Self::SourceLabel => "source_label",
+            Self::Tool => "tool",
         }
     }
 }

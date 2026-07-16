@@ -120,23 +120,27 @@ export function buildAssistantPrompt(opts: {
 Assistant workflow: ${assistantInstructions[opts.assistant]}`;
 }
 
-// The PreToolUse hook script installed by buildClaudeCodeHookPrompt. Kept
-// free of backticks and ${…} so it can live inside a template literal.
-const CLAUDE_HOOK_SCRIPT = `#!/usr/bin/env node
-// TrustLoopGuard PreToolUse hook: ask the guard before every tool call.
-// permit -> tool runs; deny -> denied (reason shown to the model);
-// require_approval/defer/transform -> Claude Code asks the human. Guard unreachable -> fail open.
-const chunks = [];
-for await (const chunk of process.stdin) chunks.push(chunk);
-let hook;
-try {
-  hook = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-} catch {
-  process.exit(0);
-}
+// The command hook installed by buildClaudeCodeHookPrompt. It contains only
+// Node built-ins so onboarding never installs another runtime dependency.
+export const CLAUDE_HOOK_SCRIPT = `#!/usr/bin/env node
+import { createHash, randomUUID } from 'node:crypto';
+import { chmod, lstat, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-const tool = hook.tool_name || 'unknown_tool';
-const params = hook.tool_input || {};
+const BRIDGE_VERSION = 'trustloopguard-claude-hook-v1';
+const REQUEST_TIMEOUT_MS = 3000;
+const APPROVAL_TIMEOUT_MS = positiveInt(process.env.TLG_APPROVAL_TIMEOUT_MS, 300000);
+const APPROVAL_POLL_MS = positiveInt(process.env.TLG_APPROVAL_POLL_MS, 1000);
+const READ_ONLY_TOOLS = new Set(['Read', 'Glob', 'Grep']);
+const EVENT_KINDS = {
+  Bash: 'shell.action.proposed',
+  Write: 'file.action.proposed',
+  Edit: 'file.action.proposed',
+  NotebookEdit: 'file.action.proposed',
+  WebFetch: 'network.request.proposed',
+  WebSearch: 'network.request.proposed',
+};
 const SIDE_EFFECTS = {
   Bash: 'shell_exec',
   Write: 'file_write',
@@ -148,54 +152,243 @@ const SIDE_EFFECTS = {
   WebFetch: 'network_call',
   WebSearch: 'network_call',
 };
-const source = {
-  id: 'conversation',
-  origin: 'user',
-  labels: { trust: 'untrusted', confidentiality: 'unknown', integrity: 'unknown' },
-};
-const provenance = Object.fromEntries(Object.keys(params).map((key) => [key, [source.id]]));
 
-const event = {
-  kind: 'tool.call.proposed',
-  principal: {
-    workspace_id: '',
-    environment_id: '',
-    agent_id: process.env.TLG_AGENT_ID || 'claude-code',
-  },
-  action: { operation: tool, parameters: params, side_effect: SIDE_EFFECTS[tool] || 'api_mutation' },
-  sources: [source],
-  provenance,
-  context: { channel: 'claude-code', session_id: hook.session_id || null },
-};
+function positiveInt(value, fallback) {
+  const parsed = Number.parseInt(value || '', 10);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
 
-try {
-  const baseUrl = (process.env.TLG_URL || 'http://127.0.0.1:8080').replace(/\\/$/, '');
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function decisionOutput(decision, reason) {
+  return {
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: decision,
+      permissionDecisionReason: reason,
+    },
+  };
+}
+
+function emitDecision(decision, reason) {
+  process.stdout.write(JSON.stringify(decisionOutput(decision, reason)));
+}
+
+function describeDecision(decision) {
+  const effect = decision && decision.effect ? decision.effect : 'unexpected_response';
+  const reason = decision && decision.reason ? decision.reason : 'the guard returned no reason';
+  const trace = decision && decision.trace_id ? decision.trace_id : 'n/a';
+  return 'TrustLoopGuard ' + effect + ': ' + reason + ' (trace ' + trace + ')';
+}
+
+function statePath(hook) {
+  const userSuffix = typeof process.getuid === 'function' ? '-' + process.getuid() : '';
+  const stateDir = process.env.TLG_HOOK_STATE_DIR || join(tmpdir(), 'trustloopguard-claude-hooks' + userSuffix);
+  const key = sha256(String(hook.session_id || '') + '\\0' + String(hook.tool_use_id || ''));
+  return { stateDir, file: join(stateDir, key + '.json') };
+}
+
+async function secureStateDirectory(stateDir) {
+  let existing;
+  try {
+    existing = await lstat(stateDir);
+  } catch (error) {
+    if (!error || error.code !== 'ENOENT') throw error;
+    try {
+      await mkdir(stateDir, { recursive: false, mode: 0o700 });
+    } catch (mkdirError) {
+      if (!mkdirError || mkdirError.code !== 'EEXIST') throw mkdirError;
+    }
+    existing = await lstat(stateDir);
+  }
+  if (!existing.isDirectory() || existing.isSymbolicLink()) {
+    throw new Error('hook state path is not a real directory');
+  }
+  if (typeof process.getuid === 'function' && existing.uid !== process.getuid()) {
+    throw new Error('hook state directory is owned by another user');
+  }
+  await chmod(stateDir, 0o700);
+}
+
+async function storeLease(hook, leaseId) {
+  const target = statePath(hook);
+  await secureStateDirectory(target.stateDir);
+  const temporary = target.file + '.' + randomUUID() + '.tmp';
+  await writeFile(
+    temporary,
+    JSON.stringify({
+      lease_id: leaseId,
+      tool_use_id: hook.tool_use_id,
+      session_id: hook.session_id || '',
+    }),
+    { encoding: 'utf8', mode: 0o600, flag: 'wx' },
+  );
+  await rename(temporary, target.file);
+}
+
+function requestHeaders() {
   const headers = { 'content-type': 'application/json' };
   if (process.env.TLG_API_KEY) headers.authorization = 'Bearer ' + process.env.TLG_API_KEY;
-  const res = await fetch(baseUrl + '/v1/events', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(event),
-    signal: AbortSignal.timeout(3000),
+  return headers;
+}
+
+async function requestJson(pathname, init = {}) {
+  const baseUrl = (process.env.TLG_URL || 'http://127.0.0.1:8080').replace(/\\/$/, '');
+  const response = await fetch(baseUrl + pathname, {
+    ...init,
+    headers: { ...requestHeaders(), ...(init.headers || {}) },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  if (!res.ok) process.exit(0);
-  const decision = await res.json();
-  if (decision.effect && decision.effect !== 'permit') {
-    const reason = decision.reason || decision.violated_rule || 'workspace policy';
-    process.stdout.write(
-      JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: 'PreToolUse',
-          permissionDecision: decision.effect === 'deny' ? 'deny' : 'ask',
-          permissionDecisionReason:
-            'TrustLoopGuard ' + decision.effect + ': ' + reason +
-            ' (trace ' + (decision.trace_id || 'n/a') + ')',
-        },
-      }),
+  if (!response.ok) throw new Error('TrustLoopGuard returned HTTP ' + response.status);
+  return response.json();
+}
+
+function buildEvent(hook) {
+  const tool = String(hook.tool_name || 'unknown_tool');
+  const rawParameters = hook.tool_input && typeof hook.tool_input === 'object' ? hook.tool_input : {};
+  const kind = EVENT_KINDS[tool] || 'tool.call.proposed';
+  const parameters = tool === 'Bash'
+    ? {
+        command: typeof rawParameters.command === 'string' ? rawParameters.command : '',
+        shell: 'bash',
+        cwd: hook.cwd || undefined,
+        workspace_root: process.env.CLAUDE_PROJECT_DIR || hook.cwd || undefined,
+        timeout_ms: Number.isSafeInteger(rawParameters.timeout) && rawParameters.timeout > 0
+          ? rawParameters.timeout
+          : undefined,
+        run_in_background: rawParameters.run_in_background === true,
+      }
+    : rawParameters;
+  const normalizedFields = tool === 'Bash'
+    ? ['command', 'shell', 'cwd', 'workspace_root', 'timeout_ms', 'run_in_background']
+    : Object.keys(parameters).sort();
+  const source = {
+    id: 'conversation',
+    origin: 'user',
+    labels: { trust: 'untrusted', confidentiality: 'unknown', integrity: 'unknown' },
+  };
+  return {
+    kind,
+    principal: {
+      workspace_id: '',
+      environment_id: '',
+      agent_id: process.env.TLG_AGENT_ID || 'claude-code',
+      session_id: hook.session_id || undefined,
+    },
+    action: {
+      operation: tool,
+      parameters,
+      side_effect: SIDE_EFFECTS[tool] || 'api_mutation',
+      invocation_id: hook.tool_use_id,
+      tool_identity: {
+        server_id: 'claude-code',
+        tool_name: tool,
+        schema_hash: 'sha256:' + sha256(JSON.stringify([BRIDGE_VERSION, tool, kind, normalizedFields])),
+      },
+    },
+    sources: [source],
+    provenance: Object.fromEntries(Object.keys(parameters).map((key) => [key, [source.id]])),
+    context: { channel: 'claude-code' },
+  };
+}
+
+async function submitEvent(event) {
+  return requestJson('/v1/events', { method: 'POST', body: JSON.stringify(event) });
+}
+
+async function awaitApproval(summary) {
+  const deadline = Date.now() + APPROVAL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const approval = await requestJson(
+      '/v1/authorization/approvals/' + encodeURIComponent(summary.id),
+      { method: 'GET' },
     );
+    if (approval.status === 'approved' && approval.grant_id) return approval.grant_id;
+    if (['denied', 'canceled', 'expired'].includes(approval.status)) {
+      throw new Error('approval ' + approval.status);
+    }
+    await new Promise((resolve) => setTimeout(resolve, APPROVAL_POLL_MS));
   }
+  throw new Error('approval timed out');
+}
+
+async function handlePreToolUse(hook) {
+  const tool = String(hook.tool_name || 'unknown_tool');
+  const readOnly = READ_ONLY_TOOLS.has(tool);
+  if (!hook.tool_use_id) {
+    if (!readOnly) emitDecision('deny', 'TrustLoopGuard denied the tool because tool_use_id is missing.');
+    return;
+  }
+
+  const event = buildEvent(hook);
+  try {
+    let decision = await submitEvent(event);
+    if (decision.effect === 'require_approval' && decision.approval && decision.approval.id) {
+      const grantId = await awaitApproval(decision.approval);
+      event.action.authorization = { grant_id: grantId, attempt_id: randomUUID() };
+      decision = await submitEvent(event);
+      if (decision.effect !== 'permit' || !decision.lease || !decision.lease.id) {
+        emitDecision('deny', describeDecision(decision) + '; approved actions require an execution lease.');
+        return;
+      }
+    }
+    if (decision.effect === 'permit') {
+      if (decision.lease && decision.lease.id) await storeLease(hook, decision.lease.id);
+      emitDecision('allow', describeDecision(decision));
+      return;
+    }
+    emitDecision('deny', describeDecision(decision) + '; review the trace before retrying.');
+  } catch (error) {
+    if (!readOnly) {
+      const reason = error instanceof Error ? error.message : 'guard unavailable';
+      emitDecision('deny', 'TrustLoopGuard could not authorize this high-impact tool: ' + reason + '.');
+    }
+  }
+}
+
+async function handlePostToolUse(hook) {
+  if (!hook.tool_use_id) return;
+  const target = statePath(hook);
+  let state;
+  try {
+    state = JSON.parse(await readFile(target.file, 'utf8'));
+  } catch {
+    return;
+  }
+  const status = hook.hook_event_name === 'PostToolUse' ? 'consumed' : 'canceled';
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await requestJson('/v1/authorization/leases/' + encodeURIComponent(state.lease_id) + '/complete', {
+        method: 'POST',
+        body: JSON.stringify({ status, outcome: { hook_event_name: hook.hook_event_name } }),
+      });
+      await rm(target.file, { force: true });
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  const message = lastError instanceof Error ? lastError.message : 'unknown error';
+  process.stderr.write('TrustLoopGuard lease completion failed; state retained: ' + message + '\\n');
+}
+
+const chunks = [];
+for await (const chunk of process.stdin) chunks.push(chunk);
+let hook;
+try {
+  hook = JSON.parse(Buffer.concat(chunks).toString('utf8'));
 } catch {
+  emitDecision('deny', 'TrustLoopGuard could not parse the Claude hook request.');
   process.exit(0);
+}
+
+if (hook.hook_event_name === 'PreToolUse') {
+  await handlePreToolUse(hook);
+} else if (hook.hook_event_name === 'PostToolUse' || hook.hook_event_name === 'PostToolUseFailure') {
+  await handlePostToolUse(hook);
 }`;
 
 /**
@@ -205,7 +398,7 @@ try {
  * is checked at POST /v1/events before it executes.
  */
 export function buildClaudeCodeHookPrompt(opts: { baseUrl: string; agentId: string }): string {
-  return `Guard this Claude Code session with TrustLoopGuard (agent id: ${opts.agentId}): install a PreToolUse hook so every tool call is checked by the guard BEFORE it runs.
+  return `Guard this Claude Code session with TrustLoopGuard (agent id: ${opts.agentId}): install command hooks so every tool call is authorized before it runs and every execution lease is completed afterward.
 
 1. Create .claude/hooks/tlg-guard.mjs with exactly this content:
 
@@ -223,7 +416,38 @@ ${CLAUDE_HOOK_SCRIPT}
       {
         "matcher": "*",
         "hooks": [
-          { "type": "command", "command": "node \\"$CLAUDE_PROJECT_DIR/.claude/hooks/tlg-guard.mjs\\"" }
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["$CLAUDE_PROJECT_DIR/.claude/hooks/tlg-guard.mjs"],
+            "timeout": 330
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["$CLAUDE_PROJECT_DIR/.claude/hooks/tlg-guard.mjs"],
+            "timeout": 330
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["$CLAUDE_PROJECT_DIR/.claude/hooks/tlg-guard.mjs"],
+            "timeout": 330
+          }
         ]
       }
     ]
@@ -231,7 +455,7 @@ ${CLAUDE_HOOK_SCRIPT}
 }
 
 3. Never write my API key into any file. Remind me to run \`export TLG_API_KEY=<the key I just created>\` in the shell where I launch Claude Code, then restart Claude Code so the hook picks it up.
-4. Verify: after the restart, run any harmless tool (list the project files). I'm watching for the first tool.call.proposed event on my TrustLoopGuard dashboard.`;
+4. Verify: after the restart, run any harmless tool (list the project files). I'm watching for the first executable event on my TrustLoopGuard dashboard.`;
 }
 
 /**

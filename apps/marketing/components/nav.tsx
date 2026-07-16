@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { BOOK_MEETING_URL, GITHUB_URL, getStarCount } from '@/lib/github';
+import { MarketingEventLink } from './marketing-event-link';
 import { NavActions } from './nav-actions';
 import { UseCaseNav } from './use-case-nav';
 
@@ -25,7 +26,13 @@ export async function Nav() {
           </li>
           <UseCaseNav />
           <li>
-            <Link href="/demo">Demo</Link>
+            <MarketingEventLink
+              href="/demo"
+              event="demo_click"
+              eventParams={{ location: 'nav', label: 'Live demo' }}
+            >
+              Demo
+            </MarketingEventLink>
           </li>
           {NAV_LINKS_AFTER_USE_CASES.map((link) => (
             <li key={link.href}>

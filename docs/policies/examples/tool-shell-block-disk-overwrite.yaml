@@ -1,0 +1,14 @@
+family: tool
+id: block-disk-overwrite
+description: Blocks commands that overwrite or erase a device.
+severity: critical
+when:
+  operations: [Bash]
+  side_effects: [shell_exec]
+match:
+  fact:
+    key: shell.risk
+    equals: disk_overwrite
+action: deny
+reason: Direct disk overwrite and filesystem erasure are prohibited.
+remediation: Use an isolated disposable image under the workspace.

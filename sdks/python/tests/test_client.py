@@ -25,6 +25,7 @@ from trustloopguard import (
     RunSummary,
     SideEffectClass,
     Source,
+    ToolIdentity,
     AuthorizationEffect,
 )
 
@@ -80,6 +81,135 @@ def test_bearer_header_is_sent() -> None:
     with Client("https://api.example.test", api_key="sk-abc") as client:
         client.submit_event(output_event())
     assert route.calls.last.request.headers["authorization"] == "Bearer sk-abc"
+
+
+@respx.mock
+def test_authorized_shell_action_resumes_exact_event_and_completes_lease() -> None:
+    approval_id = "018f1111-1111-7111-8111-111111111111"
+    grant_id = "018f2222-2222-7222-8222-222222222222"
+    lease_id = "018f3333-3333-7333-8333-333333333333"
+    submitted: list[dict] = []
+
+    def event_response(request: httpx.Request) -> httpx.Response:
+        submitted.append(json.loads(request.content))
+        if len(submitted) == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "trace_id": "trace-pending",
+                    "domain": "tool",
+                    "effect": "require_approval",
+                    "reason": "review required",
+                    "findings": [],
+                    "approval": {
+                        "id": approval_id,
+                        "status": "pending",
+                        "envelope_hash": "sha256:v1:approval",
+                        "expires_at": "2026-07-15T01:00:00Z",
+                        "poll_after_ms": 1,
+                    },
+                    "latency_ms": 1,
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "trace_id": "trace-permit",
+                "domain": "tool",
+                "effect": "permit",
+                "reason": "approved",
+                "findings": [],
+                "lease": {
+                    "id": lease_id,
+                    "intent_id": "018f4444-4444-7444-8444-444444444444",
+                    "grant_id": grant_id,
+                    "attempt_id": "attempt-1",
+                    "fingerprint": "sha256:v1:subject",
+                    "status": "claimed",
+                    "claimed_at": "2026-07-15T00:00:00Z",
+                    "expires_at": "2026-07-15T00:05:00Z",
+                },
+                "latency_ms": 1,
+            },
+        )
+
+    respx.post("https://api.example.test/v1/events").mock(side_effect=event_response)
+    respx.get(f"https://api.example.test/v1/authorization/approvals/{approval_id}").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": approval_id,
+                "workspace_id": "ws",
+                "environment_id": "production",
+                "intent_id": "018f4444-4444-7444-8444-444444444444",
+                "status": "approved",
+                "envelope": {
+                    "schema": "authorization-envelope:v1",
+                    "intent_id": "018f4444-4444-7444-8444-444444444444",
+                    "domain": "tool",
+                    "capability": "tool:claude-code/bash",
+                    "principal_id": "agent-1",
+                    "subject_id": "tool-use-shell",
+                    "subject_hash": "sha256:v1:subject",
+                    "exact_fingerprint": "sha256:v1:subject",
+                    "fingerprint_version": 1,
+                    "requirement_ids": ["tool-policy:approve-delete"],
+                    "policy_versions": ["approve-delete"],
+                    "issued_at": "2026-07-15T00:00:00Z",
+                    "expires_at": "2026-07-15T01:00:00Z",
+                },
+                "envelope_hash": "sha256:v1:approval",
+                "approver_roles": ["owner"],
+                "grant_id": grant_id,
+                "expires_at": "2026-07-15T01:00:00Z",
+                "created_at": "2026-07-15T00:00:00Z",
+                "updated_at": "2026-07-15T00:00:01Z",
+            },
+        )
+    )
+    completion = respx.post(
+        f"https://api.example.test/v1/authorization/leases/{lease_id}/complete"
+    ).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": lease_id,
+                "intent_id": "018f4444-4444-7444-8444-444444444444",
+                "grant_id": grant_id,
+                "attempt_id": "attempt-1",
+                "fingerprint": "sha256:v1:subject",
+                "status": "consumed",
+                "claimed_at": "2026-07-15T00:00:00Z",
+                "completed_at": "2026-07-15T00:00:02Z",
+                "expires_at": "2026-07-15T00:05:00Z",
+            },
+        )
+    )
+
+    with Client("https://api.example.test") as client:
+        result = client.with_authorized_shell_action(
+            agent_id="agent-1",
+            command="rm -rf ./build",
+            invocation_id="tool-use-shell",
+            tool_identity=ToolIdentity(
+                server_id="claude-code",
+                tool_name="Bash",
+                schema_hash="sha256:v1:bash",
+            ),
+            execute=lambda parameters: parameters["command"],
+            poll_interval=0.001,
+        )
+
+    assert result.executed
+    assert result.value == "rm -rf ./build"
+    assert len(submitted) == 2
+    assert submitted[0]["kind"] == "shell.action.proposed"
+    assert submitted[1]["action"]["invocation_id"] == "tool-use-shell"
+    assert submitted[1]["action"]["authorization"]["grant_id"] == grant_id
+    assert json.loads(completion.calls[0].request.content) == {
+        "status": "consumed",
+        "outcome": {"success": True},
+    }
 
 
 @respx.mock

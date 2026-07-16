@@ -11,7 +11,7 @@ use tl_core::{
     AuthorizationClaim, AuthorizationDecision, AuthorizationEffect, AuthorizationFinding,
     AuthorizationGrantScope, AuthorizationSubject, Channel, CreateRunEventRequest,
     DataHandlingMode, Decision, EnforcementMode, GuardEvent, LlmUsageKind, RunEventKind,
-    RunGuardrailUsage, Severity, SideEffectClass, ToolResolution, USD,
+    RunGuardrailUsage, Severity, ShellActionParameters, SideEffectClass, ToolResolution, USD,
 };
 use tl_engine::{evaluate_event_policies, EventPolicyEvalCtx};
 
@@ -51,6 +51,9 @@ pub(crate) async fn execute_event_submission(
     // Authorization is a replay credential, not trace evidence. Extract it
     // before validation/pipeline work and never persist it with the event.
     let authorization = event.action.authorization.take();
+    if event.kind == tl_core::EventKind::ShellActionProposed {
+        event.action.side_effect = Some(SideEffectClass::ShellExec);
+    }
     // Validate before any storage round trip so malformed-but-
     // authenticated spam never touches the database.
     if let Err(msg) = validate_event(&event) {
@@ -174,10 +177,14 @@ pub(crate) async fn execute_event_submission(
         super::resolve_checker_modes(state, workspace_id, environment_id, &workspace_settings)
             .await?;
     let pipeline_start = std::time::Instant::now();
-    let (event, mut decision) = state
+    let (mut event, mut decision) = state
         .event_pipeline
         .process(event, workspace_id, environment_id, modes, decision)
         .await;
+    // A collector or registry entry cannot downgrade executable shell syntax.
+    if event.kind == tl_core::EventKind::ShellActionProposed {
+        event.action.side_effect = Some(SideEffectClass::ShellExec);
+    }
     let pipeline_latency_us = pipeline_start.elapsed().as_micros() as u64;
 
     let enabled_policies = match state
@@ -251,6 +258,28 @@ pub(crate) async fn execute_event_submission(
         .await
         .map_err(authorization_error)?;
 
+    let mut existing_policy_ids = decision
+        .triggered_policies
+        .iter()
+        .map(|policy| policy.id.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    for finding in &authorization_decision.findings {
+        let Some(policy_id) = finding.policy_id.as_ref() else {
+            continue;
+        };
+        if existing_policy_ids.insert(policy_id.clone()) {
+            decision.triggered_policies.push(tl_core::TriggeredPolicy {
+                id: policy_id.clone(),
+                severity: finding.severity,
+                reason: finding.reason.clone(),
+            });
+        }
+    }
+    if let Some(winning) = authorization_decision.findings.iter().find(|finding| {
+        finding.effect == authorization_decision.effect && finding.policy_id.is_some()
+    }) {
+        decision.remediation = winning.remediation.clone();
+    }
     decision.effect = authorization_decision.effect;
     decision.reason = authorization_decision.reason.clone();
     decision.approval = authorization_decision.approval.clone();
@@ -861,6 +890,33 @@ fn validate_event(event: &GuardEvent) -> Result<(), String> {
         return Err(format!(
             "action.parameters must serialize to at most {MAX_PARAMETERS_BYTES} bytes"
         ));
+    }
+    if event.kind == tl_core::EventKind::ShellActionProposed {
+        let parameters: ShellActionParameters =
+            serde_json::from_value(event.action.parameters.clone()).map_err(|_| {
+                "action.parameters must be valid shell action parameters".to_string()
+            })?;
+        if parameters.command.trim().is_empty() {
+            return Err("action.parameters.command must not be empty".into());
+        }
+        if parameters.command.len() > MAX_PARAMETERS_BYTES {
+            return Err(format!(
+                "action.parameters.command must be at most {MAX_PARAMETERS_BYTES} bytes"
+            ));
+        }
+        for (name, value) in [
+            ("cwd", parameters.cwd.as_deref()),
+            ("workspace_root", parameters.workspace_root.as_deref()),
+        ] {
+            if value.is_some_and(|value| value.len() > 4_096) {
+                return Err(format!(
+                    "action.parameters.{name} must be at most 4096 bytes"
+                ));
+            }
+        }
+        if parameters.timeout_ms == Some(0) {
+            return Err("action.parameters.timeout_ms must be greater than zero".into());
+        }
     }
     if serialized_len(&event.context) > MAX_CONTEXT_BYTES {
         return Err(format!(

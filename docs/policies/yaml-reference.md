@@ -3,6 +3,8 @@
 This page explains every field. For a quick start, read
 [Write Your First Policy](README.md) first.
 
+Documents without `family` use the content contract below. Typed families share the same registry and lifecycle but have family-specific fields. Shell command controls use `family: tool`; [Shell command safety](../concept/command-safety.md) is their canonical runtime contract.
+
 This is the canonical shape for a TrustLoopGuard policy file:
 
 ```yaml
@@ -190,3 +192,38 @@ rewrite: "I can help review eligibility, but I can't guarantee the outcome."
 ```
 
 Do not include `rewrite` unless the action is `transform`.
+
+## `family: tool`
+
+Tool policies control executable subjects and allow only `deny`, `defer`, or `require_approval`:
+
+```yaml
+family: tool
+id: approve-destructive-workspace-change
+severity: high
+when:
+  agents: [coding-agent]
+  operations: [Bash]
+  side_effects: [shell_exec]
+  tools:
+    - server_id: claude-code
+      tool_name: Bash
+match:
+  all:
+    - fact: { key: shell.risk, equals: filesystem_recursive_delete }
+    - fact: { key: shell.target_scope, equals: workspace }
+action: require_approval
+reason: Recursive workspace deletion requires review.
+remediation: Prefer deleting a named generated directory.
+approver_roles: [owner, admin]
+max_grant_ttl_seconds: 600
+```
+
+`when` must contain at least one non-empty scope list. Tool selectors may specify `server_id`, `tool_name`, `schema_hash`, or a combination. `match` is one matcher or a non-empty `any`/`all` list with at most 64 entries:
+
+- `fact.key` selects an analyzer fact and uses exactly one of `equals`, `one_of`, or `regex`.
+- `parameter.path` is an RFC 6901 JSON Pointer into `action.parameters` and uses exactly one of the same comparators.
+
+Approval-only fields are invalid for deny/defer policies. Approval role lists must be non-empty when supplied, and grant TTL is 1–86,400 seconds. Tool approval is exact and non-reusable by default.
+
+See the [command-safety fact table](../concept/command-safety.md#shell-facts) and the [tool examples](examples.md#shell-command-controls).
