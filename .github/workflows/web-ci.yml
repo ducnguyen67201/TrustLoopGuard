@@ -29,3 +29,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web typecheck
       - run: pnpm test:frontend
+
+  image:
+    name: web production image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build --target builder --file apps/web/Dockerfile .

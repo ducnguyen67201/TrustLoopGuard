@@ -11,10 +11,9 @@
 # it actually uses and emits a self-contained server. The runtime stage
 # never runs `pnpm install` and contains no dev dependencies.
 #
-# @trustloopguard/sdk lives in the workspace and is consumed source-first
-# via `transpilePackages` in next.config.ts — Next compiles it through
-# SWC during `pnpm --filter web build`, so there's no separate SDK build
-# step here.
+# @trustloopguard/sdk lives in the workspace and exports its compiled
+# dist/index.js entry point. The builder compiles the SDK before Next.js
+# so clean images do not depend on ignored local build artifacts.
 
 ARG NODE_VERSION=22
 ARG ALPINE_VERSION=3.20
@@ -60,7 +59,8 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_DOCS_URL=${NEXT_PUBLIC_DOCS_URL} \
     NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=${NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN} \
     NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST}
-RUN pnpm --filter web exec next build
+RUN pnpm --filter @trustloopguard/sdk build \
+ && pnpm --filter web exec next build
 
 # -----------------------------------------------------------------------------
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS runtime
