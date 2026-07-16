@@ -1,5 +1,6 @@
 import { MarketingEventLink } from './marketing-event-link';
 import type { UseCaseData } from '@/app/use-cases/content';
+import { UseCaseFlowDemo } from './use-case-flow-demo';
 
 export function UseCaseDetail({ useCase }: { useCase: UseCaseData }) {
   return (
@@ -47,33 +48,15 @@ export function UseCaseDetail({ useCase }: { useCase: UseCaseData }) {
         <section className="use-case-demo" aria-labelledby={`${useCase.slug}-demo-title`}>
           <div className="use-case-demo-heading">
             <div>
-              <p className="use-case-mini-label">Operator walkthrough</p>
-              <h2 id={`${useCase.slug}-demo-title`}>See the control reach a real decision.</h2>
+              <p className="use-case-mini-label">Live flow</p>
+              <h2 id={`${useCase.slug}-demo-title`}>Follow the action through the decision.</h2>
             </div>
-            <p>{useCase.demo.caption}</p>
-            <span className="use-case-demo-swipe">
-              Swipe to inspect all four steps <b aria-hidden="true">→</b>
-            </span>
+            <p>
+              The walkthrough below is native page UI: proposal, policy facts, decision, and the
+              point where the customer-owned executor continues or stops.
+            </p>
           </div>
-          <figure>
-            <div
-              className="use-case-demo-visual"
-              tabIndex={0}
-              aria-label="Scrollable four-step operator walkthrough"
-            >
-              <img
-                src={useCase.demo.imageSrc}
-                alt={useCase.demo.imageAlt}
-                width="1672"
-                height="941"
-                loading="lazy"
-              />
-            </div>
-            <figcaption>
-              <span>Execution boundary</span>
-              <strong>{useCase.demo.note}</strong>
-            </figcaption>
-          </figure>
+          <UseCaseFlowDemo demo={useCase.demo} />
         </section>
       ) : null}
 

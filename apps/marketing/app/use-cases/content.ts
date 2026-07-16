@@ -4,14 +4,30 @@ export interface UseCaseStep {
   body: string;
 }
 
+export type UseCaseDemoEffect = 'permit' | 'transform' | 'require_approval' | 'deny';
+
+export interface UseCaseDemoField {
+  label: string;
+  value: string;
+}
+
+export interface UseCaseDemoDecision {
+  subject: string;
+  effect: UseCaseDemoEffect;
+  detail: string;
+}
+
 export interface UseCaseDemo {
-  imageSrc:
-    | '/images/use-cases/shell-command-policy-demo.webp'
-    | '/images/use-cases/email-policy-demo.webp'
-    | '/images/use-cases/financial-spending-cap-demo.webp';
-  imageAlt: string;
-  caption: string;
-  note: string;
+  kind: 'shell' | 'email' | 'spend';
+  proposalTitle: string;
+  proposalCode: string;
+  proposalFields: readonly UseCaseDemoField[];
+  policyTitle: string;
+  policyFields: readonly UseCaseDemoField[];
+  decisions: readonly UseCaseDemoDecision[];
+  executionTitle: string;
+  executionDetail: string;
+  boundary: string;
 }
 
 export type UseCaseSlug =
@@ -94,12 +110,31 @@ export const SHELL_COMMAND_USE_CASE = {
   ctaHref:
     'https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/concept/command-safety.md#operator-demo',
   demo: {
-    imageSrc: '/images/use-cases/shell-command-policy-demo.webp',
-    imageAlt:
-      'Four-step walkthrough showing a shell policy chosen, published, enabled, and producing a deny or approval decision.',
-    caption:
-      'Publish the YAML once, enable it for the environment, and see the deny or exact-action approval in the dashboard.',
-    note: 'Policy analysis treats the command as structured input and never executes it.',
+    kind: 'shell',
+    proposalTitle: 'Bash proposes a destructive action',
+    proposalCode: 'rm -rf /',
+    proposalFields: [
+      { label: 'Tool', value: 'claude-code / Bash' },
+      { label: 'Workspace', value: '/workspace/project' },
+    ],
+    policyTitle: 'Tool policy matches shell facts',
+    policyFields: [
+      { label: 'Risk', value: 'filesystem_recursive_delete' },
+      { label: 'Target', value: 'root' },
+      { label: 'Action', value: 'deny' },
+    ],
+    decisions: [
+      { subject: 'rm -rf /', effect: 'deny', detail: 'System target blocked' },
+      {
+        subject: 'rm -rf ./build',
+        effect: 'require_approval',
+        detail: 'Exact action waits',
+      },
+    ],
+    executionTitle: 'The executor stays paused',
+    executionDetail:
+      'Denied commands never run. An approved command receives one action-bound execution lease.',
+    boundary: 'Analysis parses the command as structured input and never invokes the shell.',
   },
 } as const satisfies UseCaseData;
 
@@ -154,12 +189,27 @@ export const EMAIL_USE_CASE = {
   ctaHref:
     'https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/policies/README.md#email-policy-demo',
   demo: {
-    imageSrc: '/images/use-cases/email-policy-demo.webp',
-    imageAlt:
-      'Four-step walkthrough showing an email policy published and returning permit for a safe draft or transform for a refund guarantee.',
-    caption:
-      'Compare a permitted draft with a risky refund guarantee and inspect the policy-approved replacement.',
-    note: 'Policy analysis checks the proposed message and never sends the email.',
+    kind: 'email',
+    proposalTitle: 'The agent proposes a customer email',
+    proposalCode: 'This is a guaranteed refund.',
+    proposalFields: [
+      { label: 'Operation', value: 'send_email' },
+      { label: 'Channel', value: 'email' },
+    ],
+    policyTitle: 'The email policy checks the draft',
+    policyFields: [
+      { label: 'Match', value: 'guaranteed refund' },
+      { label: 'Action', value: 'transform' },
+      { label: 'Scope', value: 'support-agent' },
+    ],
+    decisions: [
+      { subject: 'Safe draft', effect: 'permit', detail: 'Send unchanged' },
+      { subject: 'Risky promise', effect: 'transform', detail: 'Use safe replacement' },
+    ],
+    executionTitle: 'The customer mailer applies the result',
+    executionDetail:
+      'The application sends the original permitted draft or the policy-approved replacement.',
+    boundary: 'TrustLoopGuard evaluates the proposed message and never sends the email.',
   },
 } as const satisfies UseCaseData;
 
@@ -214,12 +264,28 @@ export const AGENT_SPENDING_CAPS_USE_CASE = {
   ctaHref:
     'https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/concept/financial-authorization.md#spending-cap-demo',
   demo: {
-    imageSrc: '/images/use-cases/financial-spending-cap-demo.webp',
-    imageAlt:
-      'Four-step walkthrough showing one spending policy permit a 25 dollar payment, hold 75 dollars for approval, and deny 150 dollars.',
-    caption:
-      'One policy separates routine spend, a reviewable exception, and a hard-cap breach before provider execution.',
-    note: 'Authorization analysis never executes the payment.',
+    kind: 'spend',
+    proposalTitle: 'The agent proposes a vendor payment',
+    proposalCode: '$75.00 USD',
+    proposalFields: [
+      { label: 'Operation', value: 'pay_vendor' },
+      { label: 'Principal', value: 'spend-agent' },
+    ],
+    policyTitle: 'Financial policy checks authority',
+    policyFields: [
+      { label: 'Per action', value: '$100 hard cap' },
+      { label: 'Review above', value: '$50' },
+      { label: 'Monthly', value: '$1,000' },
+    ],
+    decisions: [
+      { subject: '$25 routine', effect: 'permit', detail: 'Authorized' },
+      { subject: '$75 exception', effect: 'require_approval', detail: 'Held for review' },
+      { subject: '$150 over cap', effect: 'deny', detail: 'Blocked' },
+    ],
+    executionTitle: 'The provider call waits',
+    executionDetail:
+      'Only a currently authorized action can reserve live budget and reach the payment provider.',
+    boundary: 'Authorization analysis never executes the payment.',
   },
 } as const satisfies UseCaseData;
 

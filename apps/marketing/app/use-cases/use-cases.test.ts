@@ -115,7 +115,7 @@ test('email control evaluates the proposed message and leaves delivery to the cu
   assert.match(email?.resultDetail ?? '', /never sends/i);
 });
 
-test('README use cases carry their operator walkthrough visuals into marketing', () => {
+test('README use cases carry native decision-flow demos into marketing', () => {
   const walkthroughs = [
     getUseCase('shell-command-safety'),
     getUseCase('email'),
@@ -123,17 +123,35 @@ test('README use cases carry their operator walkthrough visuals into marketing',
   ];
 
   assert.deepEqual(
-    walkthroughs.map((useCase) => useCase?.demo?.imageSrc),
-    [
-      '/images/use-cases/shell-command-policy-demo.webp',
-      '/images/use-cases/email-policy-demo.webp',
-      '/images/use-cases/financial-spending-cap-demo.webp',
-    ],
+    walkthroughs.map((useCase) => useCase?.demo?.kind),
+    ['shell', 'email', 'spend'],
   );
 
   for (const useCase of walkthroughs) {
-    assert.match(useCase?.demo?.note ?? '', /never executes|never sends/i);
+    assert.equal(useCase?.demo?.proposalFields.length, 2);
+    assert.equal(useCase?.demo?.policyFields.length, 3);
+    assert.ok((useCase?.demo?.decisions.length ?? 0) >= 2);
+    assert.match(useCase?.demo?.boundary ?? '', /never (invokes|executes|sends)/i);
   }
+});
+
+test('the landing-page walkthrough is native UI rather than a static image', () => {
+  const flow = readFileSync(
+    new URL('../../components/use-case-flow-demo.tsx', import.meta.url),
+    'utf8',
+  );
+  const showcase = readFileSync(
+    new URL('../../components/use-case-showcase.tsx', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(flow, /Proposed action/);
+  assert.match(flow, /Policy check/);
+  assert.match(flow, /Decision/);
+  assert.match(flow, /Execution/);
+  assert.doesNotMatch(flow, /<img/);
+  assert.match(showcase, /role="tablist"/);
+  assert.match(showcase, /role="tabpanel"/);
 });
 
 test('the use-case trigger spans the header so the pointer can reach the mega-menu', () => {
