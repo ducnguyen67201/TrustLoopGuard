@@ -19,8 +19,8 @@
 // Python `_STATUS_TO_CODE` dict — the parity is asserted by tests in
 // every SDK so they cannot drift silently.
 
-import type { ApiError } from './generated/ApiError';
-import type { ApiErrorCode } from './generated/ApiErrorCode';
+import type { ApiError } from './generated/ApiError.js';
+import type { ApiErrorCode } from './generated/ApiErrorCode.js';
 
 const STATUS_TO_CODE: Record<number, ApiErrorCode> = {
   400: 'invalid',

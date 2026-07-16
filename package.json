@@ -18,17 +18,17 @@
     }
   },
   "scripts": {
-    "dev": "pnpm --filter web dev",
+    "dev": "pnpm --filter @trustloopguard/sdk build && pnpm --filter web dev",
     "docs:dev": "pnpm --filter docs dev",
     "docs:build": "pnpm --filter docs build",
     "docs:diagrams": "bash scripts/render-diagrams.sh",
-    "marketing:dev": "pnpm --filter marketing dev",
+    "marketing:dev": "pnpm --filter @trustloopguard/sdk build && pnpm --filter marketing dev",
     "marketing:build": "pnpm --filter marketing build",
     "test:marketing-use-cases": "tsx --test apps/marketing/app/use-cases/use-cases.test.ts",
     "test:marketing-nav": "tsx --test apps/marketing/components/nav.test.ts",
     "test:refund-demo": "tsx --tsconfig apps/marketing/tsconfig.json --test demo/stripe-refund-agent/agent.test.ts demo/stripe-refund-agent/auth.test.ts demo/stripe-refund-agent/core.test.ts demo/stripe-refund-agent/deployment.test.ts demo/stripe-refund-agent/hosted.test.ts demo/stripe-refund-agent/status.test.ts apps/marketing/app/demo/demo-contract.test.ts apps/marketing/app/demo/status-model.test.ts apps/marketing/app/api/demo/refund/route.test.ts apps/marketing/app/api/demo/refund/provider/payments/route.test.ts apps/marketing/single-service-deployment.test.ts",
     "build": "pnpm -r --filter \"@trustloopguard/sdk\" --filter web --filter docs --filter marketing build",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm --filter @trustloopguard/sdk build && pnpm -r typecheck",
     "codegen": "cargo run -p tl-codegen",
     "codegen:check": "cargo run -p tl-codegen -- --check",
     "dead-code:check": "knip --no-progress --reporter markdown",
@@ -46,6 +46,7 @@
     "precommit:check": "lefthook run pre-commit --no-auto-install",
     "prepush:check": "bash scripts/prepush-fast.sh",
     "verify:full": "pnpm secrets:check && pnpm typecheck && pnpm test:frontend && pnpm test:backend && pnpm lint && pnpm codegen:check",
+    "postinstall": "pnpm --filter @trustloopguard/sdk build",
     "prepare": "lefthook install",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

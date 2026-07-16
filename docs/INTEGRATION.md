@@ -1,6 +1,75 @@
 # Integration guide
 
-TrustLoopGuard evaluates proposed agent behavior before an external side effect. Use the SDK when your application owns the tool boundary, the Gateway for OpenAI-compatible model traffic, or the MCP proxy for a downstream stdio MCP server.
+TrustLoopGuard evaluates proposed agent behavior before it reaches a user or
+external system. The primary integration is the SDK decorator.
+
+Just look at this:
+
+```bash
+npm install @trustloopguard/sdk
+```
+
+```ts
+import { guardAgent } from '@trustloopguard/sdk';
+
+const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
+
+const reply = await agent.reply(userMessage);
+sendToUser(reply);
+```
+
+Install one package, decorate the agent once where it is created, and keep the
+rest of the app calling `agent.reply(...)`. Do not add a guard check to every
+handler or helper.
+
+## Agent reply
+
+Create an agent and runtime key in the dashboard, then install the package:
+
+```bash
+npm install @trustloopguard/sdk
+export TLG_URL=https://api.gettrustloop.app
+export TLG_API_KEY=tl_live_...
+```
+
+Decorate the agent once:
+
+```ts
+import { guardAgent } from '@trustloopguard/sdk';
+
+const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
+
+const reply = await agent.reply(userMessage);
+sendToUser(reply);
+```
+
+The decorator calls the original `reply()`, submits its returned draft directly
+to `POST /v1/events`, then applies the `AuthorizationDecision` before returning
+to the caller. The dashboard is not in this runtime path.
+
+For an existing helper like this:
+
+```ts
+async function generateReply(message: string): Promise<string> {
+  return await agent.reply(message);
+}
+
+const reply = await generateReply(userMessage);
+sendToUser(reply);
+```
+
+decorate the agent before `generateReply()` receives it:
+
+```ts
+const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
+```
+
+The helper and every downstream call site stay unchanged.
+
+This integration guards the final reply string. It does not automatically
+observe hidden framework tool calls, payments, or other side effects, and the
+output event does not contain the raw user message by default. Use the explicit
+typed helpers below when the application owns one of those boundaries.
 
 ## Canonical response
 

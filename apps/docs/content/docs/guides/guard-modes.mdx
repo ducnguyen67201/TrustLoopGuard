@@ -3,29 +3,26 @@ title: Guard modes
 description: Choose whether TrustLoopGuard blocks, rewrites, or asks the model to regenerate unsafe drafts.
 ---
 
-Create one guardrail when your agent starts, then call it before each reply is
-sent or spoken.
+The shortest TypeScript integration decorates the agent once. Python supports
+the equivalent function decorator.
 
 ```python
 import trustloopguard as trustloop
 
-guardrail = trustloop.guard(
-    agent_id="support-agent",
-    mode=trustloop.GuardMode.REWRITE,
-)
-
-reply = await guardrail(input=user_text, draft=agent_draft)
+@trustloop.guarded(agent_id="support-agent")
+async def answer(message: str) -> str:
+    return await agent.reply(message)
 ```
 
 ```ts
-import { GuardMode, guard } from '@trustloopguard/sdk';
+import { GuardMode, guardAgent } from '@trustloopguard/sdk';
 
-const guardrail = guard({
+const agent = guardAgent(createAgent(), {
   agentId: 'support-agent',
   mode: GuardMode.Rewrite,
 });
 
-const reply = await guardrail({ input: userText, draft: agentDraft });
+const reply = await agent.reply(userText);
 ```
 
 ## Modes

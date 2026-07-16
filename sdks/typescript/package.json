@@ -1,35 +1,48 @@
 {
   "name": "@trustloopguard/sdk",
-  "version": "0.0.4",
+  "version": "0.0.7",
   "description": "TypeScript SDK for TrustLoopGuard. Types are generated from Rust via tl-codegen; do not hand-edit src/generated.",
   "license": "Apache-2.0",
   "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ducnguyen67201/TrustLoopGuard.git",
+    "directory": "sdks/typescript"
+  },
+  "homepage": "https://github.com/ducnguyen67201/TrustLoopGuard/tree/main/sdks/typescript",
+  "bugs": {
+    "url": "https://github.com/ducnguyen67201/TrustLoopGuard/issues"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "guardrails",
+    "security",
+    "runtime"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts",
-      "default": "./src/index.ts"
-    }
-  },
-  "publishConfig": {
-    "exports": {
-      ".": {
-        "types": "./dist/index.d.ts",
-        "import": "./dist/index.js",
-        "default": "./dist/index.js"
-      }
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "files": [
-    "dist",
-    "src"
+    "dist/*.js",
+    "dist/**/*.d.ts"
   ],
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:package": "node ./scripts/package-smoke.mjs",
+    "prepack": "pnpm build",
     "clean": "rm -rf dist"
   },
   "devDependencies": {

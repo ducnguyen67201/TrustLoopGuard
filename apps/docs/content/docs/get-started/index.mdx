@@ -1,119 +1,103 @@
 ---
 title: Get started
-description: Run TrustLoopGuard locally, try an SDK check, and point an OpenAI-compatible SDK at the gateway.
+description: Install one SDK package and decorate your agent without changing its reply call sites.
 ---
 
-TrustLoopGuard sits between an agent draft and the user. You can integrate it in
-two ways:
-
-- **SDK mode**: your app calls `guard()` or submits `/v1/events` and handles the returned decision.
-- **Gateway mode**: your app points provider SDK traffic at `/v1/gateway/...`,
-  and TrustLoopGuard applies enforcement before returning a provider-shaped
-  response.
-
-![How teams use TrustLoopGuard](/diagrams/user-integration-journey.svg)
-
-## Start The Server
-
-From the repo root:
-
-```sh
-pnpm install
-make server
-```
-
-The server listens on `http://127.0.0.1:8080`. Leave it running while you try
-the examples.
-
-For local gateway setup, set an internal admin key before starting the server.
-The same value is also used as the development credential-sealing key when
-`TL_GATEWAY_CREDENTIAL_KEY` is not set.
+Just look at this:
 
 ```bash
-export TL_API_KEY=dev-admin
-export TL_LOG_FORMAT=pretty
-cargo run -p tl-server
+npm install @trustloopguard/sdk
 ```
-
-## Run The Chat Demo
-
-The chat demo guards three scripted assistant turns through the TypeScript SDK.
-Each turn submits an output `GuardEvent` to `POST /v1/events` and prints the
-returned authorization effect, trace id, latency, and findings.
-
-```sh
-pnpm demo:chat
-```
-
-To see a blocking decision and wire the SDK into your own code, follow
-[Guard Modes](/docs/guides/guard-modes). Each trace is the audit hook the
-dashboard can show later.
-
-## Try Gateway Mode
-
-Use gateway mode when you want the closest drop-in path for existing
-OpenAI-compatible or Anthropic clients.
-
-In another terminal:
-
-```bash
-pnpm --filter web dev
-```
-
-Open the web app, then go to **Gateway**.
-
-On the Gateway page:
-
-1. Create a **Provider** with your OpenAI-compatible or Anthropic API key.
-2. Create or select the **Agent** whose traffic will use the route.
-3. Create a **Route** that binds the provider and agent. All enabled policies
-   for the environment and agent apply automatically.
-4. Create a workspace runtime key under **API Keys** if the Gateway page shows
-   `No runtime API key`.
-
-The route is ready when its status reads `Ready`.
-
-The Gateway page shows a route-specific snippet. For OpenAI-compatible clients
-it has this shape:
 
 ```ts
-import OpenAI from 'openai';
+import { guardAgent } from '@trustloopguard/sdk';
 
-const openai = new OpenAI({
-  apiKey: process.env.TLG_API_KEY,
-  baseURL: 'http://localhost:8080/v1/gateway/support-prod/openai',
-});
+const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
 
-const response = await openai.chat.completions.create({
-  model: 'gpt-4o-mini',
-  messages: [{ role: 'user', content: userMessage }],
-  max_tokens: 512,
-});
+const reply = await agent.reply(userMessage);
+sendToUser(reply);
 ```
 
-Use the workspace runtime key (`tl_live_...`) as `TLG_API_KEY`, not the internal
-`TL_API_KEY`.
+That is the primary TrustLoopGuard integration. Install one SDK package,
+decorate the agent once where it is created, and keep the rest of your
+application calling `agent.reply(...)`. No repository clone, local
+TrustLoopGuard server, proxy configuration, or manual decision branching is
+required.
 
-Add a policy that blocks known unsafe text, then call the route with a prompt or
-model response that matches it. Blocked gateway responses stay provider-shaped:
+## 1. Create an Agent and Runtime Key
 
-- OpenAI-compatible responses return `finish_reason: "content_filter"`.
-- Anthropic responses return `stop_reason: "content_filter"`.
-- TrustLoopGuard adds `X-TrustLoopGuard-Effect`,
-  `X-TrustLoopGuard-Phase`, `X-TrustLoopGuard-Trace-Id`, and, when available,
-  `X-TrustLoopGuard-Policy-Id`.
+In the TrustLoopGuard dashboard, create an agent and runtime API key. Copy the
+agent ID, API URL, and key.
 
-Streaming OpenAI-compatible chat completions and Anthropic messages are buffered,
-checked as complete outputs, and then emitted as provider-native SSE.
+## 2. Install One Package
 
-## Try The Demo Surfaces
-
-The demo package exercises the SDK path through more realistic workflows:
-
-```sh
-pnpm demo:chat
-pnpm demo:chat:interactive
+```bash
+npm install @trustloopguard/sdk
 ```
+
+## 3. Configure
+
+Set the URL and runtime key shown in your workspace:
+
+```bash
+export TLG_URL=https://api.gettrustloop.app
+export TLG_API_KEY=tl_live_...
+```
+
+## 4. Decorate Your Agent Once
+
+```ts
+import { guardAgent } from '@trustloopguard/sdk';
+
+const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
+
+const reply = await agent.reply(userMessage);
+sendToUser(reply);
+```
+
+The original agent should expose
+`reply(message: string, ...args): Promise<string>`. `guardAgent(...)` returns
+the same agent type, so existing `agent.reply(...)` call sites remain
+unchanged.
+
+If your app currently has a helper like this:
+
+```ts
+async function generateReply(message: string): Promise<string> {
+  return await agent.reply(message);
+}
+
+const reply = await generateReply(userMessage);
+sendToUser(reply);
+```
+
+decorate the agent before that helper uses it:
+
+```ts
+const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
+```
+
+Do not add guard checks to every helper or handler. The decorated agent keeps
+the same `reply(...)` surface.
+
+For every call, the original agent produces a draft, the decorator submits that
+draft directly to the Rust API at `POST /v1/events`, and the returned decision
+is applied before `reply()` resolves. The bearer key scopes the request to the
+workspace and environment. The same request creates the trace shown in the
+dashboard.
+
+This boundary intercepts each `reply()` invocation and guards its final
+response. It does not send the raw user message text in the output event by
+default. Internal framework tool calls and payments require a framework adapter
+or the explicit typed action helpers.
+
+## 5. Verify
+
+Send one test message and open the agent's trace in the dashboard. No repository
+clone, Doppler setup, local Rust server, or model-provider proxy is required.
+
+See [Guard Modes](/docs/guides/guard-modes) for strict, rewrite, regeneration,
+and streaming behavior.
 
 ## Write Your First Policy
 
@@ -121,10 +105,3 @@ Start with the policy authoring guide:
 
 - [Policy Authoring](/docs/guides/policy-authoring)
 - [Guard Modes](/docs/guides/guard-modes)
-- [Gateway Guide](/docs/guides/gateway)
-
-For local validation:
-
-```sh
-cargo run -p tl-cli -- policy validate policies/refund-guarantee.yaml
-```

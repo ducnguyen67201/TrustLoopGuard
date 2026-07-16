@@ -2,7 +2,7 @@
   <img src="apps/web/public/trustloop-logo.svg" alt="TrustLoopGuard" width="80" />
   <h1>TrustLoopGuard</h1>
   <p><strong>The runtime firewall for AI agents.</strong><br/>
-  Inspect every agent response and tool call <em>before</em> it ships — then <code>allow</code>, <code>block</code>, <code>rewrite</code>, or <code>escalate</code> in microseconds.</p>
+  Guard an agent's final reply <em>before</em> it ships — then <code>allow</code>, <code>block</code>, <code>rewrite</code>, or <code>escalate</code>.</p>
 
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache 2.0" /></a>
   <img src="https://img.shields.io/badge/SDKs-TypeScript%20%C2%B7%20Python%20%C2%B7%20Rust-informational.svg" alt="SDKs" />
@@ -23,70 +23,70 @@ or promising a refund it can't honor. **TrustLoopGuard catches it in the runtime
 path — before the response reaches a user or a downstream system, not after, in
 the logs.**
 
-Add one SDK call, or route provider traffic through the gateway proxy. You get
-back a typed `Decision`: `allow`, `block`, `rewrite`, or `escalate`.
+Just look at this:
+
+```bash
+npm install @trustloopguard/sdk
+```
+
+```ts
+import { guardAgent } from '@trustloopguard/sdk';
+
+const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
+
+const reply = await agent.reply(userMessage);
+sendToUser(reply);
+```
+
+That is the intended SDK path: install one package, decorate the agent once
+where it is created, and keep the rest of the app calling `agent.reply(...)`.
+No scattered `look.check(...)`, no wrapper at every call site, no repository
+clone, and no provider proxy setup.
 
 - 🛡️ **Inspect** agent output before it reaches users or downstream systems
 - 🚫 **Enforce** — block, rewrite, or escalate risky responses instead of only logging them
-- 🔌 **Integrate** in minutes via SDK mode, gateway mode, or prebuilt demos
+- 🔌 **Integrate** with `npm install @trustloopguard/sdk` and one `guardAgent()` call
 
-## Choose your integration path
+## Integration Path
 
-| Mode | Best for | How it works |
-| --- | --- | --- |
-| SDK mode | Apps where you control the agent loop | Call `guard()` or submit a `GuardEvent` before output ships |
-| Gateway proxy mode | Existing OpenAI/Anthropic-compatible clients | Point the provider SDK `baseURL` at TrustLoopGuard |
-| MCP server mode | Agent workbenches and coding assistants | Expose setup, run, trace, and guard-event tools over local stdio MCP |
-| Demo surfaces | Evaluating real workflows quickly | Run the dispute and LiveKit demos |
+The SDK is the customer integration path. It calls the Rust runtime directly
+and keeps enforcement at the application boundary the developer already owns.
+
+Think of `guardAgent(...)` as a decorator around the agent object. The original
+agent still produces the draft reply; the decorator catches that draft, sends it
+to `POST /v1/events`, applies the returned decision, and only then resolves
+`reply()`.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    agent["AI agent"] --> draft["Proposed output or action"]
-    draft --> mode{"Integration mode"}
-    mode --> sdk["SDK call<br/>guard() / submitEvent()"]
-    mode --> proxy["Gateway proxy<br/>OpenAI / Anthropic baseURL"]
-    sdk --> runtime["Rust policy runtime"]
-    proxy --> runtime
-    runtime --> static["Static matchers<br/>regex / PII / Aho-Corasick"]
-    runtime --> local["Local classifiers"]
-    runtime --> judge["Optional LLM judge"]
-    static --> decision["Decision"]
-    local --> decision
-    judge --> decision
-    decision --> allow["allow"]
-    decision --> block["block"]
-    decision --> rewrite["rewrite"]
-    decision --> escalate["escalate"]
+    call["agent.reply(message)"] --> agent["Original agent"]
+    agent --> draft["Draft reply"]
+    draft --> sdk["guardAgent() decorator"]
+    sdk --> event["POST /v1/events"]
+    event --> runtime["Rust policy runtime"]
+    runtime --> decision["permit / transform / deny<br/>require approval / defer"]
+    decision --> sdk
+    sdk --> caller["Safe string returned to caller"]
 ```
 
 <details>
 <summary>Plain-text version (for renderers without Mermaid)</summary>
 
 ```text
-AI agent
-   |
-   | proposed output / action
-   v
-TrustLoopGuard SDK or Gateway Proxy
-   |
-   v
-Rust policy runtime
-   |
-   +-- static matchers
-   +-- local classifiers
-   +-- optional LLM judge
-   v
-Decision: allow | block | rewrite | escalate
+agent.reply(message)
+   -> original agent returns a draft
+   -> guardAgent sends the draft to POST /v1/events
+   -> Rust returns a decision
+   -> guardAgent returns the permitted, transformed, or safe fallback string
 ```
 
 </details>
 
 TrustLoopGuard sits in the runtime path before an agent response reaches a
-user or downstream system. Register your agent once, define policies in YAML,
-then enforce the result from your code or let the gateway apply it before the
-provider response returns.
+user or downstream system. `guardAgent()` wraps `reply()` once, so existing
+call sites do not add checks, branches, or extra guard calls.
 
 ## Decision outcomes
 
@@ -143,7 +143,7 @@ Threats TrustLoopGuard is built to stop at the boundary:
 ## Features
 
 - **Four actionable verdicts**: `allow`, `block`, `rewrite` with a safe alternative, or `escalate` to a human
-- **SDK and gateway enforcement**: receive decisions in your code or let the proxy apply them before returning a provider-compatible response
+- **Package-first SDK integration**: install one library and decorate your agent once without changing its reply call sites
 - **⚡ Sub-millisecond hot path**: Tier 1 static matchers return in microseconds; Tier 2 adds 5-20 ms
 - **Parallel-cancel orchestrator**: Tier 1/2/3 run in parallel; early verdicts cancel slower tiers
 - **Channel-aware latency budgets**: chat and email can carry different deadline constraints
@@ -153,61 +153,73 @@ Threats TrustLoopGuard is built to stop at the boundary:
 
 ## Quickstart
 
-Run the local dispute smoke test with no server or OpenAI key:
+### 1. Create an agent and runtime key
+
+In the TrustLoopGuard dashboard, create an agent and runtime API key. Copy the
+agent ID, API URL, and key.
+
+### 2. Install the SDK
 
 ```bash
-pnpm --filter @trustloopguard/demo dispute:check
+npm install @trustloopguard/sdk
+export TLG_URL=https://api.gettrustloop.app
+export TLG_API_KEY=tl_live_...
 ```
 
-To try the OpenAI-backed raw and guarded targets in the Attacks page, start the
-runtime, register the demo tool metadata, then run the adapters:
-
-```bash
-make server
-pnpm --filter @trustloopguard/demo dispute:setup
-pnpm --filter @trustloopguard/demo dispute:serve
-```
-
-To wire the SDK into your own code, see the [SDK quickstarts](#sdk-quickstarts)
-below.
-
-## SDK quickstarts
-
-TrustLoopGuard ships three SDKs that share one wire format generated from
-`tl-core`. Copy-paste integration snippets per language live in the integration
-guide:
-
-- **TypeScript** — [`docs/INTEGRATION.md`](docs/INTEGRATION.md#typescript-quickstart) and the [TypeScript SDK README](sdks/typescript/README.md)
-- **Python** — [`docs/INTEGRATION.md`](docs/INTEGRATION.md#python-quickstart)
-- **MCP server** — [`docs/INTEGRATION.md`](docs/INTEGRATION.md#mcp-server) for local stdio tools backed by the TypeScript SDK
-- **Any language / raw HTTP** — [`docs/INTEGRATION.md`](docs/INTEGRATION.md#raw-http) (`POST /v1/events`)
-
-For a runnable end-to-end demo against a local `tl-server`, run
-`pnpm --filter @trustloopguard/demo dispute:serve` (see [Quickstart](#quickstart)).
-
-## Gateway proxy quickstart
-
-Gateway mode protects provider traffic without wrapping every model call
-manually. Configure a provider connection and a route for an agent, then point
-an OpenAI-compatible client at TrustLoopGuard. All enabled policies apply automatically:
+### 3. Decorate the agent once
 
 ```ts
-import OpenAI from 'openai';
+import { guardAgent } from '@trustloopguard/sdk';
 
-const openai = new OpenAI({
-  apiKey: process.env.TLG_API_KEY,
-  baseURL: 'https://api.gettrustloop.app/v1/gateway/<route_id>/openai',
-});
+const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
 
-const response = await openai.chat.completions.create({
-  model: 'gpt-4o-mini',
-  messages: [{ role: 'user', content: userMessage }],
-  max_tokens: 512,
-});
+const reply = await agent.reply(userMessage);
+sendToUser(reply);
 ```
 
-See the [TypeScript SDK README](sdks/typescript/README.md) and
-[gateway concept](docs/concept/gateway.md) for OpenAI and Anthropic examples.
+The SDK calls `POST /v1/events` with the agent ID and draft reply, using
+`Authorization: Bearer <TLG_API_KEY>`. It applies the returned decision before
+`reply()` resolves.
+
+If your app currently has a function like this:
+
+```ts
+async function generateReply(message: string): Promise<string> {
+  return await agent.reply(message);
+}
+
+const reply = await generateReply(userMessage);
+sendToUser(reply);
+```
+
+decorate the agent at creation time instead of adding checks inside
+`generateReply()`:
+
+```ts
+const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
+```
+
+Everything downstream keeps calling `agent.reply(...)` or `generateReply(...)`
+the same way.
+
+### 4. Verify the trace
+
+Send one test message, then open the agent's trace in the dashboard. No
+TrustLoopGuard repository clone, Doppler setup, local Rust server, or provider
+proxy is required for the hosted SDK path.
+
+The reply decorator guards the final returned string. It does not automatically
+capture hidden framework tool calls or payments; use the SDK's typed action
+helpers when those boundaries also need enforcement.
+
+See the [TypeScript SDK README](sdks/typescript/README.md) for the agent contract,
+guard modes, streaming, and explicit side-effect helpers.
+
+## SDKs
+
+TypeScript, Python, and Rust SDKs share one wire format generated from
+`tl-core`. The NPM package is the primary onboarding path; Python offers the
+equivalent `@guarded` decorator.
 
 ## Runtime architecture
 
@@ -221,11 +233,14 @@ to.
 | Tier 2 | Local classifiers | 5-20 ms |
 | Tier 3 | Optional LLM judge with deadline bounds | 50-300 ms |
 
-The first hard verdict short-circuits the rest. SDK mode returns the decision
-for customer code to handle. Gateway mode applies the route's enforcement
-profile before returning a provider-compatible response.
+The first hard verdict short-circuits the rest. The SDK wrapper applies the
+result before returning the reply to customer code.
 
-## Development setup
+## Contributing or self-hosting
+
+The following setup is for people working on this repository or running their
+own TrustLoopGuard server. SDK customers should use the four-step quickstart
+above.
 
 Secrets live in [Doppler](https://doppler.com), not in `.env` files. The repo
 ships a `doppler.yaml` that points every app at the right project/config.
@@ -285,7 +300,7 @@ inside the LiveKit Agents runtime. See [`demo/README.md`](demo/README.md).
 | `docs/openapi.yaml` | Generated from `tl-server` annotations |
 | `docs/SDK_DRIVEN.md` | Why every feature ships behind all three SDKs |
 | `docs/AGENT_PROFILE.md` | Field-by-field reference for agent profile YAML |
-| `docs/INTEGRATION.md` | Step-by-step guide to register an agent and call `guard()` |
+| `docs/INTEGRATION.md` | Step-by-step guide to register and decorate an agent |
 | `docs/concept/` | Architecture, glossary, and design decisions |
 | `docs/diagrams/` | D2 sources for generated documentation diagrams |
 | `demo` | SDK-backed demos for the dispute and LiveKit surfaces |
