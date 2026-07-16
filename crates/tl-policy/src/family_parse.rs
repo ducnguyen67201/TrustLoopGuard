@@ -823,4 +823,97 @@ action: deny
             }
         }
     }
+
+    #[test]
+    fn tool_policy_parses_and_round_trips() {
+        let yaml = r#"
+family: tool
+id: block-system-delete
+description: Block recursive deletion of system paths.
+severity: critical
+when:
+  side_effects: [shell_exec]
+  tools:
+    - server_id: claude-code
+      tool_name: Bash
+match:
+  all:
+    - fact:
+        key: shell.risk
+        equals: filesystem_recursive_delete
+    - fact:
+        key: shell.target_scope
+        one_of: [root, system]
+action: deny
+reason: System deletion is prohibited.
+remediation: Restrict deletion to a disposable workspace path.
+"#;
+
+        let FamilyPolicy::Tool(tool) = family(yaml) else {
+            panic!("expected tool policy");
+        };
+        assert_eq!(tool.id, "block-system-delete");
+        assert_eq!(tool.action, AuthorizationEffect::Deny);
+
+        let serialized = serde_yaml::to_string(&FamilyPolicy::Tool(tool)).expect("serialize");
+        assert!(serialized.contains("family: tool"), "{serialized}");
+        let reparsed = load_any_str(&serialized).expect("round trip");
+        assert_eq!(reparsed.family(), PolicyFamily::Tool);
+    }
+
+    #[test]
+    fn tool_policy_validation_rejects_ambiguous_or_unsafe_shapes() {
+        for (needle, yaml) in [
+            (
+                "when",
+                r#"
+family: tool
+id: empty-scope
+when: {}
+match:
+  fact: { key: shell.risk, equals: disk_overwrite }
+action: deny
+reason: blocked
+"#,
+            ),
+            (
+                "match.any",
+                r#"
+family: tool
+id: empty-match
+when: { side_effects: [shell_exec] }
+match: { any: [] }
+action: deny
+reason: blocked
+"#,
+            ),
+            (
+                "parameter.path",
+                r#"
+family: tool
+id: bad-pointer
+when: { side_effects: [shell_exec] }
+match:
+  parameter: { path: command, equals: rm }
+action: deny
+reason: blocked
+"#,
+            ),
+            (
+                "action",
+                r#"
+family: tool
+id: non-enforcing
+when: { side_effects: [shell_exec] }
+match:
+  fact: { key: shell.risk, equals: disk_overwrite }
+action: permit
+reason: invalid
+"#,
+            ),
+        ] {
+            let error = load_any_str(yaml).expect_err("policy must fail").to_string();
+            assert!(error.contains(needle), "expected {needle} in {error}");
+        }
+    }
 }

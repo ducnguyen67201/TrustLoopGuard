@@ -156,3 +156,20 @@ pub enum SideEffectClass {
     MemoryWrite,
     Publish,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ShellActionParameters, ShellLanguage};
+
+    #[test]
+    fn shell_action_parameters_default_to_bash_and_foreground() {
+        let parameters: ShellActionParameters = serde_json::from_value(serde_json::json!({
+            "command": "printf safe"
+        }))
+        .expect("shell parameters parse");
+
+        assert_eq!(parameters.shell, ShellLanguage::Bash);
+        assert!(!parameters.run_in_background);
+        assert_eq!(parameters.command, "printf safe");
+    }
+}
