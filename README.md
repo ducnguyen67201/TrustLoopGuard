@@ -161,6 +161,7 @@ Threats TrustLoopGuard is built to stop at the boundary:
 - **Parallel-cancel orchestrator**: Tier 1/2/3 run in parallel; early verdicts cancel slower tiers
 - **Channel-aware latency budgets**: chat and email can carry different deadline constraints
 - **Policy-driven rule engine**: YAML policies declare matchers, severity levels, and the resulting action
+- **Shell command guardrails**: analyze proposed Bash, `sh`, and `zsh` actions without executing them, then deny, defer, or require exact-action approval
 - **Agent profiles**: register scope, authority, and tone once; the LLM judge uses the profile for context
 - **Three SDKs, one wire format**: TypeScript, Python, and Rust SDKs share codegen types from `tl-core`
 
