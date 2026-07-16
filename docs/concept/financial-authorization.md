@@ -51,6 +51,31 @@ Financial policies share the unified policy registry and use `family: financial`
 
 Policies create requirements; they do not create or discover grants. A saved grant can remove repeated human review only when it satisfies the current requirement. It never overrides a hard cap, failed eligibility check, missing evidence, revoked authority, or a live budget denial.
 
+## Spending cap demo
+
+The dashboard can create one financial policy that permits routine spend,
+holds an exception for approval, and denies a hard-cap breach.
+
+![Four-step financial spending cap demo](assets/financial-spending-cap-demo.png)
+
+For the demo policy, open **Policies → New policy → Financial authorization**
+and use:
+
+- agent `spend-agent`, operation `pay_vendor`, currency `USD`, and rail
+  `Internal`;
+- per-action cap `$100`;
+- require approval above `$50`;
+- monthly cap `$1,000`;
+- user intent proof off.
+
+Then submit three typed payment actions with `execute: false`: `$25` returns
+`permit` and `authorized`, `$75` returns `require_approval` and
+`held_for_approval`, and `$150` returns `deny` and `blocked`. The held action
+appears in `/approvals`; all three records appear in `/financial`.
+
+Authorization analysis does not call a payment provider. Provider execution is
+a separate explicit step after current policy and authority are rechecked.
+
 ## x402
 
 x402 authorization uses the same financial adapter and grant model, with scope fields for host, resource, network, asset, payee, amount, and required preconditions. The agentic-payment endpoints retain their reservation, commit, and rollback lifecycle because signing and settlement are execution concerns. A common authorization receipt explains why signing was permitted; the financial receipt proves what settled.

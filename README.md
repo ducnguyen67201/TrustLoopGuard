@@ -88,7 +88,9 @@ TrustLoopGuard sits in the runtime path before an agent response reaches a
 user or downstream system. `guardAgent()` wraps `reply()` once, so existing
 call sites do not add checks, branches, or extra guard calls.
 
-## Shell command policy demo
+## Use cases
+
+### Shell command guardrails
 
 Tool policies can evaluate a proposed Bash action before execution, then deny
 it or require an exact-action approval. Today, operators publish these policies
@@ -100,6 +102,30 @@ command** in the dashboard.
 See [Shell command safety](docs/concept/command-safety.md#operator-demo) for the
 copyable policy examples and live-demo steps. Policy analysis treats the
 command as structured input and never executes it.
+
+### Safer outbound email
+
+Content policies can target the `email` channel and transform risky wording
+before the customer application sends it. A safe draft passes unchanged; a
+refund guarantee is replaced with policy-approved language.
+
+[![Four-step outbound email policy demo](docs/concept/assets/email-policy-demo.png)](docs/policies/README.md#email-policy-demo)
+
+See [Email policy demo](docs/policies/README.md#email-policy-demo) for the
+copyable YAML and test flow. TrustLoopGuard evaluates a proposed message; it
+does not send the email.
+
+### Agent spending caps
+
+Financial policies evaluate typed payment actions before execution. The same
+control can permit routine spend, require approval above a threshold, and deny
+an amount that breaches the hard cap.
+
+[![Four-step financial spending cap demo](docs/concept/assets/financial-spending-cap-demo.png)](docs/concept/financial-authorization.md#spending-cap-demo)
+
+See [Spending cap demo](docs/concept/financial-authorization.md#spending-cap-demo)
+for the dashboard values and expected decisions. Authorization analysis does
+not execute a payment.
 
 ## Decision outcomes
 
@@ -161,7 +187,9 @@ Threats TrustLoopGuard is built to stop at the boundary:
 - **Parallel-cancel orchestrator**: Tier 1/2/3 run in parallel; early verdicts cancel slower tiers
 - **Channel-aware latency budgets**: chat and email can carry different deadline constraints
 - **Policy-driven rule engine**: YAML policies declare matchers, severity levels, and the resulting action
+- **Outbound email guardrails**: scope policies to proposed email content and transform unsafe wording before delivery
 - **Shell command guardrails**: analyze proposed Bash, `sh`, and `zsh` actions without executing them, then deny, defer, or require exact-action approval
+- **Financial spending caps**: permit routine typed payments, hold threshold exceptions for approval, and deny hard-cap breaches before execution
 - **Agent profiles**: register scope, authority, and tone once; the LLM judge uses the profile for context
 - **Three SDKs, one wire format**: TypeScript, Python, and Rust SDKs share codegen types from `tl-core`
 
