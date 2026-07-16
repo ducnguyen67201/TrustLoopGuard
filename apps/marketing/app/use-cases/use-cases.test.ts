@@ -9,10 +9,17 @@ import {
   USE_CASES,
 } from './content';
 
-test('the use-cases page presents the four supported customer workflows', () => {
+test('the use-cases page presents the six supported customer workflows', () => {
   assert.deepEqual(
     USE_CASES.map((useCase) => useCase.slug),
-    ['ai-inference-spend', 'x402-payments', 'action-authorization', 'email'],
+    [
+      'shell-command-safety',
+      'email',
+      'agent-spending-caps',
+      'ai-inference-spend',
+      'x402-payments',
+      'action-authorization',
+    ],
   );
 });
 
@@ -20,10 +27,12 @@ test('every use case has its own canonical detail route', () => {
   assert.deepEqual(
     USE_CASES.map((useCase) => useCase.href),
     [
+      '/use-cases/shell-command-safety',
+      '/use-cases/email',
+      '/use-cases/agent-spending-caps',
       '/use-cases/ai-inference-spend',
       '/use-cases/x402-payments',
       '/use-cases/action-authorization',
-      '/use-case/email',
     ],
   );
 });
@@ -33,13 +42,36 @@ test('detail routes resolve only supported use-case slugs', () => {
     getUseCase('x402-payments')?.title,
     'Authorize the purchase before the agent signs.',
   );
-  assert.equal(getUseCase('email')?.title, 'Stop the wrong email before it leaves.');
+  assert.equal(
+    getUseCase('shell-command-safety')?.title,
+    'Stop dangerous shell commands before they run.',
+  );
+  assert.equal(getUseCase('email')?.title, 'Rewrite risky emails before they send.');
+  assert.equal(
+    getUseCase('agent-spending-caps')?.title,
+    'Enforce agent spending caps before payment.',
+  );
   assert.equal(getUseCase('not-a-use-case'), undefined);
 });
 
 test('the navigation dropdown exposes the overview and every detail page', () => {
   assert.deepEqual(USE_CASE_NAV_ITEMS, [
     { href: '/use-cases', label: 'All use cases', detail: 'Choose a control boundary' },
+    {
+      href: '/use-cases/shell-command-safety',
+      label: 'Shell command safety',
+      detail: 'Deny or approve before execution',
+    },
+    {
+      href: '/use-cases/email',
+      label: 'Outbound email',
+      detail: 'Permit or rewrite before send',
+    },
+    {
+      href: '/use-cases/agent-spending-caps',
+      label: 'Agent spending caps',
+      detail: 'Permit, hold, or deny payment',
+    },
     {
       href: '/use-cases/ai-inference-spend',
       label: 'AI inference spend',
@@ -55,35 +87,71 @@ test('the navigation dropdown exposes the overview and every detail page', () =>
       label: 'Action authorization',
       detail: 'Guard the one-way door',
     },
-    {
-      href: '/use-case/email',
-      label: 'Email action control',
-      detail: 'Authorize before external send',
-    },
   ]);
 });
 
-test('the navigation mega-menu separates the overview from its four use-case columns', () => {
+test('the navigation mega-menu separates the overview from its six use-case cards', () => {
   assert.deepEqual(USE_CASE_NAV_GROUPS.overview, USE_CASE_NAV_ITEMS[0]);
   assert.deepEqual(
     USE_CASE_NAV_GROUPS.details.map((item) => item.href),
     [
+      '/use-cases/shell-command-safety',
+      '/use-cases/email',
+      '/use-cases/agent-spending-caps',
       '/use-cases/ai-inference-spend',
       '/use-cases/x402-payments',
       '/use-cases/action-authorization',
-      '/use-case/email',
     ],
   );
 });
 
-test('email control binds authorization to the proposed send and its outcome', () => {
+test('email control evaluates the proposed message and leaves delivery to the customer app', () => {
   const email = getUseCase('email');
 
-  assert.equal(email?.href, '/use-case/email');
-  assert.match(email?.control ?? '', /exact proposed version/i);
-  assert.match(JSON.stringify(email?.checks), /recipient/i);
-  assert.match(JSON.stringify(email?.checks), /duplicate/i);
-  assert.match(JSON.stringify(email?.proof), /provider outcome/i);
+  assert.equal(email?.href, '/use-cases/email');
+  assert.match(email?.control ?? '', /before the customer mailer/i);
+  assert.match(JSON.stringify(email?.checks), /channel/i);
+  assert.match(JSON.stringify(email?.checks), /wording/i);
+  assert.match(email?.resultDetail ?? '', /never sends/i);
+});
+
+test('README use cases carry native decision-flow demos into marketing', () => {
+  const walkthroughs = [
+    getUseCase('shell-command-safety'),
+    getUseCase('email'),
+    getUseCase('agent-spending-caps'),
+  ];
+
+  assert.deepEqual(
+    walkthroughs.map((useCase) => useCase?.demo?.kind),
+    ['shell', 'email', 'spend'],
+  );
+
+  for (const useCase of walkthroughs) {
+    assert.equal(useCase?.demo?.proposalFields.length, 2);
+    assert.equal(useCase?.demo?.policyFields.length, 3);
+    assert.ok((useCase?.demo?.decisions.length ?? 0) >= 2);
+    assert.match(useCase?.demo?.boundary ?? '', /never (invokes|executes|sends)/i);
+  }
+});
+
+test('the landing-page walkthrough is native UI rather than a static image', () => {
+  const flow = readFileSync(
+    new URL('../../components/use-case-flow-demo.tsx', import.meta.url),
+    'utf8',
+  );
+  const showcase = readFileSync(
+    new URL('../../components/use-case-showcase.tsx', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(flow, /Proposed action/);
+  assert.match(flow, /Policy check/);
+  assert.match(flow, /Decision/);
+  assert.match(flow, /Execution/);
+  assert.doesNotMatch(flow, /<img/);
+  assert.match(showcase, /role="tablist"/);
+  assert.match(showcase, /role="tabpanel"/);
 });
 
 test('the use-case trigger spans the header so the pointer can reach the mega-menu', () => {
@@ -123,6 +191,8 @@ test('product claims stay inside the currently supported control surface', () =>
   assert.match(pageCopy, /80%/);
   assert.match(pageCopy, /hard cap/);
   assert.match(pageCopy, /x402/);
+  assert.match(pageCopy, /shell/);
+  assert.match(pageCopy, /spending caps/);
   assert.match(pageCopy, /allow/);
   assert.match(pageCopy, /hold/);
   assert.match(pageCopy, /block/);

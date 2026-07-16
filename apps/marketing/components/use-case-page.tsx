@@ -25,7 +25,7 @@ export function UseCasePage({ useCase }: { useCase: UseCaseData }) {
 }
 
 function RelatedUseCases({ currentSlug }: { currentSlug: string }) {
-  const related = USE_CASES.filter((useCase) => useCase.slug !== currentSlug);
+  const related = USE_CASES.filter((useCase) => useCase.slug !== currentSlug).slice(0, 3);
 
   return (
     <section className="section use-case-related" aria-labelledby="related-use-cases-heading">

@@ -4,13 +4,43 @@ export interface UseCaseStep {
   body: string;
 }
 
+export type UseCaseDemoEffect = 'permit' | 'transform' | 'require_approval' | 'deny';
+
+export interface UseCaseDemoField {
+  label: string;
+  value: string;
+}
+
+export interface UseCaseDemoDecision {
+  subject: string;
+  effect: UseCaseDemoEffect;
+  detail: string;
+}
+
+export interface UseCaseDemo {
+  kind: 'shell' | 'email' | 'spend';
+  proposalTitle: string;
+  proposalCode: string;
+  proposalFields: readonly UseCaseDemoField[];
+  policyTitle: string;
+  policyFields: readonly UseCaseDemoField[];
+  decisions: readonly UseCaseDemoDecision[];
+  executionTitle: string;
+  executionDetail: string;
+  boundary: string;
+}
+
+export type UseCaseSlug =
+  | 'shell-command-safety'
+  | 'email'
+  | 'agent-spending-caps'
+  | 'ai-inference-spend'
+  | 'x402-payments'
+  | 'action-authorization';
+
 export interface UseCaseData {
-  slug: 'ai-inference-spend' | 'x402-payments' | 'action-authorization' | 'email';
-  href:
-    | '/use-cases/ai-inference-spend'
-    | '/use-cases/x402-payments'
-    | '/use-cases/action-authorization'
-    | '/use-case/email';
+  slug: UseCaseSlug;
+  href: `/use-cases/${UseCaseSlug}`;
   number: string;
   eyebrow: string;
   title: string;
@@ -26,65 +56,247 @@ export interface UseCaseData {
   proof: readonly string[];
   ctaLabel: string;
   ctaHref: string;
+  demo?: UseCaseDemo;
 }
 
-export const EMAIL_USE_CASE = {
-  slug: 'email',
-  href: '/use-case/email',
-  number: '04',
-  eyebrow: 'Email action control',
-  title: 'Stop the wrong email before it leaves.',
+export const SHELL_COMMAND_USE_CASE = {
+  slug: 'shell-command-safety',
+  href: '/use-cases/shell-command-safety',
+  number: '01',
+  eyebrow: 'Shell command guardrails',
+  title: 'Stop dangerous shell commands before they run.',
   summary:
-    'Let AI prepare the draft, then check the exact recipients, attachments, workflow state, approval, and prior attempts before an email provider makes the send real.',
+    'Evaluate each proposed Bash, sh, or zsh action as structured input, then deny it or require exact-action approval before the coding agent can execute it.',
   trigger:
-    'An agent proposes an external email through Gmail, Outlook, a support platform, CRM, MCP tool, or email API.',
+    'A coding agent proposes a shell action through Claude Code, an SDK integration, or another tool adapter.',
   failure:
-    'The agent selects the wrong recipient, uses stale facts, includes the wrong attachment, changes an approved draft, or retries a send that already succeeded.',
+    'A destructive command reaches root, system paths, repository history, production infrastructure, or another sensitive target before a person sees it.',
   control:
-    'Bind policy and approval to the exact proposed version, then allow, rewrite to draft, hold, or block before the provider send.',
-  flow: ['Proposed email', 'Policy + context', 'Decision', 'Email provider'],
+    'Match deterministic shell facts and exact parameters against enabled tool policies, then deny, defer, or require approval before the executor runs the command.',
+  flow: ['Proposed command', 'Policy + shell facts', 'Decision', 'Agent executor'],
   steps: [
     {
       label: 'Describe',
-      title: 'Turn the send into a typed action',
-      body: 'Submit the actor, workflow, recipients, message and attachment hashes, triggering record, and an idempotency key before calling the email provider.',
+      title: 'Capture the exact proposed action',
+      body: 'Submit the command, shell, working directory, workspace root, timeout, stable invocation, and complete tool identity before execution.',
     },
     {
-      label: 'Check',
-      title: 'Evaluate the exact external effect',
-      body: 'Policy verifies recipient identity, workflow state, approval scope, changed fields, sensitive attachments, send velocity, and prior attempts outside the model prompt.',
+      label: 'Analyze',
+      title: 'Derive bounded shell facts',
+      body: 'TrustLoopGuard parses executable syntax without running the command, then identifies targets, wrappers, destructive operations, dynamic evaluation, and incomplete analysis.',
     },
     {
-      label: 'Hold',
-      title: 'Keep uncertain sends as drafts',
-      body: 'Low-risk sends can proceed. Risky or changed sends wait for a named reviewer, while denied sends can be rewritten into drafts instead of disappearing.',
+      label: 'Decide',
+      title: 'Apply the enabled tool policy',
+      body: 'Known prohibited actions are denied. Workspace-sensitive actions can wait for an exact, non-reusable approval that is bound to the original parameters.',
     },
     {
       label: 'Prove',
-      title: 'Join authorization to provider outcome',
-      body: 'Record the approved version and provider message ID so a retry cannot silently become a duplicate and the team can see what actually happened.',
+      title: 'Tie approval to one execution attempt',
+      body: 'The caller resubmits the same action with its grant. A changed command does not fit, and the execution lease is consumed or canceled after the attempt.',
     },
   ],
   checks: [
-    'Recipient and workflow match',
-    'Approved version and attachments',
-    'Duplicate intent and velocity',
-    'External-send authority',
+    'Tool identity and exact command',
+    'Deterministic shell risk facts',
+    'Workspace and target scope',
+    'Approval and execution lease',
   ],
-  result: 'Allow, draft, hold, or block before external send.',
+  result: 'Deny, hold, or permit before execution.',
   resultDetail:
-    'Your existing email system still sends the message. TrustLoopGuard owns the contextual permission check, version-bound approval, duplicate protection, and decision receipt.',
-  proof: ['Proposed send', 'Policy decision', 'Approved version', 'Provider outcome'],
-  ctaLabel: 'Read the authorization model',
+    'The coding agent still owns execution. TrustLoopGuard treats the command as structured data, returns the policy decision, and never runs the shell while analyzing it.',
+  proof: ['Proposed command', 'Shell facts', 'Policy finding', 'Lease outcome'],
+  ctaLabel: 'See shell command safety',
   ctaHref:
-    'https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/concept/authorization.md',
+    'https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/concept/command-safety.md#operator-demo',
+  demo: {
+    kind: 'shell',
+    proposalTitle: 'Bash proposes a destructive action',
+    proposalCode: 'rm -rf /',
+    proposalFields: [
+      { label: 'Tool', value: 'claude-code / Bash' },
+      { label: 'Workspace', value: '/workspace/project' },
+    ],
+    policyTitle: 'Tool policy matches shell facts',
+    policyFields: [
+      { label: 'Risk', value: 'filesystem_recursive_delete' },
+      { label: 'Target', value: 'root' },
+      { label: 'Action', value: 'deny' },
+    ],
+    decisions: [
+      { subject: 'rm -rf /', effect: 'deny', detail: 'System target blocked' },
+      {
+        subject: 'rm -rf ./build',
+        effect: 'require_approval',
+        detail: 'Exact action waits',
+      },
+    ],
+    executionTitle: 'The executor stays paused',
+    executionDetail:
+      'Denied commands never run. An approved command receives one action-bound execution lease.',
+    boundary: 'Analysis parses the command as structured input and never invokes the shell.',
+  },
+} as const satisfies UseCaseData;
+
+export const EMAIL_USE_CASE = {
+  slug: 'email',
+  href: '/use-cases/email',
+  number: '02',
+  eyebrow: 'Outbound email guardrails',
+  title: 'Rewrite risky emails before they send.',
+  summary:
+    'Scope a content policy to email so safe drafts pass unchanged and risky promises are replaced with policy-approved language before delivery.',
+  trigger:
+    'An agent proposes a customer-facing email through the SDK, gateway, support workflow, CRM, or another application integration.',
+  failure:
+    'A draft guarantees a refund, exposes sensitive information, violates policy, or uses wording the business cannot stand behind.',
+  control:
+    'Evaluate the proposed message against the email-scoped content policy, then return permit or a safe rewrite before the customer mailer sends anything.',
+  flow: ['Proposed email', 'Email policy', 'Permit or rewrite', 'Customer mailer'],
+  steps: [
+    {
+      label: 'Choose',
+      title: 'Scope a policy to outbound email',
+      body: 'Set the email channel, the risky wording or semantic match, the desired action, and a policy-approved replacement when the action is transform.',
+    },
+    {
+      label: 'Publish',
+      title: 'Manage one policy through the registry',
+      body: 'Validate and publish the YAML, then confirm it is enabled for the intended environment and agent before customer-facing traffic reaches it.',
+    },
+    {
+      label: 'Propose',
+      title: 'Check the message before delivery',
+      body: 'Submit the proposed output with context.channel set to email. A safe draft returns permit; risky wording returns transform with the configured rewrite.',
+    },
+    {
+      label: 'Apply',
+      title: 'Send only the policy-safe result',
+      body: 'The customer application keeps ownership of delivery and applies the returned decision before calling Gmail, Outlook, a support platform, or another provider.',
+    },
+  ],
+  checks: [
+    'Email channel and agent scope',
+    'Risky wording or semantic match',
+    'Configured policy action',
+    'Policy-approved replacement',
+  ],
+  result: 'Permit the safe draft or return a policy-approved rewrite.',
+  resultDetail:
+    'Your existing email system still sends the message. TrustLoopGuard evaluates the proposed content and never sends the email itself.',
+  proof: ['Original draft', 'Matched policy', 'Decision reason', 'Safe replacement'],
+  ctaLabel: 'Try the email policy demo',
+  ctaHref:
+    'https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/policies/README.md#email-policy-demo',
+  demo: {
+    kind: 'email',
+    proposalTitle: 'The agent proposes a customer email',
+    proposalCode: 'This is a guaranteed refund.',
+    proposalFields: [
+      { label: 'Operation', value: 'send_email' },
+      { label: 'Channel', value: 'email' },
+    ],
+    policyTitle: 'The email policy checks the draft',
+    policyFields: [
+      { label: 'Match', value: 'guaranteed refund' },
+      { label: 'Action', value: 'transform' },
+      { label: 'Scope', value: 'support-agent' },
+    ],
+    decisions: [
+      { subject: 'Safe draft', effect: 'permit', detail: 'Send unchanged' },
+      { subject: 'Risky promise', effect: 'transform', detail: 'Use safe replacement' },
+    ],
+    executionTitle: 'The customer mailer applies the result',
+    executionDetail:
+      'The application sends the original permitted draft or the policy-approved replacement.',
+    boundary: 'TrustLoopGuard evaluates the proposed message and never sends the email.',
+  },
+} as const satisfies UseCaseData;
+
+export const AGENT_SPENDING_CAPS_USE_CASE = {
+  slug: 'agent-spending-caps',
+  href: '/use-cases/agent-spending-caps',
+  number: '03',
+  eyebrow: 'Agent spending caps',
+  title: 'Enforce agent spending caps before payment.',
+  summary:
+    'Use one financial policy to permit routine spend, hold an exception for approval, and deny a payment that breaches the hard cap.',
+  trigger:
+    'An agent proposes a typed payment, purchase, refund, payout, or vendor action before provider execution.',
+  failure:
+    'Routine spend, reviewable exceptions, and true cap breaches collapse into the same path, leaving the agent or prompt to police its own authority.',
+  control:
+    'Evaluate the exact principal, operation, amount, currency, rail, approval threshold, and live budget before execution is allowed to start.',
+  flow: ['Proposed payment', 'Financial policy', 'Decision', 'Payment provider'],
+  steps: [
+    {
+      label: 'Configure',
+      title: 'Set the hard and human boundaries',
+      body: 'Choose the agent, operation, rail, currency, per-action cap, rolling budget, and the amount above which a named reviewer must approve.',
+    },
+    {
+      label: 'Evaluate',
+      title: 'Submit the payment without executing it',
+      body: 'Create typed financial actions with execute set to false so policy, evidence, eligibility, and current budget are checked before any provider call.',
+    },
+    {
+      label: 'Hold',
+      title: 'Separate exceptions from breaches',
+      body: 'Routine spend can be authorized, an in-policy exception can wait in the approvals queue, and a hard-cap breach is blocked immediately.',
+    },
+    {
+      label: 'Execute',
+      title: 'Recheck before money moves',
+      body: 'Approved actions are re-evaluated against current policy and live budget before the financial service reserves funds and calls the configured provider.',
+    },
+  ],
+  checks: [
+    'Principal and operation',
+    'Currency, rail, and counterparty',
+    'Per-action and rolling caps',
+    'Approval threshold and live budget',
+  ],
+  result: '$25 permit. $75 hold. $150 deny.',
+  resultDetail:
+    'The payment provider still moves the money. TrustLoopGuard owns the pre-spend decision, approval requirement, live budget check, and linked authorization receipt.',
+  proof: ['Financial action', 'Policy finding', 'Reviewer grant', 'Execution receipt'],
+  ctaLabel: 'See the spending cap demo',
+  ctaHref:
+    'https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/concept/financial-authorization.md#spending-cap-demo',
+  demo: {
+    kind: 'spend',
+    proposalTitle: 'The agent proposes a vendor payment',
+    proposalCode: '$75.00 USD',
+    proposalFields: [
+      { label: 'Operation', value: 'pay_vendor' },
+      { label: 'Principal', value: 'spend-agent' },
+    ],
+    policyTitle: 'Financial policy checks authority',
+    policyFields: [
+      { label: 'Per action', value: '$100 hard cap' },
+      { label: 'Review above', value: '$50' },
+      { label: 'Monthly', value: '$1,000' },
+    ],
+    decisions: [
+      { subject: '$25 routine', effect: 'permit', detail: 'Authorized' },
+      { subject: '$75 exception', effect: 'require_approval', detail: 'Held for review' },
+      { subject: '$150 over cap', effect: 'deny', detail: 'Blocked' },
+    ],
+    executionTitle: 'The provider call waits',
+    executionDetail:
+      'Only a currently authorized action can reserve live budget and reach the payment provider.',
+    boundary: 'Authorization analysis never executes the payment.',
+  },
 } as const satisfies UseCaseData;
 
 export const USE_CASES = [
+  SHELL_COMMAND_USE_CASE,
+  EMAIL_USE_CASE,
+  AGENT_SPENDING_CAPS_USE_CASE,
   {
     slug: 'ai-inference-spend',
     href: '/use-cases/ai-inference-spend',
-    number: '01',
+    number: '04',
     eyebrow: 'AI inference spend',
     title: 'Put a hard ceiling on model usage.',
     summary:
@@ -133,7 +345,7 @@ export const USE_CASES = [
   {
     slug: 'x402-payments',
     href: '/use-cases/x402-payments',
-    number: '02',
+    number: '05',
     eyebrow: 'x402 agent payments',
     title: 'Authorize the purchase before the agent signs.',
     summary:
@@ -183,7 +395,7 @@ export const USE_CASES = [
   {
     slug: 'action-authorization',
     href: '/use-cases/action-authorization',
-    number: '03',
+    number: '06',
     eyebrow: 'Action authorization',
     title: 'Guard the one-way door in any agent workflow.',
     summary:
@@ -226,7 +438,6 @@ export const USE_CASES = [
     ctaHref:
       'https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/concept/financial-authorization.md',
   },
-  EMAIL_USE_CASE,
 ] as const satisfies readonly UseCaseData[];
 
 export function getUseCase(slug: string): UseCaseData | undefined {
@@ -237,6 +448,21 @@ export const USE_CASE_MENU_CLOSE_DELAY_MS = 220;
 
 export const USE_CASE_NAV_ITEMS = [
   { href: '/use-cases', label: 'All use cases', detail: 'Choose a control boundary' },
+  {
+    href: '/use-cases/shell-command-safety',
+    label: 'Shell command safety',
+    detail: 'Deny or approve before execution',
+  },
+  {
+    href: '/use-cases/email',
+    label: 'Outbound email',
+    detail: 'Permit or rewrite before send',
+  },
+  {
+    href: '/use-cases/agent-spending-caps',
+    label: 'Agent spending caps',
+    detail: 'Permit, hold, or deny payment',
+  },
   {
     href: '/use-cases/ai-inference-spend',
     label: 'AI inference spend',
@@ -251,11 +477,6 @@ export const USE_CASE_NAV_ITEMS = [
     href: '/use-cases/action-authorization',
     label: 'Action authorization',
     detail: 'Guard the one-way door',
-  },
-  {
-    href: '/use-case/email',
-    label: 'Email action control',
-    detail: 'Authorize before external send',
   },
 ] as const;
 

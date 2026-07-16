@@ -1,5 +1,6 @@
 import { MarketingEventLink } from './marketing-event-link';
 import type { UseCaseData } from '@/app/use-cases/content';
+import { UseCaseFlowDemo } from './use-case-flow-demo';
 
 export function UseCaseDetail({ useCase }: { useCase: UseCaseData }) {
   return (
@@ -42,6 +43,22 @@ export function UseCaseDetail({ useCase }: { useCase: UseCaseData }) {
           </div>
         ))}
       </div>
+
+      {useCase.demo ? (
+        <section className="use-case-demo" aria-labelledby={`${useCase.slug}-demo-title`}>
+          <div className="use-case-demo-heading">
+            <div>
+              <p className="use-case-mini-label">Live flow</p>
+              <h2 id={`${useCase.slug}-demo-title`}>Follow the action through the decision.</h2>
+            </div>
+            <p>
+              The walkthrough below is native page UI: proposal, policy facts, decision, and the
+              point where the customer-owned executor continues or stops.
+            </p>
+          </div>
+          <UseCaseFlowDemo demo={useCase.demo} />
+        </section>
+      ) : null}
 
       <div className="use-case-workflow-grid">
         <div>

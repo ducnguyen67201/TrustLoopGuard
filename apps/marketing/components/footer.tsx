@@ -20,9 +20,9 @@ const LINK_GROUPS = [
     title: 'Use cases',
     links: [
       { href: '/use-cases', label: 'All use cases' },
-      { href: '/agentic-travel-payments', label: 'Travel payments' },
-      { href: '/shopping-agent-checkout', label: 'Shopping checkout' },
-      { href: '/accounts-payable-agents', label: 'Accounts payable agents' },
+      { href: '/use-cases/shell-command-safety', label: 'Shell command safety' },
+      { href: '/use-cases/email', label: 'Outbound email' },
+      { href: '/use-cases/agent-spending-caps', label: 'Agent spending caps' },
     ],
   },
   {
