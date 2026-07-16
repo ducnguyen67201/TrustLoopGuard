@@ -88,6 +88,19 @@ TrustLoopGuard sits in the runtime path before an agent response reaches a
 user or downstream system. `guardAgent()` wraps `reply()` once, so existing
 call sites do not add checks, branches, or extra guard calls.
 
+## Shell command policy demo
+
+Tool policies can evaluate a proposed Bash action before execution, then deny
+it or require an exact-action approval. Today, operators publish these policies
+from YAML and manage their environment deployment from **Policies → Tool
+command** in the dashboard.
+
+[![Four-step shell command policy demo](docs/concept/assets/shell-command-policy-demo.png)](docs/concept/command-safety.md#operator-demo)
+
+See [Shell command safety](docs/concept/command-safety.md#operator-demo) for the
+copyable policy examples and live-demo steps. Policy analysis treats the
+command as structured input and never executes it.
+
 ## Decision outcomes
 
 | Decision | What happens | Common use |
@@ -148,6 +161,7 @@ Threats TrustLoopGuard is built to stop at the boundary:
 - **Parallel-cancel orchestrator**: Tier 1/2/3 run in parallel; early verdicts cancel slower tiers
 - **Channel-aware latency budgets**: chat and email can carry different deadline constraints
 - **Policy-driven rule engine**: YAML policies declare matchers, severity levels, and the resulting action
+- **Shell command guardrails**: analyze proposed Bash, `sh`, and `zsh` actions without executing them, then deny, defer, or require exact-action approval
 - **Agent profiles**: register scope, authority, and tone once; the LLM judge uses the profile for context
 - **Three SDKs, one wire format**: TypeScript, Python, and Rust SDKs share codegen types from `tl-core`
 

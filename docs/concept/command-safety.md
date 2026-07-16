@@ -73,6 +73,28 @@ match:
 
 Parameter matching is intentionally available for organization-specific tools and vocabulary. It does not become a built-in parser rule.
 
+## Operator demo
+
+Tool-command policies are currently authored as YAML, published to the selected
+workspace environment, and then managed from **Policies → Tool command** in the
+dashboard.
+
+![Four-step demo for publishing and exercising shell-command policies](assets/shell-command-policy-demo.png)
+
+For a short demonstration:
+
+1. Start with one of the validated examples in
+   [`docs/policies/examples`](../policies/examples.md#shell-command-controls).
+2. Validate and publish it with `tl policy validate <file>` and
+   `tl policy push <file>`.
+3. Confirm the policy is on for the intended environment under
+   **Policies → Tool command**.
+4. Submit a proposed shell action and show the resulting deny or exact-action
+   approval in the dashboard.
+
+The analyzer treats the command as structured input. It does not execute the
+command while producing facts or a policy decision.
+
 ## Shell facts
 
 The analyzer parses executable syntax with Tree-sitter's Bash grammar and walks command, pipeline, wrapper, nested static `bash|sh|zsh -c`, and redirection nodes. It never runs a shell or reads the filesystem, process state, network, or environment.
