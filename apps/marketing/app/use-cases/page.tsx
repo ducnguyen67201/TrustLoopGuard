@@ -9,9 +9,9 @@ import { absoluteUrl } from '@/lib/seo';
 import { USE_CASES } from './content';
 
 const PAGE_PATH = '/use-cases';
-const PAGE_TITLE = 'Use Cases for AI Spend and Action Authorization | TrustLoopGuard';
+const PAGE_TITLE = 'AI Agent Guardrail Use Cases | TrustLoopGuard';
 const PAGE_DESCRIPTION =
-  'See how TrustLoopGuard controls AI inference spend, authorizes x402 payments, guards irreversible actions, and checks email sends before execution.';
+  'See how TrustLoopGuard checks shell commands, outbound email, agent spending, AI inference, x402 payments, and irreversible actions before execution.';
 
 export const metadata: Metadata = {
   title: { absolute: PAGE_TITLE },
@@ -52,7 +52,7 @@ function UseCasesHero() {
       <div className="use-cases-hero-inner">
         <div>
           <p className="eyebrow">Use cases</p>
-          <h1 id="use-cases-title">Put the stop button before the spend.</h1>
+          <h1 id="use-cases-title">Put the stop button before the action.</h1>
         </div>
         <div className="use-cases-hero-copy">
           <p>
@@ -60,8 +60,8 @@ function UseCasesHero() {
             provider, payment rail, or tool that makes it real.
           </p>
           <p>
-            Start with one of four boundaries we support today: model usage, x402 payments, a
-            consequential workflow action, or an external email send.
+            Start with one of six boundaries we support today: shell execution, outbound email,
+            agent spending, model usage, x402 payments, or another consequential workflow action.
           </p>
           <MarketingEventLink
             href={BOOK_MEETING_URL}
@@ -105,7 +105,7 @@ function BoundarySection() {
   const boundaries = [
     [
       'Not the model provider',
-      'We meter and control the call. Your chosen provider still runs the model.',
+      'We meter and control model and tool calls. Your chosen provider or executor still performs the work.',
     ],
     [
       'Not the payment rail',
@@ -155,9 +155,9 @@ function UseCasesCta() {
       </div>
       <div>
         <p>
-          Bring the provider call, x402 payment, refund, invoice, payout, email send, or tool
-          action. We will map what must be checked, where the hold belongs, and what proof you need
-          afterward.
+          Bring the shell command, provider call, x402 payment, refund, invoice, payout, email send,
+          or tool action. We will map what must be checked, where the hold belongs, and what proof
+          you need afterward.
         </p>
         <MarketingEventLink
           href={BOOK_MEETING_URL}

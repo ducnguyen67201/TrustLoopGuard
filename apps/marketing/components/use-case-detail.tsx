@@ -43,6 +43,40 @@ export function UseCaseDetail({ useCase }: { useCase: UseCaseData }) {
         ))}
       </div>
 
+      {useCase.demo ? (
+        <section className="use-case-demo" aria-labelledby={`${useCase.slug}-demo-title`}>
+          <div className="use-case-demo-heading">
+            <div>
+              <p className="use-case-mini-label">Operator walkthrough</p>
+              <h2 id={`${useCase.slug}-demo-title`}>See the control reach a real decision.</h2>
+            </div>
+            <p>{useCase.demo.caption}</p>
+            <span className="use-case-demo-swipe">
+              Swipe to inspect all four steps <b aria-hidden="true">→</b>
+            </span>
+          </div>
+          <figure>
+            <div
+              className="use-case-demo-visual"
+              tabIndex={0}
+              aria-label="Scrollable four-step operator walkthrough"
+            >
+              <img
+                src={useCase.demo.imageSrc}
+                alt={useCase.demo.imageAlt}
+                width="1672"
+                height="941"
+                loading="lazy"
+              />
+            </div>
+            <figcaption>
+              <span>Execution boundary</span>
+              <strong>{useCase.demo.note}</strong>
+            </figcaption>
+          </figure>
+        </section>
+      ) : null}
+
       <div className="use-case-workflow-grid">
         <div>
           <p className="use-case-mini-label">How it works</p>

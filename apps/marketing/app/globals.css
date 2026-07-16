@@ -247,14 +247,22 @@ input {
 
 .site-nav-mega-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.site-nav-mega-grid li + li {
+.site-nav-mega-grid li {
+  border-bottom: 1px solid var(--color-line);
+}
+
+.site-nav-mega-grid li:not(:nth-child(3n + 1)) {
   border-left: 1px solid var(--color-line);
+}
+
+.site-nav-mega-grid li:nth-last-child(-n + 3) {
+  border-bottom: 0;
 }
 
 .site-nav-mega-grid a {
@@ -2385,7 +2393,9 @@ input {
 }
 
 .use-case-grid > article {
+  display: flex;
   overflow: hidden;
+  flex-direction: column;
   border: 1px solid var(--color-line);
   border-radius: 14px;
   background: #fff;
@@ -2457,9 +2467,47 @@ input {
   color: var(--color-muted);
 }
 
+.use-case-grid-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: auto;
+  padding: 1rem 1.4rem;
+  border-top: 1px solid var(--color-line);
+  color: var(--color-accent-deep);
+  font-size: 0.75rem;
+  font-weight: 700;
+  transition: background-color 150ms ease;
+}
+
+.use-case-grid-link:hover,
+.use-case-grid-link:focus-visible {
+  background: var(--color-accent-wash);
+}
+
+.use-case-grid-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+  color: var(--color-accent-deep);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.use-case-grid-all span {
+  transition: transform 150ms ease;
+}
+
+.use-case-grid-all:hover span,
+.use-case-grid-all:focus-visible span {
+  transform: translateX(0.2rem);
+}
+
 @media (min-width: 780px) {
   .use-case-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -3154,6 +3202,91 @@ input {
   transform: rotate(90deg);
 }
 
+.use-case-demo {
+  margin-top: 3.5rem;
+}
+
+.use-case-demo-heading {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.use-case-demo-heading h2 {
+  max-width: 18ch;
+  margin: 0.75rem 0 0;
+  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-size: clamp(1.9rem, 4vw, 2.9rem);
+  font-weight: 560;
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+}
+
+.use-case-demo-heading > p {
+  max-width: 38rem;
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+
+.use-case-demo-swipe {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--color-accent-deep);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.use-case-demo figure {
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid rgb(255 255 255 / 0.15);
+  border-radius: 18px;
+  background: #05080c;
+  box-shadow: 0 24px 70px rgb(16 42 67 / 0.16);
+}
+
+.use-case-demo-visual {
+  overflow-x: auto;
+  scrollbar-color: rgb(255 255 255 / 0.24) transparent;
+}
+
+.use-case-demo img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.use-case-demo figcaption {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem 1.1rem;
+  border-top: 1px solid rgb(255 255 255 / 0.14);
+  background: var(--color-ink);
+}
+
+.use-case-demo figcaption span {
+  color: #8fb3ff;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.use-case-demo figcaption strong {
+  color: #e4ebf6;
+  font-size: 0.78rem;
+  font-weight: 550;
+  line-height: 1.55;
+}
+
 .use-case-workflow-grid {
   display: grid;
   gap: 2rem;
@@ -3474,6 +3607,10 @@ input {
 }
 
 @media (min-width: 680px) {
+  .use-case-demo-swipe {
+    display: none;
+  }
+
   .use-case-index {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3512,7 +3649,7 @@ input {
 
 @media (min-width: 1100px) {
   .use-case-index {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -3533,6 +3670,22 @@ input {
     gap: 4rem;
   }
 
+  .use-case-demo-heading {
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.65fr);
+    align-items: end;
+    gap: 4rem;
+  }
+
+  .use-case-demo-heading > p {
+    justify-self: end;
+  }
+
+  .use-case-demo figcaption {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 1.5rem;
+  }
+
   .use-case-result-card {
     position: sticky;
     top: 6rem;
@@ -3542,6 +3695,13 @@ input {
     grid-template-columns: minmax(0, 1.15fr) minmax(20rem, 0.7fr);
     gap: 4rem;
     padding: 4rem;
+  }
+}
+
+@media (max-width: 679px) {
+  .use-case-demo img {
+    width: 52rem;
+    max-width: none;
   }
 }
 

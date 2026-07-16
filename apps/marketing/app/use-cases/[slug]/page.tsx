@@ -9,15 +9,13 @@ interface UseCasePageProps {
 }
 
 export function generateStaticParams() {
-  return USE_CASES.filter((useCase) => useCase.href.startsWith('/use-cases/')).map((useCase) => ({
-    slug: useCase.slug,
-  }));
+  return USE_CASES.map((useCase) => ({ slug: useCase.slug }));
 }
 
 export async function generateMetadata({ params }: UseCasePageProps): Promise<Metadata> {
   const { slug } = await params;
   const useCase = getUseCase(slug);
-  if (!useCase || useCase.href !== `/use-cases/${slug}`) return {};
+  if (!useCase) return {};
 
   const title = `${useCase.eyebrow} | TrustLoopGuard`;
   return {
@@ -41,7 +39,7 @@ export async function generateMetadata({ params }: UseCasePageProps): Promise<Me
 export default async function Page({ params }: UseCasePageProps) {
   const { slug } = await params;
   const useCase = getUseCase(slug);
-  if (!useCase || useCase.href !== `/use-cases/${slug}`) notFound();
+  if (!useCase) notFound();
 
   return <UseCasePage useCase={useCase} />;
 }
