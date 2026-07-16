@@ -7,8 +7,6 @@ use tl_engine::{
     Engine, EventPipelineCtx, FuzzyChecker, HandlerCtx, NoOpFuzzyChecker, ProfileResolver,
 };
 use tl_llm::LlmRouter;
-#[cfg(not(feature = "postgres"))]
-use tl_policy::Policy;
 
 use crate::agents::{AgentStore, MemoryAgentStore};
 #[cfg(not(feature = "postgres"))]
@@ -160,7 +158,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
 #[cfg(not(feature = "postgres"))]
 #[allow(clippy::type_complexity)]
 pub(super) fn build_memory_layer(
-    policies: &[Policy],
+    policies: &super::LoadedPolicies,
 ) -> (
     Arc<dyn AgentStore>,
     Arc<dyn ProfileResolver>,
@@ -196,7 +194,10 @@ pub(super) fn build_memory_layer(
     (
         mem.clone() as Arc<dyn AgentStore>,
         mem as Arc<dyn ProfileResolver>,
-        Arc::new(MemoryPolicyStore::with_policies(policies)) as Arc<dyn PolicyStore>,
+        Arc::new(MemoryPolicyStore::with_policy_sets(
+            &policies.content,
+            &policies.families,
+        )) as Arc<dyn PolicyStore>,
         Arc::new(MemoryTraceStore::default()) as Arc<dyn TraceStore>,
         Arc::new(MemoryRunStore::new()) as Arc<dyn RunStore>,
         Arc::new(MemoryAnalyticsStore::new()) as Arc<dyn AnalyticsStore>,

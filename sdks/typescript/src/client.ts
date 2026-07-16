@@ -16,6 +16,7 @@ import type { CreateAuthorizationGrantRequest } from './generated/CreateAuthoriz
 import type { DecideAuthorizationApprovalRequest } from './generated/DecideAuthorizationApprovalRequest';
 import type { DecideAuthorizationApprovalResponse } from './generated/DecideAuthorizationApprovalResponse';
 import type { GuardEvent } from './generated/GuardEvent';
+import type { EventKind } from './generated/EventKind';
 import type { AgentListResponse } from './generated/AgentListResponse';
 import type { AgentProfile } from './generated/AgentProfile';
 import type { ApiKeyBatchRevokeResponse } from './generated/ApiKeyBatchRevokeResponse';
@@ -61,6 +62,8 @@ import type { RunSummary } from './generated/RunSummary';
 import type { FinancialActionRecord } from './generated/FinancialActionRecord';
 import type { ProvenanceMap } from './generated/ProvenanceMap';
 import type { SideEffectClass } from './generated/SideEffectClass';
+import type { ShellActionParameters } from './generated/ShellActionParameters';
+import type { ShellLanguage } from './generated/ShellLanguage';
 import type { Source } from './generated/Source';
 import type { TraceListResponse } from './generated/TraceListResponse';
 import type { ToolMetadataEntry } from './generated/ToolMetadataEntry';
@@ -158,6 +161,9 @@ export interface GuardToolCallOptions {
   sources?: Source[];
   provenance?: ProvenanceMap;
   context?: Record<string, unknown> | null;
+  eventKind?: EventKind;
+  invocationId?: string;
+  toolIdentity?: ToolIdentity;
 }
 
 export interface AuthorizedActionOptions extends GuardToolCallOptions {
@@ -165,6 +171,18 @@ export interface AuthorizedActionOptions extends GuardToolCallOptions {
   timeoutMs?: number;
   pollIntervalMs?: number;
   signal?: AbortSignal;
+}
+
+export interface AuthorizedShellActionOptions extends Omit<
+  AuthorizedActionOptions,
+  'operation' | 'parameters' | 'sideEffect' | 'eventKind'
+> {
+  command: string;
+  shell?: ShellLanguage;
+  cwd?: string;
+  workspaceRoot?: string;
+  commandTimeoutMs?: number;
+  runInBackground?: boolean;
 }
 
 export interface AuthorizedActionResult<T> {
@@ -239,7 +257,7 @@ export class Client {
           '/v1/events',
           {
             method: 'POST',
-            body: JSON.stringify(body),
+            body: stringifyJson(body),
           },
           signal,
         ),
@@ -278,7 +296,7 @@ export class Client {
     execute: (parameters: Readonly<Record<string, unknown>>) => Promise<T>,
   ): Promise<AuthorizedActionResult<T>> {
     const event = cloneEvent({
-      kind: 'tool.call.proposed',
+      kind: opts.eventKind ?? 'tool.call.proposed',
       principal: {
         workspace_id: '',
         environment_id: '',
@@ -288,7 +306,7 @@ export class Client {
         operation: opts.operation,
         parameters: opts.parameters ?? {},
         ...(opts.sideEffect ? { side_effect: opts.sideEffect } : {}),
-        invocation_id: newUuid(),
+        invocation_id: opts.invocationId ?? newUuid(),
         tool_identity: opts.toolIdentity,
       },
       sources: opts.sources ?? [],
@@ -356,6 +374,30 @@ export class Client {
     return { decision, executed: false };
   }
 
+  async withAuthorizedShellAction<T>(
+    opts: AuthorizedShellActionOptions,
+    execute: (parameters: Readonly<ShellActionParameters>) => Promise<T>,
+  ): Promise<AuthorizedActionResult<T>> {
+    const parameters: ShellActionParameters = {
+      command: opts.command,
+      shell: opts.shell ?? 'bash',
+      run_in_background: opts.runInBackground ?? false,
+      ...(opts.cwd ? { cwd: opts.cwd } : {}),
+      ...(opts.workspaceRoot ? { workspace_root: opts.workspaceRoot } : {}),
+      ...(opts.commandTimeoutMs !== undefined ? { timeout_ms: BigInt(opts.commandTimeoutMs) } : {}),
+    };
+    return this.withAuthorizedAction(
+      {
+        ...opts,
+        operation: 'Bash',
+        parameters,
+        sideEffect: 'shell_exec',
+        eventKind: 'shell.action.proposed',
+      },
+      async () => execute(parameters),
+    );
+  }
+
   async withRun<T>(opts: WithRunOptions, fn: (run: ActiveRun) => Promise<T>): Promise<T> {
     const metadata = opts.inputSummary
       ? { ...(opts.metadata ?? {}), input_summary: opts.inputSummary }
@@ -411,7 +453,7 @@ export class Client {
   ): Promise<AuthorizationDecision> {
     return this.submitEvent(
       {
-        kind: 'tool.call.proposed',
+        kind: opts.eventKind ?? 'tool.call.proposed',
         principal: {
           workspace_id: '',
           environment_id: '',
@@ -421,10 +463,48 @@ export class Client {
           operation: opts.operation,
           parameters: opts.parameters ?? {},
           ...(opts.sideEffect ? { side_effect: opts.sideEffect } : {}),
+          invocation_id: opts.invocationId ?? newUuid(),
+          tool_identity:
+            opts.toolIdentity ??
+            ({
+              server_id: 'trustloopguard-sdk',
+              tool_name: opts.operation,
+              schema_hash: 'sdk-legacy-untyped-v1',
+            } satisfies ToolIdentity),
         },
         sources: opts.sources ?? [],
         provenance: opts.provenance ?? {},
         context: opts.context ?? null,
+      },
+      signal,
+    );
+  }
+
+  async guardShellCommand(
+    opts: Omit<AuthorizedShellActionOptions, 'timeoutMs' | 'pollIntervalMs' | 'signal'>,
+    signal?: AbortSignal,
+  ): Promise<AuthorizationDecision> {
+    return this.guardToolCall(
+      {
+        agentId: opts.agentId,
+        operation: 'Bash',
+        parameters: {
+          command: opts.command,
+          shell: opts.shell ?? 'bash',
+          run_in_background: opts.runInBackground ?? false,
+          ...(opts.cwd ? { cwd: opts.cwd } : {}),
+          ...(opts.workspaceRoot ? { workspace_root: opts.workspaceRoot } : {}),
+          ...(opts.commandTimeoutMs !== undefined
+            ? { timeout_ms: BigInt(opts.commandTimeoutMs) }
+            : {}),
+        },
+        sideEffect: 'shell_exec',
+        eventKind: 'shell.action.proposed',
+        toolIdentity: opts.toolIdentity,
+        ...(opts.invocationId ? { invocationId: opts.invocationId } : {}),
+        ...(opts.sources ? { sources: opts.sources } : {}),
+        ...(opts.provenance ? { provenance: opts.provenance } : {}),
+        ...(opts.context !== undefined ? { context: opts.context } : {}),
       },
       signal,
     );

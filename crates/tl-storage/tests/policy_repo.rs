@@ -8,9 +8,8 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
-use tl_core::AuthorizationEffect;
-use tl_core::Severity;
-use tl_policy::{MatchClause, Matcher, Policy};
+use tl_core::{AuthorizationEffect, PolicyFamily, Severity};
+use tl_policy::{load_any_str, AnyPolicy, MatchClause, Matcher, Policy};
 use tl_storage::{connect_postgres, migrate_postgres, schema::policies, PolicyRepo, StorageError};
 
 const WORKSPACE_ID: &str = "ws_policy_repo_test";
@@ -221,4 +220,40 @@ async fn batch_set_enabled_updates_all_selected_policies() {
         .map(|policy| policy.id.clone())
         .collect();
     assert_eq!(enabled_ids, vec!["beta"]);
+}
+
+#[tokio::test]
+async fn tool_family_round_trips_and_filters_without_a_specialized_table() {
+    let (repo, _container) = fresh_repo().await;
+    let yaml = r#"
+family: tool
+id: block-system-delete
+severity: critical
+when: { side_effects: [shell_exec] }
+match:
+  fact: { key: shell.risk, equals: filesystem_recursive_delete }
+action: deny
+reason: System deletion is prohibited.
+"#;
+    let AnyPolicy::Family(policy) = load_any_str(yaml).expect("tool policy parses") else {
+        panic!("expected family policy");
+    };
+    repo.upsert_family_in(WORKSPACE_ID, &policy, yaml)
+        .await
+        .expect("upsert family");
+
+    let tool_rows = repo
+        .list_any_records_in(WORKSPACE_ID, Some(PolicyFamily::Tool))
+        .await
+        .expect("filter tool family");
+    assert_eq!(tool_rows.len(), 1);
+    assert_eq!(tool_rows[0].family, PolicyFamily::Tool);
+    assert_eq!(tool_rows[0].policy.id(), "block-system-delete");
+    assert_eq!(tool_rows[0].source_yaml, yaml);
+
+    let content_rows = repo
+        .list_any_records_in(WORKSPACE_ID, Some(PolicyFamily::Content))
+        .await
+        .expect("filter content family");
+    assert!(content_rows.is_empty());
 }

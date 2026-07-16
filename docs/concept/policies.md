@@ -7,6 +7,7 @@ TrustLoopGuard has one Rust-owned policy registry. Every policy definition is st
 A policy has a `family`:
 
 - `content` — legacy protection rules for generic guard events.
+- `tool` — deterministic executable-tool controls, including shell command facts and exact-action approval.
 - `financial` — spending, approval requirements, counterparty, grant, and refund eligibility controls for typed financial actions.
 - `flow`, `parameter_source`, `approval`, `memory` — typed event-engine policy families.
 - `source_label` — per-origin label overrides used by event source-label resolution.
@@ -49,7 +50,7 @@ Domain endpoints can stay as ergonomic wrappers. For example, `POST /v1/financia
 
 ## Runtime Boundaries
 
-The generic guard pipeline loads `family: content` policies for `GuardEvent` decisions.
+The generic guard pipeline evaluates `family: content` policies for content observations. Executable tool subjects pass enabled `family: tool` policies through the Tool authorization adapter. Shell commands can use deterministic analyzer facts or explicit JSON-parameter matching; [command-safety.md](command-safety.md) is the canonical contract.
 
 The financial adapter loads `family: financial` policies for `FinancialAction` subjects, emits typed findings and authority requirements, and passes them to the common authorization coordinator. Ledger windows, eligibility evidence, and current policy ceilings are still financial-domain inputs; grants, approvals, leases, and authorization receipts are common kernel concepts. Provider execution and the financial execution receipt remain separate downstream concerns.
 

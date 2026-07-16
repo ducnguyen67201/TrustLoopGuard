@@ -18,7 +18,7 @@ The web dashboard may display persisted traces through Rust APIs. It is not in t
 
 A `GuardEvent` contains:
 
-- `kind`: dotted event taxonomy such as `output.proposed`, `tool.call.proposed`, `memory.write.proposed`, or `database.mutation.proposed`;
+- `kind`: dotted event taxonomy such as `output.proposed`, `tool.call.proposed`, `shell.action.proposed`, `memory.write.proposed`, or `database.mutation.proposed`;
 - `principal`: workspace, environment, agent, optional user/session/task, and optional run identity;
 - `action`: operation, full JSON parameters, tool identity, and side-effect class;
 - `sources`: influencing inputs and declared origin/labels;
@@ -33,12 +33,14 @@ Runtime authentication overwrites workspace and environment from a workspace key
 1. Validate the wire request and resolve workspace/environment.
 2. Resolve tool metadata and source-label policies once.
 3. Derive path provenance and run enabled deterministic checkers.
-4. Evaluate enabled typed policy families. Semantic candidates are deterministically prefiltered and judged in one bounded batch.
+4. Evaluate enabled typed policy families at their domain boundary. Content semantic candidates are deterministically prefiltered and judged in one bounded batch; tool policies remain deterministic.
 5. Convert results to `AuthorizationFinding` and explicit `AuthorityRequirement` values.
 6. For content-only observations, compose and persist the trace without authorization-table reads.
 7. For executable tools, build a typed subject and delegate to `AuthorizationCoordinator`.
 8. The coordinator fingerprints the exact subject, intersects current policy with an explicitly claimed grant, creates approval when required, claims a lease after permit, and writes a common receipt.
 9. Return `AuthorizationDecision` and persist trace evidence asynchronously.
+
+`shell.action.proposed` is canonicalized to `shell_exec` before its tool subject is built, then the Tool adapter evaluates enabled command policies. The analyzer and match semantics are defined once in [command-safety.md](command-safety.md).
 
 Effect precedence is `deny > defer > require_approval > transform > permit`. Shadow-mode checkers retain hypothetical evidence but do not contribute an enforcing effect.
 

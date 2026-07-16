@@ -60,7 +60,7 @@ export function onboardingContextQuery(
 /**
  * Onboarding step 2: create an API key (one-time reveal) and hand the user
  * the integration paths — SDK quick-start, a paste-into-your-AI-assistant
- * prompt, and a Claude-Code-native PreToolUse hook. The plaintext key lives
+ * prompt, and Claude-Code-native authorization hooks. The plaintext key lives
  * only in component state; it is never placed in URLs, storage, or snippets.
  */
 export function ConnectAgentStep({
@@ -266,8 +266,8 @@ export function ConnectAgentStep({
           <TabsContent value="claude-code" className="grid gap-3">
             <SurfaceIntro>
               Claude Code <em className="text-foreground not-italic">is</em> your agent. This
-              installs a PreToolUse hook, so every tool call is checked before it runs — no codebase
-              to change.
+              installs pre/post command hooks: TrustLoopGuard authorizes before execution and
+              completes the exact lease afterward. High-impact guard failures stop the tool.
             </SurfaceIntro>
             <CopyBlock
               label="Paste into Claude Code to guard it directly"

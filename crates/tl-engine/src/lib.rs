@@ -17,7 +17,9 @@ pub mod event_policy;
 pub mod financial_policy;
 pub mod fuzzy;
 pub mod pipeline;
+pub mod shell_command;
 pub mod tiers;
+pub mod tool_policy;
 
 pub use authorization::{compose_findings, grant_satisfies, FindingComposition};
 pub use context as handler;
@@ -45,8 +47,10 @@ pub use financial_policy::{
 pub use fuzzy::{BuildError as FuzzyBuildError, HnswFuzzyChecker};
 pub use pipeline::orchestrator as orchestrate;
 pub use pipeline::{BlockSignal, DefaultTierRunner, OrchestrateConfig, TierOutput, TierRunner};
+pub use shell_command::{analyze_shell_command, ShellAnalysis, ShellAnalysisStatus};
 pub use tiers::deterministic as tier1;
 pub use tiers::fuzzy as tier2;
 pub use tiers::llm as tier3;
+pub use tool_policy::{evaluate_tool_policies, ToolPolicyError, ToolPolicyOutcome};
 #[cfg(test)]
 mod tests;

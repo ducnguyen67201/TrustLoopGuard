@@ -226,6 +226,7 @@ pub(super) fn policy_family_from_storage(raw: Option<&str>) -> Result<PolicyFami
         "memory" => Ok(PolicyFamily::Memory),
         "financial" => Ok(PolicyFamily::Financial),
         "source_label" => Ok(PolicyFamily::SourceLabel),
+        "tool" => Ok(PolicyFamily::Tool),
         other => Err(StorageError::Internal(format!(
             "unknown policy family `{other}`"
         ))),

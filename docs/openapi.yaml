@@ -8113,6 +8113,7 @@ components:
       - memory
       - financial
       - source_label
+      - tool
     PolicyListResponse:
       type: object
       required:
@@ -9247,6 +9248,39 @@ components:
       - medium
       - high
       - critical
+    ShellActionParameters:
+      type: object
+      description: Canonical parameters for `shell.action.proposed` events.
+      required:
+      - command
+      properties:
+        command:
+          type: string
+        cwd:
+          type:
+          - string
+          - 'null'
+        run_in_background:
+          type: boolean
+        shell:
+          $ref: '#/components/schemas/ShellLanguage'
+        timeout_ms:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          minimum: 0
+        workspace_root:
+          type:
+          - string
+          - 'null'
+    ShellLanguage:
+      type: string
+      description: Supported POSIX-oriented shell grammars for proposed shell actions.
+      enum:
+      - bash
+      - sh
+      - zsh
     SideEffectClass:
       type: string
       enum:

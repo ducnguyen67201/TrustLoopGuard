@@ -105,8 +105,8 @@ async fn main() -> anyhow::Result<()> {
         Cmd::Agents { cmd } => guardrails::run_agents(cmd).await,
         Cmd::PolicyLint { path } => {
             let src = std::fs::read_to_string(&path)?;
-            let policy = tl_policy::load_str(&src)?;
-            println!("ok: policy `{}` parsed", policy.id);
+            let policy = tl_policy::load_any_str(&src)?;
+            println!("ok: policy `{}` parsed", policy.id());
             Ok(())
         }
         Cmd::AgentLint { path } => {

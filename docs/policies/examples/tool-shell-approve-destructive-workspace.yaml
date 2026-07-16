@@ -1,0 +1,20 @@
+family: tool
+id: approve-destructive-workspace-delete
+description: Requires review before recursive deletion inside the workspace.
+severity: high
+when:
+  operations: [Bash]
+  side_effects: [shell_exec]
+match:
+  all:
+    - fact:
+        key: shell.risk
+        equals: filesystem_recursive_delete
+    - fact:
+        key: shell.target_scope
+        equals: workspace
+action: require_approval
+reason: Recursive workspace deletion requires explicit review.
+remediation: Prefer a narrow generated directory and verify the target first.
+approver_roles: [owner, admin]
+max_grant_ttl_seconds: 600

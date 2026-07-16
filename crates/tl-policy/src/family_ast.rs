@@ -1,5 +1,4 @@
-//! AST for non-content policy families (`flow`, `parameter_source`,
-//! `approval`, `memory`). Content policies keep their existing `Policy`
+//! AST for non-content policy families. Content policies keep their existing `Policy`
 //! shape in `policy_ast`; a YAML document selects a family with a
 //! top-level `family:` tag, and documents without one stay content.
 
@@ -80,6 +79,7 @@ pub enum FamilyPolicy {
     Memory(MemoryPolicy),
     Financial(FinancialPolicy),
     SourceLabel(SourceLabelFamilyPolicy),
+    Tool(ToolPolicy),
 }
 
 impl FamilyPolicy {
@@ -91,6 +91,7 @@ impl FamilyPolicy {
             FamilyPolicy::Memory(p) => &p.id,
             FamilyPolicy::Financial(p) => &p.id,
             FamilyPolicy::SourceLabel(p) => &p.id,
+            FamilyPolicy::Tool(p) => &p.id,
         }
     }
 
@@ -102,6 +103,7 @@ impl FamilyPolicy {
             FamilyPolicy::Memory(_) => PolicyFamily::Memory,
             FamilyPolicy::Financial(_) => PolicyFamily::Financial,
             FamilyPolicy::SourceLabel(_) => PolicyFamily::SourceLabel,
+            FamilyPolicy::Tool(_) => PolicyFamily::Tool,
         }
     }
 
@@ -113,6 +115,7 @@ impl FamilyPolicy {
             FamilyPolicy::Memory(p) => p.description.as_deref(),
             FamilyPolicy::Financial(p) => p.description.as_deref(),
             FamilyPolicy::SourceLabel(p) => p.description.as_deref(),
+            FamilyPolicy::Tool(p) => p.description.as_deref(),
         }
     }
 
@@ -124,6 +127,7 @@ impl FamilyPolicy {
             FamilyPolicy::Memory(p) => p.severity,
             FamilyPolicy::Financial(p) => p.severity,
             FamilyPolicy::SourceLabel(p) => p.severity,
+            FamilyPolicy::Tool(p) => p.severity,
         }
     }
 
@@ -135,6 +139,7 @@ impl FamilyPolicy {
             FamilyPolicy::Memory(p) => Some(p.action),
             FamilyPolicy::Financial(p) => Some(p.on_breach),
             FamilyPolicy::SourceLabel(_) => None,
+            FamilyPolicy::Tool(p) => Some(p.action),
         }
     }
 }
@@ -310,6 +315,97 @@ pub struct MemoryPolicy {
     pub severity: Severity,
     pub deny_untrusted_authority_writes: bool,
     pub action: AuthorizationEffect,
+}
+
+/// Scope for a tool policy. Empty selectors are rejected at authoring time.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct ToolWhen {
+    #[serde(default)]
+    pub agents: Vec<String>,
+    #[serde(default)]
+    pub operations: Vec<String>,
+    #[serde(default)]
+    pub side_effects: Vec<SideEffectClass>,
+    #[serde(default)]
+    pub tools: Vec<ToolSelector>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct ToolSelector {
+    #[serde(default)]
+    pub server_id: Option<String>,
+    #[serde(default)]
+    pub tool_name: Option<String>,
+    #[serde(default)]
+    pub schema_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub enum ToolMatchClause {
+    Any { any: Vec<ToolMatcher> },
+    All { all: Vec<ToolMatcher> },
+    Single(ToolMatcher),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub enum ToolMatcher {
+    Fact { fact: ToolFactMatcher },
+    Parameter { parameter: ToolParameterMatcher },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct ToolFactMatcher {
+    pub key: String,
+    #[serde(flatten)]
+    pub value: ToolValueMatcher,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct ToolParameterMatcher {
+    pub path: String,
+    #[serde(flatten)]
+    pub value: ToolValueMatcher,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct ToolValueMatcher {
+    #[serde(default)]
+    pub equals: Option<String>,
+    #[serde(default)]
+    pub one_of: Vec<String>,
+    #[serde(default)]
+    pub regex: Option<String>,
+}
+
+/// Deterministic policies for authority-bearing tool invocations.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct ToolPolicy {
+    pub id: PolicyId,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default = "default_severity")]
+    pub severity: Severity,
+    #[serde(default)]
+    pub when: ToolWhen,
+    pub r#match: ToolMatchClause,
+    pub action: AuthorizationEffect,
+    pub reason: String,
+    #[serde(default)]
+    pub remediation: Option<String>,
+    #[serde(default)]
+    pub approver_roles: Vec<String>,
+    #[serde(default)]
+    pub max_grant_ttl_seconds: Option<u64>,
 }
 
 fn default_severity() -> Severity {
