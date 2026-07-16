@@ -14,8 +14,8 @@ const config: NextConfig = {
   reactStrictMode: true,
   env: { NEXT_PUBLIC_BUILD_ID: buildId },
   generateBuildId: () => buildId,
-  // Consume @trustloopguard/sdk source-first via the workspace exports map.
-  // Next compiles it through SWC instead of expecting a prebuilt dist/.
+  // Bundle the workspace SDK with the app. The SDK build must run first
+  // because its package exports resolve through dist/index.js.
   transpilePackages: ['@trustloopguard/sdk'],
   typescript: {
     ignoreBuildErrors: false,
