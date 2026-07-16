@@ -1,7 +1,13 @@
-"""``guard()`` — output-boundary helper for the Python SDK.
+"""Output-boundary helpers for the Python SDK.
 
-Most integrations should create one async guard at startup and call it before
-delivering an agent draft::
+The shortest integration decorates the function that produces the final reply::
+
+    @trustloopguard.guarded(agent_id="acme-support-v3")
+    async def answer(message: str) -> str:
+        return await agent.reply(message)
+
+The explicit guard factory remains available when the caller already has
+separate input and draft values::
 
     guardrail = trustloopguard.guard(agent_id="acme-support-v3")
     reply = await guardrail(input=user_message, draft=agent_draft)
@@ -48,13 +54,15 @@ Low-level example::
 
 from __future__ import annotations
 
+import functools
+import inspect
 import logging
 import os
 import time
 from collections.abc import AsyncIterable, Iterable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Awaitable, Callable, Literal, Optional, Union, overload
+from typing import Any, Awaitable, Callable, Literal, Optional, ParamSpec, Union, overload
 
 from trustloopguard._generated.types import (
     Action,
@@ -75,6 +83,7 @@ from trustloopguard.errors import SdkError
 from trustloopguard.retry import RetryConfig
 
 _logger = logging.getLogger("trustloopguard")
+P = ParamSpec("P")
 
 # -- Sync callback signatures ----------------------------------------------
 
@@ -189,12 +198,18 @@ class OutputGuard:
 
         resolved_base_url = (
             base_url
-            or _env("TL_SERVER_URL", "TRUSTLOOPGUARD_URL", "TRUSTLOOP_URL")
+            or _env("TLG_URL", "TL_SERVER_URL", "TRUSTLOOPGUARD_URL", "TRUSTLOOP_URL")
             or "http://127.0.0.1:8080"
         )
         self.client = AsyncClient(
             base_url=resolved_base_url,
-            api_key=api_key or _env("TL_API_KEY", "TRUSTLOOPGUARD_API_KEY", "TRUSTLOOP_API_KEY"),
+            api_key=api_key
+            or _env(
+                "TLG_API_KEY",
+                "TL_API_KEY",
+                "TRUSTLOOPGUARD_API_KEY",
+                "TRUSTLOOP_API_KEY",
+            ),
             timeout=timeout,
             retry=retry,
         )
@@ -462,6 +477,132 @@ def _error_handler(
         return await result
 
     return resolved
+
+
+# -- Decorator -------------------------------------------------------------
+
+
+def guarded(
+    *,
+    agent_id: str,
+    input_arg: str | None = None,
+    client: AsyncClient | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+    timeout: float = 5.0,
+    retry: RetryConfig | None = None,
+    channel: Channel | None = None,
+    domain: str | None = None,
+    context: dict[str, Any] | None = None,
+    on_block: DecisionHandler | str | None = None,
+    on_require_approval: DecisionHandler | str | None = None,
+    on_defer: DecisionHandler | str | None = None,
+    on_error: ErrorHandler | str | None = None,
+    mode: GuardModeInput = GuardMode.REWRITE,
+    regenerate: RegenerateHandler | None = None,
+    max_regenerations: int = 1,
+    fail_closed: bool = True,
+    log: Callable[[GuardLogEvent], None] | None = None,
+) -> Callable[[Callable[P, Awaitable[str]]], Callable[P, Awaitable[str]]]:
+    """Guard the string returned by an async agent function.
+
+    The first parameter other than ``self`` or ``cls`` is treated as the user
+    input. Pass ``input_arg`` when the function has more than one meaningful
+    argument. The decorated function must receive a string input and return a
+    string draft.
+
+    Decorators fail closed on SDK transport errors by default. The existing
+    :func:`guard` helper keeps its fail-open default for compatibility.
+    """
+
+    def decorate(func: Callable[P, Awaitable[str]]) -> Callable[P, Awaitable[str]]:
+        signature, selected_input_arg = _decorated_input(func, input_arg)
+        if not inspect.iscoroutinefunction(func):
+            raise TypeError("guarded() requires an async function")
+
+        output_guard = OutputGuard(
+            agent_id=agent_id,
+            client=client,
+            base_url=base_url,
+            api_key=api_key,
+            timeout=timeout,
+            retry=retry,
+            channel=channel,
+            domain=domain,
+            context=context,
+            on_block=on_block,
+            on_require_approval=on_require_approval,
+            on_defer=on_defer,
+            on_error=on_error,
+            mode=mode,
+            regenerate=regenerate,
+            max_regenerations=max_regenerations,
+            fail_closed=fail_closed,
+            log=log,
+        )
+
+        @functools.wraps(func)
+        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> str:
+            input_value = _decorated_input_value(
+                signature,
+                selected_input_arg,
+                args,
+                kwargs,
+            )
+            draft = await func(*args, **kwargs)
+            if not isinstance(draft, str):
+                raise TypeError(f"guarded function '{func.__name__}' return value must be str")
+            return await output_guard(input=input_value, draft=draft)
+
+        setattr(async_wrapper, "aclose", output_guard.aclose)
+        return async_wrapper
+
+    return decorate
+
+
+def _decorated_input(
+    func: Callable[..., Any],
+    input_arg: str | None,
+) -> tuple[inspect.Signature, str]:
+    signature = inspect.signature(func)
+    if input_arg is not None:
+        parameter = signature.parameters.get(input_arg)
+        if parameter is None or parameter.kind in {
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        }:
+            raise TypeError(
+                f"guarded function '{func.__name__}' has no input parameter '{input_arg}'"
+            )
+        return signature, input_arg
+
+    for parameter in signature.parameters.values():
+        if parameter.name in {"self", "cls"}:
+            continue
+        if parameter.kind in {
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        }:
+            return signature, parameter.name
+
+    raise TypeError(
+        f"guarded function '{func.__name__}' requires a string input parameter"
+    )
+
+
+def _decorated_input_value(
+    signature: inspect.Signature,
+    input_arg: str,
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+) -> str:
+    bound = signature.bind(*args, **kwargs)
+    bound.apply_defaults()
+    value = bound.arguments[input_arg]
+    if not isinstance(value, str):
+        raise TypeError(f"guarded input argument '{input_arg}' must be str")
+    return value
 
 
 # -- Sync / factory --------------------------------------------------------

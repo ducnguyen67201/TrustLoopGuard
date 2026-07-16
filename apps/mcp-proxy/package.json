@@ -5,7 +5,9 @@
   "description": "Transparent approval-enforcing proxy for one downstream MCP server.",
   "license": "Apache-2.0",
   "type": "module",
-  "bin": { "trustloopguard-mcp-proxy": "./dist/index.js" },
+  "bin": {
+    "trustloopguard-mcp-proxy": "./dist/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
@@ -20,6 +22,6 @@
   "devDependencies": {
     "@types/node": "25.6.2",
     "typescript": "6.0.3",
-    "vitest": "^2.1.0"
+    "vitest": "^3.2.6"
   }
 }

@@ -66,6 +66,8 @@ jobs:
         run: pnpm --filter @trustloopguard/sdk test
       - name: Build
         run: pnpm --filter @trustloopguard/sdk build
+      - name: Verify packed npm artifact
+        run: pnpm --filter @trustloopguard/sdk test:package
       - name: Upload built package
         uses: actions/upload-artifact@v7
         with:

@@ -10,7 +10,7 @@
 // HTTP server. Production callers feed `Math.random()`; tests pin the
 // value for determinism.
 
-import { RateLimited, SdkError } from './errors';
+import { RateLimited, SdkError } from './errors.js';
 
 export interface RetryConfig {
   /** Total attempts including the initial one. `1` = no retry. */
