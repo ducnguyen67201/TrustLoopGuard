@@ -88,6 +88,19 @@ user or downstream system. Register your agent once, define policies in YAML,
 then enforce the result from your code or let the gateway apply it before the
 provider response returns.
 
+## Shell command policy demo
+
+Tool policies can evaluate a proposed Bash action before execution, then deny
+it or require an exact-action approval. Today, operators publish these policies
+from YAML and manage their environment deployment from **Policies → Tool
+command** in the dashboard.
+
+![Four-step shell command policy demo](docs/concept/assets/shell-command-policy-demo.png)
+
+See [Shell command safety](docs/concept/command-safety.md#operator-demo) for the
+copyable policy examples and live-demo steps. Policy analysis treats the
+command as structured input and never executes it.
+
 ## Decision outcomes
 
 | Decision | What happens | Common use |
