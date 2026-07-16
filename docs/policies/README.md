@@ -35,6 +35,28 @@ action: transform
 rewrite: "I can help check refund eligibility, but I can't guarantee the outcome."
 ```
 
+## Email Policy Demo
+
+The same content policy can be scoped to outbound email only. This demo
+publishes a transform rule, confirms it is on in the policy registry, and
+compares a permitted draft with a rewritten refund guarantee.
+
+![Four-step outbound email policy demo](../concept/assets/email-policy-demo.png)
+
+To reproduce it:
+
+1. Set `when.channels` to `[email]`. Optionally set `owner_agent_id` when the
+   rule should apply to one registered agent.
+2. Validate and publish the YAML with `tl policy validate <file>` and
+   `tl policy push <file>`.
+3. Confirm the policy is on for the intended environment in **Policies**.
+4. Submit two `output.proposed` events with `context.channel: email`: one safe
+   draft and one containing `guaranteed refund`.
+
+The safe draft should return `permit`. The risky draft should return
+`transform` with the configured `rewrite` value. The event is a policy check
+over a proposed message; TrustLoopGuard does not deliver the email.
+
 ## Validate It
 
 From the repo root:
