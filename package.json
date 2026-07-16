@@ -8,6 +8,15 @@
   "engines": {
     "node": ">=22"
   },
+  "pnpm": {
+    "overrides": {
+      "dompurify": "3.4.12",
+      "esbuild": "0.28.1",
+      "postcss": "8.5.14",
+      "undici": "7.28.0",
+      "vite": "6.4.3"
+    }
+  },
   "scripts": {
     "dev": "pnpm --filter web dev",
     "docs:dev": "pnpm --filter docs dev",
