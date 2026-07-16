@@ -23,18 +23,31 @@ async def generate_reply(message: str) -> str:
     return await agent.reply(message)
 ```
 
-Both helpers are narrow output-boundary adapters over `POST /v1/events`. The
-TypeScript decorator intercepts calls crossing the decorated agent's
-`reply(message, ...)` method; it does not claim to observe hidden framework
-internals. The user input and returned draft must be strings. The output event
-contains the returned draft under `action.parameters.text`, plus source and
-provenance metadata; it does not include the raw user message text by default.
-Tool calls, financial actions, and other side effects remain explicit so
-callers provide exact parameters, provenance, and execution identity.
+The Python helper remains an output-boundary adapter. The TypeScript decorator
+also discovers supported local tool registries and replaces each exposed
+`execute()` with the existing guarded-action path. OpenAI Agents JS tools are
+read from `agent.tools`, LiveKit tools from `agent.toolCtx`, and Mastra tools
+from `getToolsForExecution()`. The original tool runs at most once and only
+after `permit` or a successfully resumed approval.
+
+When `reply(message, ...)` exists, the TypeScript decorator also guards its
+returned string. The output event contains the returned draft under
+`action.parameters.text`; it does not include the raw user message by default.
+Provider-hosted tools, hidden closures, and remote execution surfaces that do
+not expose a local `execute()` remain explicit integration boundaries.
+
+Tool metadata registration is optional and lazy. Runtime tool-call visibility
+does not require registration: the event still carries the operation,
+parameters, framework/tool identity, and stable schema identity. Registration
+adds authoritative side-effect, reversibility, parameter-role, approval, and
+sandbox metadata through the existing Rust `/v1/tool-metadata` API.
+
+The adapter contract and limitations are defined in
+[sdk-agent-adapters.md](concept/sdk-agent-adapters.md).
 
 ## Runtime event flow
 
-1. Build a `GuardEvent` with principal, operation, parameters, side-effect class, sources, and provenance.
+1. Build a `GuardEvent` with principal, operation, parameters, tool identity, sources, and provenance. Supported TypeScript agent adapters do this automatically for exposed local tools.
 2. Submit it to `POST /v1/events` through the SDK.
 3. Branch on `AuthorizationDecision.effect`:
    - `permit`: execute the unchanged subject.

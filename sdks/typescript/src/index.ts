@@ -238,6 +238,7 @@ export type {
 
 export { GuardMode, guard, guardAgent } from './guard.js';
 export type {
+  GuardAgentOptions,
   GuardCallbacks,
   GuardOptions,
   GuardFactoryOptions,
@@ -249,6 +250,20 @@ export type {
   ReplyAgent,
   RegenerateFeedback,
 } from './guard.js';
+
+export {
+  GuardedToolBlocked,
+  ToolDiscoveryMode,
+  ToolDiscoveryWarningCode,
+  ToolRegistrationMode,
+} from './tool-discovery.js';
+export type {
+  DiscoveredToolInfo,
+  GuardToolDiscoveryOptions,
+  GuardToolDiscoveryWarning,
+  GuardToolMetadataOverride,
+  ToolFramework,
+} from './tool-discovery.js';
 
 export { DEFAULT_RETRY, nextDelay } from './retry.js';
 export type { RetryConfig } from './retry.js';

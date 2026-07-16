@@ -67,10 +67,10 @@ The repository does not currently install `@vitest/coverage-v8` or
 only because those coverage plugins were absent. Runtime tests, type checks,
 and production builds passed.
 
-The TypeScript root decorator intentionally targets agents exposing
-`reply(message: string, ...args): Promise<string>`. It captures calls crossing
-that boundary, not hidden framework internals. Framework-specific tools and
-side effects still require adapters or explicit typed helpers.
+The original TypeScript root decorator targeted agents exposing
+`reply(message: string, ...args): Promise<string>`. It now also discovers
+supported local tool registries; provider-hosted and hidden execution still
+requires a host adapter or explicit typed helper.
 
 The Python decorator intentionally supports async reply functions only. Sync
 callers retain the existing explicit `guard()` API.

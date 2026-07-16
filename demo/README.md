@@ -7,6 +7,24 @@ These demos exercise the public SDKs:
 3. TrustLoopGuard returns a decision, action status, trace, receipt, or proof.
 4. The demo executes only after authorization allows it.
 
+## Agent visibility
+
+This deterministic TypeScript agent demonstrates the one-line agent decorator.
+It exposes a Mastra-shaped `book_appointment` tool, calls that tool from
+`agent.reply()`, and uses `Client.withRun()` so the dashboard receives one
+completed run with both the automatic `tool.call.proposed` trace and the final
+output trace.
+
+```sh
+TL_SERVER_URL=http://127.0.0.1:8080 \
+TL_WORKSPACE_ID=<workspace-id> \
+pnpm --filter @trustloopguard/demo agent-visibility
+```
+
+The script registers the agent profile and discovered tool metadata, executes
+one appointment, waits for both traces to persist, and prints the run id to open
+on the dashboard.
+
 Start the Rust server first:
 
 ```sh

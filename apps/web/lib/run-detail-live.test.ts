@@ -136,6 +136,81 @@ describe('parseRunDetailSnapshot', () => {
     expect(inputTrace?.clock).not.toBe('');
   });
 
+  it('surfaces guarded tool calls from canonical event trace payloads', () => {
+    const snapshot = parseRunDetailSnapshot({
+      run: {
+        id: '019f0000-0000-7000-9000-000000000003',
+        workspace_id: 'ws_demo',
+        agent_id: 'booking-agent',
+        kind: 'chat_session',
+        status: 'completed',
+        external_id: 'booking-1',
+        metadata: {},
+        started_at: '2026-05-25T00:00:00.000Z',
+        ended_at: '2026-05-25T00:00:02.000Z',
+        created_at: '2026-05-25T00:00:00.000Z',
+        updated_at: '2026-05-25T00:00:02.000Z',
+        trace_count: 1,
+        blocked_count: 0,
+        rewritten_count: 0,
+        escalated_count: 0,
+        p95_latency_ms: 8,
+      },
+      events: [
+        {
+          id: 'event-3',
+          workspace_id: 'ws_demo',
+          run_id: '019f0000-0000-7000-9000-000000000003',
+          sequence: 1,
+          kind: 'assistant_turn',
+          label: 'guarded_agent_reply',
+          input_summary: 'Book for two people',
+          output_summary: null,
+          metadata: {},
+          occurred_at: '2026-05-25T00:00:01.000Z',
+          created_at: '2026-05-25T00:00:01.000Z',
+        },
+      ],
+      traces: [
+        {
+          trace_id: 'trace-tool',
+          run_id: '019f0000-0000-7000-9000-000000000003',
+          run_event_id: 'event-3',
+          domain: 'event',
+          decision: 'permit',
+          elapsed_ms: 8,
+          payload: {
+            reason: 'current policy and authority permit the subject',
+            event: {
+              kind: 'tool.call.proposed',
+              action: {
+                operation: 'book_appointment',
+                parameters: {
+                  customer: 'Browser QA customer',
+                  partySize: 2,
+                },
+                tool_identity: {
+                  server_id: 'mastra',
+                  tool_name: 'book_appointment',
+                  schema_hash: 'tlg-schema:fnv1a64:test',
+                },
+              },
+            },
+          },
+          created_at: '2026-05-25T00:00:01.000Z',
+        },
+      ],
+    });
+
+    expect(snapshot.traces[0]).toMatchObject({
+      side: 'tool',
+      phase: 'Tool Call Proposed',
+      operation: 'book_appointment',
+      toolName: 'book_appointment',
+      checkedInput: expect.stringContaining('"partySize": 2'),
+    });
+  });
+
   it('rejects malformed run detail payloads', () => {
     expect(() => parseRunDetailSnapshot({ run: null, events: [], traces: [] })).toThrow(
       /run detail contract/,

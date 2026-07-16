@@ -300,6 +300,16 @@ calls crossing `reply()` but not hidden framework internals. Tool calls,
 financial actions, and other side effects stay on explicit typed helpers so
 exact parameters, provenance, and execution identity remain visible.
 
+### Agent tool discovery
+
+The TypeScript decorator later expanded at the same SDK boundary without
+changing the Rust event contract. For supported frameworks it discovers local
+executable tools, derives stable tool identity from their exposed schemas, and
+routes `execute()` through the existing guarded-action helper. OpenAI Agents JS
+uses `agent.tools`, LiveKit uses `agent.toolCtx`, and Mastra uses
+`getToolsForExecution()`. Hidden and provider-hosted execution remains on
+explicit host adapters because no local function exists for the SDK to replace.
+
 ---
 
 ## 10. Crate alignment
