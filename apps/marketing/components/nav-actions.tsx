@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { MarketingEventLink } from './marketing-event-link';
 
@@ -15,9 +14,14 @@ export function NavActions({ bookMeetingUrl, githubUrl, stars }: NavActionsProps
 
   return (
     <div className="flex items-center gap-2">
-      <Link href="/demo" className="nav-demo-compact button-secondary h-10 px-3 text-sm">
+      <MarketingEventLink
+        href="/demo"
+        className="nav-demo-compact button-secondary h-10 px-3 text-sm"
+        event="demo_click"
+        eventParams={{ page, location: 'nav', label: 'Live demo' }}
+      >
         Demo
-      </Link>
+      </MarketingEventLink>
       <GitHubStarLink githubUrl={githubUrl} page={page} stars={stars} />
       <MarketingEventLink
         href={bookMeetingUrl}

@@ -7,12 +7,18 @@ export type MarketingEventName =
   | 'docs_click'
   | 'github_click'
   | 'waitlist_submit'
-  | 'landing_cta_click';
+  | 'landing_cta_click'
+  | 'demo_click'
+  | 'demo_started'
+  | 'demo_decision_shown';
 
 export interface MarketingEventParams extends Record<string, string | undefined> {
   page?: string;
   location?: string;
   label?: string;
+  scenario?: string;
+  decision?: string;
+  outcome?: string;
 }
 
 declare global {

@@ -103,6 +103,21 @@ test('the Product Hunt route shows a live chat, the control boundary, and Stripe
   assert.match(source, /Review this exact action/i);
 });
 
+test('tracks demo activation without sending the customer prompt to analytics', () => {
+  const demo = readFileSync(new URL('./refund-demo.tsx', import.meta.url), 'utf8');
+
+  assert.match(demo, /trackMarketingEvent\('demo_started'/);
+  assert.match(demo, /trackMarketingEvent\('demo_decision_shown'/);
+  assert.match(demo, /scenario,/);
+
+  const analyticsCalls = demo.match(/trackMarketingEvent\([\s\S]*?\n\s*\}\);/g) ?? [];
+  assert.equal(analyticsCalls.length, 3);
+  for (const analyticsCall of analyticsCalls) {
+    assert.doesNotMatch(analyticsCall, /prompt\s*:/);
+    assert.doesNotMatch(analyticsCall, /actionId|receiptId/);
+  }
+});
+
 test('links a held refund to the exact dashboard financial action', () => {
   assert.equal(
     refundDemoReviewUrl(

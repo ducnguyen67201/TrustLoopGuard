@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type FormEvent } from 'react';
+import { trackMarketingEvent } from '@/lib/gtm';
 import type { RefundDemoResponse, RefundDemoStatus } from './contract';
 import { mergeRefundDemoStatus } from './status-model';
 import { refundDemoReviewUrl } from './review-url';
@@ -74,6 +75,13 @@ export function RefundDemo() {
     event.preventDefault();
     const message = prompt.trim();
     if (message === '' || runState === 'running') return;
+    const scenario = demoScenario(message);
+
+    trackMarketingEvent('demo_started', {
+      page: '/demo',
+      location: 'refund_composer',
+      scenario,
+    });
 
     setRunState('running');
     setSubmittedPrompt(message);
@@ -92,6 +100,13 @@ export function RefundDemo() {
       if (!result.ok) throw new Error(body.error ?? 'The live refund workflow failed safely.');
       setResponse(body);
       setRunState('success');
+      trackMarketingEvent('demo_decision_shown', {
+        page: '/demo',
+        location: 'refund_workflow',
+        scenario,
+        decision: analyticsDecision(body),
+        outcome: 'success',
+      });
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -99,6 +114,13 @@ export function RefundDemo() {
           : 'The live refund workflow failed safely.',
       );
       setRunState('error');
+      trackMarketingEvent('demo_decision_shown', {
+        page: '/demo',
+        location: 'refund_workflow',
+        scenario,
+        decision: 'request_error',
+        outcome: 'error',
+      });
     }
   }
 
@@ -365,6 +387,23 @@ function decisionLabel(decision: Decision): string {
     held: 'Held',
     blocked: 'Blocked',
     checked: 'Checked',
+  };
+  return labels[decision];
+}
+
+function demoScenario(message: string): string {
+  return EXAMPLES.find((example) => example.prompt === message)?.label ?? 'custom';
+}
+
+function analyticsDecision(response: RefundDemoResponse): string {
+  const decision = decisionFrom(response, 'success');
+  const labels: Record<Decision, string> = {
+    ready: 'ready',
+    running: 'running',
+    executed: 'permit',
+    held: 'require_approval',
+    blocked: 'deny',
+    checked: 'checked',
   };
   return labels[decision];
 }
