@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 test('packages the refund demo and SDK inside the Marketing image', () => {
-  const packageJson = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
+  const packageJson = JSON.parse(
+    readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
+  ) as {
     dependencies: Record<string, string>;
   };
   const dockerfile = readFileSync(new URL('./Dockerfile', import.meta.url), 'utf8');
@@ -15,6 +17,10 @@ test('packages the refund demo and SDK inside the Marketing image', () => {
   assert.match(dockerfile, /COPY sdks\/typescript\/package\.json \.\/sdks\/typescript\//);
   assert.match(dockerfile, /COPY demo \.\/demo/);
   assert.match(dockerfile, /COPY sdks\/typescript \.\/sdks\/typescript/);
+  assert.match(
+    dockerfile,
+    /RUN pnpm --filter @trustloopguard\/sdk build \\\n && pnpm --filter marketing build/,
+  );
   assert.match(dockerignore, /!demo\/shared\/\*\*/);
   assert.match(dockerignore, /!demo\/stripe-refund-agent\/\*\*/);
 });

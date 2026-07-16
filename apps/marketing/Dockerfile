@@ -37,7 +37,8 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_BOOK_MEETING_URL=${NEXT_PUBLIC_BOOK_MEETING_URL} \
     NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=${NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN} \
     NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST}
-RUN pnpm --filter marketing build
+RUN pnpm --filter @trustloopguard/sdk build \
+ && pnpm --filter marketing build
 
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS runtime
 WORKDIR /app
