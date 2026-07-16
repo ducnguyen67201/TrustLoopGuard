@@ -95,7 +95,7 @@ it or require an exact-action approval. Today, operators publish these policies
 from YAML and manage their environment deployment from **Policies → Tool
 command** in the dashboard.
 
-![Four-step shell command policy demo](docs/concept/assets/shell-command-policy-demo.png)
+[![Four-step shell command policy demo](docs/concept/assets/shell-command-policy-demo.png)](docs/concept/command-safety.md#operator-demo)
 
 See [Shell command safety](docs/concept/command-safety.md#operator-demo) for the
 copyable policy examples and live-demo steps. Policy analysis treats the
