@@ -2,6 +2,36 @@
 
 Customer agents call the TypeScript, Python, or Rust SDK directly. The SDK calls the Rust service; the Next.js dashboard is never in the runtime path.
 
+## Default integration
+
+The published SDK is the primary customer integration. Customers install the
+package from their language registry; they do not clone this repository or run
+the dashboard in their application.
+
+TypeScript decorates the agent object once and preserves its interface:
+
+```ts
+const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
+const reply = await agent.reply(userMessage);
+```
+
+Python provides the equivalent decorator:
+
+```python
+@guarded(agent_id="support-agent")
+async def generate_reply(message: str) -> str:
+    return await agent.reply(message)
+```
+
+Both helpers are narrow output-boundary adapters over `POST /v1/events`. The
+TypeScript decorator intercepts calls crossing the decorated agent's
+`reply(message, ...)` method; it does not claim to observe hidden framework
+internals. The user input and returned draft must be strings. The output event
+contains the returned draft under `action.parameters.text`, plus source and
+provenance metadata; it does not include the raw user message text by default.
+Tool calls, financial actions, and other side effects remain explicit so
+callers provide exact parameters, provenance, and execution identity.
+
 ## Runtime event flow
 
 1. Build a `GuardEvent` with principal, operation, parameters, side-effect class, sources, and provenance.

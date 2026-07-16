@@ -227,7 +227,7 @@ fn normalize_typescript(dir: &Path) -> Result<()> {
         let body = fs::read_to_string(&path)?;
         let normalized = body
             .lines()
-            .map(str::trim_end)
+            .map(|line| normalize_typescript_line(line.trim_end()))
             .collect::<Vec<_>>()
             .join("\n")
             + "\n";
@@ -236,6 +236,38 @@ fn normalize_typescript(dir: &Path) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn normalize_typescript_line(line: &str) -> String {
+    let Some(from_index) = line.find("from ") else {
+        return line.to_string();
+    };
+    let quote_index = from_index + "from ".len();
+    let Some(quote) = line[quote_index..].chars().next() else {
+        return line.to_string();
+    };
+    if quote != '\'' && quote != '"' {
+        return line.to_string();
+    }
+
+    let specifier_start = quote_index + quote.len_utf8();
+    let Some(specifier_end_offset) = line[specifier_start..].find(quote) else {
+        return line.to_string();
+    };
+    let specifier_end = specifier_start + specifier_end_offset;
+    let specifier = &line[specifier_start..specifier_end];
+    if !(specifier.starts_with("./") || specifier.starts_with("../"))
+        || Path::new(specifier).extension().is_some()
+    {
+        return line.to_string();
+    }
+
+    format!(
+        "{}{}.js{}",
+        &line[..specifier_start],
+        specifier,
+        &line[specifier_end..]
+    )
 }
 
 fn sync_typescript_bindings(source: &Path, target: &Path, check: bool) -> Result<()> {
@@ -321,5 +353,30 @@ fn render_pydantic(openapi_path: &Path) -> Result<Option<String>> {
                           # Do not hand-edit.\n\n";
             Ok(Some(format!("{header}{body}")))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_typescript_line;
+
+    #[test]
+    fn adds_javascript_extension_to_generated_relative_imports() {
+        assert_eq!(
+            normalize_typescript_line(r#"import type { Action } from "./Action";"#),
+            r#"import type { Action } from "./Action.js";"#
+        );
+    }
+
+    #[test]
+    fn preserves_package_and_explicit_extension_imports() {
+        assert_eq!(
+            normalize_typescript_line(r#"import type { Action } from "@scope/types";"#),
+            r#"import type { Action } from "@scope/types";"#
+        );
+        assert_eq!(
+            normalize_typescript_line(r#"import type { Action } from "./Action.js";"#),
+            r#"import type { Action } from "./Action.js";"#
+        );
     }
 }

@@ -31,26 +31,15 @@ const assistantInstructions: Record<AssistantKind, string> = {
  * snippet text.
  */
 export function buildSdkSnippet(opts: { baseUrl: string; agentId: string }): string {
-  return `import { Client, guard } from '@trustloopguard/sdk';
+  return `import { guardAgent } from '@trustloopguard/sdk';
 
-const client = new Client({
+const agent = guardAgent(createAgent(), {
+  agentId: '${opts.agentId}',
   baseUrl: process.env.TLG_URL ?? '${opts.baseUrl}',
   apiKey: process.env.TLG_API_KEY,
 });
 
-const reply = await client.withRun({ agentId: '${opts.agentId}', kind: 'chat_session' }, async (run) => {
-  return run.withEvent({ kind: 'user_turn', metadata: {} }, () =>
-    guard({
-      client,
-      agentId: '${opts.agentId}',
-      input: userMessage,
-      draft: agentDraft,
-      onBlock: () => "I can't help with that.",
-      onRequireApproval: () => 'A human will follow up.',
-      onDefer: () => 'I need more verified information before continuing.',
-    }),
-  );
-});`;
+const reply = await agent.reply(userMessage);`;
 }
 
 export function buildPaymentSdkSnippet(opts: { baseUrl: string; agentId: string }): string {
@@ -123,9 +112,10 @@ export function buildAssistantPrompt(opts: {
 2. Add two environment variables (I already have the values):
    TLG_URL=${opts.baseUrl}
    TLG_API_KEY=<the API key I just created — ask me to paste it into .env, do not hardcode it>
-3. Create a shared client: new Client({ baseUrl: process.env.TLG_URL, apiKey: process.env.TLG_API_KEY }) from '@trustloopguard/sdk'.
-4. Wrap my agent's LLM call with guard() using agentId '${opts.agentId}': pass the user input as \`input\` and the model's draft reply as \`draft\`, and handle onBlock, onRequireApproval, and onDefer separately with safe fallback messages. Group calls with client.withRun({ agentId: '${opts.agentId}', kind: 'chat_session' }, ...).
-5. Run the agent once end-to-end so a real request goes through the guard — I'm watching for the first event on my TrustLoopGuard dashboard.
+3. Find the agent object whose async agent.reply(...) method takes the user's message as its first argument and returns the final reply string. Keep the agent internals unchanged.
+4. Import guardAgent from '@trustloopguard/sdk' and decorate the agent once where it is created: const agent = guardAgent(createAgent(), { agentId: '${opts.agentId}' }). Keep every existing agent.reply(...) call site unchanged. If the framework has no reply-style object, add one thin adapter at the single final-output boundary; do not scatter guard checks throughout the code.
+5. Do not clone TrustLoopGuard, start a local TrustLoopGuard server, construct GuardEvent manually, or add run/monitoring setup.
+6. Run the agent once end-to-end so a real request goes through the guard — I'm watching for the first event on my TrustLoopGuard dashboard.
 
 Assistant workflow: ${assistantInstructions[opts.assistant]}`;
 }

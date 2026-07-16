@@ -29,11 +29,13 @@ describe('buildSdkSnippet', () => {
   });
 
   test('matches the SDK README quick-start structure', () => {
-    expect(snippet).toContain("import { Client, guard } from '@trustloopguard/sdk'");
-    expect(snippet).toContain('client.withRun(');
-    expect(snippet).toContain('onBlock:');
-    expect(snippet).toContain('onRequireApproval:');
-    expect(snippet).toContain('onDefer:');
+    expect(snippet).toContain("import { guardAgent } from '@trustloopguard/sdk'");
+    expect(snippet).toContain('const agent = guardAgent(createAgent(), {');
+    expect(snippet).toContain('agent.reply(userMessage)');
+    expect(snippet).not.toContain('.wrap(');
+    expect(snippet).not.toContain('guardedReply');
+    expect(snippet).not.toContain('new Client');
+    expect(snippet).not.toContain('withRun(');
   });
 });
 
@@ -70,7 +72,10 @@ describe('buildAssistantPrompt', () => {
     expect(prompt).toContain('TLG_URL=https://api.example.test');
     expect(prompt).toContain('TLG_API_KEY=');
     expect(prompt).toContain("'support-ai'");
-    expect(prompt).toContain('onBlock');
+    expect(prompt).toContain('guardAgent');
+    expect(prompt).toContain('agent.reply(...)');
+    expect(prompt).not.toContain('.wrap(');
+    expect(prompt).not.toContain('client.withRun');
     expect(prompt).toContain('Run the agent once');
     expect(prompt).toContain('Claude Code');
   });

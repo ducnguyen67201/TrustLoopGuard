@@ -56,6 +56,9 @@ jobs:
       - name: Test
         run: pnpm --filter @trustloopguard/sdk test
 
+      - name: Verify packed npm artifact
+        run: pnpm --filter @trustloopguard/sdk test:package
+
       - name: Publish to npm
         run: pnpm --filter @trustloopguard/sdk publish --provenance --access public --no-git-checks
         env:

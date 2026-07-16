@@ -150,12 +150,12 @@ describe('ConnectAgentStep', () => {
     await userEvent.click(screen.getByRole('button', { name: /create my api key/i }));
 
     // SDK panel is active by default; its preview stays short.
-    const sdkBlock = screen.getByText(/import \{ Client, guard \}/i).closest('div');
-    expect(sdkBlock?.textContent).not.toContain('onRequireApproval');
+    const sdkBlock = screen.getByText(/import \{ guardAgent \}/i).closest('div');
+    expect(sdkBlock?.textContent).not.toContain('agent.reply(userMessage)');
 
     await userEvent.click(screen.getAllByRole('button', { name: /show all/i })[0]!);
 
-    expect(sdkBlock?.textContent).toContain('onRequireApproval');
+    expect(sdkBlock?.textContent).toContain('agent.reply(userMessage)');
   });
 
   test('links carry workspace and the requested environment', async () => {

@@ -17,6 +17,13 @@ matches `sdk-v*` is pushed.
 - The `sdk-publish` environment is an approval gate. A reviewer must approve
   the pending deployment before npm publish runs.
 - The npm token lives in the `NPM_TOKEN` GitHub Actions secret.
+- `package.json` uses one export map for local and published consumers. Runtime
+  imports resolve to `dist/index.js`; declarations resolve to `dist/index.d.ts`.
+- `pnpm --filter @trustloopguard/sdk test:package` packs the exact npm artifact,
+  imports it in Node, compiles a TypeScript consumer, verifies `guardAgent`, and
+  rejects source or generated runtime files that should not ship.
+- Relative ESM imports in emitted JavaScript include `.js` extensions so the
+  packed artifact loads in Node without a custom resolver.
 
 ## Before tagging
 
@@ -24,7 +31,7 @@ Confirm the version you want to publish is not already on npm:
 
 ```bash
 npm view @trustloopguard/sdk version
-npm view @trustloopguard/sdk@0.0.6 version
+npm view @trustloopguard/sdk@X.Y.Z version
 ```
 
 The second command should return `E404` for a new release version.
@@ -32,8 +39,16 @@ The second command should return `E404` for a new release version.
 Confirm the tag does not already exist locally or remotely:
 
 ```bash
-git tag -l 'sdk-v0.0.6'
-git ls-remote --tags origin 'sdk-v0.0.6'
+git tag -l 'sdk-vX.Y.Z'
+git ls-remote --tags origin 'sdk-vX.Y.Z'
+```
+
+Verify the SDK and the exact packed artifact:
+
+```bash
+pnpm --filter @trustloopguard/sdk typecheck
+pnpm --filter @trustloopguard/sdk test
+pnpm --filter @trustloopguard/sdk test:package
 ```
 
 Choose a target commit that contains the SDK code you want to publish and the
@@ -49,8 +64,8 @@ Create and push the release tag:
 
 ```bash
 git fetch origin main --tags
-git tag sdk-v0.0.6 origin/main
-git push origin sdk-v0.0.6
+git tag sdk-vX.Y.Z origin/main
+git push origin sdk-vX.Y.Z
 ```
 
 If a local pre-push hook fails because of unrelated uncommitted work, do not
@@ -58,8 +73,8 @@ fix or stage unrelated files just to publish. Verify the tag points at the
 intended remote commit, then push only the tag with hooks skipped:
 
 ```bash
-git rev-parse sdk-v0.0.6
-git push --no-verify origin sdk-v0.0.6
+git rev-parse sdk-vX.Y.Z
+git push --no-verify origin sdk-vX.Y.Z
 ```
 
 Approve the pending deployment in GitHub Actions:
@@ -68,8 +83,8 @@ Approve the pending deployment in GitHub Actions:
 2. Click the pending `sdk-publish` deployment review.
 3. Approve and deploy.
 
-The workflow then installs dependencies, typechecks, builds, tests, and
-publishes to npm with provenance.
+The workflow then installs dependencies, typechecks, builds, tests, validates
+the packed artifact, and publishes to npm with provenance.
 
 ## Verify
 
@@ -100,8 +115,8 @@ token. Move the tag to a suitable non-skipped commit or create a normal release
 commit, then force-push the tag update:
 
 ```bash
-git tag -f sdk-v0.0.6 <commit>
-git push --force origin refs/tags/sdk-v0.0.6
+git tag -f sdk-vX.Y.Z <commit>
+git push --force origin refs/tags/sdk-vX.Y.Z
 ```
 
 Use this only before a successful publish. After npm accepts a version, never

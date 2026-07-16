@@ -202,8 +202,8 @@ export function ConnectAgentStep({
 
           <TabsContent value="sdk" className="grid gap-3">
             <SurfaceIntro>
-              Add TrustLoopGuard by hand: wrap your agent&apos;s model call with{' '}
-              <span className="font-mono text-foreground">guard()</span> inside a run.
+              Install one package and decorate your agent once. Existing agent.reply(...) call sites
+              stay unchanged, with no local TrustLoopGuard checkout or manual decision branching.
             </SurfaceIntro>
             <CopyBlock
               label="Add the SDK yourself"
@@ -228,7 +228,7 @@ export function ConnectAgentStep({
           <TabsContent value="assistant" className="grid gap-4">
             <SurfaceIntro>
               Let your coding assistant do the wiring. Pick yours, then paste the prompt — it
-              installs the SDK and wraps your agent for you.
+              installs the SDK and decorates your agent for you.
             </SurfaceIntro>
             <div className="grid gap-2">
               <Label

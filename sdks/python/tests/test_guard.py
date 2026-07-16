@@ -24,6 +24,7 @@ from trustloopguard import (
     Transport,
     AuthorizationEffect,
     guard,
+    guarded,
     guard_async,
 )
 
@@ -626,3 +627,145 @@ async def test_guard_factory_caps_regeneration_attempts() -> None:
     assert out == "I can't help with that request."
     assert len(route.calls) == 2
     assert len(seen) == 1
+
+
+# -- Decorator -------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guarded_async_function_checks_returned_draft() -> None:
+    route = respx.post("https://t.test/v1/events").mock(
+        return_value=httpx.Response(200, json=_decision_payload(effect="permit"))
+    )
+
+    async with AsyncClient(base_url="https://t.test") as client:
+
+        @guarded(agent_id="decorated-agent", client=client)
+        async def answer(message: str) -> str:
+            """Generate a support answer."""
+            return f"reply to {message}"
+
+        out = await answer("hello")
+
+    assert out == "reply to hello"
+    assert answer.__name__ == "answer"
+    assert answer.__doc__ == "Generate a support answer."
+    import json
+
+    body = json.loads(route.calls.last.request.content)
+    assert body["principal"]["agent_id"] == "decorated-agent"
+    assert body["action"]["parameters"]["text"] == "reply to hello"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guarded_async_function_uses_safe_default_on_deny() -> None:
+    respx.post("https://t.test/v1/events").mock(
+        return_value=httpx.Response(200, json=_decision_payload(effect="deny"))
+    )
+
+    async with AsyncClient(base_url="https://t.test") as client:
+
+        @guarded(agent_id="decorated-agent", client=client)
+        async def answer(message: str) -> str:
+            return f"unsafe {message}"
+
+        out = await answer("request")
+
+    assert out == "I can't help with that request."
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guarded_accepts_explicit_input_argument_for_methods() -> None:
+    respx.post("https://t.test/v1/events").mock(
+        return_value=httpx.Response(200, json=_decision_payload(effect="permit"))
+    )
+
+    async with AsyncClient(base_url="https://t.test") as client:
+
+        class Agent:
+            @guarded(agent_id="decorated-agent", client=client, input_arg="message")
+            async def answer(self, prefix: str, *, message: str) -> str:
+                return f"{prefix}: {message}"
+
+        out = await Agent().answer("answer", message="hello")
+
+    assert out == "answer: hello"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guarded_rejects_non_string_input_before_calling_agent() -> None:
+    route = respx.post("https://t.test/v1/events").mock(
+        return_value=httpx.Response(200, json=_decision_payload(effect="permit"))
+    )
+    called = False
+
+    async with AsyncClient(base_url="https://t.test") as client:
+
+        @guarded(agent_id="decorated-agent", client=client)
+        async def answer(message: int) -> str:
+            nonlocal called
+            called = True
+            return str(message)
+
+        with pytest.raises(TypeError, match="input argument 'message' must be str"):
+            await answer(42)
+
+    assert called is False
+    assert route.called is False
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guarded_rejects_non_string_output_without_submitting_event() -> None:
+    route = respx.post("https://t.test/v1/events").mock(
+        return_value=httpx.Response(200, json=_decision_payload(effect="permit"))
+    )
+
+    async with AsyncClient(base_url="https://t.test") as client:
+
+        @guarded(agent_id="decorated-agent", client=client)
+        async def answer(message: str) -> dict[str, str]:
+            return {"reply": message}
+
+        with pytest.raises(TypeError, match="return value must be str"):
+            await answer("hello")
+
+    assert route.called is False
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guarded_fails_closed_by_default_on_transport_error() -> None:
+    respx.post("https://t.test/v1/events").mock(side_effect=httpx.ConnectError("offline"))
+
+    async with AsyncClient(
+        base_url="https://t.test",
+        retry=RetryConfig(max_attempts=1, base_delay_s=0, max_delay_s=0, total_budget_s=0),
+    ) as client:
+
+        @guarded(agent_id="decorated-agent", client=client)
+        async def answer(message: str) -> str:
+            return f"reply to {message}"
+
+        out = await answer("hello")
+
+    assert out == "I can't help with that request."
+
+
+def test_guarded_rejects_sync_functions() -> None:
+    with pytest.raises(TypeError, match="requires an async function"):
+
+        @guarded(agent_id="decorated-agent")
+        def answer(message: str) -> str:
+            return message
+
+def test_guarded_requires_an_input_parameter() -> None:
+    with pytest.raises(TypeError, match="requires a string input parameter"):
+
+        @guarded(agent_id="decorated-agent")
+        async def answer() -> str:
+            return "hello"

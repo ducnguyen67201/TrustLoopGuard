@@ -18,6 +18,7 @@ from trustloopguard.guard import (
     OutputGuard,
     RegenerateFeedback,
     guard,
+    guarded,
     guard_async,
 )
 from trustloopguard._generated.types import (
@@ -255,6 +256,7 @@ __all__ = [
     "Decode",
     # Guard helper
     "guard",
+    "guarded",
     "guard_async",
     "GuardLogEvent",
     "GuardMode",

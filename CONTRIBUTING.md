@@ -6,7 +6,7 @@ Thanks for your interest in contributing. This document covers how to report bug
 
 Open a [GitHub issue](https://github.com/ducnguyen67201/TrustLoopGuard/issues) with:
 
-- A minimal reproduction (the smallest `CheckRequest` that triggers the problem)
+- A minimal reproduction (the smallest `GuardEvent` or SDK call that triggers the problem)
 - The SDK and version you're using
 - Expected versus actual `Decision`
 
@@ -23,14 +23,20 @@ For larger changes — new SDK methods, engine behavior, wire type additions —
 git clone https://github.com/ducnguyen67201/TrustLoopGuard.git
 cd TrustLoopGuard
 
+# Install workspace dependencies and build the local TypeScript SDK
+corepack enable
+pnpm install
+
 # Start the server
 cargo run -p tl-server
 
 # Run the dispute demo to verify your environment
-pnpm --filter @trustloopguard/demo dispute
+pnpm --filter @trustloopguard/demo dispute:check
 ```
 
-See the [README](README.md) for a full walkthrough.
+This repository setup is only for contributors and self-hosting. Customers
+install the published SDK and do not clone the repository. See the
+[README](README.md) for both paths.
 
 ## The three SDK-driven rules
 

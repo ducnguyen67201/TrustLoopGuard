@@ -7,6 +7,7 @@ import {
   Client,
   GuardMode,
   guard,
+  guardAgent,
   Transport,
   Unavailable,
   type AuthorizationDecision,
@@ -223,6 +224,7 @@ describe('guard()', () => {
 
     await guard({
       ...DEFAULT_OPTS,
+      input: 'private-user-input',
       client,
       channel: 'voice',
       domain: 'voice_agent',
@@ -239,6 +241,7 @@ describe('guard()', () => {
     expect(body.context?.domain).toBe('voice_agent');
     expect(body.action.parameters.text).toBe('hello there');
     expect(body.context?.docs).toEqual(['kb-1']);
+    expect(JSON.stringify(body)).not.toContain('private-user-input');
   });
 
   it('factory form returns an async guard callable', async () => {
@@ -270,6 +273,121 @@ describe('guard()', () => {
     if (init === undefined) throw new Error('expected fetch init');
     const body = JSON.parse(init.body as string) as GuardWireEvent;
     expect(body.principal.agent_id).toBe('factory-agent');
+  });
+
+  it('factory form reads TLG_URL and TLG_API_KEY from the environment', async () => {
+    const previousUrl = process.env['TLG_URL'];
+    const previousKey = process.env['TLG_API_KEY'];
+    process.env['TLG_URL'] = 'https://api.example.test';
+    process.env['TLG_API_KEY'] = 'test-runtime-key';
+    const fetchSpy = mockFetch(async () => {
+      return new Response(
+        JSON.stringify({
+          trace_id: 't',
+          effect: 'permit',
+          reason: 'ok',
+          findings: [],
+          transformed_value: null,
+          latency_ms: 1,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    });
+
+    try {
+      const protect = guard({ agentId: 'env-agent', fetchImpl: fetchSpy });
+      await protect({ input: 'hello', draft: 'reply' });
+    } finally {
+      if (previousUrl === undefined) delete process.env['TLG_URL'];
+      else process.env['TLG_URL'] = previousUrl;
+      if (previousKey === undefined) delete process.env['TLG_API_KEY'];
+      else process.env['TLG_API_KEY'] = previousKey;
+    }
+
+    expect(fetchSpy.mock.calls[0]?.[0]).toBe('https://api.example.test/v1/events');
+    const headers = fetchSpy.mock.calls[0]?.[1]?.headers as Record<string, string>;
+    expect(headers['authorization']).toBe('Bearer test-runtime-key');
+  });
+
+  it('wrap() turns an async agent function into a guarded function', async () => {
+    const fetchSpy = mockFetch(async () => {
+      return new Response(
+        JSON.stringify({
+          trace_id: 't',
+          effect: 'permit',
+          reason: 'ok',
+          findings: [],
+          transformed_value: null,
+          latency_ms: 1,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    });
+    const protect = guard({
+      agentId: 'wrapped-agent',
+      baseUrl: 'http://x',
+      fetchImpl: fetchSpy,
+    });
+    const answer = protect.wrap(async (message: string) => `reply to ${message}`);
+
+    const out = await answer('hello');
+
+    expect(out).toBe('reply to hello');
+    const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as GuardWireEvent;
+    expect(body.principal.agent_id).toBe('wrapped-agent');
+    expect(body.action.parameters.text).toBe('reply to hello');
+  });
+
+  it('wrap() accepts an input selector for functions with structured arguments', async () => {
+    const { client, fetchSpy } = clientReturningSequence([{ effect: 'permit', trace_id: 't-1' }]);
+    const protect = guard({ agentId: 'wrapped-agent', client });
+    const answer = protect.wrap(
+      async (request: { message: string; locale: string }) =>
+        `${request.locale}: ${request.message}`,
+      { input: (request) => request.message },
+    );
+
+    const out = await answer({ message: 'hello', locale: 'en' });
+
+    expect(out).toBe('en: hello');
+    const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as GuardWireEvent;
+    expect(body.action.parameters.text).toBe('en: hello');
+  });
+
+  it('wrap() rejects a non-string inferred input before calling the agent', async () => {
+    const { client, fetchSpy } = clientReturningSequence([{ effect: 'permit', trace_id: 't-1' }]);
+    const protect = guard({ agentId: 'wrapped-agent', client });
+    const agent = vi.fn(async (request: { message: string }) => request.message);
+    const answer = protect.wrap(agent);
+
+    await expect(answer({ message: 'hello' })).rejects.toThrow(
+      'guard.wrap() input must be a string',
+    );
+    expect(agent).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('wrap() rejects a non-string agent result without submitting an event', async () => {
+    const { client, fetchSpy } = clientReturningSequence([{ effect: 'permit', trace_id: 't-1' }]);
+    const protect = guard({ agentId: 'wrapped-agent', client });
+    const answer = protect.wrap(async (message: string) => ({ message }));
+
+    await expect(answer('hello')).rejects.toThrow(
+      'guard.wrap() wrapped function must return a string',
+    );
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('wrap() fails closed by default on transport errors', async () => {
+    const protect = guard({
+      agentId: 'wrapped-agent',
+      client: failingClient(new Unavailable('upstream')),
+    });
+    const answer = protect.wrap(async (message: string) => `reply to ${message}`);
+
+    const out = await answer('hello');
+
+    expect(out).toBe("I can't help with that request.");
   });
 
   it('factory form uses default deny reply', async () => {
@@ -420,5 +538,96 @@ describe('guard()', () => {
 
     const out = await guardrail.stream({ input: 'tell me', draft: chunks() });
     expect(out).toBe("I can't help with that request.");
+  });
+});
+
+describe('guardAgent()', () => {
+  it('decorates an agent once while preserving its reply call site and other members', async () => {
+    const { client, fetchSpy } = clientReturningSequence([{ effect: 'permit', trace_id: 't-1' }]);
+
+    class SupportAgent {
+      #replyCount = 0;
+      readonly name = 'support';
+
+      get replyCount(): number {
+        return this.#replyCount;
+      }
+
+      async reply(message: string): Promise<string> {
+        this.#replyCount += 1;
+        return `${this.name}: ${message}`;
+      }
+
+      status(): string {
+        return `${this.name}:${this.replyCount}`;
+      }
+    }
+
+    const original = new SupportAgent();
+    const agent = guardAgent(original, { agentId: 'support-agent', client });
+
+    const reply = await agent.reply('hello');
+
+    expect(reply).toBe('support: hello');
+    expect(agent.name).toBe('support');
+    expect(agent.status()).toBe('support:1');
+    expect(original.replyCount).toBe(1);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as GuardWireEvent;
+    expect(body.principal.agent_id).toBe('support-agent');
+    expect(body.action.parameters.text).toBe('support: hello');
+  });
+
+  it('returns TrustLoopGuard transformed output from the same reply method', async () => {
+    const client = clientReturning({
+      effect: 'transform',
+      transformed_value: 'A safer response.',
+    });
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return `unsafe: ${message}`;
+        },
+      },
+      { agentId: 'support-agent', client },
+    );
+
+    const reply = await agent.reply('hello');
+
+    expect(reply).toBe('A safer response.');
+  });
+
+  it('forwards additional reply arguments without changing the agent interface', async () => {
+    const client = clientReturning({ effect: 'permit' });
+    const agent = guardAgent(
+      {
+        async reply(message: string, locale: string): Promise<string> {
+          return `${locale}: ${message}`;
+        },
+      },
+      { agentId: 'support-agent', client },
+    );
+
+    const reply = await agent.reply('hello', 'en');
+
+    expect(reply).toBe('en: hello');
+  });
+
+  it('fails closed by default when the guard service is unavailable', async () => {
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return `reply to ${message}`;
+        },
+      },
+      {
+        agentId: 'support-agent',
+        client: failingClient(new Unavailable('upstream')),
+      },
+    );
+
+    const reply = await agent.reply('hello');
+
+    expect(reply).toBe("I can't help with that request.");
   });
 });

@@ -10,7 +10,7 @@ new, or use the visual map below to jump to the part you need.
 Customers integrate one primitive into their agent loop:
 
 ```
-agent proposes output → guard(...) / GuardEvent → authorization kernel → decision + receipt
+agent.reply(...) → guardAgent(...) → GuardEvent → authorization kernel → safe reply + trace
 ```
 
 That runtime check is the product. SDK callers receive the decision and handle it in code; gateway callers route provider traffic through TrustLoopGuard and let the Rust proxy apply dashboard-managed enforcement.
@@ -30,7 +30,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 | Environments | [environments.md](environments.md) | Runtime keys, policy deployments, runs, traces, and analytics are scoped by environment. |
 | Product usage analytics | [product-analytics.md](product-analytics.md) | PostHog observes marketing and dashboard use without owning guardrail/runtime data. |
 | Policy authoring | [../policies/README.md](../policies/README.md) | YAML policies are validated, saved, evaluated, and then surfaced in traces. |
-| Customer integration | [../INTEGRATION.md](../INTEGRATION.md) | Teams install an SDK, register an agent, write policies, call `guard()`, then tune from traces. |
+| Customer integration | [../INTEGRATION.md](../INTEGRATION.md) | Teams install an SDK, register an agent, decorate it once, then tune from traces. |
 
 ## Reading order
 

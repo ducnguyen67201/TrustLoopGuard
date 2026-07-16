@@ -1,13 +1,13 @@
-// `guard()` — output-boundary helper.
+// `guardAgent()` and `guard()` — output-boundary helpers.
 //
-// Most integrations should create one guardrail at startup and call it before
-// delivering an agent draft:
+// Most integrations should decorate the agent once at startup. The returned
+// object keeps the same interface, so existing reply call sites stay unchanged:
 //
-//   const guardrail = guard({ agentId: 'acme-support-v3' });
-//   const reply = await guardrail({ input: userMessage, draft: agentDraft });
+//   const agent = guardAgent(createAgent(), { agentId: 'acme-support-v3' });
+//   const reply = await agent.reply(userMessage);
 //   await sendToCustomer(reply);
 //
-// The lower-level form remains available for custom client ownership:
+// The lower-level guard form remains available for custom client ownership:
 //
 //   const reply = await guard({
 //     client,
@@ -31,12 +31,12 @@
 //   rewrite               -> use transformed output, deny when none exists
 //   rewrite_or_regenerate -> use transformed output, otherwise regenerate and check again
 
-import { Client, type ClientOptions } from './client';
-import type { Channel } from './generated/Channel';
-import type { CreateRunEventRequest } from './generated/CreateRunEventRequest';
-import type { AuthorizationDecision as Decision } from './generated/AuthorizationDecision';
-import type { GuardEvent } from './generated/GuardEvent';
-import { SdkError } from './errors';
+import { Client, type ClientOptions } from './client.js';
+import type { Channel } from './generated/Channel.js';
+import type { CreateRunEventRequest } from './generated/CreateRunEventRequest.js';
+import type { AuthorizationDecision as Decision } from './generated/AuthorizationDecision.js';
+import type { GuardEvent } from './generated/GuardEvent.js';
+import { SdkError } from './errors.js';
 
 const DEFAULT_BLOCK_MESSAGE = "I can't help with that request.";
 const DEFAULT_REQUIRE_APPROVAL_MESSAGE = 'A human teammate should review this before we continue.';
@@ -278,8 +278,28 @@ export interface GuardStreamCallOptions extends Omit<GuardCallOptions, 'draft'> 
   draft: AsyncIterable<string>;
 }
 
+export interface GuardWrapOptions<Args extends unknown[]> {
+  /**
+   * Select the user input from the wrapped function arguments.
+   * By default, `wrap()` uses the first argument and requires it to be a string.
+   */
+  input?: (...args: Args) => string;
+}
+
+export interface ReplyAgent<Args extends unknown[] = unknown[]> {
+  reply(message: string, ...args: Args): Promise<string>;
+}
+
 export interface OutputGuard {
   (opts: GuardCallOptions): Promise<string>;
+  /**
+   * Wrap an agent function so its returned string is checked before it reaches
+   * the caller. The first argument is treated as the user input by default.
+   */
+  wrap<Args extends unknown[]>(
+    fn: (...args: Args) => string | Promise<string>,
+    opts?: GuardWrapOptions<Args>,
+  ): (...args: Args) => Promise<string>;
   /**
    * Streaming form: consume a token/chunk stream, buffer it in full, then run
    * the same guard as the non-streaming call. Returns the guarded string the
@@ -319,6 +339,41 @@ export function guard(opts: GuardFactoryOptions | GuardOptions): OutputGuard | P
     return guardOnce(opts as GuardOptions);
   }
   return createOutputGuard(opts);
+}
+
+/**
+ * Decorate an agent object at its output boundary.
+ *
+ * The returned object keeps the agent's public interface, but `reply()` is
+ * intercepted so its final string passes through TrustLoopGuard before it
+ * reaches the caller. Existing `agent.reply(...)` call sites do not change.
+ */
+export function guardAgent<Args extends unknown[], Agent extends ReplyAgent<Args>>(
+  agent: Agent,
+  opts: GuardFactoryOptions,
+): Agent {
+  const reply = agent.reply.bind(agent);
+  const guardedReply = createOutputGuard(opts).wrap(reply);
+  const boundMethods = new WeakMap<object, unknown>();
+
+  return new Proxy(agent, {
+    get(target, property) {
+      if (property === 'reply') return guardedReply;
+
+      const value = Reflect.get(target, property, target);
+      if (typeof value !== 'function') return value;
+
+      const cached = boundMethods.get(value);
+      if (cached !== undefined) return cached;
+
+      const bound = value.bind(target);
+      boundMethods.set(value, bound);
+      return bound;
+    },
+    set(target, property, value) {
+      return Reflect.set(target, property, value, target);
+    },
+  });
 }
 
 async function guardOnce(opts: GuardOptions): Promise<string> {
@@ -475,6 +530,31 @@ function createOutputGuard(opts: GuardFactoryOptions): OutputGuard {
     }
     return guardFn({ ...call, draft });
   };
+  outputGuard.wrap = <Args extends unknown[]>(
+    fn: (...args: Args) => string | Promise<string>,
+    wrapOptions?: GuardWrapOptions<Args>,
+  ) => {
+    return async (...args: Args): Promise<string> => {
+      const input = wrapOptions?.input ? wrapOptions.input(...args) : args[0];
+      if (typeof input !== 'string') {
+        throw new TypeError(
+          'guard.wrap() input must be a string; pass { input: (...args) => string } ' +
+            'for structured arguments',
+        );
+      }
+
+      const draft = await fn(...args);
+      if (typeof draft !== 'string') {
+        throw new TypeError('guard.wrap() wrapped function must return a string');
+      }
+
+      const call: GuardCallOptions = { input, draft };
+      if (opts.failClosed === undefined && opts.onError === undefined) {
+        call.onError = DEFAULT_BLOCK_MESSAGE;
+      }
+      return await guardFn(call);
+    };
+  };
   return outputGuard;
 }
 
@@ -541,13 +621,13 @@ function clientOptions(opts: GuardFactoryOptions): ClientOptions {
   const clientOpts: ClientOptions = {
     baseUrl:
       opts.baseUrl ??
-      env('TL_SERVER_URL', 'TRUSTLOOPGUARD_URL', 'TRUSTLOOP_URL') ??
+      env('TLG_URL', 'TL_SERVER_URL', 'TRUSTLOOPGUARD_URL', 'TRUSTLOOP_URL') ??
       'http://127.0.0.1:8080',
   };
   addDefined(
     clientOpts,
     'apiKey',
-    opts.apiKey ?? env('TL_API_KEY', 'TRUSTLOOPGUARD_API_KEY', 'TRUSTLOOP_API_KEY'),
+    opts.apiKey ?? env('TLG_API_KEY', 'TL_API_KEY', 'TRUSTLOOPGUARD_API_KEY', 'TRUSTLOOP_API_KEY'),
   );
   addDefined(clientOpts, 'retry', opts.retry);
   addDefined(clientOpts, 'fetchImpl', opts.fetchImpl);

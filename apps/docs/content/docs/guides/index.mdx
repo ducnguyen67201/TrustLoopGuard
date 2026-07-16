@@ -8,20 +8,20 @@ the shortest path through the repo.
 
 ## Available Guides
 
-| Guide | Use it when |
-| --- | --- |
-| [Policy Authoring](/docs/guides/policy-authoring) | You need to write, validate, push, or pull policy YAML. |
-| [Guard Modes](/docs/guides/guard-modes) | You need to decide whether an SDK integration should block, rewrite, or regenerate unsafe drafts. |
+| Guide                                             | Use it when                                                                                       |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| [Policy Authoring](/docs/guides/policy-authoring) | You need to write, validate, push, or pull policy YAML.                                           |
+| [Guard Modes](/docs/guides/guard-modes)           | You need to decide whether an SDK integration should block, rewrite, or regenerate unsafe drafts. |
 
 ## Common Workflows
 
 ### Guard An Agent Reply
 
-1. Start `tl-server`.
-2. Add the SDK for your runtime.
-3. Call `guard()` or `check()` before sending the draft.
-4. Apply the returned decision.
-5. Use the trace id to inspect the event later.
+1. Create an agent and runtime key in the TrustLoopGuard dashboard.
+2. Install the SDK package for your runtime.
+3. Decorate the agent object once at construction.
+4. Keep calling its `reply()` method normally.
+5. Use the resulting trace to inspect the event later.
 
 ### Build A Demo
 
