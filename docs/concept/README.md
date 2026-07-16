@@ -25,6 +25,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 | Runtime data ownership | [architecture.md](architecture.md#runtime-data-flow) | SDKs and the dashboard both reach Rust; the dashboard does not own guardrail state. |
 | Event-engine contract | [event-engine.md](event-engine.md) | `GuardEvent` vocabulary, event-stage seams, policy evaluation, and decision evidence. |
 | Authorization kernel | [authorization-kernel.md](authorization-kernel.md) | Shared effects, approvals, grants, leases, and receipts across every domain. |
+| Shell command safety | [command-safety.md](command-safety.md) | Tool policies, deterministic shell facts, and the Claude Code lease lifecycle. |
 | Financial authorization | [financial-authorization.md](financial-authorization.md) | Typed financial policy, execution, ledger, outcome, and reversal semantics. |
 | Policies | [policies.md](policies.md) | Unified Rust policy registry, policy families, environment deployment, and domain wrappers. |
 | Environments | [environments.md](environments.md) | Runtime keys, policy deployments, runs, traces, and analytics are scoped by environment. |
@@ -38,13 +39,14 @@ That runtime check is the product. SDK callers receive the decision and handle i
 2. [event-engine.md](event-engine.md) — the SDK-first event contract and no-op runtime seams.
 3. [authorization-kernel.md](authorization-kernel.md) — how intents, approvals, grants, claims, leases, and receipts form one authority lifecycle.
 4. [financial-authorization.md](financial-authorization.md) — the typed financial action contract and policy family.
-5. [crates.md](crates.md) — what each crate is for, in order of dependency.
-6. [glossary.md](glossary.md) — every domain term defined once: Channel, Authorization effect, Policy, Decision, hot path, etc.
-7. [runs.md](runs.md) — how agent executions group decision traces for monitoring.
-8. [analytics-dashboards.md](analytics-dashboards.md) — how customizable analytics queries and saved dashboard views work.
-9. [gateway.md](gateway.md) — how proxy/gateway mode differs from SDK mode.
-10. [agent-breakaway-arena.md](agent-breakaway-arena.md) — the raw-vs-guarded comparison concept and the agent adapter contract the demos use.
-11. [sdk-publishing.md](sdk-publishing.md) — how `@trustloopguard/sdk` is released to npm.
+5. [command-safety.md](command-safety.md) — how proposed shell commands become policy evidence and exact authorization.
+6. [crates.md](crates.md) — what each crate is for, in order of dependency.
+7. [glossary.md](glossary.md) — every domain term defined once: Channel, Authorization effect, Policy, Decision, hot path, etc.
+8. [runs.md](runs.md) — how agent executions group decision traces for monitoring.
+9. [analytics-dashboards.md](analytics-dashboards.md) — how customizable analytics queries and saved dashboard views work.
+10. [gateway.md](gateway.md) — how proxy/gateway mode differs from SDK mode.
+11. [agent-breakaway-arena.md](agent-breakaway-arena.md) — the raw-vs-guarded comparison concept and the agent adapter contract the demos use.
+12. [sdk-publishing.md](sdk-publishing.md) — how `@trustloopguard/sdk` is released to npm.
 
 ## When to update these docs
 
@@ -53,6 +55,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 - Changed how a request flows through the system? → update `architecture.md`.
 - Changed the event-engine contract or stage seams? → update `event-engine.md`.
 - Changed the financial action contract, financial policy family, outcome semantics, or reversal vocabulary? → update `financial-authorization.md` and `glossary.md`.
+- Changed shell command facts, tool policy semantics, or command-hook execution? → update `command-safety.md` and `glossary.md`.
 - Changed the proxy integration path? → update `gateway.md`.
 - Added or changed execution grouping? → update `runs.md`.
 - Changed the SDK release workflow or npm package process? → update `sdk-publishing.md`.

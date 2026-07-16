@@ -59,6 +59,7 @@ pub trait AuthorizationAdapter: sealed::Sealed + Send + Sync {
 
     fn policy_boundary(
         &self,
+        _principal_id: &str,
         subject: &AuthorizationSubject,
         _policies: &[std::sync::Arc<tl_policy::Policy>],
         _family_policies: &[std::sync::Arc<tl_policy::FamilyPolicy>],
@@ -188,6 +189,27 @@ impl AuthorizationAdapter for ToolAdapter {
             tool_identity.tool_name.to_ascii_lowercase()
         ))
         .map_err(|message| AuthorizationAdapterError::Invalid(message.into()))
+    }
+
+    fn policy_boundary(
+        &self,
+        principal_id: &str,
+        subject: &AuthorizationSubject,
+        _policies: &[std::sync::Arc<tl_policy::Policy>],
+        family_policies: &[std::sync::Arc<tl_policy::FamilyPolicy>],
+    ) -> Result<AdapterPolicyBoundary, AuthorizationAdapterError> {
+        self.ensure_domain(subject)?;
+        let outcome = tl_engine::evaluate_tool_policies(
+            principal_id,
+            subject,
+            family_policies.iter().map(std::convert::AsRef::as_ref),
+        )
+        .map_err(|error| AuthorizationAdapterError::Invalid(error.to_string()))?;
+        Ok(AdapterPolicyBoundary {
+            findings: outcome.findings,
+            requirements: outcome.requirements,
+            policy_versions: outcome.policy_versions,
+        })
     }
 
     fn proposed_scope(

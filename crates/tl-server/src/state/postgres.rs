@@ -6,7 +6,6 @@ use anyhow::Result;
 use tl_engine::LabelPolicyProvider;
 use tl_engine::ProfileResolver;
 use tl_engine::ToolMetadataProvider;
-use tl_policy::Policy;
 use tl_storage::{
     connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, AuthorizationRepo,
     BudgetAlertRepo, DashboardAdminRepo, EnvironmentRepo, EscalationRepo, FinancialRepo,
@@ -46,7 +45,7 @@ use super::postgres_adapters::*;
 #[allow(clippy::type_complexity)]
 pub(super) async fn build_postgres_layer(
     database_url: Option<String>,
-    fallback_policies: &[Policy],
+    fallback_policies: &super::LoadedPolicies,
 ) -> Result<(
     Arc<dyn AgentStore>,
     Arc<dyn ProfileResolver>,
@@ -89,7 +88,10 @@ pub(super) async fn build_postgres_layer(
         return Ok((
             mem.clone() as Arc<dyn AgentStore>,
             mem as Arc<dyn ProfileResolver>,
-            Arc::new(MemoryPolicyStore::with_policies(fallback_policies)) as Arc<dyn PolicyStore>,
+            Arc::new(MemoryPolicyStore::with_policy_sets(
+                &fallback_policies.content,
+                &fallback_policies.families,
+            )) as Arc<dyn PolicyStore>,
             Arc::new(MemoryTraceStore::default()) as Arc<dyn TraceStore>,
             Arc::new(MemoryRunStore::new()) as Arc<dyn RunStore>,
             Arc::new(MemoryAnalyticsStore::new()) as Arc<dyn AnalyticsStore>,

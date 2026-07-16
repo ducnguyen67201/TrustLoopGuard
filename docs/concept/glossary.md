@@ -145,7 +145,19 @@ Authoring guide: see [`docs/policies/README.md`](../policies/README.md).
 
 ### Policy family
 
-The category a policy document belongs to, selected by a top-level `family:` tag in its YAML: `content` (the existing output/content policies above — also the default when the tag is absent), `flow` (source-to-sink and action-integrity rules), `parameter_source` (allowed-source rules for authority-bearing parameters), `approval` (human approval requirements), `memory` (write-time memory rules), `financial` (typed money-action controls), and `source_label` (target family for source-label override migration). `tl-policy` parses and validates every family (`load_any_str`), surfaced through `POST /v1/policies/validate` and `tl policy validate`; content documents keep the exact legacy parser behavior. Families share the Rust policy registry, versioning, and environment deployment lifecycle.
+The category a policy document belongs to, selected by a top-level `family:` tag in its YAML: `content` (the existing output/content policies above — also the default when the tag is absent), `flow` (source-to-sink and action-integrity rules), `parameter_source` (allowed-source rules for authority-bearing parameters), `approval` (human approval requirements), `memory` (write-time memory rules), `financial` (typed money-action controls), `source_label` (source-label overrides), and `tool` (deterministic executable-tool controls). `tl-policy` parses and validates every family (`load_any_str`), surfaced through `POST /v1/policies/validate` and `tl policy validate`; content documents keep the exact legacy parser behavior. Families share the Rust policy registry, versioning, and environment deployment lifecycle.
+
+### Tool policy
+
+A `family: tool` policy evaluated against an exact executable tool subject. It can scope by agent, operation, side-effect class, and structured tool identity, then match analyzer facts or a JSON Pointer into action parameters. It emits `deny`, `defer`, or `require_approval` findings through the common authorization kernel. See [command-safety.md](command-safety.md).
+
+### Shell command fact
+
+A neutral key/value observation produced by the pure bounded shell analyzer, such as `shell.risk=filesystem_recursive_delete` or `shell.target_scope=workspace`. Facts never decide an effect by themselves; only an enabled tool policy interprets them. See [command-safety.md](command-safety.md#shell-facts).
+
+### Command analysis status
+
+Whether deterministic shell analysis was `complete`, `partial`, or `unavailable`. Partial and unavailable analysis prevent an unproven scoped fact policy from silently permitting a command; proven findings and parameter-only policies still evaluate. See [command-safety.md](command-safety.md#bounds-and-incomplete-analysis).
 
 ### Financial action
 

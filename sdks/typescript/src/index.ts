@@ -33,6 +33,8 @@ export * from './generated/CompleteAuthorizationLeaseRequest';
 export * from './generated/Channel';
 export * from './generated/Severity';
 export * from './generated/TriggeredPolicy';
+export * from './generated/ShellActionParameters';
+export * from './generated/ShellLanguage';
 export * from './generated/AgentAuthority';
 export * from './generated/AgentListResponse';
 export * from './generated/AgentProfile';

@@ -234,8 +234,61 @@ describe('submitEvent', () => {
     expect(bodies[0].principal.run_event_id).toBeUndefined();
     expect(bodies[1].kind).toBe('tool.call.proposed');
     expect(bodies[1].action.operation).toBe('issue_refund');
+    expect(bodies[1].action.invocation_id).toEqual(expect.any(String));
+    expect(bodies[1].action.tool_identity).toEqual({
+      server_id: 'trustloopguard-sdk',
+      tool_name: 'issue_refund',
+      schema_hash: 'sdk-legacy-untyped-v1',
+    });
     expect(bodies[1].principal.run_id).toBe('018f1111-1111-7111-8111-111111111111');
     expect(bodies[1].principal.run_event_id).toBeUndefined();
+  });
+
+  it('builds a protocol-complete shell command event', async () => {
+    const bodies: GuardEvent[] = [];
+    const fetchImpl = mockFetch(async (_input, init) => {
+      bodies.push(JSON.parse(String(init?.body)) as GuardEvent);
+      return Response.json(observeOnlyDecision());
+    });
+    const client = new Client({ baseUrl: 'http://x', fetchImpl });
+
+    await client.guardShellCommand({
+      agentId: 'agent-1',
+      command: 'rm -rf ./build',
+      cwd: '/workspace/project',
+      workspaceRoot: '/workspace',
+      commandTimeoutMs: 5000,
+      invocationId: 'tool-use-1',
+      toolIdentity: {
+        server_id: 'claude-code',
+        tool_name: 'Bash',
+        schema_hash: 'sha256:v1:bash',
+      },
+    });
+
+    expect(bodies).toEqual([
+      expect.objectContaining({
+        kind: 'shell.action.proposed',
+        action: expect.objectContaining({
+          operation: 'Bash',
+          side_effect: 'shell_exec',
+          invocation_id: 'tool-use-1',
+          tool_identity: {
+            server_id: 'claude-code',
+            tool_name: 'Bash',
+            schema_hash: 'sha256:v1:bash',
+          },
+          parameters: {
+            command: 'rm -rf ./build',
+            shell: 'bash',
+            cwd: '/workspace/project',
+            workspace_root: '/workspace',
+            timeout_ms: 5000,
+            run_in_background: false,
+          },
+        }),
+      }),
+    ]);
   });
 
   it('keeps the body error when failed-run cleanup also fails', async () => {

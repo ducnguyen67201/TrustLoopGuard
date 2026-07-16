@@ -75,19 +75,27 @@ fn policy_validate_reports_valid_family_yaml() {
 }
 
 #[test]
-fn policy_push_rejects_family_yaml_with_clear_error() {
+fn policy_push_posts_family_yaml_to_server() {
     let (_dir, path) = write_family_policy_file();
+    let (url, seen) = spawn_server(
+        "HTTP/1.1 201 Created\r\ncontent-type: application/json\r\n\r\n\
+         {\"id\":\"payments-need-admin\",\"description\":\"\",\"severity\":\"medium\",\"enabled\":true,\"source_yaml\":\"family: approval\"}",
+    );
 
     let output = tl()
         .args(["policy", "push"])
         .arg(&path)
-        .args(["--url", "http://127.0.0.1:9", "--api-key", "secret"])
+        .args(["--url", &url, "--api-key", "secret"])
         .output()
         .expect("run tl");
 
-    assert!(!output.status.success());
-    let err = stderr(&output);
-    assert!(err.contains("cannot be pushed yet"), "stderr: {err}");
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert!(stdout(&output).contains("ok: pushed policy `payments-need-admin`"));
+
+    let request = seen.recv().expect("request");
+    assert!(request.starts_with("POST /v1/policies HTTP/1.1"));
+    assert!(request.contains("content-type: application/yaml"));
+    assert!(request.contains("family: approval"));
 }
 
 #[test]

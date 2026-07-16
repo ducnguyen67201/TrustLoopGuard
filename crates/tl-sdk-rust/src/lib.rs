@@ -50,9 +50,9 @@ pub use tl_core::{
     Origin, ParamRole, ParamSpec, PolicyDocument, PolicyFamily, PolicyListResponse, PolicySummary,
     Principal, ProvenanceMap, RecoveryStatus, ReversalCapability, RunDetail, RunEventKind,
     RunEventListResponse, RunEventSummary, RunKind, RunListResponse, RunStatus, RunSummary,
-    Severity, SideEffectClass, Source, SpendMeter, ToolIdentity, ToolMetadata, TraceListResponse,
-    TriggeredPolicy, Trust, UpdateRunRequest, X402NormalizedPaymentRequirement,
-    X402PaymentRequirement, X402SettlementProof,
+    Severity, ShellActionParameters, ShellLanguage, SideEffectClass, Source, SpendMeter,
+    ToolIdentity, ToolMetadata, TraceListResponse, TriggeredPolicy, Trust, UpdateRunRequest,
+    X402NormalizedPaymentRequirement, X402PaymentRequirement, X402SettlementProof,
 };
 
 // GuardEvent context and parameters use `serde_json::Value` on the wire.

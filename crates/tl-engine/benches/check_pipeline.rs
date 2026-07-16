@@ -14,9 +14,12 @@
 //! report lands at `target/criterion/report/index.html`.
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use tl_core::{Channel, CheckRequest};
-use tl_engine::{Engine, HandlerCtx};
-use tl_policy::{load_str, Policy};
+use tl_core::{
+    AuthorizationSubject, Channel, CheckRequest, ShellActionParameters, ShellLanguage,
+    SideEffectClass, ToolIdentity,
+};
+use tl_engine::{analyze_shell_command, evaluate_tool_policies, Engine, HandlerCtx};
+use tl_policy::{load_any_str, load_str, AnyPolicy, FamilyPolicy, Policy};
 use tokio::runtime::Runtime;
 
 fn small_req() -> CheckRequest {
@@ -186,6 +189,111 @@ severity: high
     });
 }
 
+fn tool_policy(yaml: &str) -> FamilyPolicy {
+    let AnyPolicy::Family(policy) = load_any_str(yaml).expect("tool policy") else {
+        panic!("expected family policy");
+    };
+    policy
+}
+
+fn shell_subject(command: String) -> AuthorizationSubject {
+    AuthorizationSubject::Tool {
+        invocation_id: "bench-tool-use".into(),
+        operation: "Bash".into(),
+        tool_identity: ToolIdentity {
+            server_id: "claude-code".into(),
+            tool_name: "Bash".into(),
+            schema_hash: "sha256:bench".into(),
+        },
+        parameters: serde_json::json!({
+            "command": command,
+            "shell": "bash",
+            "cwd": "/workspace/project",
+            "workspace_root": "/workspace/project",
+            "run_in_background": false
+        }),
+        side_effect: SideEffectClass::ShellExec,
+    }
+}
+
+fn fifty_tool_policies(fact_match: bool) -> Vec<FamilyPolicy> {
+    (0..50)
+        .map(|index| {
+            if fact_match {
+                tool_policy(&format!(
+                    r#"
+family: tool
+id: bench-tool-fact-{index}
+when: {{ side_effects: [shell_exec] }}
+match:
+  fact: {{ key: shell.risk, equals: {} }}
+action: deny
+reason: Bench fact policy.
+"#,
+                    if index == 49 {
+                        "filesystem_recursive_delete"
+                    } else {
+                        "unmatched_bench_risk"
+                    }
+                ))
+            } else {
+                tool_policy(&format!(
+                    r#"
+family: tool
+id: bench-tool-parameter-{index}
+when: {{ side_effects: [shell_exec] }}
+match:
+  parameter: {{ path: /command, equals: never-match-{index} }}
+action: deny
+reason: Bench parameter policy.
+"#
+                ))
+            }
+        })
+        .collect()
+}
+
+fn bench_shell_command_policy(c: &mut Criterion) {
+    let safe_command = "printf '%s\\n' safe; ".repeat(210);
+    let destructive_command = format!("{}bash -c 'rm -rf /'", "printf safe; ".repeat(310));
+    let safe_parameters = ShellActionParameters {
+        command: safe_command.clone(),
+        shell: ShellLanguage::Bash,
+        cwd: Some("/workspace/project".into()),
+        workspace_root: Some("/workspace/project".into()),
+        timeout_ms: None,
+        run_in_background: false,
+    };
+    let destructive_parameters = ShellActionParameters {
+        command: destructive_command,
+        ..safe_parameters.clone()
+    };
+    c.bench_function("shell_command_parse_safe_4kb", |b| {
+        b.iter(|| analyze_shell_command(&safe_parameters));
+    });
+    c.bench_function("shell_command_parse_nested_destructive_4kb", |b| {
+        b.iter(|| analyze_shell_command(&destructive_parameters));
+    });
+
+    let parameter_policies = fifty_tool_policies(false);
+    let parameter_subject = shell_subject(safe_command);
+    c.bench_function("shell_command_50_parameter_policies_no_parse", |b| {
+        b.iter(|| {
+            evaluate_tool_policies("bench-agent", &parameter_subject, parameter_policies.iter())
+                .expect("evaluate")
+        });
+    });
+
+    let fact_policies = fifty_tool_policies(true);
+    let fact_subject = shell_subject("rm -rf /".into());
+    c.bench_function("shell_command_50_fact_policies_one_match", |b| {
+        b.iter(|| {
+            evaluate_tool_policies("bench-agent", &fact_subject, fact_policies.iter())
+                .expect("evaluate")
+        });
+    });
+}
+
 criterion_group!(
     benches,
     bench_check_sync_empty,
@@ -194,5 +302,6 @@ criterion_group!(
     bench_check_sync_empty_4kb,
     bench_check_async_cache_hit,
     bench_check_sync_policy_block_4kb,
+    bench_shell_command_policy,
 );
 criterion_main!(benches);

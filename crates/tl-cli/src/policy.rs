@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{anyhow, bail, Context};
+use anyhow::{anyhow, Context};
 use reqwest::StatusCode;
 use tl_core::{ApiError, PolicyDocument};
 use tl_policy::AnyPolicy;
@@ -12,27 +12,17 @@ pub(super) async fn run(cmd: PolicyCmd) -> anyhow::Result<()> {
         PolicyCmd::Validate { path } => {
             match load_policy_file(&path)? {
                 AnyPolicy::Content(policy) => println!("ok: policy `{}` valid", policy.id),
-                AnyPolicy::Family(policy) => println!(
-                    "ok: family policy `{}` valid (parse/validate only; runtime evaluation \
-                     is not implemented yet)",
-                    policy.id()
-                ),
+                AnyPolicy::Family(policy) => {
+                    println!("ok: family policy `{}` valid", policy.id())
+                }
             }
             Ok(())
         }
         PolicyCmd::Push { path, url, api_key } => {
             let src = std::fs::read_to_string(&path)
                 .with_context(|| format!("read policy {}", path.display()))?;
-            match tl_policy::load_any_str(&src)
-                .with_context(|| format!("validate policy {}", path.display()))?
-            {
-                AnyPolicy::Content(_) => {}
-                AnyPolicy::Family(policy) => bail!(
-                    "family policy `{}` cannot be pushed yet: POST /v1/policies stores \
-                     content policies only",
-                    policy.id()
-                ),
-            }
+            tl_policy::load_any_str(&src)
+                .with_context(|| format!("validate policy {}", path.display()))?;
             let document = push_policy(&http::server_url(url), api_key, src).await?;
             println!("ok: pushed policy `{}`", document.id);
             Ok(())

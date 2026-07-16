@@ -85,7 +85,9 @@ pub use dashboard::{
 };
 pub use enforcement::{CheckerFindingEvidence, CheckerRun, EnforcementMode, SignalEvidence};
 pub use error::{ApiError, ApiErrorCode, TlError};
-pub use event::{Action, EventKind, GuardEvent, Principal, SideEffectClass};
+pub use event::{
+    Action, EventKind, GuardEvent, Principal, ShellActionParameters, ShellLanguage, SideEffectClass,
+};
 pub use financial::{
     AgenticPaymentAuthorizationResponse, AgenticPaymentAuthorizeRequest,
     AgenticPaymentCommitRequest, AgenticPaymentRecord, AgenticPaymentReservation,

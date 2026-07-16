@@ -54,7 +54,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
     let policies = load_policies(Path::new(&policy_dir))?;
     tracing::info!(
         path = %policy_dir,
-        count = policies.len(),
+        content_count = policies.content.len(),
+        family_count = policies.families.len(),
         "loaded tenant policies",
     );
 
@@ -134,7 +135,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
     let fuzzy: Arc<dyn FuzzyChecker> = Arc::new(NoOpFuzzyChecker);
 
     // -- Engine + ctx --
-    let engine = Arc::new(Engine::new(policies));
+    let engine = Arc::new(Engine::new(policies.content.clone()));
     let handler_ctx = HandlerCtx {
         profile_resolver,
         cache,
@@ -313,12 +314,18 @@ fn build_escalation_worker(
     Some(tx)
 }
 
-fn load_policies(dir: &Path) -> Result<Vec<Policy>> {
+#[derive(Debug, Default)]
+pub(super) struct LoadedPolicies {
+    pub(super) content: Vec<Policy>,
+    pub(super) families: Vec<tl_policy::FamilyPolicy>,
+}
+
+fn load_policies(dir: &Path) -> Result<LoadedPolicies> {
     if !dir.exists() {
         tracing::warn!(path = %dir.display(), "policy dir not found; running with no tenant policies");
-        return Ok(vec![]);
+        return Ok(LoadedPolicies::default());
     }
-    let mut out = vec![];
+    let mut out = LoadedPolicies::default();
     for entry in std::fs::read_dir(dir).context("read policy dir")? {
         let entry = entry?;
         let p = entry.path();
@@ -333,17 +340,8 @@ fn load_policies(dir: &Path) -> Result<Vec<Policy>> {
         }
         let yaml = std::fs::read_to_string(&p).with_context(|| format!("read {}", p.display()))?;
         match tl_policy::load_any_str(&yaml) {
-            Ok(tl_policy::AnyPolicy::Content(policy)) => out.push(policy),
-            Ok(tl_policy::AnyPolicy::Family(policy)) => {
-                // Family policies parse and validate but have no runtime
-                // evaluation path yet; a clear skip beats a misleading
-                // "invalid policy" warning from the content parser.
-                tracing::warn!(
-                    path = %p.display(),
-                    policy_id = policy.id(),
-                    "skipping family policy: runtime evaluation is not implemented yet"
-                );
-            }
+            Ok(tl_policy::AnyPolicy::Content(policy)) => out.content.push(policy),
+            Ok(tl_policy::AnyPolicy::Family(policy)) => out.families.push(policy),
             Err(e) => {
                 tracing::warn!(
                     path = %p.display(),
@@ -389,5 +387,45 @@ fn build_llm_router(explicit: Option<&str>) -> Arc<LlmRouter> {
             tracing::warn!(path, error = %e, "failed to parse llm-routing config; falling back to empty");
             Arc::new(LlmRouter::empty())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use tl_core::PolicyFamily;
+
+    use super::load_policies;
+
+    #[test]
+    fn local_policy_directory_keeps_family_policies() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!("tlg-policy-load-{unique}"));
+        std::fs::create_dir(&directory).expect("create policy directory");
+        let path = directory.join("command-policy.yaml");
+        std::fs::write(
+            &path,
+            r#"
+family: tool
+id: local-command-policy
+when: { side_effects: [shell_exec] }
+match:
+  fact: { key: shell.risk, equals: filesystem_recursive_delete }
+action: deny
+reason: Local shell policy.
+"#,
+        )
+        .expect("write policy");
+
+        let loaded = load_policies(&directory).expect("load policies");
+        std::fs::remove_dir_all(&directory).expect("remove policy directory");
+
+        assert!(loaded.content.is_empty());
+        assert_eq!(loaded.families.len(), 1);
+        assert_eq!(loaded.families[0].family(), PolicyFamily::Tool);
     }
 }
