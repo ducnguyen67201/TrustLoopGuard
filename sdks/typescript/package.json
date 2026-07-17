@@ -1,6 +1,6 @@
 {
   "name": "@trustloopguard/sdk",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "TypeScript SDK for TrustLoopGuard. Types are generated from Rust via tl-codegen; do not hand-edit src/generated.",
   "license": "Apache-2.0",
   "type": "module",

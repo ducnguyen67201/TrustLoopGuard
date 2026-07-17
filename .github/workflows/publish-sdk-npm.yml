@@ -5,10 +5,15 @@ on:
     tags:
       - 'sdk-v*'
 
+concurrency:
+  group: sdk-publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   publish:
-    name: Bump, build, and publish
+    name: Verify, build, and publish
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: sdk-publish
     permissions:
       contents: read
@@ -21,9 +26,12 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
-          cache: pnpm
+          node-version: 24
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11.18.0
 
       - name: Extract and validate version from tag
         id: version
@@ -37,12 +45,20 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Publishing version: $VERSION"
 
-      - name: Set package version from tag
+      - name: Verify package version matches tag
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          cd sdks/typescript
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          PACKAGE_VERSION="$(node -p "require('./sdks/typescript/package.json').version")"
+          if [ "$PACKAGE_VERSION" != "$VERSION" ]; then
+            echo "Tag version $VERSION does not match package version $PACKAGE_VERSION"
+            exit 1
+          fi
+
+      - name: Verify release commit is on main
+        run: |
+          git fetch origin main --depth=1
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -60,6 +76,5 @@ jobs:
         run: pnpm --filter @trustloopguard/sdk test:package
 
       - name: Publish to npm
-        run: pnpm --filter @trustloopguard/sdk publish --provenance --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        working-directory: sdks/typescript
+        run: npm publish --access public
