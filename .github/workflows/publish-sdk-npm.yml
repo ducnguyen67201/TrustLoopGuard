@@ -21,6 +21,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v6
 
@@ -57,8 +59,9 @@ jobs:
 
       - name: Verify release commit is on main
         run: |
-          git fetch origin main --depth=1
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          git fetch origin main
+          RELEASE_COMMIT="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+          git merge-base --is-ancestor "$RELEASE_COMMIT" origin/main
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
