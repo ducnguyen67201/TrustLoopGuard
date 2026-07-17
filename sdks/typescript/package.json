@@ -1,6 +1,6 @@
 {
   "name": "@trustloopguard/sdk",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "TypeScript SDK for TrustLoopGuard. Types are generated from Rust via tl-codegen; do not hand-edit src/generated.",
   "license": "Apache-2.0",
   "type": "module",
@@ -19,10 +19,16 @@
   },
   "keywords": [
     "ai",
-    "agents",
+    "ai-agents",
     "guardrails",
     "security",
-    "runtime"
+    "runtime-security",
+    "agent-observability",
+    "policy-enforcement",
+    "tool-calls",
+    "typescript",
+    "sdk",
+    "coverage"
   ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
