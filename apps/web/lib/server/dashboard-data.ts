@@ -7,7 +7,11 @@ import { auth } from '@/auth';
 import { getAppUrl } from '@/env';
 import { analyticsCatalogSchema, analyticsDashboardViewListSchema } from '@/lib/analytics-schemas';
 import { http } from '@/lib/http';
-import { parseRunDetailSnapshot, type RunDetailSnapshot } from '@/lib/run-detail-live';
+import {
+  parseRunDetailSnapshot,
+  type RunAgentIdentity,
+  type RunDetailSnapshot,
+} from '@/lib/run-detail-live';
 import { readTraceAgent, type AgentTracePayload } from '@/lib/trace-payload';
 import type {
   ApiKeyListResponse,
@@ -970,6 +974,7 @@ export async function getRunDetailPageData(
     events: RunEventRow[];
     traces: RunTraceRow[];
     liveSnapshot: RunDetailSnapshot;
+    agentIdentity: RunAgentIdentity;
   }
 > {
   const shell = await getDashboardShell(workspaceSlug, environmentId);
@@ -979,12 +984,32 @@ export async function getRunDetailPageData(
     {},
     shell.activeEnvironment.id,
   );
+  const registeredAgent = shell.agents.find((agent) => agent.id === detail.run.agent_id);
+  let agentIdentity: RunAgentIdentity = {
+    id: detail.run.agent_id,
+    displayName: null,
+    href: null,
+  };
+  if (registeredAgent) {
+    const agentParams = new URLSearchParams({
+      workspace: shell.activeWorkspace.slug,
+      environment: shell.activeEnvironment.id,
+      agent: registeredAgent.id,
+      editAgent: registeredAgent.id,
+    });
+    agentIdentity = {
+      id: registeredAgent.id,
+      displayName: registeredAgent.name,
+      href: `/agents?${agentParams.toString()}`,
+    };
+  }
   return {
     ...shell,
     run: runRow(detail.run, shell.activeWorkspace.slug),
     events: detail.events.map(eventRow),
     traces: detail.traces.map(traceRow),
     liveSnapshot: parseRunDetailSnapshot(detail),
+    agentIdentity,
   };
 }
 

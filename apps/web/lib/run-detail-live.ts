@@ -162,6 +162,12 @@ const runDetailWireSchema = z.object({
 type RuntimeDecisionPayloadWire = z.infer<typeof runtimeDecisionPayloadSchema>;
 type RunDetailWire = z.infer<typeof runDetailWireSchema>;
 
+export type RunAgentIdentity = {
+  id: string;
+  displayName: string | null;
+  href: string | null;
+};
+
 export type RunDetailSnapshot = {
   run: {
     id: string;

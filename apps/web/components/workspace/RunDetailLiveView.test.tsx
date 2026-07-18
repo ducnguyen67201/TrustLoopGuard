@@ -2,7 +2,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { parseRunDetailSnapshot } from '@/lib/run-detail-live';
+import { parseRunDetailSnapshot, type RunAgentIdentity } from '@/lib/run-detail-live';
 
 import { RunDetailLiveView } from './RunDetailLiveView';
 
@@ -63,10 +63,67 @@ const BASE_SNAPSHOT = parseRunDetailSnapshot({
   },
 });
 
+const RESOLVED_AGENT: RunAgentIdentity = {
+  id: 'demo-acme-support',
+  displayName: 'Test agent',
+  href: '/agents?workspace=test-BJ-V&environment=production&agent=demo-acme-support&editAgent=demo-acme-support',
+};
+
+const UNAVAILABLE_AGENT: RunAgentIdentity = {
+  id: 'demo-acme-support',
+  displayName: null,
+  href: null,
+};
+
+function unavailableAgent(id: string): RunAgentIdentity {
+  return { id, displayName: null, href: null };
+}
+
 describe('RunDetailLiveView', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+  });
+
+  it('shows the registered agent name, configuration link, and copyable raw id', () => {
+    render(
+      <RunDetailLiveView
+        initialData={BASE_SNAPSHOT}
+        runId="run-param-auth"
+        workspaceSlug="test-BJ-V"
+        agentIdentity={RESOLVED_AGENT}
+      />,
+    );
+
+    expect(screen.getByText('Registered agent')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Test agent' })).toHaveAttribute(
+      'href',
+      RESOLVED_AGENT.href,
+    );
+    expect(screen.getByText('Agent ID')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Copy full agent ID demo-acme-support' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('demo-acme-support')).toBeVisible();
+  });
+
+  it('falls back to the copyable raw id when the registered profile is unavailable', () => {
+    render(
+      <RunDetailLiveView
+        initialData={BASE_SNAPSHOT}
+        runId="run-param-auth"
+        workspaceSlug="test-BJ-V"
+        agentIdentity={UNAVAILABLE_AGENT}
+      />,
+    );
+
+    expect(screen.getByText('Registered agent')).toBeInTheDocument();
+    expect(screen.getByText('Agent unavailable')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Test agent' })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Copy full agent ID demo-acme-support' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('demo-acme-support')).toBeVisible();
   });
 
   it('pauses live refresh after a failed run refresh', async () => {
@@ -81,6 +138,7 @@ describe('RunDetailLiveView', () => {
         initialData={BASE_SNAPSHOT}
         runId="run-param-auth"
         workspaceSlug="test-BJ-V"
+        agentIdentity={UNAVAILABLE_AGENT}
       />,
     );
 
@@ -98,6 +156,7 @@ describe('RunDetailLiveView', () => {
         initialData={BASE_SNAPSHOT}
         runId="run-param-auth"
         workspaceSlug="test-BJ-V"
+        agentIdentity={UNAVAILABLE_AGENT}
       />,
     );
 
@@ -132,6 +191,7 @@ describe('RunDetailLiveView', () => {
         initialData={softSnapshot}
         runId="run-param-auth"
         workspaceSlug="test-BJ-V"
+        agentIdentity={UNAVAILABLE_AGENT}
       />,
     );
 
@@ -222,7 +282,12 @@ describe('RunDetailLiveView', () => {
     });
 
     render(
-      <RunDetailLiveView initialData={snapshot} runId="run-param-auth" workspaceSlug="test-BJ-V" />,
+      <RunDetailLiveView
+        initialData={snapshot}
+        runId="run-param-auth"
+        workspaceSlug="test-BJ-V"
+        agentIdentity={unavailableAgent(snapshot.run.agent)}
+      />,
     );
 
     expect(screen.getByText('Guard flow')).toBeInTheDocument();
@@ -300,6 +365,7 @@ describe('RunDetailLiveView', () => {
         initialData={snapshot}
         runId="run-output-guard"
         workspaceSlug="test-BJ-V"
+        agentIdentity={unavailableAgent(snapshot.run.agent)}
       />,
     );
 
@@ -390,6 +456,7 @@ describe('RunDetailLiveView', () => {
         initialData={snapshot}
         runId="019e7bd8-5fee-7261-b7ef-3baab3535774"
         workspaceSlug="proxy-demo-0968f70b"
+        agentIdentity={unavailableAgent(snapshot.run.agent)}
       />,
     );
 

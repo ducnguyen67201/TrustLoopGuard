@@ -51,7 +51,7 @@ import { AgentEditDialog } from '@/components/workspace/AgentEditDialog';
 import { ApprovalCheckerModeControl } from '@/components/workspace/ApprovalCheckerModeControl';
 import { GitHubIntegrationDialog } from '@/components/workspace/GitHubIntegrationDialog';
 import { cn } from '@/lib/utils';
-import type { RunDetailSnapshot } from '@/lib/run-detail-live';
+import type { RunAgentIdentity, RunDetailSnapshot } from '@/lib/run-detail-live';
 import type {
   AgentRow,
   AnalyticsCatalog,
@@ -317,6 +317,7 @@ export function RunDetailPageContent({
     events: RunEventRow[];
     traces: RunTraceRow[];
     liveSnapshot: RunDetailSnapshot;
+    agentIdentity: RunAgentIdentity;
   };
 }) {
   return (
@@ -330,6 +331,7 @@ export function RunDetailPageContent({
         runId={data.run.id}
         workspaceSlug={data.activeWorkspace.slug}
         initialData={data.liveSnapshot}
+        agentIdentity={data.agentIdentity}
       />
     </PageShell>
   );
