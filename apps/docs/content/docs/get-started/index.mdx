@@ -1,33 +1,37 @@
 ---
 title: Get started
-description: Install one SDK package and decorate your agent without changing its reply call sites.
+description: Connect OpenAI Agents, Mastra, or a custom TypeScript agent and guard its tools and final output.
 ---
 
-Just look at this:
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+TrustLoopGuard protects two boundaries: local tools before they execute and the
+final answer before your application sends it to a user. The exact setup
+depends on how your framework runs an agent.
+
+Choose your framework in Step 4. Every path uses the same package and runtime
+credentials:
 
 ```bash
 npm install @trustloopguard/sdk
 ```
 
-```ts
-import { guardAgent } from '@trustloopguard/sdk';
-
-const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
-
-const reply = await agent.reply(userMessage);
-sendToUser(reply);
-```
-
-That is the primary TrustLoopGuard integration. Install one SDK package,
-decorate the agent once where it is created, and keep the rest of your
-application calling `agent.reply(...)`. No repository clone, local
-TrustLoopGuard server, proxy configuration, or manual decision branching is
-required.
-
 ## 1. Create an Agent and Runtime Key
 
-In the TrustLoopGuard dashboard, create an agent and runtime API key. Copy the
-agent ID, API URL, and key.
+In the TrustLoopGuard dashboard:
+
+1. Open **Agents**, choose **New agent**, and copy the new agent ID.
+2. Open **API Keys**, choose **Create key**, and select the same environment as
+   the agent.
+3. Copy the key when it is shown. The full secret is displayed only once.
+
+You now need three values:
+
+| Value       | Where it is used                  |
+| ----------- | --------------------------------- |
+| Agent ID    | The `agentId` option in your code |
+| Runtime URL | `TLG_URL`                         |
+| Runtime key | `TLG_API_KEY`                     |
 
 ## 2. Install One Package
 
@@ -37,61 +41,169 @@ npm install @trustloopguard/sdk
 
 ## 3. Configure
 
-Set the URL and runtime key shown in your workspace:
+Put the URL and runtime key in the server environment that runs your agent.
+For local development, add them to the environment file your framework loads,
+such as `.env` or `.env.local`:
 
-```bash
-export TLG_URL=https://api.gettrustloop.app
-export TLG_API_KEY=tl_live_...
+```dotenv
+TLG_URL=https://api.gettrustloop.app
+TLG_API_KEY=tl_live_...
 ```
 
-## 4. Decorate Your Agent Once
+The SDK reads both variables automatically. Keep `TLG_API_KEY` server-side:
+do not commit it or expose it through a browser-prefixed variable such as
+`NEXT_PUBLIC_*`.
 
-```ts
-import { guardAgent } from '@trustloopguard/sdk';
+## 4. Connect Your Framework
 
-const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
+Create the framework agent first, then pass that object to `guardAgent(...)`.
+Do not call `guardAgent(agent, ...)` before `agent` has been declared.
 
-const reply = await agent.reply(userMessage);
-sendToUser(reply);
-```
+The `agentId` value is the agent ID from the TrustLoopGuard dashboard. It does
+not need to match your JavaScript variable name or the display name used by
+OpenAI or Mastra.
 
-The original agent should expose
-`reply(message: string, ...args): Promise<string>`. `guardAgent(...)` returns
-the same agent type, so existing `agent.reply(...)` call sites remain
-unchanged.
+<Tabs items={['OpenAI Agents', 'Mastra', 'agent.reply()', 'Custom function']}>
+  <Tab value="OpenAI Agents">
+    OpenAI Agents does not expose `agent.reply(...)`; it uses the separate
+    `run(agent, input)` function. Use `guardAgent(...)` to protect locally
+    executed function tools, then wrap the function that returns
+    `result.finalOutput` to protect the answer:
 
-If your app currently has a helper like this:
+    ```bash
+    npm install @trustloopguard/sdk @openai/agents zod
+    ```
 
-```ts
-async function generateReply(message: string): Promise<string> {
-  return await agent.reply(message);
-}
+    ```ts
+    import { Agent, run } from '@openai/agents';
+    import { guard, guardAgent } from '@trustloopguard/sdk';
 
-const reply = await generateReply(userMessage);
-sendToUser(reply);
-```
+    const baseAgent = new Agent({
+      name: 'Support agent',
+      instructions: 'You are a helpful support assistant.',
+    });
 
-decorate the agent before that helper uses it:
+    const agent = guardAgent(baseAgent, { agentId: 'support-agent' });
 
-```ts
-const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
-```
+    const reply = guard({ agentId: 'support-agent' }).wrap(
+      async (message: string): Promise<string> => {
+        const result = await run(agent, message);
+        if (typeof result.finalOutput !== 'string') {
+          throw new Error('The OpenAI agent did not return a text finalOutput.');
+        }
+        return result.finalOutput;
+      },
+    );
 
-Do not add guard checks to every helper or handler. The decorated agent keeps
-the same `reply(...)` surface.
+    const safeReply = await reply('How do I reset my password?');
+    console.log(safeReply);
+    ```
 
-For every call, the original agent produces a draft, the decorator submits that
-draft directly to the Rust API at `POST /v1/events`, and the returned decision
-is applied before `reply()` resolves. The bearer key scopes the request to the
-workspace and environment. The same request creates the trace shown in the
-dashboard. The decorator also creates and completes one `chat_session` Run for
-the reply, records the configured agent ID on that Run, and links the trace to
-it. An existing explicit Run scope is reused instead of nested.
+    Keep `OPENAI_API_KEY` configured exactly as OpenAI Agents expects. The
+    TrustLoopGuard variables are additional credentials; they do not replace
+    your model-provider key.
 
-This boundary intercepts each `reply()` invocation and guards its final
-response. It does not send the raw user message text in the output event by
-default. Internal framework tool calls and payments require a framework adapter
-or the explicit typed action helpers.
+  </Tab>
+
+  <Tab value="Mastra">
+    Mastra agents use `agent.generate(...)` and return the final text on
+    `result.text`. Create or import your Mastra agent first, decorate it so its
+    local tools are protected, and wrap the final-text function:
+
+    ```bash
+    npm install @trustloopguard/sdk @mastra/core
+    ```
+
+    ```ts
+    import { Agent } from '@mastra/core/agent';
+    import { guard, guardAgent } from '@trustloopguard/sdk';
+
+    const baseAgent = new Agent({
+      id: 'support-agent',
+      name: 'Support agent',
+      instructions: 'You are a helpful support assistant.',
+      model: 'openai/gpt-5.5',
+    });
+
+    const agent = guardAgent(baseAgent, { agentId: 'support-agent' });
+
+    const reply = guard({ agentId: 'support-agent' }).wrap(
+      async (message: string): Promise<string> => {
+        const result = await agent.generate(message);
+        return result.text;
+      },
+    );
+
+    const safeReply = await reply('How do I reset my password?');
+    console.log(safeReply);
+    ```
+
+    Keep the provider environment variable used by your Mastra model, such as
+    `OPENAI_API_KEY`, alongside `TLG_URL` and `TLG_API_KEY`.
+
+  </Tab>
+
+  <Tab value="agent.reply()">
+    If your agent already exposes
+    `reply(message: string, ...args): Promise<string>`, one decorator guards
+    its local tools and final replies:
+
+    ```ts
+    import { guardAgent } from '@trustloopguard/sdk';
+
+    const baseAgent = createAgent();
+    const agent = guardAgent(baseAgent, { agentId: 'support-agent' });
+
+    const reply = await agent.reply(userMessage);
+    sendToUser(reply);
+    ```
+
+    `guardAgent(...)` returns the same agent type, so existing
+    `agent.reply(...)` call sites remain unchanged. Decorate the agent once
+    where it is created, not inside every request handler.
+
+  </Tab>
+
+  <Tab value="Custom function">
+    If the framework gives you a function rather than an agent with `reply()`,
+    wrap the one function that resolves to the final text:
+
+    ```ts
+    import { guard } from '@trustloopguard/sdk';
+
+    const reply = guard({ agentId: 'support-agent' }).wrap(generateReply);
+    const safeReply = await reply(userMessage);
+    sendToUser(safeReply);
+    ```
+
+    `generateReply` must take the user message as its first argument and
+    resolve to a string. If the framework also exposes local tools with
+    `execute()` methods, pass its agent object through `guardAgent(...)` once
+    as shown in the OpenAI and Mastra tabs.
+
+  </Tab>
+</Tabs>
+
+Do not stream tokens to the user before TrustLoopGuard checks them. For
+streaming frameworks, buffer the complete result with the SDK's `guard.stream`
+helper; see [Guard Modes](/docs/guides/guard-modes#streaming-output).
+
+## What The Integration Guards
+
+`guardAgent(...)` discovers supported local tools from OpenAI Agents JS,
+Mastra, LiveKit, and compatible tool registries. It authorizes each discovered
+tool before its local `execute()` function runs. The `reply(...)` decorator
+or `guard(...).wrap(...)` submits the final text to the Rust API at
+`POST /v1/events` and applies the returned decision before the function
+resolves.
+
+The bearer key scopes each request to the workspace and environment. The same
+request creates the trace shown in the dashboard.
+
+Only local tools whose `execute()` function is visible to the framework
+adapter can be intercepted. Provider-hosted tools and remote MCP tools hidden
+behind a framework require an adapter at the execution boundary you control.
+The final output event does not send the raw user message text by default.
 
 Automatic Run bookkeeping is best-effort: a Run storage failure does not
 replace the guard result or the agent's own error. Set `run: false` only when
@@ -125,6 +237,19 @@ session scope by supplying a stable externalId and a registerEnd callback.
 
 Send one test message and open the agent's Run and trace in the dashboard. No repository
 clone, Doppler setup, local Rust server, or model-provider proxy is required.
+
+### Common setup errors
+
+- **Cannot find `@trustloopguard/sdk`:** run the install command in the same
+  application package as the agent file. In a monorepo, installing it only at a
+  different workspace root may not make the import available.
+- **Agent used before declaration:** create `baseAgent` first, then call
+  `guardAgent(baseAgent, ...)`. The decorator needs the real framework object.
+- **No trace appears:** confirm that `TLG_URL` and `TLG_API_KEY` are loaded by
+  the server process, and that `agentId` exactly matches an agent in the key's
+  environment.
+- **Structured or streamed output:** select or buffer the final user-visible
+  string before guarding it. Never send unguarded tokens to the browser first.
 
 See [Guard Modes](/docs/guides/guard-modes) for strict, rewrite, regeneration,
 and streaming behavior.
