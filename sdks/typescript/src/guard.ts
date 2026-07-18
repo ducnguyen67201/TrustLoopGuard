@@ -32,7 +32,15 @@
 //   rewrite               -> use transformed output, deny when none exists
 //   rewrite_or_regenerate -> use transformed output, otherwise regenerate and check again
 
-import { Client, withAutomaticRun, type ClientOptions, type WithRunOptions } from './client.js';
+import {
+  Client,
+  createAutomaticRunController,
+  type AutomaticRunController,
+  type AutomaticRunTerminalStatus,
+  type AutomaticRunWarning,
+  type ClientOptions,
+  type WithRunOptions,
+} from './client.js';
 import type { Channel } from './generated/Channel.js';
 import type { CreateRunEventRequest } from './generated/CreateRunEventRequest.js';
 import type { AuthorizationDecision as Decision } from './generated/AuthorizationDecision.js';
@@ -247,19 +255,51 @@ export interface GuardAgentOptions extends GuardFactoryOptions {
   tools?: GuardToolDiscoveryOptions;
 
   /**
-   * Automatic per-reply Run creation. Enabled by default with
-   * `kind: 'chat_session'`; pass `false` to keep traces ungrouped.
+   * Automatic Run grouping. Defaults to one chat_session Run per reply.
+   * Supply a session lifecycle to reuse one Run, or false for ungrouped traces.
    */
   run?: false | GuardAgentRunOptions;
 }
 
-export interface GuardAgentRunOptions {
+export type GuardAgentRunWarning = AutomaticRunWarning;
+
+export interface GuardAgentReplyRunOptions {
+  /** Reply-scoped Runs are the safe fallback when no framework session exists. */
+  scope?: 'reply';
+
   /** Run kind for each guarded reply. Defaults to `chat_session`. */
   kind?: WithRunOptions['kind'];
 
   /** Additive metadata stored on each automatically created Run. */
   metadata?: WithRunOptions['metadata'];
+
+  /** Best-effort notification when automatic Run persistence fails. */
+  onLifecycleWarning?: (warning: GuardAgentRunWarning) => void;
 }
+
+export interface GuardAgentSessionRunOptions {
+  /** Keep one automatic Run for the registered framework session lifecycle. */
+  scope: 'session';
+
+  /** Stable upstream session correlation id, resolved lazily on first activity. */
+  externalId: string | (() => string | Promise<string>);
+
+  /** Register the framework's deterministic end boundary. */
+  registerEnd: (
+    finish: (status: AutomaticRunTerminalStatus) => Promise<void>,
+  ) => void | (() => void);
+
+  /** Run kind for the session. Defaults to chat_session. */
+  kind?: WithRunOptions['kind'];
+
+  /** Additive metadata stored on the session Run. */
+  metadata?: WithRunOptions['metadata'];
+
+  /** Best-effort notification when automatic Run persistence fails. */
+  onLifecycleWarning?: (warning: GuardAgentRunWarning) => void;
+}
+
+export type GuardAgentRunOptions = GuardAgentReplyRunOptions | GuardAgentSessionRunOptions;
 
 export interface GuardCallOptions {
   /** What the user said. */
@@ -372,11 +412,41 @@ export function guard(opts: GuardFactoryOptions | GuardOptions): OutputGuard | P
  */
 export function guardAgent<Agent extends object>(agent: Agent, opts: GuardAgentOptions): Agent {
   const client = opts.client ?? new Client(clientOptions(opts));
+  let automaticRun: AutomaticRunController | undefined;
+  let toolAutomaticRun: AutomaticRunController | undefined;
+  if (opts.run !== false) {
+    const metadata = { ...(opts.run?.metadata ?? {}), integration: 'guardAgent' };
+    if (opts.run?.scope === 'session') {
+      automaticRun = createAutomaticRunController(client, {
+        agentId: opts.agentId,
+        scope: 'session',
+        kind: opts.run.kind ?? 'chat_session',
+        metadata,
+        externalId: opts.run.externalId,
+        registerEnd: opts.run.registerEnd,
+        ...(opts.run.onLifecycleWarning === undefined
+          ? {}
+          : { onLifecycleWarning: opts.run.onLifecycleWarning }),
+      });
+      toolAutomaticRun = automaticRun;
+    } else {
+      automaticRun = createAutomaticRunController(client, {
+        agentId: opts.agentId,
+        scope: 'reply',
+        kind: opts.run?.kind ?? 'chat_session',
+        metadata,
+        ...(opts.run?.onLifecycleWarning === undefined
+          ? {}
+          : { onLifecycleWarning: opts.run.onLifecycleWarning }),
+      });
+    }
+  }
   const toolOptions = {
     agentId: opts.agentId,
     client,
     ...(opts.context !== undefined ? { context: opts.context } : {}),
     ...(opts.tools !== undefined ? { tools: opts.tools } : {}),
+    ...(toolAutomaticRun === undefined ? {} : { automaticRun: toolAutomaticRun }),
   };
   decorateAgentTools(agent, toolOptions);
 
@@ -385,19 +455,11 @@ export function guardAgent<Agent extends object>(agent: Agent, opts: GuardAgentO
     typeof reply === 'function'
       ? createOutputGuard({ ...opts, client }).wrap(reply.bind(agent))
       : undefined;
-  const automaticRun: WithRunOptions | undefined =
-    opts.run === false
-      ? undefined
-      : {
-          agentId: opts.agentId,
-          kind: opts.run?.kind ?? 'chat_session',
-          metadata: { ...(opts.run?.metadata ?? {}), integration: 'guardAgent' },
-        };
   const guardedReply =
     guardedOutputReply === undefined || automaticRun === undefined
       ? guardedOutputReply
       : (...args: Parameters<typeof guardedOutputReply>) =>
-          withAutomaticRun(client, automaticRun, () => guardedOutputReply(...args));
+          automaticRun.run(() => guardedOutputReply(...args));
   const boundMethods = new WeakMap<object, unknown>();
 
   return new Proxy(agent, {

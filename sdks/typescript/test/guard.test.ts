@@ -8,9 +8,11 @@ import {
   GuardMode,
   guard,
   guardAgent,
+  liveKitRun,
   Transport,
   Unavailable,
   type AuthorizationDecision,
+  type GuardAgentRunWarning,
   type GuardLogEvent,
   type RegenerateFeedback,
 } from '../src';
@@ -36,7 +38,8 @@ interface GuardWireEvent {
 interface RunCreateBody {
   agent_id: string;
   kind: string;
-  metadata: Record<string, string>;
+  external_id?: string;
+  metadata: Record<string, JsonValue>;
 }
 
 interface RunUpdateBody {
@@ -75,6 +78,50 @@ function runSummary(status = 'running'): Record<string, JsonValue> {
 }
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+interface LiveKitCloseEvent {
+  reason?: string;
+  error?: Error | null;
+}
+
+type LiveKitCloseListener = (event: LiveKitCloseEvent) => void | Promise<void>;
+
+class FakeLiveKitSession {
+  private readonly closeListeners = new Set<LiveKitCloseListener>();
+
+  on(event: 'close', listener: LiveKitCloseListener): this {
+    if (event === 'close') this.closeListeners.add(listener);
+    return this;
+  }
+
+  off(event: 'close', listener: LiveKitCloseListener): this {
+    if (event === 'close') this.closeListeners.delete(listener);
+    return this;
+  }
+
+  async close(event: LiveKitCloseEvent): Promise<void> {
+    await Promise.all([...this.closeListeners].map((listener) => listener(event)));
+  }
+
+  listenerCount(): number {
+    return this.closeListeners.size;
+  }
+}
+
+interface Deferred<Value> {
+  promise: Promise<Value>;
+  resolve(value: Value): void;
+}
+
+function deferred<Value>(): Deferred<Value> {
+  let resolvePromise: (value: Value) => void = () => {
+    throw new Error('deferred resolver was not initialized');
+  };
+  const promise = new Promise<Value>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return { promise, resolve: resolvePromise };
+}
 
 function automaticRunClient(failAt?: 'start' | 'finish'): {
   client: Client;
@@ -642,10 +689,14 @@ describe('guardAgent()', () => {
       { agentId: 'support-agent', client },
     );
 
-    const reply = await agent.reply('hello');
+    const first = await agent.reply('hello');
+    const second = await agent.reply('again');
 
-    expect(reply).toBe('reply to hello');
+    expect([first, second]).toEqual(['reply to hello', 'reply to again']);
     expect(requests.map(({ url, method }) => `${method} ${url}`)).toEqual([
+      'POST http://x/v1/runs',
+      'POST http://x/v1/events',
+      'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
       'POST http://x/v1/runs',
       'POST http://x/v1/events',
       'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
@@ -655,10 +706,299 @@ describe('guardAgent()', () => {
       kind: 'chat_session',
       metadata: { integration: 'guardAgent' },
     });
+    expect(requests[3]?.body).toEqual(requests[0]?.body);
     expect((requests[1]?.body as GuardWireEvent).principal.run_id).toBe(
       '018f1111-1111-7111-8111-111111111111',
     );
+    expect((requests[4]?.body as GuardWireEvent).principal.run_id).toBe(
+      '018f1111-1111-7111-8111-111111111111',
+    );
     expect(requests[2]?.body).toEqual({ status: 'completed' });
+    expect(requests[5]?.body).toEqual({ status: 'completed' });
+  });
+
+  it('keeps one run open across a LiveKit session and reuses it for every reply', async () => {
+    const { client, requests } = automaticRunClient();
+    const session = new FakeLiveKitSession();
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return 'reply to ' + message;
+        },
+      },
+      {
+        agentId: 'support-agent',
+        client,
+        run: liveKitRun(session, {
+          externalId: 'RM_session_1',
+          metadata: { tenant: 'north' },
+        }),
+      },
+    );
+
+    await expect(agent.reply('first secret message')).resolves.toBe(
+      'reply to first secret message',
+    );
+    await expect(agent.reply('second')).resolves.toBe('reply to second');
+
+    expect(requests.map(({ url, method }) => method + ' ' + url)).toEqual([
+      'POST http://x/v1/runs',
+      'POST http://x/v1/events',
+      'POST http://x/v1/events',
+    ]);
+    expect(requests[0]?.body).toEqual({
+      agent_id: 'support-agent',
+      kind: 'live_call',
+      external_id: 'RM_session_1',
+      metadata: { integration: 'guardAgent', tenant: 'north' },
+    });
+    const events = requests
+      .filter(({ url }) => url === 'http://x/v1/events')
+      .map(({ body }) => body as GuardWireEvent);
+    expect(events.map(({ principal }) => principal.run_id)).toEqual([
+      '018f1111-1111-7111-8111-111111111111',
+      '018f1111-1111-7111-8111-111111111111',
+    ]);
+    expect(JSON.stringify(requests[0]?.body)).not.toContain('first secret message');
+    expect(session.listenerCount()).toBe(1);
+
+    await session.close({ reason: 'task_completed' });
+
+    expect(requests.at(-1)).toMatchObject({
+      method: 'PATCH',
+      body: { status: 'completed' },
+    });
+    expect(session.listenerCount()).toBe(0);
+  });
+
+  it('deduplicates concurrent session run creation and finishes after the start resolves', async () => {
+    const requests: CapturedRequest[] = [];
+    const startSeen = deferred<void>();
+    const startResponse = deferred<Response>();
+    const fetchImpl = mockFetch(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      const method = init?.method ?? 'GET';
+      const body = init?.body ? (JSON.parse(String(init.body)) as CapturedBody) : null;
+      requests.push({ url, method, body });
+
+      if (url === 'http://x/v1/runs' && method === 'POST') {
+        startSeen.resolve(undefined);
+        return await startResponse.promise;
+      }
+      if (method === 'PATCH') return Response.json(runSummary('completed'));
+      return Response.json({
+        trace_id: 't-1',
+        effect: 'permit',
+        reason: 'ok',
+        findings: [],
+        transformed_value: null,
+        latency_ms: 1,
+      });
+    });
+    const client = new Client({ baseUrl: 'http://x', fetchImpl });
+    const session = new FakeLiveKitSession();
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return 'reply to ' + message;
+        },
+      },
+      {
+        agentId: 'support-agent',
+        client,
+        run: liveKitRun(session, { externalId: async () => 'RM_concurrent' }),
+      },
+    );
+
+    const first = agent.reply('first');
+    const second = agent.reply('second');
+    await startSeen.promise;
+    const close = session.close({ reason: 'participant_disconnected' });
+
+    expect(
+      requests.filter(({ url, method }) => url === 'http://x/v1/runs' && method === 'POST'),
+    ).toHaveLength(1);
+
+    startResponse.resolve(Response.json(runSummary(), { status: 201 }));
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      'reply to first',
+      'reply to second',
+    ]);
+    await close;
+
+    expect(requests.filter(({ method }) => method === 'PATCH').map(({ body }) => body)).toEqual([
+      { status: 'completed' },
+    ]);
+    expect(
+      requests
+        .filter(({ url }) => url === 'http://x/v1/events')
+        .map(({ body }) => (body as GuardWireEvent).principal.run_id),
+    ).toEqual(['018f1111-1111-7111-8111-111111111111', '018f1111-1111-7111-8111-111111111111']);
+  });
+
+  it('does not create a run when the session ends before guarded activity', async () => {
+    const { client, requests } = automaticRunClient();
+    const session = new FakeLiveKitSession();
+
+    guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return message;
+        },
+      },
+      {
+        agentId: 'support-agent',
+        client,
+        run: liveKitRun(session, { externalId: 'RM_idle' }),
+      },
+    );
+
+    await session.close({ reason: 'user_initiated' });
+    await session.close({ reason: 'user_initiated' });
+
+    expect(requests).toEqual([]);
+    expect(session.listenerCount()).toBe(0);
+  });
+
+  it.each([
+    ['error', new Error('model failed'), 'failed'],
+    ['job_shutdown', null, 'canceled'],
+    ['participant_disconnected', null, 'completed'],
+    ['user_initiated', null, 'completed'],
+    ['task_completed', null, 'completed'],
+    ['future_reason', new Error('future failure'), 'failed'],
+    ['future_reason', null, 'completed'],
+  ])('maps LiveKit close reason %s with error %s to %s', async (reason, error, expectedStatus) => {
+    const { client, requests } = automaticRunClient();
+    const session = new FakeLiveKitSession();
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return message;
+        },
+      },
+      {
+        agentId: 'support-agent',
+        client,
+        run: liveKitRun(session, { externalId: 'RM_status' }),
+      },
+    );
+
+    await agent.reply('hello');
+    await session.close({ reason, error });
+    await session.close({ reason, error });
+
+    expect(requests.filter(({ method }) => method === 'PATCH')).toHaveLength(1);
+    expect(requests.at(-1)?.body).toEqual({ status: expectedStatus });
+  });
+
+  it('rejects an empty session external id without falling back to agent id', async () => {
+    const { client, requests } = automaticRunClient();
+    const session = new FakeLiveKitSession();
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return message;
+        },
+      },
+      {
+        agentId: 'support-agent',
+        client,
+        run: liveKitRun(session, { externalId: async () => '   ' }),
+      },
+    );
+
+    await expect(agent.reply('hello')).rejects.toThrow(
+      'guardAgent session run externalId must be a non-empty string',
+    );
+    expect(requests).toEqual([]);
+  });
+
+  it('retries a failed session start only on a later independent boundary', async () => {
+    const requests: CapturedRequest[] = [];
+    const warnings: GuardAgentRunWarning[] = [];
+    let startAttempts = 0;
+    const fetchImpl = mockFetch(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      const method = init?.method ?? 'GET';
+      const body = init?.body ? (JSON.parse(String(init.body)) as CapturedBody) : null;
+      requests.push({ url, method, body });
+
+      if (url === 'http://x/v1/runs' && method === 'POST') {
+        startAttempts += 1;
+        if (startAttempts === 1) {
+          return Response.json(
+            { code: 'internal', message: 'run start failed', retriable: false },
+            { status: 500 },
+          );
+        }
+        return Response.json(runSummary(), { status: 201 });
+      }
+      if (method === 'PATCH') return Response.json(runSummary('completed'));
+      return Response.json({
+        trace_id: 't-1',
+        effect: 'permit',
+        reason: 'ok',
+        findings: [],
+        transformed_value: null,
+        latency_ms: 1,
+      });
+    });
+    const client = new Client({ baseUrl: 'http://x', fetchImpl });
+    const session = new FakeLiveKitSession();
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return message;
+        },
+      },
+      {
+        agentId: 'support-agent',
+        client,
+        run: liveKitRun(session, {
+          externalId: 'RM_retry',
+          onLifecycleWarning: (warning) => warnings.push(warning),
+        }),
+      },
+    );
+
+    await expect(agent.reply('first')).resolves.toBe('first');
+    await expect(agent.reply('second')).resolves.toBe('second');
+    await session.close({ reason: 'task_completed' });
+
+    expect(
+      requests.filter(({ url, method }) => url === 'http://x/v1/runs' && method === 'POST'),
+    ).toHaveLength(2);
+    const events = requests
+      .filter(({ url }) => url === 'http://x/v1/events')
+      .map(({ body }) => body as GuardWireEvent);
+    expect(events[0]?.principal.run_id).toBeUndefined();
+    expect(events[1]?.principal.run_id).toBe('018f1111-1111-7111-8111-111111111111');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ code: 'run_start_failed', phase: 'start' });
+  });
+
+  it('preserves an agent error without failing the long-lived session run', async () => {
+    const { client, requests } = automaticRunClient();
+    const session = new FakeLiveKitSession();
+    const agent = guardAgent(
+      {
+        async reply(_message: string): Promise<string> {
+          throw new Error('agent failed');
+        },
+      },
+      {
+        agentId: 'support-agent',
+        client,
+        run: liveKitRun(session, { externalId: 'RM_error' }),
+      },
+    );
+
+    await expect(agent.reply('hello')).rejects.toThrow('agent failed');
+    expect(requests.map(({ method }) => method)).toEqual(['POST']);
+
+    await session.close({ reason: 'task_completed' });
+    expect(requests.at(-1)?.body).toEqual({ status: 'completed' });
   });
 
   it('reuses an explicit run instead of creating a nested run', async () => {
@@ -679,6 +1019,37 @@ describe('guardAgent()', () => {
     expect(
       requests.filter(({ url, method }) => url === 'http://x/v1/runs' && method === 'POST'),
     ).toHaveLength(1);
+    const event = requests.find(({ url }) => url === 'http://x/v1/events');
+    expect((event?.body as GuardWireEvent).principal.run_id).toBe(
+      '018f1111-1111-7111-8111-111111111111',
+    );
+  });
+
+  it('lets an explicit run win inside a configured session boundary', async () => {
+    const { client, requests } = automaticRunClient();
+    const session = new FakeLiveKitSession();
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return `reply to ${message}`;
+        },
+      },
+      {
+        agentId: 'support-agent',
+        client,
+        run: liveKitRun(session, { externalId: 'RM_explicit' }),
+      },
+    );
+
+    await client.withRun({ agentId: 'support-agent', kind: 'workflow' }, () =>
+      agent.reply('hello'),
+    );
+    await session.close({ reason: 'task_completed' });
+
+    expect(
+      requests.filter(({ url, method }) => url === 'http://x/v1/runs' && method === 'POST'),
+    ).toHaveLength(1);
+    expect(requests.filter(({ method }) => method === 'PATCH')).toHaveLength(1);
     const event = requests.find(({ url }) => url === 'http://x/v1/events');
     expect((event?.body as GuardWireEvent).principal.run_id).toBe(
       '018f1111-1111-7111-8111-111111111111',
@@ -724,30 +1095,42 @@ describe('guardAgent()', () => {
 
   it('keeps guard enforcement available when automatic run creation fails', async () => {
     const { client, requests } = automaticRunClient('start');
+    const warnings: GuardAgentRunWarning[] = [];
     const agent = guardAgent(
       {
         async reply(message: string): Promise<string> {
           return `reply to ${message}`;
         },
       },
-      { agentId: 'support-agent', client },
+      {
+        agentId: 'support-agent',
+        client,
+        run: { onLifecycleWarning: (warning) => warnings.push(warning) },
+      },
     );
 
     const reply = await agent.reply('hello');
 
     expect(reply).toBe('reply to hello');
     expect(requests.map(({ url }) => url)).toEqual(['http://x/v1/runs', 'http://x/v1/events']);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ code: 'run_start_failed', phase: 'start' });
   });
 
   it('does not hide a guarded reply when automatic run completion fails', async () => {
     const { client, requests } = automaticRunClient('finish');
+    const warnings: GuardAgentRunWarning[] = [];
     const agent = guardAgent(
       {
         async reply(message: string): Promise<string> {
           return `reply to ${message}`;
         },
       },
-      { agentId: 'support-agent', client },
+      {
+        agentId: 'support-agent',
+        client,
+        run: { onLifecycleWarning: (warning) => warnings.push(warning) },
+      },
     );
 
     const reply = await agent.reply('hello');
@@ -758,6 +1141,36 @@ describe('guardAgent()', () => {
       'POST http://x/v1/events',
       'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
     ]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ code: 'run_finish_failed', phase: 'finish' });
+  });
+
+  it('does not hide a completed session when its terminal update fails', async () => {
+    const { client, requests } = automaticRunClient('finish');
+    const warnings: GuardAgentRunWarning[] = [];
+    const session = new FakeLiveKitSession();
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return `reply to ${message}`;
+        },
+      },
+      {
+        agentId: 'support-agent',
+        client,
+        run: liveKitRun(session, {
+          externalId: 'RM_finish_failure',
+          onLifecycleWarning: (warning) => warnings.push(warning),
+        }),
+      },
+    );
+
+    await expect(agent.reply('hello')).resolves.toBe('reply to hello');
+    await expect(session.close({ reason: 'task_completed' })).resolves.toBeUndefined();
+
+    expect(requests.filter(({ method }) => method === 'PATCH')).toHaveLength(1);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ code: 'run_finish_failed', phase: 'finish' });
   });
 
   it('decorates an agent once while preserving its reply call site and other members', async () => {

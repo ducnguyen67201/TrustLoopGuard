@@ -20,8 +20,9 @@ OpenAI Agents JS, or LiveKit at runtime.
 ## Decoration flow
 
 1. `guardAgent()` resolves one TrustLoopGuard `Client`.
-2. For each `reply()`, the decorator reuses the active Run or automatically
-   creates a `chat_session` Run for the configured agent identity.
+2. The decorator creates one Run controller. Reply scope creates a
+   `chat_session` Run per `reply()`; session scope lazily creates and reuses
+   one Run for a supplied framework lifecycle.
 3. The adapter finds a supported local tool registry.
 4. Each tool's name, description, input schema, output schema when present, and
    execution function are normalized.
@@ -39,6 +40,35 @@ If the agent exposes `reply(message, ...)`, the same decorator also preserves
 the existing output-boundary behavior for `output.proposed`. Tool and output
 events emitted by that reply inherit the automatic Run ID. Run creation and
 completion failures do not replace the guard result or the agent's own error.
+
+## Session lifecycle adapters
+
+Session scope is explicit because a framework agent object can be shared by
+unrelated users. It requires a stable external session ID and a
+`registerEnd` callback. `agentId` is never used as a session key. An
+explicit `client.withRun(...)` scope still takes precedence for its async
+boundary.
+
+`liveKitRun(session, options)` supplies that contract for LiveKit Agents for
+Node.js without importing the framework package. It structurally subscribes to
+the AgentSession `close` event, defaults the Run kind to `live_call`, and
+maps close reasons as follows:
+
+| LiveKit close evidence | Run status |
+|---|---|
+| `error` reason or a non-null error | `failed` |
+| `job_shutdown` | `canceled` |
+| participant disconnect, user initiation, task completion | `completed` |
+| unknown reason | `failed` when an error exists; otherwise `completed` |
+
+The first guarded output or local tool starts the Run. This supports tool-only
+LiveKit agents that do not expose `reply()`. Concurrent first boundaries
+share one create request, session close sends one terminal update, and closing
+before any guarded activity creates no empty Run.
+
+Other framework adapters may return the same session option shape only when
+they can supply a deterministic end registration. Agent object lifetime,
+garbage collection, and process exit are not valid lifecycle hooks.
 
 ## Metadata registration
 

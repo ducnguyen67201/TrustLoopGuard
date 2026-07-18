@@ -37,12 +37,27 @@ explicitly restores ungrouped traces.
 
 SDKs also expose scoped run helpers so callers do not have to pass ids into every guard call. TypeScript uses `client.withRun(...)` and nested `run.withEvent(...)`; Python uses `with client.run(...)` / `async with client.run(...)`; Rust uses `client.with_run(...)` with an explicit scoped `RunClient`. Inside those scopes, `submitEvent` / `submit_event`, high-level output `guard()` calls, and tool-call helpers attach the active `run_id` and optional `run_event_id` unless the caller already set those fields.
 
-Automatic TypeScript Runs are one-shot reply containers. A caller that owns a
-longer session boundary, such as a LiveKit room or multi-turn customer chat,
-opens one explicit scoped Run around that session; `guardAgent(...)` detects
-and reuses it instead of creating nested Runs. Automatic Run persistence is
-observability bookkeeping: a start/finish storage failure does not replace the
-guard result or the original agent error.
+Automatic TypeScript Runs have two lifecycle modes:
+
+- Reply scope is the default and creates one one-shot Run for each `reply()`.
+  This is the safe generic boundary because one agent object may serve several
+  unrelated users.
+- Session scope requires a stable `externalId` plus a deterministic
+  `registerEnd` callback. The first guarded output or local tool call lazily
+  creates one Run, every guarded boundary in that wrapped session reuses its
+  ID, and the callback completes, fails, or cancels it.
+
+The dependency-free `liveKitRun(...)` helper implements session scope for a
+LiveKit AgentSession. It uses the room SID supplied by the caller as
+`external_id`, defaults the kind to `live_call`, and maps the framework
+close event to a terminal Run status. `agentId` remains the stable registered
+agent identity; it is not a session key.
+
+An explicit `client.withRun(...)` scope still wins for the current async
+boundary and is never nested. `run: false` keeps traces ungrouped. Automatic
+Run persistence is observability bookkeeping: start/finish storage failures
+may emit a typed lifecycle warning but do not replace the guard result or the
+original agent error.
 
 Human review outcomes can be appended to a trace after the decision. Run detail views display the latest linked review outcome for each trace, but review event ownership and analytics are described in [human-review-analytics.md](human-review-analytics.md).
 
@@ -74,6 +89,17 @@ POST   /v1/runs/{run_id}/events
 GET    /v1/runs/{run_id}/events
 GET    /v1/runs/{run_id}/traces
 ```
+
+For an automatic session Run, the TypeScript SDK deduplicates concurrent first
+boundaries through one in-flight create request. A framework end that races
+creation waits for that request and active guarded boundaries before sending
+one terminal update. Ending an idle session creates no empty Run. A failed
+create leaves that boundary ungrouped and may be retried by a later independent
+boundary; nested calls do not retry inside the same failed boundary.
+
+Automatic Run metadata contains the integration marker plus caller-supplied
+metadata. It does not copy raw input or output text. Durable state and
+environment validation remain owned by the Rust Run API.
 
 Gateway integrations create runs automatically. Each accepted provider-compatible gateway request becomes one `chat_session` run, and the gateway links its input/output policy checks to that run. If the request carries `X-TLG-Run-External-Id`, the gateway uses that value as the run `external_id` and reuses an existing run for the same route agent plus external id. Streaming integrations use this to group all model calls from one external session into a single dashboard run.
 

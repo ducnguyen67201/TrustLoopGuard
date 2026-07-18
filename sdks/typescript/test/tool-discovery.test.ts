@@ -5,6 +5,8 @@ import {
   GuardedToolBlocked,
   ToolRegistrationMode,
   guardAgent,
+  liveKitRun,
+  type GuardAgentRunWarning,
   type GuardToolDiscoveryWarning,
 } from '../src';
 import { toolSchemaHash } from '../src/tool-discovery';
@@ -14,6 +16,7 @@ interface ToolWireEvent {
   kind: string;
   principal: {
     agent_id: string;
+    run_id?: string;
   };
   action: {
     operation: string;
@@ -31,6 +34,54 @@ interface ToolWireEvent {
 }
 
 type ToolValue = object | string | number | boolean | null;
+
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+interface CapturedToolRequest {
+  url: string;
+  method: string;
+  body: ToolWireEvent | { [key: string]: JsonValue } | null;
+}
+
+interface LiveKitCloseEvent {
+  reason?: string;
+  error?: Error | null;
+}
+
+type LiveKitCloseListener = (event: LiveKitCloseEvent) => void | Promise<void>;
+
+class FakeLiveKitSession {
+  private readonly closeListeners = new Set<LiveKitCloseListener>();
+
+  on(event: 'close', listener: LiveKitCloseListener): this {
+    if (event === 'close') this.closeListeners.add(listener);
+    return this;
+  }
+
+  off(event: 'close', listener: LiveKitCloseListener): this {
+    if (event === 'close') this.closeListeners.delete(listener);
+    return this;
+  }
+
+  async close(event: LiveKitCloseEvent): Promise<void> {
+    await Promise.all([...this.closeListeners].map((listener) => listener(event)));
+  }
+}
+
+interface Deferred<Value> {
+  promise: Promise<Value>;
+  resolve(value: Value): void;
+}
+
+function deferred<Value>(): Deferred<Value> {
+  let resolvePromise: (value: Value) => void = () => {
+    throw new Error('deferred resolver was not initialized');
+  };
+  const promise = new Promise<Value>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return { promise, resolve: resolvePromise };
+}
 
 function decision(effect: 'permit' | 'deny' | 'require_approval', extra: object = {}): object {
   return {
@@ -65,6 +116,63 @@ function requestBody(init: RequestInit | undefined): ToolWireEvent {
     throw new Error('expected request body');
   }
   return JSON.parse(String(init.body)) as ToolWireEvent;
+}
+
+function sessionRunSummary(status = 'running'): { [key: string]: JsonValue } {
+  return {
+    id: '018f1111-1111-7111-8111-111111111111',
+    workspace_id: 'ws_1',
+    environment_id: 'production',
+    environment: 'production',
+    agent_id: 'voice-agent',
+    kind: 'live_call',
+    status,
+    external_id: 'RM_voice',
+    metadata: {},
+    started_at: '2026-01-01T00:00:00Z',
+    ended_at: status === 'running' ? null : '2026-01-01T00:01:00Z',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:01:00Z',
+    trace_count: 0,
+    blocked_count: 0,
+    rewritten_count: 0,
+    escalated_count: 0,
+    p95_latency_ms: null,
+  };
+}
+
+function liveKitSessionClient(failFirstStart = false): {
+  client: Client;
+  requests: CapturedToolRequest[];
+} {
+  const requests: CapturedToolRequest[] = [];
+  let startAttempts = 0;
+  const fetchImpl = mockFetch(async (input, init) => {
+    const url = requestUrl(input);
+    const method = init?.method ?? 'GET';
+    const body =
+      init?.body === undefined || init.body === null
+        ? null
+        : (JSON.parse(String(init.body)) as ToolWireEvent | { [key: string]: JsonValue });
+    requests.push({ url, method, body });
+
+    if (url === 'http://x/v1/runs' && method === 'POST') {
+      startAttempts += 1;
+      if (failFirstStart && startAttempts === 1) {
+        return Response.json(
+          { code: 'internal', message: 'run start failed', retriable: false },
+          { status: 500 },
+        );
+      }
+      return Response.json(sessionRunSummary(), { status: 201 });
+    }
+    if (method === 'PATCH') return Response.json(sessionRunSummary('completed'));
+    return Response.json(decision('permit'));
+  });
+  return {
+    client: new Client({ baseUrl: 'http://x', fetchImpl }),
+    requests,
+  };
 }
 
 describe('guardAgent() tool discovery', () => {
@@ -212,6 +320,173 @@ describe('guardAgent() tool discovery', () => {
     expect(toolCtx.updateTools).toHaveBeenCalledOnce();
     expect(execute).toHaveBeenCalledOnce();
     expect(requestBody(fetchSpy.mock.calls[0]?.[1]).action.tool_identity.server_id).toBe('livekit');
+  });
+
+  it('creates one session run for a tool-only LiveKit agent and reuses it', async () => {
+    const { client, requests } = liveKitSessionClient();
+    const session = new FakeLiveKitSession();
+    const execute = vi.fn(async (input: { orderId: string }) => input.orderId);
+    const tools = [
+      {
+        id: 'getOrderStatus',
+        name: 'getOrderStatus',
+        flags: 0,
+        parameters: { type: 'object' },
+        execute,
+      },
+    ];
+    const toolCtx = {
+      tools,
+      updateTools(nextTools: typeof tools): void {
+        this.tools = [...nextTools];
+      },
+    };
+    const agent = guardAgent(
+      { toolCtx },
+      {
+        agentId: 'voice-agent',
+        client,
+        run: liveKitRun(session, { externalId: 'RM_voice' }),
+      },
+    );
+
+    await expect(agent.toolCtx.tools[0]!.execute({ orderId: 'order-1' })).resolves.toBe('order-1');
+    await expect(agent.toolCtx.tools[0]!.execute({ orderId: 'order-2' })).resolves.toBe('order-2');
+
+    expect(requests.map(({ url, method }) => method + ' ' + url)).toEqual([
+      'POST http://x/v1/runs',
+      'POST http://x/v1/events',
+      'POST http://x/v1/events',
+    ]);
+    expect(
+      requests
+        .filter(({ url }) => url === 'http://x/v1/events')
+        .map(({ body }) => (body as ToolWireEvent).principal.run_id),
+    ).toEqual(['018f1111-1111-7111-8111-111111111111', '018f1111-1111-7111-8111-111111111111']);
+
+    await session.close({ reason: 'participant_disconnected' });
+    expect(requests.at(-1)?.body).toEqual({ status: 'completed' });
+  });
+
+  it('deduplicates a concurrent first output and first tool boundary', async () => {
+    const requests: CapturedToolRequest[] = [];
+    const startSeen = deferred<void>();
+    const startResponse = deferred<Response>();
+    const fetchImpl = mockFetch(async (input, init) => {
+      const url = requestUrl(input);
+      const method = init?.method ?? 'GET';
+      const body =
+        init?.body === undefined || init.body === null
+          ? null
+          : (JSON.parse(String(init.body)) as ToolWireEvent | { [key: string]: JsonValue });
+      requests.push({ url, method, body });
+
+      if (url === 'http://x/v1/runs' && method === 'POST') {
+        startSeen.resolve(undefined);
+        return await startResponse.promise;
+      }
+      if (method === 'PATCH') return Response.json(sessionRunSummary('completed'));
+      return Response.json(decision('permit'));
+    });
+    const client = new Client({ baseUrl: 'http://x', fetchImpl });
+    const session = new FakeLiveKitSession();
+    const execute = vi.fn(async (input: { orderId: string }) => input.orderId);
+    const tools = [
+      {
+        id: 'getOrderStatus',
+        name: 'getOrderStatus',
+        flags: 0,
+        parameters: { type: 'object' },
+        execute,
+      },
+    ];
+    const toolCtx = {
+      tools,
+      updateTools(nextTools: typeof tools): void {
+        this.tools = [...nextTools];
+      },
+    };
+    const agent = guardAgent(
+      {
+        toolCtx,
+        async reply(message: string): Promise<string> {
+          return message;
+        },
+      },
+      {
+        agentId: 'voice-agent',
+        client,
+        run: liveKitRun(session, { externalId: 'RM_concurrent' }),
+      },
+    );
+
+    const reply = agent.reply('hello');
+    const toolResult = agent.toolCtx.tools[0]!.execute({ orderId: 'order-1' });
+    await startSeen.promise;
+
+    expect(
+      requests.filter(({ url, method }) => url === 'http://x/v1/runs' && method === 'POST'),
+    ).toHaveLength(1);
+
+    startResponse.resolve(Response.json(sessionRunSummary(), { status: 201 }));
+    await expect(Promise.all([reply, toolResult])).resolves.toEqual(['hello', 'order-1']);
+
+    const events = requests
+      .filter(({ url }) => url === 'http://x/v1/events')
+      .map(({ body }) => body as ToolWireEvent);
+    expect(events).toHaveLength(2);
+    expect(events.map(({ principal }) => principal.run_id)).toEqual([
+      '018f1111-1111-7111-8111-111111111111',
+      '018f1111-1111-7111-8111-111111111111',
+    ]);
+
+    await session.close({ reason: 'task_completed' });
+    expect(requests.at(-1)?.body).toEqual({ status: 'completed' });
+  });
+
+  it('keeps a nested tool and output ungrouped after one failed session start attempt', async () => {
+    const { client, requests } = liveKitSessionClient(true);
+    const session = new FakeLiveKitSession();
+    const warnings: GuardAgentRunWarning[] = [];
+    const execute = vi.fn(async (input: { value: string }) => input.value);
+    const original = {
+      tools: [
+        {
+          id: 'echo',
+          name: 'echo',
+          flags: 0,
+          parameters: { type: 'object' },
+          execute,
+        },
+      ],
+      async reply(message: string): Promise<string> {
+        return await this.tools[0]!.execute({ value: message });
+      },
+    };
+    const agent = guardAgent(original, {
+      agentId: 'voice-agent',
+      client,
+      run: liveKitRun(session, {
+        externalId: 'RM_voice',
+        onLifecycleWarning: (warning) => warnings.push(warning),
+      }),
+    });
+
+    await expect(agent.reply('hello')).resolves.toBe('hello');
+
+    expect(
+      requests.filter(({ url, method }) => url === 'http://x/v1/runs' && method === 'POST'),
+    ).toHaveLength(1);
+    const events = requests
+      .filter(({ url }) => url === 'http://x/v1/events')
+      .map(({ body }) => body as ToolWireEvent);
+    expect(events).toHaveLength(2);
+    expect(events.map(({ principal }) => principal.run_id)).toEqual([undefined, undefined]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ code: 'run_start_failed', phase: 'start' });
+
+    await session.close({ reason: 'task_completed' });
+    expect(requests.filter(({ method }) => method === 'PATCH')).toHaveLength(0);
   });
 
   it('blocks denied tool calls before the original side effect runs', async () => {

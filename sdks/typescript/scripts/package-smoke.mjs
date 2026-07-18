@@ -45,6 +45,7 @@ try {
       '--eval',
       "const sdk = await import('@trustloopguard/sdk');" +
         "if (typeof sdk.guardAgent !== 'function') process.exit(1);" +
+        "if (typeof sdk.liveKitRun !== 'function') process.exit(1);" +
         "if (sdk.ToolRegistrationMode?.Strict !== 'strict') process.exit(1);" +
         "if (typeof sdk.GuardedToolBlocked !== 'function') process.exit(1);",
     ],
@@ -60,13 +61,19 @@ try {
   await writeFile(
     join(temporaryDirectory, 'consumer.ts'),
     [
-      "import { guardAgent, ToolRegistrationMode, type AuthorizationDecision, type GuardToolDiscoveryWarning } from '@trustloopguard/sdk';",
+      "import { guardAgent, liveKitRun, ToolRegistrationMode, type AuthorizationDecision, type GuardToolDiscoveryWarning, type LiveKitCloseListener } from '@trustloopguard/sdk';",
+      'const listeners = new Set<LiveKitCloseListener>();',
+      'const session = {',
+      "  on(_event: 'close', listener: LiveKitCloseListener) { listeners.add(listener); return this; },",
+      "  off(_event: 'close', listener: LiveKitCloseListener) { listeners.delete(listener); return this; },",
+      '};',
       'const agent = guardAgent({',
       '  tools: { echo: { id: "echo", description: "Echo input", inputSchema: { type: "object" }, async execute(input: { text: string }) { return input.text; } } },',
       '  async reply(message: string) { return message; },',
       '}, {',
       "  agentId: 'smoke-agent',",
       "  baseUrl: 'https://api.example.test',",
+      "  run: liveKitRun(session, { externalId: 'RM_smoke' }),",
       '  tools: {',
       '    register: ToolRegistrationMode.Off,',
       '    onDiscoveryWarning(warning: GuardToolDiscoveryWarning) { void warning; },',

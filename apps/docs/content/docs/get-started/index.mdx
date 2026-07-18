@@ -97,6 +97,30 @@ Automatic Run bookkeeping is best-effort: a Run storage failure does not
 replace the guard result or the agent's own error. Set `run: false` only when
 you intentionally want ungrouped traces.
 
+For a framework-owned multi-turn session, keep the same wrap-once shape and
+bind the real lifecycle:
+
+```ts
+import { guardAgent, liveKitRun } from '@trustloopguard/sdk';
+
+const session = createLiveKitAgentSession();
+const agent = guardAgent(createAgent(), {
+  agentId: 'support-agent',
+  run: liveKitRun(session, { externalId: roomSid }),
+});
+
+await session.start({ agent, room });
+```
+
+The first guarded output or local tool starts one live_call Run. Every later
+guarded trace from that wrapped LiveKit session uses the same Run, which remains
+running until the session closes. agentId identifies the registered agent;
+roomSid identifies this execution. Never use agentId as a session key.
+
+Generic agents keep the default one-Run-per-reply behavior because an agent
+object may be shared across users. Frameworks other than LiveKit can select
+session scope by supplying a stable externalId and a registerEnd callback.
+
 ## 5. Verify
 
 Send one test message and open the agent's Run and trace in the dashboard. No repository

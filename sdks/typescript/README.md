@@ -71,7 +71,8 @@ sites stay unchanged. The decorator:
 - sends the exact tool name, proposed parameters, framework identity, and a
   stable schema identity;
 - creates one `chat_session` Run for each `reply()` when no Run is already
-  active, then links every tool and output trace produced by that reply;
+  active, or reuses one session Run when a framework lifecycle is configured;
+- links every guarded tool and output trace in that boundary to the Run;
 - delegates to the original `reply()` method;
 - submits the final returned string to `POST /v1/events`;
 - completes the automatic Run, or marks it failed when the agent throws;
@@ -132,6 +133,59 @@ or the agent's own error. Pass `run: false` to keep these traces ungrouped, or
 pass `run: { kind: 'workflow' }` to change the automatic Run kind. Explicit
 `client.withRun(...)` scopes remain available for multi-turn sessions and are
 reused rather than nested.
+
+### Keep one Run for a LiveKit session
+
+The default reply boundary is safe for generic agents because an agent object
+may serve many unrelated users. When the framework exposes a real session end,
+bind that lifecycle once while decorating the agent:
+
+~~~ts
+import { guardAgent, liveKitRun } from '@trustloopguard/sdk';
+
+const session = createLiveKitAgentSession();
+const agent = guardAgent(createAgent(), {
+  agentId: 'support-agent',
+  run: liveKitRun(session, {
+    externalId: roomSid,
+    metadata: { integrationName: 'livekit' },
+  }),
+});
+
+await session.start({ agent, room });
+~~~
+
+The first guarded output or local tool call lazily creates one live_call Run.
+Later guarded activity from the same wrapped session reuses its run ID. The Run
+stays running until LiveKit emits close: model/session errors finish it as
+failed, job shutdown finishes it as canceled, and normal participant, user, or
+task completion finishes it as completed.
+
+The helper is structurally typed and does not add LiveKit as an SDK dependency.
+Use a LiveKit room SID as externalId when available. agentId identifies the
+registered agent and must never be used as the customer-session key.
+
+Other frameworks can provide the same deterministic contract directly:
+
+~~~ts
+const agent = guardAgent(createAgent(), {
+  agentId: 'support-agent',
+  run: {
+    scope: 'session',
+    externalId: chatSession.id,
+    registerEnd(finish) {
+      return chatSession.onEnd((outcome) =>
+        finish(outcome.failed ? 'failed' : 'completed'),
+      );
+    },
+  },
+});
+~~~
+
+Session Run creation and completion remain best-effort. Use
+onLifecycleWarning inside the run options to surface persistence failures
+without changing the guarded result. An explicit client.withRun scope still
+wins for that async boundary and is never nested.
 
 The event is equivalent to:
 

@@ -239,7 +239,10 @@ export type {
 export { GuardMode, guard, guardAgent } from './guard.js';
 export type {
   GuardAgentOptions,
+  GuardAgentReplyRunOptions,
   GuardAgentRunOptions,
+  GuardAgentRunWarning,
+  GuardAgentSessionRunOptions,
   GuardCallbacks,
   GuardOptions,
   GuardFactoryOptions,
@@ -251,6 +254,14 @@ export type {
   ReplyAgent,
   RegenerateFeedback,
 } from './guard.js';
+
+export { liveKitRun } from './adapters/livekit.js';
+export type {
+  LiveKitAgentSessionLike,
+  LiveKitCloseEventLike,
+  LiveKitCloseListener,
+  LiveKitRunOptions,
+} from './adapters/livekit.js';
 
 export {
   GuardedToolBlocked,

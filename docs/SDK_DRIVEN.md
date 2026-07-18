@@ -39,6 +39,17 @@ the tool/output traces emitted during that reply, and completes or fails the
 Run. Existing `client.withRun(...)` scopes are reused. Automatic Run
 bookkeeping is best-effort and can be disabled with `run: false` without
 disabling enforcement.
+
+Long-lived frameworks can make that automatic Run session-scoped without
+wrapping every turn. The caller supplies a stable external session ID and a
+deterministic end registration; the first guarded boundary lazily starts one
+Run, tool/output traces reuse it, and the framework end callback supplies the
+terminal status. The dependency-free liveKitRun helper binds this contract to
+the LiveKit AgentSession close event and defaults the Run kind to live_call.
+agentId remains the registered agent identity and is never treated as a
+customer-session identifier. Explicit client.withRun scopes still take
+precedence for the active async boundary.
+
 Provider-hosted tools, hidden closures, and remote execution surfaces that do
 not expose a local `execute()` remain explicit integration boundaries.
 
