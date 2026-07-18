@@ -32,7 +32,12 @@
 //   rewrite               -> use transformed output, deny when none exists
 //   rewrite_or_regenerate -> use transformed output, otherwise regenerate and check again
 
-import { Client, type ClientOptions } from './client.js';
+import {
+  Client,
+  withRunIfAbsent,
+  type ClientOptions,
+  type WithRunOptions,
+} from './client.js';
 import type { Channel } from './generated/Channel.js';
 import type { CreateRunEventRequest } from './generated/CreateRunEventRequest.js';
 import type { AuthorizationDecision as Decision } from './generated/AuthorizationDecision.js';
@@ -245,6 +250,20 @@ export interface GuardFactoryOptions {
 export interface GuardAgentOptions extends GuardFactoryOptions {
   /** Automatic discovery and guarding for supported local tool registries. */
   tools?: GuardToolDiscoveryOptions;
+
+  /**
+   * Automatic per-reply Run creation. Enabled by default with
+   * `kind: 'chat_session'`; pass `false` to keep traces ungrouped.
+   */
+  run?: false | GuardAgentRunOptions;
+}
+
+export interface GuardAgentRunOptions {
+  /** Run kind for each guarded reply. Defaults to `chat_session`. */
+  kind?: WithRunOptions['kind'];
+
+  /** Additive metadata stored on each automatically created Run. */
+  metadata?: WithRunOptions['metadata'];
 }
 
 export interface GuardCallOptions {
@@ -367,10 +386,23 @@ export function guardAgent<Agent extends object>(agent: Agent, opts: GuardAgentO
   decorateAgentTools(agent, toolOptions);
 
   const reply = Reflect.get(agent, 'reply', agent);
-  const guardedReply =
+  const guardedOutputReply =
     typeof reply === 'function'
       ? createOutputGuard({ ...opts, client }).wrap(reply.bind(agent))
       : undefined;
+  const automaticRun: WithRunOptions | undefined =
+    opts.run === false
+      ? undefined
+      : {
+          agentId: opts.agentId,
+          kind: opts.run?.kind ?? 'chat_session',
+          metadata: { ...(opts.run?.metadata ?? {}), integration: 'guardAgent' },
+        };
+  const guardedReply =
+    guardedOutputReply === undefined || automaticRun === undefined
+      ? guardedOutputReply
+      : (...args: Parameters<typeof guardedOutputReply>) =>
+          withRunIfAbsent(client, automaticRun, () => guardedOutputReply(...args));
   const boundMethods = new WeakMap<object, unknown>();
 
   return new Proxy(agent, {

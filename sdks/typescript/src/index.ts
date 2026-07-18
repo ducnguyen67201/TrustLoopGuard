@@ -239,6 +239,7 @@ export type {
 export { GuardMode, guard, guardAgent } from './guard.js';
 export type {
   GuardAgentOptions,
+  GuardAgentRunOptions,
   GuardCallbacks,
   GuardOptions,
   GuardFactoryOptions,

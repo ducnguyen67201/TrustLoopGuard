@@ -153,6 +153,19 @@ export interface ActiveRun {
   finish(status?: Extract<RunStatus, 'completed' | 'failed' | 'canceled'>): Promise<void>;
 }
 
+/**
+ * Internal helper for high-level decorators that need a Run without forcing
+ * callers to manage one. Existing scopes win so nested helpers keep one Run.
+ */
+export async function withRunIfAbsent<T>(
+  client: Client,
+  opts: WithRunOptions,
+  fn: () => Promise<T>,
+): Promise<T> {
+  if ((await runContext()).getStore()?.runId) return fn();
+  return client.withRun(opts, async () => fn());
+}
+
 export interface GuardToolCallOptions {
   agentId: string;
   operation: string;
