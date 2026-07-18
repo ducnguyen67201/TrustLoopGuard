@@ -20,21 +20,59 @@ OpenAI Agents JS, or LiveKit at runtime.
 ## Decoration flow
 
 1. `guardAgent()` resolves one TrustLoopGuard `Client`.
-2. The adapter finds a supported local tool registry.
-3. Each tool's name, description, input schema, output schema when present, and
+2. The decorator creates one Run controller. Reply scope creates a
+   `chat_session` Run per `reply()`; session scope lazily creates and reuses
+   one Run for a supplied framework lifecycle.
+3. The adapter finds a supported local tool registry.
+4. Each tool's name, description, input schema, output schema when present, and
    execution function are normalized.
-4. The input schema is canonicalized into a stable non-cryptographic schema
+5. The input schema is canonicalized into a stable non-cryptographic schema
    identity. It is an execution identity, not a security digest.
-5. The tool's `execute()` is replaced with a wrapper that submits
+6. The tool's `execute()` is replaced with a wrapper that submits
    `tool.call.proposed` through `Client.withAuthorizedAction()`.
-6. The original execution context arguments are preserved. The proposed input
+7. The original execution context arguments are preserved. The proposed input
    is replaced with the exact parameters authorized by the Rust service.
-7. The original tool executes at most once after `permit` or a successfully
+8. The original tool executes at most once after `permit` or a successfully
    resumed approval. Deny, defer, failed approval, cancellation, and transport
    failure do not execute it.
 
 If the agent exposes `reply(message, ...)`, the same decorator also preserves
-the existing output-boundary behavior for `output.proposed`.
+the existing output-boundary behavior for `output.proposed`. It records the raw
+message as an unguarded `user_turn`, records the proposed reply as an
+`assistant_turn`, and links the output decision trace to that assistant turn.
+Tool and output events emitted by the reply inherit the automatic Run ID. Run,
+turn-event, and completion failures do not replace the guard result or the
+agent's own error. Input observation never creates an authorization decision;
+local tools/actions and proposed output remain the enforcement boundaries.
+
+## Session lifecycle adapters
+
+Session scope is explicit because a framework agent object can be shared by
+unrelated users. It requires a stable external session ID and a
+`registerEnd` callback. `agentId` is never used as a session key. An
+explicit `client.withRun(...)` scope still takes precedence for its async
+boundary.
+
+`liveKitRun(session, options)` supplies that contract for LiveKit Agents for
+Node.js without importing the framework package. It structurally subscribes to
+the AgentSession `close` event, defaults the Run kind to `live_call`, and
+maps close reasons as follows:
+
+| LiveKit close evidence | Run status |
+|---|---|
+| `error` reason or a non-null error | `failed` |
+| `job_shutdown` | `canceled` |
+| participant disconnect, user initiation, task completion | `completed` |
+| unknown reason | `failed` when an error exists; otherwise `completed` |
+
+The first guarded output or local tool starts the Run. This supports tool-only
+LiveKit agents that do not expose `reply()`. Concurrent first boundaries
+share one create request, session close sends one terminal update, and closing
+before any guarded activity creates no empty Run.
+
+Other framework adapters may return the same session option shape only when
+they can supply a deterministic end registration. Agent object lifetime,
+garbage collection, and process exit are not valid lifecycle hooks.
 
 ## Metadata registration
 

@@ -71,9 +71,11 @@ The helper and every downstream call site stay unchanged.
 This integration automatically guards local tools exposed by OpenAI Agents JS,
 LiveKit, Mastra, and compatible registries. It cannot intercept provider-hosted
 tools, hidden closures, or remote execution surfaces without a local
-`execute()` function. The output event does not contain the raw user message by
-default. Use the explicit typed helpers below for unsupported boundaries,
-explicit provenance, and financial actions.
+`execute()` function. Automatic Runs record raw input and proposed output as
+`user_turn` and `assistant_turn` transcript events by default. The input event
+is not submitted for a policy decision; authorization remains at local tool,
+action, and proposed-output boundaries. Use the explicit typed helpers below
+for unsupported boundaries, explicit provenance, and financial actions.
 
 ## Canonical response
 

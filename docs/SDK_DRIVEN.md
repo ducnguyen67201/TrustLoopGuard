@@ -31,8 +31,28 @@ from `getToolsForExecution()`. The original tool runs at most once and only
 after `permit` or a successfully resumed approval.
 
 When `reply(message, ...)` exists, the TypeScript decorator also guards its
-returned string. The output event contains the returned draft under
-`action.parameters.text`; it does not include the raw user message by default.
+returned string. With automatic Runs enabled, it records the raw message as a
+`user_turn` and the proposed reply as an `assistant_turn`. Creating the user
+turn is observability only and never submits the input for an authorization
+decision. The output event contains the returned draft under
+`action.parameters.text` and links its decision trace to the assistant turn.
+When the caller has not opened an explicit Run, the decorator automatically
+creates one `chat_session` Run per reply, stores the configured agent ID, links
+the tool/output traces emitted during that reply, and completes or fails the
+Run. Existing `client.withRun(...)` scopes are reused. Automatic Run and turn
+bookkeeping is best-effort and can be disabled with `run: false` without
+disabling enforcement.
+
+Long-lived frameworks can make that automatic Run session-scoped without
+wrapping every turn. The caller supplies a stable external session ID and a
+deterministic end registration; the first guarded boundary lazily starts one
+Run, tool/output traces reuse it, and the framework end callback supplies the
+terminal status. The dependency-free liveKitRun helper binds this contract to
+the LiveKit AgentSession close event and defaults the Run kind to live_call.
+agentId remains the registered agent identity and is never treated as a
+customer-session identifier. Explicit client.withRun scopes still take
+precedence for the active async boundary.
+
 Provider-hosted tools, hidden closures, and remote execution surfaces that do
 not expose a local `execute()` remain explicit integration boundaries.
 

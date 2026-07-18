@@ -1,7 +1,7 @@
 import { normalizeLiveKitTool } from './adapters/livekit.js';
 import { normalizeMastraTool } from './adapters/mastra.js';
 import { normalizeOpenAiAgentsTool } from './adapters/openai-agents.js';
-import type { Client } from './client.js';
+import type { AutomaticRunController, Client } from './client.js';
 import type { AuthorizationDecision } from './generated/AuthorizationDecision.js';
 import type { GuardEvent } from './generated/GuardEvent.js';
 import type { SideEffectClass } from './generated/SideEffectClass.js';
@@ -96,6 +96,7 @@ export interface DecorateAgentToolsOptions {
   client: Client;
   context?: Exclude<GuardEvent['context'], null>;
   tools?: GuardToolDiscoveryOptions;
+  automaticRun?: AutomaticRunController;
 }
 
 export class GuardedToolBlocked extends Error {
@@ -312,36 +313,40 @@ function decorateCandidate(tool: ToolAdapterCandidate, opts: DecorateAgentToolsO
   };
 
   const wrapped: ToolExecute = async (...args) => {
-    await ensureRegistered();
-    const parameters = parametersFromArgs(info.framework, args);
-    const toolIdentity: ToolIdentity = {
-      server_id: info.framework,
-      tool_name: info.name,
-      schema_hash: toolSchemaHash(info.inputSchema),
+    const invoke = async (): Promise<ToolRuntimeValue> => {
+      await ensureRegistered();
+      const parameters = parametersFromArgs(info.framework, args);
+      const toolIdentity: ToolIdentity = {
+        server_id: info.framework,
+        tool_name: info.name,
+        schema_hash: toolSchemaHash(info.inputSchema),
+      };
+      const sideEffect = metadataOverride?.side_effect;
+      const result = await opts.client.withAuthorizedAction<ToolRuntimeValue>(
+        {
+          agentId: opts.agentId,
+          operation: info.name,
+          parameters,
+          toolIdentity,
+          context: opts.context ?? null,
+          ...(sideEffect !== undefined ? { sideEffect } : {}),
+        },
+        async (approved) => {
+          const approvedArgs = argsWithApprovedParameters(
+            info.framework,
+            args,
+            approved as Readonly<Record<string, ToolRuntimeValue>>,
+          );
+          return await Reflect.apply(tool.execute, tool.owner, approvedArgs);
+        },
+      );
+      if (!result.executed) {
+        throw new GuardedToolBlocked(info, result.decision);
+      }
+      return result.value;
     };
-    const sideEffect = metadataOverride?.side_effect;
-    const result = await opts.client.withAuthorizedAction<ToolRuntimeValue>(
-      {
-        agentId: opts.agentId,
-        operation: info.name,
-        parameters,
-        toolIdentity,
-        context: opts.context ?? null,
-        ...(sideEffect !== undefined ? { sideEffect } : {}),
-      },
-      async (approved) => {
-        const approvedArgs = argsWithApprovedParameters(
-          info.framework,
-          args,
-          approved as Readonly<Record<string, ToolRuntimeValue>>,
-        );
-        return await Reflect.apply(tool.execute, tool.owner, approvedArgs);
-      },
-    );
-    if (!result.executed) {
-      throw new GuardedToolBlocked(info, result.decision);
-    }
-    return result.value;
+
+    return opts.automaticRun === undefined ? invoke() : opts.automaticRun.run(invoke);
   };
 
   if (installExecute(tool, wrapped, opts)) {

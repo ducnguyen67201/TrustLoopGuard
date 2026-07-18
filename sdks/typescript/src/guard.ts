@@ -32,7 +32,15 @@
 //   rewrite               -> use transformed output, deny when none exists
 //   rewrite_or_regenerate -> use transformed output, otherwise regenerate and check again
 
-import { Client, type ClientOptions } from './client.js';
+import {
+  Client,
+  createAutomaticRunController,
+  type AutomaticRunController,
+  type AutomaticRunTerminalStatus,
+  type AutomaticRunWarning,
+  type ClientOptions,
+  type WithRunOptions,
+} from './client.js';
 import type { Channel } from './generated/Channel.js';
 import type { CreateRunEventRequest } from './generated/CreateRunEventRequest.js';
 import type { AuthorizationDecision as Decision } from './generated/AuthorizationDecision.js';
@@ -245,7 +253,53 @@ export interface GuardFactoryOptions {
 export interface GuardAgentOptions extends GuardFactoryOptions {
   /** Automatic discovery and guarding for supported local tool registries. */
   tools?: GuardToolDiscoveryOptions;
+
+  /**
+   * Automatic Run grouping. Defaults to one chat_session Run per reply.
+   * Supply a session lifecycle to reuse one Run, or false for ungrouped traces.
+   */
+  run?: false | GuardAgentRunOptions;
 }
+
+export type GuardAgentRunWarning = AutomaticRunWarning;
+
+export interface GuardAgentReplyRunOptions {
+  /** Reply-scoped Runs are the safe fallback when no framework session exists. */
+  scope?: 'reply';
+
+  /** Run kind for each guarded reply. Defaults to `chat_session`. */
+  kind?: WithRunOptions['kind'];
+
+  /** Additive metadata stored on each automatically created Run. */
+  metadata?: WithRunOptions['metadata'];
+
+  /** Best-effort notification when automatic Run persistence fails. */
+  onLifecycleWarning?: (warning: GuardAgentRunWarning) => void;
+}
+
+export interface GuardAgentSessionRunOptions {
+  /** Keep one automatic Run for the registered framework session lifecycle. */
+  scope: 'session';
+
+  /** Stable upstream session correlation id, resolved lazily on first activity. */
+  externalId: string | (() => string | Promise<string>);
+
+  /** Register the framework's deterministic end boundary. */
+  registerEnd: (
+    finish: (status: AutomaticRunTerminalStatus) => Promise<void>,
+  ) => void | (() => void);
+
+  /** Run kind for the session. Defaults to chat_session. */
+  kind?: WithRunOptions['kind'];
+
+  /** Additive metadata stored on the session Run. */
+  metadata?: WithRunOptions['metadata'];
+
+  /** Best-effort notification when automatic Run persistence fails. */
+  onLifecycleWarning?: (warning: GuardAgentRunWarning) => void;
+}
+
+export type GuardAgentRunOptions = GuardAgentReplyRunOptions | GuardAgentSessionRunOptions;
 
 export interface GuardCallOptions {
   /** What the user said. */
@@ -352,25 +406,62 @@ export function guard(opts: GuardFactoryOptions | GuardOptions): OutputGuard | P
  * Decorate an agent object at its output and local-tool boundaries.
  *
  * The returned object keeps the agent's public interface. When `reply()` is
- * present, its final string passes through TrustLoopGuard before it reaches the
- * caller. Supported local tool registries are discovered and their `execute()`
- * methods are authorized before side effects run.
+ * present, its input and proposed output are recorded as Run events, and the
+ * final string passes through TrustLoopGuard before it reaches the caller.
+ * Input observation never creates an authorization decision. Supported local
+ * tool registries are discovered and their `execute()` methods are authorized
+ * before side effects run.
  */
 export function guardAgent<Agent extends object>(agent: Agent, opts: GuardAgentOptions): Agent {
   const client = opts.client ?? new Client(clientOptions(opts));
+  let automaticRun: AutomaticRunController | undefined;
+  let toolAutomaticRun: AutomaticRunController | undefined;
+  if (opts.run !== false) {
+    const metadata = { ...(opts.run?.metadata ?? {}), integration: 'guardAgent' };
+    if (opts.run?.scope === 'session') {
+      automaticRun = createAutomaticRunController(client, {
+        agentId: opts.agentId,
+        scope: 'session',
+        kind: opts.run.kind ?? 'chat_session',
+        metadata,
+        externalId: opts.run.externalId,
+        registerEnd: opts.run.registerEnd,
+        ...(opts.run.onLifecycleWarning === undefined
+          ? {}
+          : { onLifecycleWarning: opts.run.onLifecycleWarning }),
+      });
+      toolAutomaticRun = automaticRun;
+    } else {
+      automaticRun = createAutomaticRunController(client, {
+        agentId: opts.agentId,
+        scope: 'reply',
+        kind: opts.run?.kind ?? 'chat_session',
+        metadata,
+        ...(opts.run?.onLifecycleWarning === undefined
+          ? {}
+          : { onLifecycleWarning: opts.run.onLifecycleWarning }),
+      });
+    }
+  }
   const toolOptions = {
     agentId: opts.agentId,
     client,
     ...(opts.context !== undefined ? { context: opts.context } : {}),
     ...(opts.tools !== undefined ? { tools: opts.tools } : {}),
+    ...(toolAutomaticRun === undefined ? {} : { automaticRun: toolAutomaticRun }),
   };
   decorateAgentTools(agent, toolOptions);
 
   const reply = Reflect.get(agent, 'reply', agent);
+  const outputGuard = createOutputGuard({ ...opts, client });
+  const guardedOutputReply =
+    typeof reply === 'function' ? outputGuard.wrap(reply.bind(agent)) : undefined;
   const guardedReply =
-    typeof reply === 'function'
-      ? createOutputGuard({ ...opts, client }).wrap(reply.bind(agent))
-      : undefined;
+    typeof reply !== 'function'
+      ? undefined
+      : automaticRun === undefined
+        ? guardedOutputReply
+        : wrapObservedAgentReply(reply.bind(agent), outputGuard, opts, automaticRun);
   const boundMethods = new WeakMap<object, unknown>();
 
   return new Proxy(agent, {
@@ -391,6 +482,45 @@ export function guardAgent<Agent extends object>(agent: Agent, opts: GuardAgentO
       return Reflect.set(target, property, value, target);
     },
   });
+}
+
+function wrapObservedAgentReply<Args extends unknown[]>(
+  reply: (...args: Args) => string | Promise<string>,
+  outputGuard: OutputGuard,
+  opts: GuardFactoryOptions,
+  automaticRun: AutomaticRunController,
+): (...args: Args) => Promise<string> {
+  return async (...args: Args): Promise<string> =>
+    automaticRun.run(async () => {
+      const input = args[0];
+      if (typeof input !== 'string') {
+        throw new TypeError(
+          'guardAgent() reply input must be a string; use guard().wrap() with an input selector ' +
+            'for structured arguments',
+        );
+      }
+
+      await automaticRun.withEvent(
+        { kind: 'user_turn', input_summary: input },
+        async () => undefined,
+      );
+
+      const draft = await reply(...args);
+      if (typeof draft !== 'string') {
+        throw new TypeError('guardAgent() reply method must return a string');
+      }
+
+      return await automaticRun.withEvent(
+        { kind: 'assistant_turn', output_summary: draft },
+        async () => {
+          const call: GuardCallOptions = { input, draft };
+          if (opts.failClosed === undefined && opts.onError === undefined) {
+            call.onError = DEFAULT_BLOCK_MESSAGE;
+          }
+          return await outputGuard(call);
+        },
+      );
+    });
 }
 
 async function guardOnce(opts: GuardOptions): Promise<string> {

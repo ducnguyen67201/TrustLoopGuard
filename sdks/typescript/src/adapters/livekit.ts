@@ -1,4 +1,57 @@
 import type { ToolAdapterCandidate, ToolRuntimeValue } from '../tool-discovery.js';
+import type { GuardAgentSessionRunOptions, GuardAgentRunWarning } from '../guard.js';
+
+export interface LiveKitCloseEventLike {
+  reason?: string;
+  error?: object | null;
+}
+
+export type LiveKitCloseListener = (event: LiveKitCloseEventLike) => void | Promise<void>;
+
+export interface LiveKitAgentSessionLike {
+  on(event: 'close', listener: LiveKitCloseListener): object | void;
+  off?(event: 'close', listener: LiveKitCloseListener): object | void;
+}
+
+export interface LiveKitRunOptions {
+  externalId: GuardAgentSessionRunOptions['externalId'];
+  kind?: GuardAgentSessionRunOptions['kind'];
+  metadata?: GuardAgentSessionRunOptions['metadata'];
+  onLifecycleWarning?: (warning: GuardAgentRunWarning) => void;
+}
+
+/**
+ * Bind one automatic TrustLoopGuard Run to a LiveKit AgentSession lifecycle
+ * without adding a runtime dependency on the LiveKit package.
+ */
+export function liveKitRun(
+  session: LiveKitAgentSessionLike,
+  opts: LiveKitRunOptions,
+): GuardAgentSessionRunOptions {
+  return {
+    scope: 'session',
+    externalId: opts.externalId,
+    kind: opts.kind ?? 'live_call',
+    ...(opts.metadata === undefined ? {} : { metadata: opts.metadata }),
+    ...(opts.onLifecycleWarning === undefined
+      ? {}
+      : { onLifecycleWarning: opts.onLifecycleWarning }),
+    registerEnd(finish) {
+      const listener: LiveKitCloseListener = (event) => finish(liveKitRunStatus(event));
+      session.on('close', listener);
+      if (typeof session.off !== 'function') return;
+      return () => {
+        session.off?.('close', listener);
+      };
+    },
+  };
+}
+
+function liveKitRunStatus(event: LiveKitCloseEventLike): 'completed' | 'failed' | 'canceled' {
+  if (event.reason === 'error' || event.error != null) return 'failed';
+  if (event.reason === 'job_shutdown') return 'canceled';
+  return 'completed';
+}
 
 export function normalizeLiveKitTool(
   owner: object,

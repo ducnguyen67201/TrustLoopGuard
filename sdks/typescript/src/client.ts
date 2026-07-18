@@ -93,6 +93,7 @@ interface ActiveRunContext {
 }
 
 interface RunContextStore {
+  isolated: boolean;
   getStore(): ActiveRunContext | undefined;
   run<T>(store: ActiveRunContext, callback: () => Promise<T>): Promise<T>;
 }
@@ -100,6 +101,7 @@ interface RunContextStore {
 function browserRunContext(): RunContextStore {
   let current: ActiveRunContext | undefined;
   return {
+    isolated: false,
     getStore: () => current,
     async run(store, callback) {
       const previous = current;
@@ -123,9 +125,14 @@ async function runContext(): Promise<RunContextStore> {
       try {
         const asyncHooks = 'node:async_hooks';
         const mod = (await import(asyncHooks)) as {
-          AsyncLocalStorage: new () => RunContextStore;
+          AsyncLocalStorage: new () => Omit<RunContextStore, 'isolated'>;
         };
-        return new mod.AsyncLocalStorage();
+        const storage = new mod.AsyncLocalStorage();
+        return {
+          isolated: true,
+          getStore: () => storage.getStore(),
+          run: (store, callback) => storage.run(store, callback),
+        };
       } catch {
         // Browser/edge bundles can still execute the fallback.
       }
@@ -151,6 +158,322 @@ export interface ActiveRun {
     fn: () => Promise<T>,
   ): Promise<T>;
   finish(status?: Extract<RunStatus, 'completed' | 'failed' | 'canceled'>): Promise<void>;
+}
+
+export type AutomaticRunTerminalStatus = Extract<RunStatus, 'completed' | 'failed' | 'canceled'>;
+
+export interface AutomaticRunWarning {
+  code: 'run_start_failed' | 'run_event_create_failed' | 'run_finish_failed';
+  phase: 'start' | 'event' | 'finish';
+  error: SdkError;
+}
+
+export interface AutomaticRunController {
+  run<T>(fn: () => Promise<T>): Promise<T>;
+  withEvent<T>(
+    req: Omit<CreateRunEventRequest, 'metadata'> & { metadata?: Record<string, unknown> },
+    fn: () => Promise<T>,
+  ): Promise<T>;
+}
+
+export interface AutomaticRunOptions {
+  agentId: string;
+  scope: 'reply' | 'session';
+  kind: RunKind;
+  metadata: NonNullable<WithRunOptions['metadata']>;
+  externalId?: string | (() => string | Promise<string>);
+  registerEnd?: (
+    finish: (status: AutomaticRunTerminalStatus) => Promise<void>,
+  ) => void | (() => void);
+  onLifecycleWarning?: (warning: AutomaticRunWarning) => void;
+}
+
+/**
+ * Build one best-effort Run controller for a high-level agent decorator.
+ * Existing explicit scopes always win. Reply scope is one-shot; session scope
+ * keeps one lazily created Run until the registered framework lifecycle ends.
+ */
+export function createAutomaticRunController(
+  client: Client,
+  opts: AutomaticRunOptions,
+): AutomaticRunController {
+  if (opts.scope === 'reply') {
+    return {
+      run: <T>(fn: () => Promise<T>) => withAutomaticReplyRun(client, opts, fn),
+      withEvent: <T>(
+        req: Omit<CreateRunEventRequest, 'metadata'> & { metadata?: Record<string, unknown> },
+        fn: () => Promise<T>,
+      ) => withAutomaticRunEvent(client, opts, req, fn),
+    };
+  }
+  if (opts.externalId === undefined || opts.registerEnd === undefined) {
+    throw new TypeError('guardAgent session runs require externalId and registerEnd');
+  }
+  return new SessionAutomaticRunController(client, opts);
+}
+
+async function withAutomaticReplyRun<T>(
+  client: Client,
+  opts: AutomaticRunOptions,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const context = await runContext();
+  // Raw turn capture must never use the shared browser fallback context: two
+  // overlapping promises could otherwise attach one customer's text to
+  // another Run. Guard enforcement still proceeds without automatic grouping.
+  if (!context.isolated) return fn();
+  if (context.getStore()?.runId) return fn();
+
+  let summary: RunSummary;
+  try {
+    summary = await startAutomaticRun(client, opts);
+  } catch (error) {
+    if (error instanceof SdkError) {
+      notifyAutomaticRunWarning(opts, 'start', error);
+      return fn();
+    }
+    throw error;
+  }
+
+  return withRunId(summary.id, async () => {
+    try {
+      const result = await fn();
+      try {
+        await client.finishRun(summary.id, 'completed');
+      } catch (error) {
+        if (error instanceof SdkError) {
+          notifyAutomaticRunWarning(opts, 'finish', error);
+        } else {
+          throw error;
+        }
+      }
+      return result;
+    } catch (error) {
+      try {
+        await client.finishRun(summary.id, 'failed');
+      } catch (finishError) {
+        if (finishError instanceof SdkError) {
+          notifyAutomaticRunWarning(opts, 'finish', finishError);
+        }
+        // Preserve the guarded operation's error.
+      }
+      throw error;
+    }
+  });
+}
+
+class SessionAutomaticRunController implements AutomaticRunController {
+  private startPromise: Promise<RunSummary> | undefined;
+  private startFailed = false;
+  private terminalStatus: AutomaticRunTerminalStatus | undefined;
+  private finishPromise: Promise<void> | undefined;
+  private unsubscribe: (() => void) | undefined;
+  private activeBoundaries = 0;
+  private idlePromise: Promise<void> | undefined;
+  private resolveIdle: (() => void) | undefined;
+
+  constructor(
+    private readonly client: Client,
+    private readonly opts: AutomaticRunOptions,
+  ) {
+    const registerEnd = opts.registerEnd;
+    if (registerEnd === undefined) {
+      throw new TypeError('guardAgent session runs require registerEnd');
+    }
+    const unsubscribe = registerEnd((status) => this.finish(status));
+    if (typeof unsubscribe === 'function') this.unsubscribe = unsubscribe;
+    if (this.terminalStatus !== undefined) this.detachLifecycle();
+  }
+
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    const context = await runContext();
+    if (!context.isolated) return fn();
+    if (context.getStore()?.runId || this.terminalStatus !== undefined) return fn();
+
+    this.beginBoundary();
+    try {
+      let summary: RunSummary;
+      try {
+        summary = await this.ensureRun();
+      } catch (error) {
+        if (error instanceof SdkError) return await fn();
+        throw error;
+      }
+      return await withRunId(summary.id, fn);
+    } finally {
+      this.endBoundary();
+    }
+  }
+
+  async withEvent<T>(
+    req: Omit<CreateRunEventRequest, 'metadata'> & { metadata?: Record<string, unknown> },
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    return await withAutomaticRunEvent(this.client, this.opts, req, fn);
+  }
+
+  private ensureRun(): Promise<RunSummary> {
+    this.startPromise ??= startAutomaticRun(this.client, this.opts).catch((error) => {
+      if (error instanceof SdkError) {
+        this.startFailed = true;
+        notifyAutomaticRunWarning(this.opts, 'start', error);
+      }
+      throw error;
+    });
+    return this.startPromise;
+  }
+
+  private async finish(status: AutomaticRunTerminalStatus): Promise<void> {
+    if (this.terminalStatus !== undefined) {
+      return this.finishPromise ?? Promise.resolve();
+    }
+    this.terminalStatus = status;
+    this.detachLifecycle();
+
+    const startPromise = this.startPromise;
+    if (startPromise === undefined) return;
+
+    this.finishPromise = this.finishStartedRun(startPromise, status);
+    return this.finishPromise;
+  }
+
+  private async finishStartedRun(
+    startPromise: Promise<RunSummary>,
+    status: AutomaticRunTerminalStatus,
+  ): Promise<void> {
+    let summary: RunSummary;
+    try {
+      summary = await startPromise;
+    } catch (error) {
+      if (error instanceof SdkError) return;
+      throw error;
+    }
+
+    await this.waitForBoundaries();
+    try {
+      await this.client.finishRun(summary.id, status);
+    } catch (error) {
+      if (error instanceof SdkError) {
+        notifyAutomaticRunWarning(this.opts, 'finish', error);
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private beginBoundary(): void {
+    if (this.activeBoundaries === 0) {
+      this.idlePromise = new Promise<void>((resolve) => {
+        this.resolveIdle = resolve;
+      });
+    }
+    this.activeBoundaries += 1;
+  }
+
+  private endBoundary(): void {
+    this.activeBoundaries -= 1;
+    if (this.activeBoundaries !== 0) return;
+
+    this.resolveIdle?.();
+    this.resolveIdle = undefined;
+    this.idlePromise = undefined;
+    if (this.startFailed && this.terminalStatus === undefined) {
+      this.startPromise = undefined;
+      this.startFailed = false;
+    }
+  }
+
+  private async waitForBoundaries(): Promise<void> {
+    if (this.activeBoundaries > 0 && this.idlePromise !== undefined) {
+      await this.idlePromise;
+    }
+  }
+
+  private detachLifecycle(): void {
+    const unsubscribe = this.unsubscribe;
+    this.unsubscribe = undefined;
+    if (unsubscribe === undefined) return;
+    try {
+      unsubscribe();
+    } catch {
+      // Framework listener cleanup is best-effort observability bookkeeping.
+    }
+  }
+}
+
+async function withAutomaticRunEvent<T>(
+  client: Client,
+  opts: AutomaticRunOptions,
+  req: Omit<CreateRunEventRequest, 'metadata'> & { metadata?: Record<string, unknown> },
+  fn: () => Promise<T>,
+): Promise<T> {
+  const context = await runContext();
+  if (!context.isolated) return await fn();
+  const current = context.getStore();
+  if (current?.runId === undefined || current.runEventId !== undefined) return await fn();
+
+  let event: RunEventSummary;
+  try {
+    event = await client.createRunEvent(current.runId, req);
+  } catch (error) {
+    if (error instanceof SdkError) {
+      notifyAutomaticRunWarning(opts, 'event', error);
+      return await fn();
+    }
+    throw error;
+  }
+
+  return await context.run({ ...current, runEventId: event.id }, fn);
+}
+
+async function startAutomaticRun(client: Client, opts: AutomaticRunOptions): Promise<RunSummary> {
+  const externalId = await resolveAutomaticRunExternalId(opts);
+  return client.startRun({
+    agent_id: opts.agentId,
+    kind: opts.kind,
+    metadata: opts.metadata,
+    ...(externalId === undefined ? {} : { external_id: externalId }),
+  });
+}
+
+async function resolveAutomaticRunExternalId(
+  opts: AutomaticRunOptions,
+): Promise<string | undefined> {
+  if (opts.externalId === undefined) return undefined;
+  const raw = typeof opts.externalId === 'function' ? await opts.externalId() : opts.externalId;
+  const externalId = raw.trim();
+  if (opts.scope === 'session' && externalId.length === 0) {
+    throw new TypeError('guardAgent session run externalId must be a non-empty string');
+  }
+  return externalId.length === 0 ? undefined : externalId;
+}
+
+async function withRunId<T>(runId: string, fn: () => Promise<T>): Promise<T> {
+  const context = await runContext();
+  const nextContext = { ...context.getStore(), runId };
+  delete nextContext.runEventId;
+  return context.run(nextContext, fn);
+}
+
+function notifyAutomaticRunWarning(
+  opts: AutomaticRunOptions,
+  phase: AutomaticRunWarning['phase'],
+  error: SdkError,
+): void {
+  try {
+    opts.onLifecycleWarning?.({
+      code:
+        phase === 'start'
+          ? 'run_start_failed'
+          : phase === 'event'
+            ? 'run_event_create_failed'
+            : 'run_finish_failed',
+      phase,
+      error,
+    });
+  } catch {
+    // An observability warning hook must not replace the guarded result.
+  }
 }
 
 export interface GuardToolCallOptions {
