@@ -19,6 +19,7 @@ import { mockFetch } from './test-utils';
 interface GuardWireEvent {
   principal: {
     agent_id: string;
+    run_id?: string;
   };
   action: {
     parameters: {
@@ -29,6 +30,91 @@ interface GuardWireEvent {
     channel?: string;
     domain?: string;
     docs?: string[];
+  };
+}
+
+interface RunCreateBody {
+  agent_id: string;
+  kind: string;
+  metadata: Record<string, string>;
+}
+
+interface RunUpdateBody {
+  status: string;
+}
+
+type CapturedBody = GuardWireEvent | RunCreateBody | RunUpdateBody;
+
+interface CapturedRequest {
+  url: string;
+  method: string;
+  body: CapturedBody | null;
+}
+
+function runSummary(status = 'running'): Record<string, JsonValue> {
+  return {
+    id: '018f1111-1111-7111-8111-111111111111',
+    workspace_id: 'ws_1',
+    environment_id: 'production',
+    environment: 'production',
+    agent_id: 'support-agent',
+    kind: 'chat_session',
+    status,
+    external_id: null,
+    metadata: {},
+    started_at: '2026-01-01T00:00:00Z',
+    ended_at: status === 'running' ? null : '2026-01-01T00:01:00Z',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:01:00Z',
+    trace_count: 0,
+    blocked_count: 0,
+    rewritten_count: 0,
+    escalated_count: 0,
+    p95_latency_ms: null,
+  };
+}
+
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+function automaticRunClient(): {
+  client: Client;
+  requests: CapturedRequest[];
+} {
+  const requests: CapturedRequest[] = [];
+  const fetchImpl = mockFetch(async (input, init) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    const method = init?.method ?? 'GET';
+    const body = init?.body ? (JSON.parse(String(init.body)) as CapturedBody) : null;
+    requests.push({ url, method, body });
+
+    if (url === 'http://x/v1/runs' && method === 'POST') {
+      return Response.json(runSummary(), { status: 201 });
+    }
+    if (
+      url === 'http://x/v1/runs/018f1111-1111-7111-8111-111111111111' &&
+      method === 'PATCH'
+    ) {
+      const nextStatus = body !== null && 'status' in body ? body.status : 'completed';
+      return Response.json(runSummary(nextStatus));
+    }
+    return Response.json({
+      trace_id: 't-1',
+      effect: 'permit',
+      reason: 'ok',
+      findings: [],
+      transformed_value: null,
+      latency_ms: 1,
+    });
+  });
+  return {
+    client: new Client({ baseUrl: 'http://x', fetchImpl }),
+    requests,
   };
 }
 
@@ -542,6 +628,97 @@ describe('guard()', () => {
 });
 
 describe('guardAgent()', () => {
+  it('creates, links, and completes one run for every reply by default', async () => {
+    const { client, requests } = automaticRunClient();
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return `reply to ${message}`;
+        },
+      },
+      { agentId: 'support-agent', client },
+    );
+
+    const reply = await agent.reply('hello');
+
+    expect(reply).toBe('reply to hello');
+    expect(requests.map(({ url, method }) => `${method} ${url}`)).toEqual([
+      'POST http://x/v1/runs',
+      'POST http://x/v1/events',
+      'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
+    ]);
+    expect(requests[0]?.body).toEqual({
+      agent_id: 'support-agent',
+      kind: 'chat_session',
+      metadata: { integration: 'guardAgent' },
+    });
+    expect((requests[1]?.body as GuardWireEvent).principal.run_id).toBe(
+      '018f1111-1111-7111-8111-111111111111',
+    );
+    expect(requests[2]?.body).toEqual({ status: 'completed' });
+  });
+
+  it('reuses an explicit run instead of creating a nested run', async () => {
+    const { client, requests } = automaticRunClient();
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return `reply to ${message}`;
+        },
+      },
+      { agentId: 'support-agent', client },
+    );
+
+    await client.withRun({ agentId: 'support-agent', kind: 'workflow' }, () =>
+      agent.reply('hello'),
+    );
+
+    expect(
+      requests.filter(({ url, method }) => url === 'http://x/v1/runs' && method === 'POST'),
+    ).toHaveLength(1);
+    const event = requests.find(({ url }) => url === 'http://x/v1/events');
+    expect((event?.body as GuardWireEvent).principal.run_id).toBe(
+      '018f1111-1111-7111-8111-111111111111',
+    );
+  });
+
+  it('allows automatic runs to be disabled without changing reply call sites', async () => {
+    const { client, requests } = automaticRunClient();
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return `reply to ${message}`;
+        },
+      },
+      { agentId: 'support-agent', client, run: false },
+    );
+
+    const reply = await agent.reply('hello');
+
+    expect(reply).toBe('reply to hello');
+    expect(requests.map(({ url }) => url)).toEqual(['http://x/v1/events']);
+  });
+
+  it('marks the automatic run failed and preserves an agent error', async () => {
+    const { client, requests } = automaticRunClient();
+    const agent = guardAgent(
+      {
+        async reply(_message: string): Promise<string> {
+          throw new Error('agent failed');
+        },
+      },
+      { agentId: 'support-agent', client },
+    );
+
+    await expect(agent.reply('hello')).rejects.toThrow('agent failed');
+
+    expect(requests.map(({ url, method }) => `${method} ${url}`)).toEqual([
+      'POST http://x/v1/runs',
+      'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
+    ]);
+    expect(requests[1]?.body).toEqual({ status: 'failed' });
+  });
+
   it('decorates an agent once while preserving its reply call site and other members', async () => {
     const { client, fetchSpy } = clientReturningSequence([{ effect: 'permit', trace_id: 't-1' }]);
 
@@ -564,7 +741,7 @@ describe('guardAgent()', () => {
     }
 
     const original = new SupportAgent();
-    const agent = guardAgent(original, { agentId: 'support-agent', client });
+    const agent = guardAgent(original, { agentId: 'support-agent', client, run: false });
 
     const reply = await agent.reply('hello');
 
@@ -589,7 +766,7 @@ describe('guardAgent()', () => {
           return `unsafe: ${message}`;
         },
       },
-      { agentId: 'support-agent', client },
+      { agentId: 'support-agent', client, run: false },
     );
 
     const reply = await agent.reply('hello');
@@ -605,7 +782,7 @@ describe('guardAgent()', () => {
           return `${locale}: ${message}`;
         },
       },
-      { agentId: 'support-agent', client },
+      { agentId: 'support-agent', client, run: false },
     );
 
     const reply = await agent.reply('hello', 'en');
@@ -623,6 +800,7 @@ describe('guardAgent()', () => {
       {
         agentId: 'support-agent',
         client: failingClient(new Unavailable('upstream')),
+        run: false,
       },
     );
 
