@@ -82,7 +82,7 @@ type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
-function automaticRunClient(): {
+function automaticRunClient(failAt?: 'start' | 'finish'): {
   client: Client;
   requests: CapturedRequest[];
 } {
@@ -94,12 +94,24 @@ function automaticRunClient(): {
     requests.push({ url, method, body });
 
     if (url === 'http://x/v1/runs' && method === 'POST') {
+      if (failAt === 'start') {
+        return Response.json(
+          { code: 'internal', message: 'run start failed', retriable: false },
+          { status: 500 },
+        );
+      }
       return Response.json(runSummary(), { status: 201 });
     }
     if (
       url === 'http://x/v1/runs/018f1111-1111-7111-8111-111111111111' &&
       method === 'PATCH'
     ) {
+      if (failAt === 'finish') {
+        return Response.json(
+          { code: 'internal', message: 'run finish failed', retriable: false },
+          { status: 500 },
+        );
+      }
       const nextStatus = body !== null && 'status' in body ? body.status : 'completed';
       return Response.json(runSummary(nextStatus));
     }
@@ -717,6 +729,47 @@ describe('guardAgent()', () => {
       'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
     ]);
     expect(requests[1]?.body).toEqual({ status: 'failed' });
+  });
+
+  it('keeps guard enforcement available when automatic run creation fails', async () => {
+    const { client, requests } = automaticRunClient('start');
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return `reply to ${message}`;
+        },
+      },
+      { agentId: 'support-agent', client },
+    );
+
+    const reply = await agent.reply('hello');
+
+    expect(reply).toBe('reply to hello');
+    expect(requests.map(({ url }) => url)).toEqual([
+      'http://x/v1/runs',
+      'http://x/v1/events',
+    ]);
+  });
+
+  it('does not hide a guarded reply when automatic run completion fails', async () => {
+    const { client, requests } = automaticRunClient('finish');
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return `reply to ${message}`;
+        },
+      },
+      { agentId: 'support-agent', client },
+    );
+
+    const reply = await agent.reply('hello');
+
+    expect(reply).toBe('reply to hello');
+    expect(requests.map(({ url, method }) => `${method} ${url}`)).toEqual([
+      'POST http://x/v1/runs',
+      'POST http://x/v1/events',
+      'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
+    ]);
   });
 
   it('decorates an agent once while preserving its reply call site and other members', async () => {
