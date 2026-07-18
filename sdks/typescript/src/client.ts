@@ -154,16 +154,52 @@ export interface ActiveRun {
 }
 
 /**
- * Internal helper for high-level decorators that need a Run without forcing
- * callers to manage one. Existing scopes win so nested helpers keep one Run.
+ * Internal helper for high-level decorators that need best-effort Run
+ * observability without forcing callers to manage it. Existing scopes win so
+ * nested helpers keep one Run. Run bookkeeping failures never replace the
+ * guarded operation's result or error.
  */
-export async function withRunIfAbsent<T>(
+export async function withAutomaticRun<T>(
   client: Client,
   opts: WithRunOptions,
   fn: () => Promise<T>,
 ): Promise<T> {
-  if ((await runContext()).getStore()?.runId) return fn();
-  return client.withRun(opts, async () => fn());
+  const context = await runContext();
+  if (context.getStore()?.runId) return fn();
+
+  let summary: RunSummary;
+  try {
+    summary = await client.startRun({
+      agent_id: opts.agentId,
+      kind: opts.kind ?? 'other',
+      metadata: opts.metadata ?? {},
+      ...(opts.externalId ? { external_id: opts.externalId } : {}),
+    });
+  } catch (error) {
+    if (error instanceof SdkError) return fn();
+    throw error;
+  }
+
+  const nextContext = { ...context.getStore(), runId: summary.id };
+  delete nextContext.runEventId;
+  return context.run(nextContext, async () => {
+    try {
+      const result = await fn();
+      try {
+        await client.finishRun(summary.id, 'completed');
+      } catch (error) {
+        if (!(error instanceof SdkError)) throw error;
+      }
+      return result;
+    } catch (error) {
+      try {
+        await client.finishRun(summary.id, 'failed');
+      } catch {
+        // Preserve the guarded operation's error.
+      }
+      throw error;
+    }
+  });
 }
 
 export interface GuardToolCallOptions {

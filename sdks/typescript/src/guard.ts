@@ -34,7 +34,7 @@
 
 import {
   Client,
-  withRunIfAbsent,
+  withAutomaticRun,
   type ClientOptions,
   type WithRunOptions,
 } from './client.js';
@@ -402,7 +402,7 @@ export function guardAgent<Agent extends object>(agent: Agent, opts: GuardAgentO
     guardedOutputReply === undefined || automaticRun === undefined
       ? guardedOutputReply
       : (...args: Parameters<typeof guardedOutputReply>) =>
-          withRunIfAbsent(client, automaticRun, () => guardedOutputReply(...args));
+          withAutomaticRun(client, automaticRun, () => guardedOutputReply(...args));
   const boundMethods = new WeakMap<object, unknown>();
 
   return new Proxy(agent, {
