@@ -21,6 +21,24 @@ test('the hero keeps source inspection as tertiary proof', () => {
   assert.match(hero, /hero-source-link/);
 });
 
+test('the hero states the founder credibility precisely', () => {
+  const hero = readFileSync(new URL('./hero.tsx', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
+
+  assert.match(hero, /former engineer at a company backed by/i);
+  assert.match(hero, /hero-backing-logos/);
+  assert.match(hero, /hero-backing-chip hero-backing-chip-yc/);
+  assert.match(hero, /hero-backing-chip hero-backing-chip-a16z/);
+  assert.match(hero, /src="\/yc-logo\.svg"/);
+  assert.match(hero, /alt="Y Combinator"/);
+  assert.match(hero, /aria-label="a16z"/);
+  assert.match(styles, /\.hero-backing-chip\s*\{[^}]*border:/s);
+  assert.doesNotMatch(styles, /\.hero-backing-logos\s*\{[^}]*border:/s);
+  assert.doesNotMatch(hero, /hero-backing-logo-plus/);
+  assert.doesNotMatch(hero, /hero-founder-proof/);
+  assert.doesNotMatch(hero, /former (YC|a16z) engineer/i);
+});
+
 test('the homepage keeps the acquisition viewport free of the back-to-top control', () => {
   const page = readFileSync(new URL('../app/page.tsx', import.meta.url), 'utf8');
 

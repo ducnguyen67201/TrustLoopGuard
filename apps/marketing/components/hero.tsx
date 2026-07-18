@@ -49,6 +49,21 @@ export function Hero() {
             Your runtime gets <strong>permit, deny, transform, require approval, or defer</strong>—
             plus a receipt showing why.
           </p>
+          <p className="hero-backing-proof">
+            <span>Built by a former engineer at a company backed by</span>
+            <span className="hero-backing-logos">
+              <span className="hero-backing-chip hero-backing-chip-yc">
+                <img src="/yc-logo.svg" alt="Y Combinator" width="24" height="24" />
+              </span>
+              <span
+                className="hero-backing-chip hero-backing-chip-a16z"
+                role="img"
+                aria-label="a16z"
+              >
+                <span aria-hidden="true">a16z</span>
+              </span>
+            </span>
+          </p>
           <div className="hero-actions">
             <MarketingEventLink
               href="/demo"
