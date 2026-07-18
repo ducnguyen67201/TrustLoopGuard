@@ -72,8 +72,10 @@ sites stay unchanged. The decorator:
   stable schema identity;
 - creates one `chat_session` Run for each `reply()` when no Run is already
   active, or reuses one session Run when a framework lifecycle is configured;
+- records the input as a `user_turn` Run event without evaluating it;
 - links every guarded tool and output trace in that boundary to the Run;
 - delegates to the original `reply()` method;
+- records the proposed reply as an `assistant_turn` Run event;
 - submits the final returned string to `POST /v1/events`;
 - completes the automatic Run, or marks it failed when the agent throws;
 - returns the original or safely transformed reply on success;
@@ -121,8 +123,8 @@ integration.
 1. Your application calls `agent.reply(message)`.
 2. The SDK starts a `chat_session` Run for the configured `agentId` unless the
    call is already inside `client.withRun(...)`.
-3. The original agent generates a draft string.
-4. The SDK sends an authenticated `POST /v1/events` request directly to the
+3. The SDK records a `user_turn` event, then the original agent generates a draft string.
+4. The SDK records an `assistant_turn` event and sends an authenticated `POST /v1/events` request directly to the
    TrustLoopGuard Rust API.
 5. The server evaluates the draft and persists a trace linked to the Run.
 6. The SDK completes the Run and returns the permitted draft, a transformed reply, or a safe
@@ -133,6 +135,11 @@ or the agent's own error. Pass `run: false` to keep these traces ungrouped, or
 pass `run: { kind: 'workflow' }` to change the automatic Run kind. Explicit
 `client.withRun(...)` scopes remain available for multi-turn sessions and are
 reused rather than nested.
+
+Automatic Run and transcript scoping uses the isolated async context available
+in the SDK's supported Node.js runtime. If an unsupported browser/edge runtime
+cannot provide that isolation, tool/output guards still run but automatic Run
+and transcript capture are skipped to prevent cross-session data leakage.
 
 ### Keep one Run for a LiveKit session
 
@@ -220,10 +227,14 @@ Content-Type: application/json
 The SDK also adds source and provenance metadata, while the server resolves
 workspace and environment scope from the runtime key.
 
-The raw user message is used locally to call the agent and support optional
-regeneration, but this output wrapper does not include the raw message text in
-the event by default. Local executable tools exposed through a supported
-registry are guarded separately before execution.
+With automatic Runs enabled, the raw user message and proposed assistant reply
+are stored by default as `user_turn.input_summary` and
+`assistant_turn.output_summary`. The user turn is transcript observability only:
+it is not sent to the authorization endpoint and receives no policy decision.
+The proposed assistant output and local executable tools remain guarded through
+`POST /v1/events` before output delivery or tool execution. Pass `run: false`
+to disable automatic Run and transcript persistence without disabling those
+guards.
 
 | Server effect | What `reply()` returns |
 | --- | --- |

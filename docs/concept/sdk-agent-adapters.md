@@ -37,9 +37,13 @@ OpenAI Agents JS, or LiveKit at runtime.
    failure do not execute it.
 
 If the agent exposes `reply(message, ...)`, the same decorator also preserves
-the existing output-boundary behavior for `output.proposed`. Tool and output
-events emitted by that reply inherit the automatic Run ID. Run creation and
-completion failures do not replace the guard result or the agent's own error.
+the existing output-boundary behavior for `output.proposed`. It records the raw
+message as an unguarded `user_turn`, records the proposed reply as an
+`assistant_turn`, and links the output decision trace to that assistant turn.
+Tool and output events emitted by the reply inherit the automatic Run ID. Run,
+turn-event, and completion failures do not replace the guard result or the
+agent's own error. Input observation never creates an authorization decision;
+local tools/actions and proposed output remain the enforcement boundaries.
 
 ## Session lifecycle adapters
 

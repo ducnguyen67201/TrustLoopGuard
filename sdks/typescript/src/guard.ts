@@ -406,9 +406,11 @@ export function guard(opts: GuardFactoryOptions | GuardOptions): OutputGuard | P
  * Decorate an agent object at its output and local-tool boundaries.
  *
  * The returned object keeps the agent's public interface. When `reply()` is
- * present, its final string passes through TrustLoopGuard before it reaches the
- * caller. Supported local tool registries are discovered and their `execute()`
- * methods are authorized before side effects run.
+ * present, its input and proposed output are recorded as Run events, and the
+ * final string passes through TrustLoopGuard before it reaches the caller.
+ * Input observation never creates an authorization decision. Supported local
+ * tool registries are discovered and their `execute()` methods are authorized
+ * before side effects run.
  */
 export function guardAgent<Agent extends object>(agent: Agent, opts: GuardAgentOptions): Agent {
   const client = opts.client ?? new Client(clientOptions(opts));
@@ -451,15 +453,15 @@ export function guardAgent<Agent extends object>(agent: Agent, opts: GuardAgentO
   decorateAgentTools(agent, toolOptions);
 
   const reply = Reflect.get(agent, 'reply', agent);
+  const outputGuard = createOutputGuard({ ...opts, client });
   const guardedOutputReply =
-    typeof reply === 'function'
-      ? createOutputGuard({ ...opts, client }).wrap(reply.bind(agent))
-      : undefined;
+    typeof reply === 'function' ? outputGuard.wrap(reply.bind(agent)) : undefined;
   const guardedReply =
-    guardedOutputReply === undefined || automaticRun === undefined
-      ? guardedOutputReply
-      : (...args: Parameters<typeof guardedOutputReply>) =>
-          automaticRun.run(() => guardedOutputReply(...args));
+    typeof reply !== 'function'
+      ? undefined
+      : automaticRun === undefined
+        ? guardedOutputReply
+        : wrapObservedAgentReply(reply.bind(agent), outputGuard, opts, automaticRun);
   const boundMethods = new WeakMap<object, unknown>();
 
   return new Proxy(agent, {
@@ -480,6 +482,45 @@ export function guardAgent<Agent extends object>(agent: Agent, opts: GuardAgentO
       return Reflect.set(target, property, value, target);
     },
   });
+}
+
+function wrapObservedAgentReply<Args extends unknown[]>(
+  reply: (...args: Args) => string | Promise<string>,
+  outputGuard: OutputGuard,
+  opts: GuardFactoryOptions,
+  automaticRun: AutomaticRunController,
+): (...args: Args) => Promise<string> {
+  return async (...args: Args): Promise<string> =>
+    automaticRun.run(async () => {
+      const input = args[0];
+      if (typeof input !== 'string') {
+        throw new TypeError(
+          'guardAgent() reply input must be a string; use guard().wrap() with an input selector ' +
+            'for structured arguments',
+        );
+      }
+
+      await automaticRun.withEvent(
+        { kind: 'user_turn', input_summary: input },
+        async () => undefined,
+      );
+
+      const draft = await reply(...args);
+      if (typeof draft !== 'string') {
+        throw new TypeError('guardAgent() reply method must return a string');
+      }
+
+      return await automaticRun.withEvent(
+        { kind: 'assistant_turn', output_summary: draft },
+        async () => {
+          const call: GuardCallOptions = { input, draft };
+          if (opts.failClosed === undefined && opts.onError === undefined) {
+            call.onError = DEFAULT_BLOCK_MESSAGE;
+          }
+          return await outputGuard(call);
+        },
+      );
+    });
 }
 
 async function guardOnce(opts: GuardOptions): Promise<string> {

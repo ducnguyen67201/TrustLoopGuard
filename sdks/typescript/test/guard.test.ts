@@ -22,6 +22,7 @@ interface GuardWireEvent {
   principal: {
     agent_id: string;
     run_id?: string;
+    run_event_id?: string;
   };
   action: {
     parameters: {
@@ -46,7 +47,14 @@ interface RunUpdateBody {
   status: string;
 }
 
-type CapturedBody = GuardWireEvent | RunCreateBody | RunUpdateBody;
+interface RunEventCreateBody {
+  kind: string;
+  input_summary?: string;
+  output_summary?: string;
+  metadata: Record<string, JsonValue>;
+}
+
+type CapturedBody = GuardWireEvent | RunCreateBody | RunUpdateBody | RunEventCreateBody;
 
 interface CapturedRequest {
   url: string;
@@ -123,11 +131,12 @@ function deferred<Value>(): Deferred<Value> {
   return { promise, resolve: resolvePromise };
 }
 
-function automaticRunClient(failAt?: 'start' | 'finish'): {
+function automaticRunClient(failAt?: 'start' | 'event' | 'finish'): {
   client: Client;
   requests: CapturedRequest[];
 } {
   const requests: CapturedRequest[] = [];
+  let runEventSequence = 0;
   const fetchImpl = mockFetch(async (input, init) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     const method = init?.method ?? 'GET';
@@ -142,6 +151,35 @@ function automaticRunClient(failAt?: 'start' | 'finish'): {
         );
       }
       return Response.json(runSummary(), { status: 201 });
+    }
+    if (
+      url === 'http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events' &&
+      method === 'POST'
+    ) {
+      if (failAt === 'event') {
+        return Response.json(
+          { code: 'internal', message: 'run event failed', retriable: false },
+          { status: 500 },
+        );
+      }
+      runEventSequence += 1;
+      const event = body as RunEventCreateBody;
+      return Response.json(
+        {
+          id: `018f2222-2222-7222-8222-${String(runEventSequence).padStart(12, '0')}`,
+          workspace_id: 'ws_1',
+          run_id: '018f1111-1111-7111-8111-111111111111',
+          sequence: runEventSequence,
+          kind: event.kind,
+          label: null,
+          input_summary: event.input_summary ?? null,
+          output_summary: event.output_summary ?? null,
+          metadata: event.metadata,
+          occurred_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+        },
+        { status: 201 },
+      );
     }
     if (url === 'http://x/v1/runs/018f1111-1111-7111-8111-111111111111' && method === 'PATCH') {
       if (failAt === 'finish') {
@@ -678,7 +716,7 @@ describe('guard()', () => {
 });
 
 describe('guardAgent()', () => {
-  it('creates, links, and completes one run for every reply by default', async () => {
+  it('observes both turns, guards only the output, and completes one run per reply', async () => {
     const { client, requests } = automaticRunClient();
     const agent = guardAgent(
       {
@@ -695,9 +733,13 @@ describe('guardAgent()', () => {
     expect([first, second]).toEqual(['reply to hello', 'reply to again']);
     expect(requests.map(({ url, method }) => `${method} ${url}`)).toEqual([
       'POST http://x/v1/runs',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
       'POST http://x/v1/events',
       'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
       'POST http://x/v1/runs',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
       'POST http://x/v1/events',
       'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
     ]);
@@ -706,15 +748,31 @@ describe('guardAgent()', () => {
       kind: 'chat_session',
       metadata: { integration: 'guardAgent' },
     });
-    expect(requests[3]?.body).toEqual(requests[0]?.body);
-    expect((requests[1]?.body as GuardWireEvent).principal.run_id).toBe(
+    expect(requests[5]?.body).toEqual(requests[0]?.body);
+    expect(requests[1]?.body).toEqual({
+      kind: 'user_turn',
+      input_summary: 'hello',
+      metadata: {},
+    });
+    expect(requests[2]?.body).toEqual({
+      kind: 'assistant_turn',
+      output_summary: 'reply to hello',
+      metadata: {},
+    });
+    expect((requests[3]?.body as GuardWireEvent).principal.run_id).toBe(
       '018f1111-1111-7111-8111-111111111111',
     );
-    expect((requests[4]?.body as GuardWireEvent).principal.run_id).toBe(
+    expect((requests[3]?.body as GuardWireEvent).principal.run_event_id).toBe(
+      '018f2222-2222-7222-8222-000000000002',
+    );
+    expect((requests[8]?.body as GuardWireEvent).principal.run_id).toBe(
       '018f1111-1111-7111-8111-111111111111',
     );
-    expect(requests[2]?.body).toEqual({ status: 'completed' });
-    expect(requests[5]?.body).toEqual({ status: 'completed' });
+    expect((requests[8]?.body as GuardWireEvent).principal.run_event_id).toBe(
+      '018f2222-2222-7222-8222-000000000004',
+    );
+    expect(requests[4]?.body).toEqual({ status: 'completed' });
+    expect(requests[9]?.body).toEqual({ status: 'completed' });
   });
 
   it('keeps one run open across a LiveKit session and reuses it for every reply', async () => {
@@ -743,7 +801,11 @@ describe('guardAgent()', () => {
 
     expect(requests.map(({ url, method }) => method + ' ' + url)).toEqual([
       'POST http://x/v1/runs',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
       'POST http://x/v1/events',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
       'POST http://x/v1/events',
     ]);
     expect(requests[0]?.body).toEqual({
@@ -758,6 +820,19 @@ describe('guardAgent()', () => {
     expect(events.map(({ principal }) => principal.run_id)).toEqual([
       '018f1111-1111-7111-8111-111111111111',
       '018f1111-1111-7111-8111-111111111111',
+    ]);
+    const turns = requests
+      .filter(({ url }) => url.endsWith('/runs/018f1111-1111-7111-8111-111111111111/events'))
+      .map(({ body }) => body as RunEventCreateBody);
+    expect(turns).toEqual([
+      { kind: 'user_turn', input_summary: 'first secret message', metadata: {} },
+      {
+        kind: 'assistant_turn',
+        output_summary: 'reply to first secret message',
+        metadata: {},
+      },
+      { kind: 'user_turn', input_summary: 'second', metadata: {} },
+      { kind: 'assistant_turn', output_summary: 'reply to second', metadata: {} },
     ]);
     expect(JSON.stringify(requests[0]?.body)).not.toContain('first secret message');
     expect(session.listenerCount()).toBe(1);
@@ -775,6 +850,7 @@ describe('guardAgent()', () => {
     const requests: CapturedRequest[] = [];
     const startSeen = deferred<void>();
     const startResponse = deferred<Response>();
+    let runEventSequence = 0;
     const fetchImpl = mockFetch(async (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
       const method = init?.method ?? 'GET';
@@ -784,6 +860,26 @@ describe('guardAgent()', () => {
       if (url === 'http://x/v1/runs' && method === 'POST') {
         startSeen.resolve(undefined);
         return await startResponse.promise;
+      }
+      if (url.endsWith('/runs/018f1111-1111-7111-8111-111111111111/events')) {
+        runEventSequence += 1;
+        const event = body as RunEventCreateBody;
+        return Response.json(
+          {
+            id: `018f3333-3333-7333-8333-${String(runEventSequence).padStart(12, '0')}`,
+            workspace_id: 'ws_1',
+            run_id: '018f1111-1111-7111-8111-111111111111',
+            sequence: runEventSequence,
+            kind: event.kind,
+            label: null,
+            input_summary: event.input_summary ?? null,
+            output_summary: event.output_summary ?? null,
+            metadata: event.metadata,
+            occurred_at: '2026-01-01T00:00:00Z',
+            created_at: '2026-01-01T00:00:00Z',
+          },
+          { status: 201 },
+        );
       }
       if (method === 'PATCH') return Response.json(runSummary('completed'));
       return Response.json({
@@ -832,8 +928,17 @@ describe('guardAgent()', () => {
     expect(
       requests
         .filter(({ url }) => url === 'http://x/v1/events')
-        .map(({ body }) => (body as GuardWireEvent).principal.run_id),
-    ).toEqual(['018f1111-1111-7111-8111-111111111111', '018f1111-1111-7111-8111-111111111111']);
+        .map(({ body }) => (body as GuardWireEvent).principal),
+    ).toEqual([
+      expect.objectContaining({
+        run_id: '018f1111-1111-7111-8111-111111111111',
+        run_event_id: '018f3333-3333-7333-8333-000000000003',
+      }),
+      expect.objectContaining({
+        run_id: '018f1111-1111-7111-8111-111111111111',
+        run_event_id: '018f3333-3333-7333-8333-000000000004',
+      }),
+    ]);
   });
 
   it('does not create a run when the session ends before guarded activity', async () => {
@@ -995,7 +1100,12 @@ describe('guardAgent()', () => {
     );
 
     await expect(agent.reply('hello')).rejects.toThrow('agent failed');
-    expect(requests.map(({ method }) => method)).toEqual(['POST']);
+    expect(requests.map(({ method }) => method)).toEqual(['POST', 'POST']);
+    expect(requests[1]?.body).toEqual({
+      kind: 'user_turn',
+      input_summary: 'hello',
+      metadata: {},
+    });
 
     await session.close({ reason: 'task_completed' });
     expect(requests.at(-1)?.body).toEqual({ status: 'completed' });
@@ -1022,6 +1132,38 @@ describe('guardAgent()', () => {
     const event = requests.find(({ url }) => url === 'http://x/v1/events');
     expect((event?.body as GuardWireEvent).principal.run_id).toBe(
       '018f1111-1111-7111-8111-111111111111',
+    );
+  });
+
+  it('reuses an explicit run event instead of creating duplicate turn events', async () => {
+    const { client, requests } = automaticRunClient();
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return `reply to ${message}`;
+        },
+      },
+      { agentId: 'support-agent', client },
+    );
+
+    await client.withRun({ agentId: 'support-agent', kind: 'workflow' }, (run) =>
+      run.withEvent({ kind: 'workflow_step', input_summary: 'hello' }, () =>
+        agent.reply('hello'),
+      ),
+    );
+
+    const runEvents = requests.filter(({ url }) =>
+      url.endsWith('/runs/018f1111-1111-7111-8111-111111111111/events'),
+    );
+    expect(runEvents).toHaveLength(1);
+    expect(runEvents[0]?.body).toEqual({
+      kind: 'workflow_step',
+      input_summary: 'hello',
+      metadata: {},
+    });
+    const guardEvent = requests.find(({ url }) => url === 'http://x/v1/events');
+    expect((guardEvent?.body as GuardWireEvent).principal.run_event_id).toBe(
+      '018f2222-2222-7222-8222-000000000001',
     );
   });
 
@@ -1088,9 +1230,10 @@ describe('guardAgent()', () => {
 
     expect(requests.map(({ url, method }) => `${method} ${url}`)).toEqual([
       'POST http://x/v1/runs',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
       'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
     ]);
-    expect(requests[1]?.body).toEqual({ status: 'failed' });
+    expect(requests[2]?.body).toEqual({ status: 'failed' });
   });
 
   it('keeps guard enforcement available when automatic run creation fails', async () => {
@@ -1117,6 +1260,42 @@ describe('guardAgent()', () => {
     expect(warnings[0]).toMatchObject({ code: 'run_start_failed', phase: 'start' });
   });
 
+  it('keeps output authorization available when turn observation fails', async () => {
+    const { client, requests } = automaticRunClient('event');
+    const warnings: GuardAgentRunWarning[] = [];
+    const agent = guardAgent(
+      {
+        async reply(message: string): Promise<string> {
+          return `reply to ${message}`;
+        },
+      },
+      {
+        agentId: 'support-agent',
+        client,
+        run: { onLifecycleWarning: (warning) => warnings.push(warning) },
+      },
+    );
+
+    await expect(agent.reply('hello')).resolves.toBe('reply to hello');
+
+    expect(requests.map(({ url, method }) => `${method} ${url}`)).toEqual([
+      'POST http://x/v1/runs',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
+      'POST http://x/v1/events',
+      'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
+    ]);
+    expect((requests[3]?.body as GuardWireEvent).principal.run_id).toBe(
+      '018f1111-1111-7111-8111-111111111111',
+    );
+    expect((requests[3]?.body as GuardWireEvent).principal.run_event_id).toBeUndefined();
+    expect(warnings).toHaveLength(2);
+    expect(warnings).toEqual([
+      expect.objectContaining({ code: 'run_event_create_failed', phase: 'event' }),
+      expect.objectContaining({ code: 'run_event_create_failed', phase: 'event' }),
+    ]);
+  });
+
   it('does not hide a guarded reply when automatic run completion fails', async () => {
     const { client, requests } = automaticRunClient('finish');
     const warnings: GuardAgentRunWarning[] = [];
@@ -1138,6 +1317,8 @@ describe('guardAgent()', () => {
     expect(reply).toBe('reply to hello');
     expect(requests.map(({ url, method }) => `${method} ${url}`)).toEqual([
       'POST http://x/v1/runs',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
       'POST http://x/v1/events',
       'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
     ]);

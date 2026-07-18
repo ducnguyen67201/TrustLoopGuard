@@ -93,6 +93,7 @@ interface ActiveRunContext {
 }
 
 interface RunContextStore {
+  isolated: boolean;
   getStore(): ActiveRunContext | undefined;
   run<T>(store: ActiveRunContext, callback: () => Promise<T>): Promise<T>;
 }
@@ -100,6 +101,7 @@ interface RunContextStore {
 function browserRunContext(): RunContextStore {
   let current: ActiveRunContext | undefined;
   return {
+    isolated: false,
     getStore: () => current,
     async run(store, callback) {
       const previous = current;
@@ -123,9 +125,14 @@ async function runContext(): Promise<RunContextStore> {
       try {
         const asyncHooks = 'node:async_hooks';
         const mod = (await import(asyncHooks)) as {
-          AsyncLocalStorage: new () => RunContextStore;
+          AsyncLocalStorage: new () => Omit<RunContextStore, 'isolated'>;
         };
-        return new mod.AsyncLocalStorage();
+        const storage = new mod.AsyncLocalStorage();
+        return {
+          isolated: true,
+          getStore: () => storage.getStore(),
+          run: (store, callback) => storage.run(store, callback),
+        };
       } catch {
         // Browser/edge bundles can still execute the fallback.
       }
@@ -156,13 +163,17 @@ export interface ActiveRun {
 export type AutomaticRunTerminalStatus = Extract<RunStatus, 'completed' | 'failed' | 'canceled'>;
 
 export interface AutomaticRunWarning {
-  code: 'run_start_failed' | 'run_finish_failed';
-  phase: 'start' | 'finish';
+  code: 'run_start_failed' | 'run_event_create_failed' | 'run_finish_failed';
+  phase: 'start' | 'event' | 'finish';
   error: SdkError;
 }
 
 export interface AutomaticRunController {
   run<T>(fn: () => Promise<T>): Promise<T>;
+  withEvent<T>(
+    req: Omit<CreateRunEventRequest, 'metadata'> & { metadata?: Record<string, unknown> },
+    fn: () => Promise<T>,
+  ): Promise<T>;
 }
 
 export interface AutomaticRunOptions {
@@ -189,6 +200,10 @@ export function createAutomaticRunController(
   if (opts.scope === 'reply') {
     return {
       run: <T>(fn: () => Promise<T>) => withAutomaticReplyRun(client, opts, fn),
+      withEvent: <T>(
+        req: Omit<CreateRunEventRequest, 'metadata'> & { metadata?: Record<string, unknown> },
+        fn: () => Promise<T>,
+      ) => withAutomaticRunEvent(client, opts, req, fn),
     };
   }
   if (opts.externalId === undefined || opts.registerEnd === undefined) {
@@ -203,6 +218,10 @@ async function withAutomaticReplyRun<T>(
   fn: () => Promise<T>,
 ): Promise<T> {
   const context = await runContext();
+  // Raw turn capture must never use the shared browser fallback context: two
+  // overlapping promises could otherwise attach one customer's text to
+  // another Run. Guard enforcement still proceeds without automatic grouping.
+  if (!context.isolated) return fn();
   if (context.getStore()?.runId) return fn();
 
   let summary: RunSummary;
@@ -268,6 +287,7 @@ class SessionAutomaticRunController implements AutomaticRunController {
 
   async run<T>(fn: () => Promise<T>): Promise<T> {
     const context = await runContext();
+    if (!context.isolated) return fn();
     if (context.getStore()?.runId || this.terminalStatus !== undefined) return fn();
 
     this.beginBoundary();
@@ -283,6 +303,13 @@ class SessionAutomaticRunController implements AutomaticRunController {
     } finally {
       this.endBoundary();
     }
+  }
+
+  async withEvent<T>(
+    req: Omit<CreateRunEventRequest, 'metadata'> & { metadata?: Record<string, unknown> },
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    return await withAutomaticRunEvent(this.client, this.opts, req, fn);
   }
 
   private ensureRun(): Promise<RunSummary> {
@@ -374,6 +401,31 @@ class SessionAutomaticRunController implements AutomaticRunController {
   }
 }
 
+async function withAutomaticRunEvent<T>(
+  client: Client,
+  opts: AutomaticRunOptions,
+  req: Omit<CreateRunEventRequest, 'metadata'> & { metadata?: Record<string, unknown> },
+  fn: () => Promise<T>,
+): Promise<T> {
+  const context = await runContext();
+  if (!context.isolated) return await fn();
+  const current = context.getStore();
+  if (current?.runId === undefined || current.runEventId !== undefined) return await fn();
+
+  let event: RunEventSummary;
+  try {
+    event = await client.createRunEvent(current.runId, req);
+  } catch (error) {
+    if (error instanceof SdkError) {
+      notifyAutomaticRunWarning(opts, 'event', error);
+      return await fn();
+    }
+    throw error;
+  }
+
+  return await context.run({ ...current, runEventId: event.id }, fn);
+}
+
 async function startAutomaticRun(client: Client, opts: AutomaticRunOptions): Promise<RunSummary> {
   const externalId = await resolveAutomaticRunExternalId(opts);
   return client.startRun({
@@ -410,7 +462,12 @@ function notifyAutomaticRunWarning(
 ): void {
   try {
     opts.onLifecycleWarning?.({
-      code: phase === 'start' ? 'run_start_failed' : 'run_finish_failed',
+      code:
+        phase === 'start'
+          ? 'run_start_failed'
+          : phase === 'event'
+            ? 'run_event_create_failed'
+            : 'run_finish_failed',
       phase,
       error,
     });

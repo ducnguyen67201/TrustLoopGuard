@@ -31,12 +31,15 @@ from `getToolsForExecution()`. The original tool runs at most once and only
 after `permit` or a successfully resumed approval.
 
 When `reply(message, ...)` exists, the TypeScript decorator also guards its
-returned string. The output event contains the returned draft under
-`action.parameters.text`; it does not include the raw user message by default.
+returned string. With automatic Runs enabled, it records the raw message as a
+`user_turn` and the proposed reply as an `assistant_turn`. Creating the user
+turn is observability only and never submits the input for an authorization
+decision. The output event contains the returned draft under
+`action.parameters.text` and links its decision trace to the assistant turn.
 When the caller has not opened an explicit Run, the decorator automatically
 creates one `chat_session` Run per reply, stores the configured agent ID, links
 the tool/output traces emitted during that reply, and completes or fails the
-Run. Existing `client.withRun(...)` scopes are reused. Automatic Run
+Run. Existing `client.withRun(...)` scopes are reused. Automatic Run and turn
 bookkeeping is best-effort and can be disabled with `run: false` without
 disabling enforcement.
 
