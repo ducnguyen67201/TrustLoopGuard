@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronRight, Copy, ShieldAlert } from 'lucide-react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +18,7 @@ import {
 import {
   formatUsdNanos,
   parseRunDetailSnapshot,
+  type RunAgentIdentity,
   type RunDetailSnapshot,
 } from '@/lib/run-detail-live';
 import { cn } from '@/lib/utils';
@@ -58,10 +60,12 @@ export function RunDetailLiveView({
   initialData,
   runId,
   workspaceSlug,
+  agentIdentity,
 }: {
   initialData: RunDetailSnapshot;
   runId: string;
   workspaceSlug: string;
+  agentIdentity: RunAgentIdentity;
 }) {
   const [snapshot, setSnapshot] = useState(initialData);
   const [lastSync, setLastSync] = useState<Date>(() => new Date());
@@ -139,7 +143,26 @@ export function RunDetailLiveView({
                 {run.status}
               </Badge>
             </div>
-            <CardDescription className="font-mono text-xs">{run.agent}</CardDescription>
+            <div className="grid gap-1.5">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                <span className="text-xs text-muted-foreground">Registered agent</span>
+                {agentIdentity.displayName && agentIdentity.href ? (
+                  <Link
+                    href={agentIdentity.href}
+                    className="inline-flex min-w-0 items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <span className="truncate">{agentIdentity.displayName}</span>
+                    <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
+                  </Link>
+                ) : (
+                  <span className="font-medium text-muted-foreground">Agent unavailable</span>
+                )}
+              </div>
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="text-xs text-muted-foreground">Agent ID</span>
+                <CopyIdButton id={agentIdentity.id} label="agent" truncate={false} />
+              </div>
+            </div>
           </div>
           <div className="md:justify-self-end">
             <RefreshControls
@@ -700,7 +723,15 @@ function TraceFooter({
 }
 
 /** A one-tap copy for a long technical id, so it is shareable but never noise. */
-function CopyIdButton({ id, label }: { id: string; label: string }) {
+function CopyIdButton({
+  id,
+  label,
+  truncate = true,
+}: {
+  id: string;
+  label: string;
+  truncate?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -730,7 +761,7 @@ function CopyIdButton({ id, label }: { id: string; label: string }) {
       aria-label={copied ? `${label} ID copied` : `Copy full ${label} ID ${id}`}
       className="inline-flex items-center gap-1 rounded-md px-1 py-0.5 font-mono text-muted-foreground/80 transition-colors hover:bg-accent hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
     >
-      <span className="max-w-[12rem] truncate">{id}</span>
+      <span className={cn(truncate ? 'max-w-[12rem] truncate' : 'break-all text-left')}>{id}</span>
       {copied ? (
         <Check className="size-3 text-[color:var(--color-permit)]" aria-hidden />
       ) : (

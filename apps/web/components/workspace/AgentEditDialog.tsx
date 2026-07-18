@@ -1,7 +1,7 @@
 'use client';
 
 import { IconPencil, IconRobot } from '@tabler/icons-react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { toast } from 'sonner';
@@ -94,7 +94,10 @@ function formFromAgent(agent: AgentProfile): typeof EMPTY_FORM {
 }
 
 export function AgentEditDialog({ agentId, agentName }: AgentEditDialogProps) {
+  const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editAgentId = searchParams.get('editAgent');
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -121,6 +124,10 @@ export function AgentEditDialog({ agentId, agentName }: AgentEditDialogProps) {
     (hasPrompt || hasWorkflow);
 
   useEffect(() => {
+    if (editAgentId === agentId) setOpen(true);
+  }, [agentId, editAgentId]);
+
+  useEffect(() => {
     if (!open) return;
     const controller = new AbortController();
     setLoading(true);
@@ -143,11 +150,21 @@ export function AgentEditDialog({ agentId, agentName }: AgentEditDialogProps) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function close() {
-    if (saving) return;
+  function resetAndClose() {
     setOpen(false);
     setForm(EMPTY_FORM);
     setWorkflowRequirements([]);
+    if (editAgentId === agentId) {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.delete('editAgent');
+      const query = nextParams.toString();
+      router.replace(query === '' ? pathname : `${pathname}?${query}`);
+    }
+  }
+
+  function close() {
+    if (saving) return;
+    resetAndClose();
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -180,7 +197,7 @@ export function AgentEditDialog({ agentId, agentName }: AgentEditDialogProps) {
         workflowRequirements,
       });
       toast.success(`Saved "${form.displayName.trim()}"`);
-      setOpen(false);
+      resetAndClose();
       router.refresh();
     } catch (err) {
       toast.error(describeError(err));
