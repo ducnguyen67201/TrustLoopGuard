@@ -70,8 +70,11 @@ sites stay unchanged. The decorator:
   side effect runs;
 - sends the exact tool name, proposed parameters, framework identity, and a
   stable schema identity;
+- creates one `chat_session` Run for each `reply()` when no Run is already
+  active, then links every tool and output trace produced by that reply;
 - delegates to the original `reply()` method;
 - submits the final returned string to `POST /v1/events`;
+- completes the automatic Run, or marks it failed when the agent throws;
 - returns the original or safely transformed reply on success;
 - returns a safe fallback for deny, approval, defer, and SDK failure branches;
 - preserves the rest of the agent's public interface and `reply()` arguments.
@@ -109,18 +112,26 @@ const reply = await agent.reply('Can I receive a refund?');
 sendToUser(reply);
 ```
 
-Open the resulting trace in the TrustLoopGuard dashboard to verify the
+Open the resulting Run and trace in the TrustLoopGuard dashboard to verify the
 integration.
 
 ## What happens on every wrapped call
 
 1. Your application calls `agent.reply(message)`.
-2. The original agent generates a draft string.
-3. The SDK sends an authenticated `POST /v1/events` request directly to the
+2. The SDK starts a `chat_session` Run for the configured `agentId` unless the
+   call is already inside `client.withRun(...)`.
+3. The original agent generates a draft string.
+4. The SDK sends an authenticated `POST /v1/events` request directly to the
    TrustLoopGuard Rust API.
-4. The server evaluates the draft and persists a trace.
-5. The decorator returns the permitted draft, a transformed reply, or a safe
+5. The server evaluates the draft and persists a trace linked to the Run.
+6. The SDK completes the Run and returns the permitted draft, a transformed reply, or a safe
    fallback.
+
+Automatic Run bookkeeping is best-effort and never replaces the guard result
+or the agent's own error. Pass `run: false` to keep these traces ungrouped, or
+pass `run: { kind: 'workflow' }` to change the automatic Run kind. Explicit
+`client.withRun(...)` scopes remain available for multi-turn sessions and are
+reused rather than nested.
 
 The event is equivalent to:
 

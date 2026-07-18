@@ -32,12 +32,7 @@
 //   rewrite               -> use transformed output, deny when none exists
 //   rewrite_or_regenerate -> use transformed output, otherwise regenerate and check again
 
-import {
-  Client,
-  withAutomaticRun,
-  type ClientOptions,
-  type WithRunOptions,
-} from './client.js';
+import { Client, withAutomaticRun, type ClientOptions, type WithRunOptions } from './client.js';
 import type { Channel } from './generated/Channel.js';
 import type { CreateRunEventRequest } from './generated/CreateRunEventRequest.js';
 import type { AuthorizationDecision as Decision } from './generated/AuthorizationDecision.js';

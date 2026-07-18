@@ -20,21 +20,25 @@ OpenAI Agents JS, or LiveKit at runtime.
 ## Decoration flow
 
 1. `guardAgent()` resolves one TrustLoopGuard `Client`.
-2. The adapter finds a supported local tool registry.
-3. Each tool's name, description, input schema, output schema when present, and
+2. For each `reply()`, the decorator reuses the active Run or automatically
+   creates a `chat_session` Run for the configured agent identity.
+3. The adapter finds a supported local tool registry.
+4. Each tool's name, description, input schema, output schema when present, and
    execution function are normalized.
-4. The input schema is canonicalized into a stable non-cryptographic schema
+5. The input schema is canonicalized into a stable non-cryptographic schema
    identity. It is an execution identity, not a security digest.
-5. The tool's `execute()` is replaced with a wrapper that submits
+6. The tool's `execute()` is replaced with a wrapper that submits
    `tool.call.proposed` through `Client.withAuthorizedAction()`.
-6. The original execution context arguments are preserved. The proposed input
+7. The original execution context arguments are preserved. The proposed input
    is replaced with the exact parameters authorized by the Rust service.
-7. The original tool executes at most once after `permit` or a successfully
+8. The original tool executes at most once after `permit` or a successfully
    resumed approval. Deny, defer, failed approval, cancellation, and transport
    failure do not execute it.
 
 If the agent exposes `reply(message, ...)`, the same decorator also preserves
-the existing output-boundary behavior for `output.proposed`.
+the existing output-boundary behavior for `output.proposed`. Tool and output
+events emitted by that reply inherit the automatic Run ID. Run creation and
+completion failures do not replace the guard result or the agent's own error.
 
 ## Metadata registration
 

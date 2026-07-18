@@ -74,13 +74,7 @@ function runSummary(status = 'running'): Record<string, JsonValue> {
   };
 }
 
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 function automaticRunClient(failAt?: 'start' | 'finish'): {
   client: Client;
@@ -102,10 +96,7 @@ function automaticRunClient(failAt?: 'start' | 'finish'): {
       }
       return Response.json(runSummary(), { status: 201 });
     }
-    if (
-      url === 'http://x/v1/runs/018f1111-1111-7111-8111-111111111111' &&
-      method === 'PATCH'
-    ) {
+    if (url === 'http://x/v1/runs/018f1111-1111-7111-8111-111111111111' && method === 'PATCH') {
       if (failAt === 'finish') {
         return Response.json(
           { code: 'internal', message: 'run finish failed', retriable: false },
@@ -745,10 +736,7 @@ describe('guardAgent()', () => {
     const reply = await agent.reply('hello');
 
     expect(reply).toBe('reply to hello');
-    expect(requests.map(({ url }) => url)).toEqual([
-      'http://x/v1/runs',
-      'http://x/v1/events',
-    ]);
+    expect(requests.map(({ url }) => url)).toEqual(['http://x/v1/runs', 'http://x/v1/events']);
   });
 
   it('does not hide a guarded reply when automatic run completion fails', async () => {

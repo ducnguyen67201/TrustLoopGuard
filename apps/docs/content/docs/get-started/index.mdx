@@ -84,16 +84,22 @@ For every call, the original agent produces a draft, the decorator submits that
 draft directly to the Rust API at `POST /v1/events`, and the returned decision
 is applied before `reply()` resolves. The bearer key scopes the request to the
 workspace and environment. The same request creates the trace shown in the
-dashboard.
+dashboard. The decorator also creates and completes one `chat_session` Run for
+the reply, records the configured agent ID on that Run, and links the trace to
+it. An existing explicit Run scope is reused instead of nested.
 
 This boundary intercepts each `reply()` invocation and guards its final
 response. It does not send the raw user message text in the output event by
 default. Internal framework tool calls and payments require a framework adapter
 or the explicit typed action helpers.
 
+Automatic Run bookkeeping is best-effort: a Run storage failure does not
+replace the guard result or the agent's own error. Set `run: false` only when
+you intentionally want ungrouped traces.
+
 ## 5. Verify
 
-Send one test message and open the agent's trace in the dashboard. No repository
+Send one test message and open the agent's Run and trace in the dashboard. No repository
 clone, Doppler setup, local Rust server, or model-provider proxy is required.
 
 See [Guard Modes](/docs/guides/guard-modes) for strict, rewrite, regeneration,

@@ -30,8 +30,19 @@ Workspace -> Environment -> Agent -> Run -> Run event -> Trace / Decision
 If an event references a `run_id`, that run must belong to the same resolved environment as the runtime key or trusted dashboard context. Cross-environment run linkage is rejected so dev traffic cannot be attached to production run history.
 
 Clients can omit `run_id` and `run_event_id`; those traces remain valid and ungrouped.
+The TypeScript `guardAgent(...)` decorator does not omit them by default: each
+`reply()` creates one `chat_session` Run when no Run is already active, and all
+guarded tool/output events inside that reply inherit its ID. `run: false`
+explicitly restores ungrouped traces.
 
 SDKs also expose scoped run helpers so callers do not have to pass ids into every guard call. TypeScript uses `client.withRun(...)` and nested `run.withEvent(...)`; Python uses `with client.run(...)` / `async with client.run(...)`; Rust uses `client.with_run(...)` with an explicit scoped `RunClient`. Inside those scopes, `submitEvent` / `submit_event`, high-level output `guard()` calls, and tool-call helpers attach the active `run_id` and optional `run_event_id` unless the caller already set those fields.
+
+Automatic TypeScript Runs are one-shot reply containers. A caller that owns a
+longer session boundary, such as a LiveKit room or multi-turn customer chat,
+opens one explicit scoped Run around that session; `guardAgent(...)` detects
+and reuses it instead of creating nested Runs. Automatic Run persistence is
+observability bookkeeping: a start/finish storage failure does not replace the
+guard result or the original agent error.
 
 Human review outcomes can be appended to a trace after the decision. Run detail views display the latest linked review outcome for each trace, but review event ownership and analytics are described in [human-review-analytics.md](human-review-analytics.md).
 

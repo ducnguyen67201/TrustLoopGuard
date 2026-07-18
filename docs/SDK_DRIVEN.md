@@ -33,6 +33,12 @@ after `permit` or a successfully resumed approval.
 When `reply(message, ...)` exists, the TypeScript decorator also guards its
 returned string. The output event contains the returned draft under
 `action.parameters.text`; it does not include the raw user message by default.
+When the caller has not opened an explicit Run, the decorator automatically
+creates one `chat_session` Run per reply, stores the configured agent ID, links
+the tool/output traces emitted during that reply, and completes or fails the
+Run. Existing `client.withRun(...)` scopes are reused. Automatic Run
+bookkeeping is best-effort and can be disabled with `run: false` without
+disabling enforcement.
 Provider-hosted tools, hidden closures, and remote execution surfaces that do
 not expose a local `execute()` remain explicit integration boundaries.
 
