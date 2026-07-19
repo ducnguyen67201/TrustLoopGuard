@@ -7094,8 +7094,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "apps_mcp_server_src_handlers_test_event",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "event()"
     },
     {
@@ -8106,8 +8106,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "apps_web_app_auth_auth_screen_authscreen",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "authscreen()"
     },
     {
@@ -8139,8 +8139,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_app_auth_form_feedback",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "form-feedback.tsx"
     },
     {
@@ -8150,8 +8150,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "apps_web_app_auth_form_feedback_formerrorprops",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "formerrorprops"
     },
     {
@@ -8161,8 +8161,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "apps_web_app_auth_form_feedback_formerror",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "formerror()"
     },
     {
@@ -8172,8 +8172,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "apps_web_app_auth_form_feedback_ordivider",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "ordivider()"
     },
     {
@@ -8183,8 +8183,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "apps_web_app_auth_form_feedback_spinnerprops",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "spinnerprops"
     },
     {
@@ -8194,8 +8194,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "apps_web_app_auth_form_feedback_spinner",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "spinner()"
     },
     {
@@ -8205,8 +8205,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_app_auth_signin_credentials_form",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "credentials-form.tsx"
     },
     {
@@ -8216,8 +8216,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "apps_web_app_auth_signin_credentials_form_credentialsformprops",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "credentialsformprops"
     },
     {
@@ -8227,8 +8227,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "apps_web_app_auth_signin_credentials_form_credentialsform",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "credentialsform()"
     },
     {
@@ -8238,8 +8238,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_app_auth_signin_oauth_buttons",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "oauth-buttons.tsx"
     },
     {
@@ -8249,8 +8249,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "apps_web_app_auth_signin_oauth_buttons_oauthbuttonsprops",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "oauthbuttonsprops"
     },
     {
@@ -8260,8 +8260,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "apps_web_app_auth_signin_oauth_buttons_oauthbuttons",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "oauthbuttons()"
     },
     {
@@ -8271,8 +8271,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_app_auth_signin_page",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "page.tsx"
     },
     {
@@ -8282,8 +8282,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "apps_web_app_auth_signin_page_signinpage",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "signinpage()"
     },
     {
@@ -8293,8 +8293,8 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "apps_web_app_auth_signin_page_saferedirect",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "saferedirect()"
     },
     {
@@ -8326,8 +8326,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_app_auth_signup_page",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "page.tsx"
     },
     {
@@ -8337,8 +8337,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "apps_web_app_auth_signup_page_signuppage",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "signuppage()"
     },
     {
@@ -8348,8 +8348,8 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "apps_web_app_auth_signup_page_saferedirect",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "saferedirect()"
     },
     {
@@ -8359,8 +8359,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_app_auth_signup_signup_form",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "signup-form.tsx"
     },
     {
@@ -8370,8 +8370,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "apps_web_app_auth_signup_signup_form_signupformprops",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "signupformprops"
     },
     {
@@ -8381,8 +8381,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "apps_web_app_auth_signup_signup_form_signupform",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "signupform()"
     },
     {
@@ -8392,8 +8392,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_app_account_change_password_card",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "change-password-card.tsx"
     },
     {
@@ -8403,8 +8403,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "apps_web_app_account_change_password_card_changepasswordcardprops",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "changepasswordcardprops"
     },
     {
@@ -12209,8 +12209,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_app_attacks_components_attacks_panel_test",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "attacks-panel.test.tsx"
     },
     {
@@ -12220,8 +12220,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "apps_web_app_attacks_components_attacks_panel_test_mockstate",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "mockstate"
     },
     {
@@ -12231,8 +12231,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "apps_web_app_attacks_components_attacks_panel_test_queued",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "queued"
     },
     {
@@ -12242,8 +12242,8 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "apps_web_app_attacks_components_attacks_panel_test_complete_detail",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "complete_detail"
     },
     {
@@ -12253,8 +12253,8 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "apps_web_app_attacks_components_attacks_panel_test_saved_plan",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "saved_plan"
     },
     {
@@ -12264,8 +12264,8 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "apps_web_app_attacks_components_attacks_panel_test_runtocompletion",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "runtocompletion()"
     },
     {
@@ -13067,8 +13067,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_app_attacks_components_report_share_card_test",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 122,
+      "community_name": "PolicyEditorDialog.tsx",
       "norm_label": "report-share-card.test.tsx"
     },
     {
@@ -13078,8 +13078,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "apps_web_app_attacks_components_report_share_card_test_mockstate",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 122,
+      "community_name": "PolicyEditorDialog.tsx",
       "norm_label": "mockstate"
     },
     {
@@ -13089,8 +13089,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "apps_web_app_attacks_components_report_share_card_test_job",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 122,
+      "community_name": "PolicyEditorDialog.tsx",
       "norm_label": "job"
     },
     {
@@ -13100,8 +13100,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "apps_web_app_attacks_components_report_share_card_test_share",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 122,
+      "community_name": "PolicyEditorDialog.tsx",
       "norm_label": "share"
     },
     {
@@ -13265,8 +13265,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_app_docs_page",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 146,
+      "community_name": "env.ts",
       "norm_label": "page.tsx"
     },
     {
@@ -13276,8 +13276,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "apps_web_app_docs_page_docspage",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 146,
+      "community_name": "env.ts",
       "norm_label": "docspage()"
     },
     {
@@ -13727,8 +13727,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_app_onboarding_layout",
-      "community": 146,
-      "community_name": "posthog.ts",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "layout.tsx"
     },
     {
@@ -13738,8 +13738,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "apps_web_app_onboarding_layout_onboardinglayout",
-      "community": 146,
-      "community_name": "posthog.ts",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "onboardinglayout()"
     },
     {
@@ -14002,8 +14002,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_policyform",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "policyform.tsx"
     },
     {
@@ -14013,8 +14013,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_policyform_agentoption",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "agentoption"
     },
     {
@@ -14024,8 +14024,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_policyform_policyformprops",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "policyformprops"
     },
     {
@@ -14035,8 +14035,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_policyform_policyform",
-      "community": 22,
-      "community_name": "dashboard-data.ts",
+      "community": 469,
+      "community_name": "page.tsx",
       "norm_label": "policyform()"
     },
     {
@@ -14046,8 +14046,8 @@
       "source_location": "L267",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_policyform_submitbutton",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "submitbutton()"
     },
     {
@@ -14057,8 +14057,8 @@
       "source_location": "L283",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_policyform_fieldrenderids",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "fieldrenderids"
     },
     {
@@ -14068,8 +14068,8 @@
       "source_location": "L289",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_policyform_fieldprops",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "fieldprops"
     },
     {
@@ -14079,8 +14079,8 @@
       "source_location": "L299",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_policyform_field",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "field()"
     },
     {
@@ -14090,8 +14090,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_page",
-      "community": 22,
-      "community_name": "dashboard-data.ts",
+      "community": 469,
+      "community_name": "page.tsx",
       "norm_label": "page.tsx"
     },
     {
@@ -14101,8 +14101,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_page_newpolicypage",
-      "community": 22,
-      "community_name": "dashboard-data.ts",
+      "community": 469,
+      "community_name": "page.tsx",
       "norm_label": "newpolicypage()"
     },
     {
@@ -14112,8 +14112,8 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_page_createpolicy",
-      "community": 22,
-      "community_name": "dashboard-data.ts",
+      "community": 469,
+      "community_name": "page.tsx",
       "norm_label": "createpolicy()"
     },
     {
@@ -14123,8 +14123,8 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_page_validatedpolicyform",
-      "community": 22,
-      "community_name": "dashboard-data.ts",
+      "community": 469,
+      "community_name": "page.tsx",
       "norm_label": "validatedpolicyform"
     },
     {
@@ -14134,8 +14134,8 @@
       "source_location": "L113",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_page_policyvalidationresult",
-      "community": 22,
-      "community_name": "dashboard-data.ts",
+      "community": 469,
+      "community_name": "page.tsx",
       "norm_label": "policyvalidationresult"
     },
     {
@@ -14145,8 +14145,8 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_page_validatepolicyform",
-      "community": 22,
-      "community_name": "dashboard-data.ts",
+      "community": 469,
+      "community_name": "page.tsx",
       "norm_label": "validatepolicyform()"
     },
     {
@@ -14156,8 +14156,8 @@
       "source_location": "L167",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_page_createpolicyerrormessage",
-      "community": 22,
-      "community_name": "dashboard-data.ts",
+      "community": 469,
+      "community_name": "page.tsx",
       "norm_label": "createpolicyerrormessage()"
     },
     {
@@ -14167,8 +14167,8 @@
       "source_location": "L179",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_page_yamlpolicy",
-      "community": 22,
-      "community_name": "dashboard-data.ts",
+      "community": 469,
+      "community_name": "page.tsx",
       "norm_label": "yamlpolicy()"
     },
     {
@@ -14178,8 +14178,8 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_page_readoptionalstring",
-      "community": 22,
-      "community_name": "dashboard-data.ts",
+      "community": 469,
+      "community_name": "page.tsx",
       "norm_label": "readoptionalstring()"
     },
     {
@@ -14189,8 +14189,8 @@
       "source_location": "L201",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_page_readsearchstring",
-      "community": 22,
-      "community_name": "dashboard-data.ts",
+      "community": 469,
+      "community_name": "page.tsx",
       "norm_label": "readsearchstring()"
     },
     {
@@ -14200,8 +14200,8 @@
       "source_location": "L207",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_page_initialpolicyvalues",
-      "community": 22,
-      "community_name": "dashboard-data.ts",
+      "community": 469,
+      "community_name": "page.tsx",
       "norm_label": "initialpolicyvalues()"
     },
     {
@@ -14211,8 +14211,8 @@
       "source_location": "L239",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_page_readenumornull",
-      "community": 22,
-      "community_name": "dashboard-data.ts",
+      "community": 469,
+      "community_name": "page.tsx",
       "norm_label": "readenumornull()"
     },
     {
@@ -14222,8 +14222,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_policy_form_state",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "policy-form-state.ts"
     },
     {
@@ -14233,8 +14233,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_policy_form_state_policyfieldname",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "policyfieldname"
     },
     {
@@ -14244,8 +14244,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_policy_form_state_policyformstate",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "policyformstate"
     },
     {
@@ -14255,8 +14255,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "apps_web_app_policies_new_policy_form_state_createpolicyaction",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "createpolicyaction"
     },
     {
@@ -14772,8 +14772,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "apps_web_app_welcome_page_welcomepage",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "welcomepage()"
     },
     {
@@ -15146,8 +15146,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "apps_web_components_applayout_applayoutprops",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "applayoutprops"
     },
     {
@@ -16103,8 +16103,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_policies_policyeditordialog_test",
-      "community": 469,
-      "community_name": "PolicyEditorDialog.test.tsx",
+      "community": 122,
+      "community_name": "PolicyEditorDialog.tsx",
       "norm_label": "policyeditordialog.test.tsx"
     },
     {
@@ -16114,8 +16114,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "apps_web_components_policies_policyeditordialog_test_getpolicy",
-      "community": 469,
-      "community_name": "PolicyEditorDialog.test.tsx",
+      "community": 122,
+      "community_name": "PolicyEditorDialog.tsx",
       "norm_label": "getpolicy"
     },
     {
@@ -16125,8 +16125,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "apps_web_components_policies_policyeditordialog_test_upsertpolicy",
-      "community": 469,
-      "community_name": "PolicyEditorDialog.test.tsx",
+      "community": 122,
+      "community_name": "PolicyEditorDialog.tsx",
       "norm_label": "upsertpolicy"
     },
     {
@@ -16136,8 +16136,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "apps_web_components_policies_policyeditordialog_test_validatepolicy",
-      "community": 469,
-      "community_name": "PolicyEditorDialog.test.tsx",
+      "community": 122,
+      "community_name": "PolicyEditorDialog.tsx",
       "norm_label": "validatepolicy"
     },
     {
@@ -16147,8 +16147,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "apps_web_components_policies_policyeditordialog_test_generatepolicydraft",
-      "community": 469,
-      "community_name": "PolicyEditorDialog.test.tsx",
+      "community": 122,
+      "community_name": "PolicyEditorDialog.tsx",
       "norm_label": "generatepolicydraft"
     },
     {
@@ -16158,8 +16158,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "apps_web_components_policies_policyeditordialog_test_roundtrip_yaml",
-      "community": 469,
-      "community_name": "PolicyEditorDialog.test.tsx",
+      "community": 122,
+      "community_name": "PolicyEditorDialog.tsx",
       "norm_label": "roundtrip_yaml"
     },
     {
@@ -16169,8 +16169,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "apps_web_components_policies_policyeditordialog_test_non_roundtrip_yaml",
-      "community": 469,
-      "community_name": "PolicyEditorDialog.test.tsx",
+      "community": 122,
+      "community_name": "PolicyEditorDialog.tsx",
       "norm_label": "non_roundtrip_yaml"
     },
     {
@@ -16180,8 +16180,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "apps_web_components_policies_policyeditordialog_test_makedocument",
-      "community": 469,
-      "community_name": "PolicyEditorDialog.test.tsx",
+      "community": 122,
+      "community_name": "PolicyEditorDialog.tsx",
       "norm_label": "makedocument()"
     },
     {
@@ -16378,8 +16378,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_policies_policyyamldiffeditor",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "policyyamldiffeditor.tsx"
     },
     {
@@ -16389,8 +16389,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "apps_web_components_policies_policyyamldiffeditor_monacodiffeditor",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "monacodiffeditor"
     },
     {
@@ -16400,8 +16400,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "apps_web_components_policies_policyyamldiffeditor_props",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "props"
     },
     {
@@ -16411,8 +16411,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "apps_web_components_policies_policyyamldiffeditor_relativetime",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "relativetime()"
     },
     {
@@ -16422,8 +16422,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "apps_web_components_policies_policyyamldiffeditor_policyyamldiffeditor",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "policyyamldiffeditor()"
     },
     {
@@ -16444,8 +16444,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "apps_web_components_policies_versionpicker_versionentry",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "versionentry"
     },
     {
@@ -16489,7 +16489,7 @@
       "_origin": "ast",
       "id": "apps_web_components_posthog_identity",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": "posthog-identity.tsx"
     },
     {
@@ -16500,7 +16500,7 @@
       "_origin": "ast",
       "id": "apps_web_components_posthog_identity_posthogidentity",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": "posthogidentity()"
     },
     {
@@ -16510,8 +16510,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_posthog_sign_out_button",
-      "community": 146,
-      "community_name": "posthog.ts",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "posthog-sign-out-button.tsx"
     },
     {
@@ -16521,8 +16521,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "apps_web_components_posthog_sign_out_button_posthogsignoutbutton",
-      "community": 146,
-      "community_name": "posthog.ts",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "posthogsignoutbutton()"
     },
     {
@@ -16939,8 +16939,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_ui_authorization_effect_legend",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "authorization-effect-legend.tsx"
     },
     {
@@ -16950,8 +16950,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "apps_web_components_ui_authorization_effect_legend_effects",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "effects"
     },
     {
@@ -16961,8 +16961,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "apps_web_components_ui_authorization_effect_legend_authorizationeffect",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "authorizationeffect"
     },
     {
@@ -16972,8 +16972,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "apps_web_components_ui_authorization_effect_legend_authorizationeffectlegendprops",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "authorizationeffectlegendprops"
     },
     {
@@ -16983,8 +16983,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "apps_web_components_ui_authorization_effect_legend_badge_variant",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "badge_variant"
     },
     {
@@ -16994,8 +16994,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "apps_web_components_ui_authorization_effect_legend_authorizationeffectlegend",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "authorizationeffectlegend()"
     },
     {
@@ -17214,8 +17214,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_ui_button",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "button.tsx"
     },
     {
@@ -17225,8 +17225,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "apps_web_components_ui_button_buttonvariants",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "buttonvariants"
     },
     {
@@ -17236,8 +17236,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "apps_web_components_ui_button_button",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "button()"
     },
     {
@@ -17500,8 +17500,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_ui_data_table_test",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "data-table.test.tsx"
     },
     {
@@ -17511,8 +17511,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "apps_web_components_ui_data_table_test_row",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "row"
     },
     {
@@ -17522,8 +17522,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "apps_web_components_ui_data_table_test_columns",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "columns"
     },
     {
@@ -17533,8 +17533,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "apps_web_components_ui_data_table_test_rows",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "rows"
     },
     {
@@ -17896,8 +17896,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_ui_info_hint",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "info-hint.tsx"
     },
     {
@@ -17907,8 +17907,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "apps_web_components_ui_info_hint_infohintprops",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "infohintprops"
     },
     {
@@ -17929,8 +17929,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_ui_input",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "input.tsx"
     },
     {
@@ -17940,8 +17940,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "apps_web_components_ui_input_input",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "input()"
     },
     {
@@ -17951,8 +17951,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_ui_label",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "label.tsx"
     },
     {
@@ -17962,8 +17962,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "apps_web_components_ui_label_label",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "label()"
     },
     {
@@ -17992,7 +17992,7 @@
       "label": "PageHeader()",
       "file_type": "code",
       "source_file": "apps/web/components/ui/page-header.tsx",
-      "source_location": "L23",
+      "source_location": "L25",
       "_origin": "ast",
       "id": "apps_web_components_ui_page_header_pageheader",
       "community": 3,
@@ -18006,8 +18006,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_ui_password_input",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "password-input.tsx"
     },
     {
@@ -18017,8 +18017,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "apps_web_components_ui_password_input_passwordinputprops",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "passwordinputprops"
     },
     {
@@ -18028,8 +18028,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "apps_web_components_ui_password_input_passwordinput",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "passwordinput()"
     },
     {
@@ -18369,8 +18369,8 @@
       "source_location": "L256",
       "_origin": "ast",
       "id": "apps_web_components_ui_sidebar_sidebartrigger",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "sidebartrigger()"
     },
     {
@@ -18611,8 +18611,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_ui_skeleton",
-      "community": 3,
-      "community_name": "cn",
+      "community": 56,
+      "community_name": "AnalyticsChartGrid.tsx",
       "norm_label": "skeleton.tsx"
     },
     {
@@ -18622,8 +18622,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "apps_web_components_ui_skeleton_skeleton",
-      "community": 3,
-      "community_name": "cn",
+      "community": 56,
+      "community_name": "AnalyticsChartGrid.tsx",
       "norm_label": "skeleton()"
     },
     {
@@ -18842,8 +18842,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_ui_textarea",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "textarea.tsx"
     },
     {
@@ -18853,8 +18853,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "apps_web_components_ui_textarea_textarea",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "textarea()"
     },
     {
@@ -18864,8 +18864,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_ui_tooltip",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "tooltip.tsx"
     },
     {
@@ -18875,8 +18875,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "apps_web_components_ui_tooltip_tooltipprovider",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "tooltipprovider()"
     },
     {
@@ -18886,8 +18886,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "apps_web_components_ui_tooltip_tooltip",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "tooltip()"
     },
     {
@@ -18897,8 +18897,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "apps_web_components_ui_tooltip_tooltiptrigger",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "tooltiptrigger()"
     },
     {
@@ -18908,8 +18908,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "apps_web_components_ui_tooltip_tooltipcontent",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "tooltipcontent()"
     },
     {
@@ -18963,8 +18963,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_workspace_agenteditdialog_test",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "agenteditdialog.test.tsx"
     },
     {
@@ -18974,8 +18974,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "apps_web_components_workspace_agenteditdialog_test_mocks",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "mocks"
     },
     {
@@ -18985,8 +18985,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "apps_web_components_workspace_agenteditdialog_test_agent",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "agent"
     },
     {
@@ -18996,8 +18996,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_workspace_agenteditdialog",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "agenteditdialog.tsx"
     },
     {
@@ -19007,8 +19007,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "apps_web_components_workspace_agenteditdialog_agenteditdialogprops",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "agenteditdialogprops"
     },
     {
@@ -19018,8 +19018,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "apps_web_components_workspace_agenteditdialog_workflowparse",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "workflowparse"
     },
     {
@@ -19029,8 +19029,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "apps_web_components_workspace_agenteditdialog_empty_form",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "empty_form"
     },
     {
@@ -19040,8 +19040,8 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "apps_web_components_workspace_agenteditdialog_parseworkflow",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "parseworkflow()"
     },
     {
@@ -19051,8 +19051,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "apps_web_components_workspace_agenteditdialog_listtotext",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "listtotext()"
     },
     {
@@ -19062,8 +19062,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "apps_web_components_workspace_agenteditdialog_texttolist",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "texttolist()"
     },
     {
@@ -19073,8 +19073,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "apps_web_components_workspace_agenteditdialog_formfromagent",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "formfromagent()"
     },
     {
@@ -19084,8 +19084,8 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "apps_web_components_workspace_agenteditdialog_agenteditdialog",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "agenteditdialog()"
     },
     {
@@ -19095,8 +19095,8 @@
       "source_location": "L392",
       "_origin": "ast",
       "id": "apps_web_components_workspace_agenteditdialog_describeerror",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "describeerror()"
     },
     {
@@ -19216,8 +19216,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "apps_web_components_workspace_approvalcheckermodecontrol_approvalcheckermodecontrol",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "approvalcheckermodecontrol()"
     },
     {
@@ -19425,8 +19425,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_workspace_authorizationgrantscontent_test",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "authorizationgrantscontent.test.tsx"
     },
     {
@@ -19436,8 +19436,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "apps_web_components_workspace_authorizationgrantscontent_test_refresh",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "refresh"
     },
     {
@@ -19447,8 +19447,8 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "apps_web_components_workspace_authorizationgrantscontent_test_grant",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "grant()"
     },
     {
@@ -19458,8 +19458,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_workspace_authorizationgrantscontent",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "authorizationgrantscontent.tsx"
     },
     {
@@ -19469,8 +19469,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "apps_web_components_workspace_authorizationgrantscontent_props",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "props"
     },
     {
@@ -19480,8 +19480,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "apps_web_components_workspace_authorizationgrantscontent_revokedgrantschema",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "revokedgrantschema"
     },
     {
@@ -19491,8 +19491,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "apps_web_components_workspace_authorizationgrantscontent_commongrantfields",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "commongrantfields"
     },
     {
@@ -19502,8 +19502,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "apps_web_components_workspace_authorizationgrantscontent_grantformschema",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "grantformschema"
     },
     {
@@ -19513,8 +19513,8 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "apps_web_components_workspace_authorizationgrantscontent_jsonobjectschema",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "jsonobjectschema"
     },
     {
@@ -19524,8 +19524,8 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "apps_web_components_workspace_authorizationgrantscontent_grantform",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "grantform"
     },
     {
@@ -19535,8 +19535,8 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "apps_web_components_workspace_authorizationgrantscontent_initial_tool_form",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "initial_tool_form"
     },
     {
@@ -19546,8 +19546,8 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "apps_web_components_workspace_authorizationgrantscontent_authorizationgrantscontent",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "authorizationgrantscontent()"
     },
     {
@@ -19557,8 +19557,8 @@
       "source_location": "L487",
       "_origin": "ast",
       "id": "apps_web_components_workspace_authorizationgrantscontent_field",
-      "community": 122,
-      "community_name": "PolicyEditorDialog.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "field()"
     },
     {
@@ -19580,7 +19580,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_authorizationreceiptcontent_authorizationreceiptcontent",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "authorizationreceiptcontent()"
     },
     {
@@ -19755,8 +19755,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "apps_web_components_workspace_createapikeydialog_createapikeydialog",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 122,
+      "community_name": "PolicyEditorDialog.tsx",
       "norm_label": "createapikeydialog()"
     },
     {
@@ -19877,7 +19877,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialactionscontent",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "financialactionscontent.tsx"
     },
     {
@@ -19888,7 +19888,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialactionscontent_financialactionscontentprops",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "financialactionscontentprops"
     },
     {
@@ -19899,7 +19899,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialactionscontent_financialactionscontent",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "financialactionscontent()"
     },
     {
@@ -19910,7 +19910,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialactionscontent_reasoncell",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "reasoncell()"
     },
     {
@@ -19921,7 +19921,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialactionscontent_actionreason",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "actionreason()"
     },
     {
@@ -19932,7 +19932,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialactionscontent_stringmetadata",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "stringmetadata()"
     },
     {
@@ -19943,7 +19943,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialactionscontent_cleanreason",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "cleanreason()"
     },
     {
@@ -19954,7 +19954,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialactionscontent_statereasoncontext",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "statereasoncontext()"
     },
     {
@@ -19965,7 +19965,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialactionscontent_focusedactionmessage",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "focusedactionmessage()"
     },
     {
@@ -19976,7 +19976,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialactionscontent_summarytile",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "summarytile()"
     },
     {
@@ -20031,7 +20031,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialreceiptcontent",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "financialreceiptcontent.tsx"
     },
     {
@@ -20042,7 +20042,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialreceiptcontent_financialreceiptcontentprops",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "financialreceiptcontentprops"
     },
     {
@@ -20053,7 +20053,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialreceiptcontent_financialreceiptcontent",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "financialreceiptcontent()"
     },
     {
@@ -20064,7 +20064,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialreceiptcontent_fact",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "fact()"
     },
     {
@@ -20075,7 +20075,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialreceiptcontent_isrecord",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "isrecord()"
     },
     {
@@ -20086,7 +20086,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financialreceiptcontent_stringvalue",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "stringvalue()"
     },
     {
@@ -20625,7 +20625,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_gatewaypagecontent_query",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "query()"
     },
     {
@@ -20778,8 +20778,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "apps_web_components_workspace_knowledgesourcecreatedialog_knowledgesourcecreatedialog",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "knowledgesourcecreatedialog()"
     },
     {
@@ -20899,8 +20899,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "managementpages.tsx"
     },
     {
@@ -20910,8 +20910,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_workspacespagecontent",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "workspacespagecontent()"
     },
     {
@@ -20921,8 +20921,8 @@
       "source_location": "L179",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_agentspagecontent",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "agentspagecontent()"
     },
     {
@@ -20932,8 +20932,8 @@
       "source_location": "L280",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_runspagecontent",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "runspagecontent()"
     },
     {
@@ -20943,8 +20943,8 @@
       "source_location": "L293",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_analyticspagecontent",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "analyticspagecontent()"
     },
     {
@@ -20954,8 +20954,8 @@
       "source_location": "L312",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_rundetailpagecontent",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "rundetailpagecontent()"
     },
     {
@@ -20965,8 +20965,8 @@
       "source_location": "L340",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_knowledgesourcespagecontent",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "knowledgesourcespagecontent()"
     },
     {
@@ -20976,8 +20976,8 @@
       "source_location": "L380",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_knowledgesourcecolumns",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "knowledgesourcecolumns"
     },
     {
@@ -20987,8 +20987,8 @@
       "source_location": "L440",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_teampagecontent",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "teampagecontent()"
     },
     {
@@ -20998,8 +20998,8 @@
       "source_location": "L496",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_role_meanings",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "role_meanings"
     },
     {
@@ -21009,8 +21009,8 @@
       "source_location": "L506",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_rolemeaning",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "rolemeaning()"
     },
     {
@@ -21020,8 +21020,8 @@
       "source_location": "L512",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_teammembercolumns",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "teammembercolumns"
     },
     {
@@ -21031,8 +21031,8 @@
       "source_location": "L558",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_default_action_labels",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "default_action_labels"
     },
     {
@@ -21042,8 +21042,8 @@
       "source_location": "L566",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_friendlydefaultaction",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "friendlydefaultaction()"
     },
     {
@@ -21053,8 +21053,8 @@
       "source_location": "L570",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_settingspagecontent",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "settingspagecontent()"
     },
     {
@@ -21075,8 +21075,8 @@
       "source_location": "L752",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_pageshell",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "pageshell()"
     },
     {
@@ -21086,8 +21086,8 @@
       "source_location": "L810",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_sectioncard",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "sectioncard()"
     },
     {
@@ -21097,8 +21097,8 @@
       "source_location": "L849",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_stat",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "stat()"
     },
     {
@@ -21108,8 +21108,8 @@
       "source_location": "L861",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_field",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "field()"
     },
     {
@@ -21119,8 +21119,8 @@
       "source_location": "L902",
       "_origin": "ast",
       "id": "apps_web_components_workspace_managementpages_togglerow",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "togglerow()"
     },
     {
@@ -21204,7 +21204,7 @@
       "label": "SIDE_EFFECTS",
       "file_type": "code",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L61",
+      "source_location": "L128",
       "_origin": "ast",
       "id": "apps_web_components_workspace_mcpaccesspagecontent_side_effects",
       "community": 36,
@@ -21215,7 +21215,7 @@
       "label": "SideEffectSelect()",
       "file_type": "code",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L74",
+      "source_location": "L141",
       "_origin": "ast",
       "id": "apps_web_components_workspace_mcpaccesspagecontent_sideeffectselect",
       "community": 36,
@@ -21226,7 +21226,7 @@
       "label": "Connect()",
       "file_type": "code",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L78",
+      "source_location": "L145",
       "_origin": "ast",
       "id": "apps_web_components_workspace_mcpaccesspagecontent_connect",
       "community": 36,
@@ -21237,7 +21237,7 @@
       "label": "Field()",
       "file_type": "code",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L83",
+      "source_location": "L150",
       "_origin": "ast",
       "id": "apps_web_components_workspace_mcpaccesspagecontent_field",
       "community": 36,
@@ -21248,7 +21248,7 @@
       "label": "act()",
       "file_type": "code",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L84",
+      "source_location": "L151",
       "_origin": "ast",
       "id": "apps_web_components_workspace_mcpaccesspagecontent_act",
       "community": 36,
@@ -21259,7 +21259,7 @@
       "label": "replaceToolAssignment()",
       "file_type": "code",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L85",
+      "source_location": "L152",
       "_origin": "ast",
       "id": "apps_web_components_workspace_mcpaccesspagecontent_replacetoolassignment",
       "community": 36,
@@ -21270,7 +21270,7 @@
       "label": "scoped()",
       "file_type": "code",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L86",
+      "source_location": "L153",
       "_origin": "ast",
       "id": "apps_web_components_workspace_mcpaccesspagecontent_scoped",
       "community": 36,
@@ -21307,7 +21307,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_policiespagecontent_test",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "policiespagecontent.test.tsx"
     },
     {
@@ -21318,7 +21318,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_policiespagecontent_test_getpolicy",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "getpolicy"
     },
     {
@@ -21329,7 +21329,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_policiespagecontent_test_policiespagedatafortest",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "policiespagedatafortest"
     },
     {
@@ -21340,7 +21340,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_policiespagecontent_test_pagedata",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "pagedata()"
     },
     {
@@ -21351,7 +21351,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_policiespagecontent_test_shelldata",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "shelldata()"
     },
     {
@@ -21362,7 +21362,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_policiespagecontent_test_financialpolicy",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "financialpolicy()"
     },
     {
@@ -21483,7 +21483,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_policiespagecontent_policiespagecontent",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "policiespagecontent()"
     },
     {
@@ -21504,8 +21504,8 @@
       "source_location": "L759",
       "_origin": "ast",
       "id": "apps_web_components_workspace_policiespagecontent_mergeregistrypolicies",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 44,
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "mergeregistrypolicies()"
     },
     {
@@ -21515,8 +21515,8 @@
       "source_location": "L779",
       "_origin": "ast",
       "id": "apps_web_components_workspace_policiespagecontent_financialpolicydetails",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 44,
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "financialpolicydetails()"
     },
     {
@@ -21537,8 +21537,8 @@
       "source_location": "L819",
       "_origin": "ast",
       "id": "apps_web_components_workspace_policiespagecontent_financialpolicyscope",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 44,
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "financialpolicyscope()"
     },
     {
@@ -22593,8 +22593,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_test",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "usagecontent.test.tsx"
     },
     {
@@ -22604,8 +22604,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_test_refreshmock",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "refreshmock"
     },
     {
@@ -22615,8 +22615,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_test_observe",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "observe()"
     },
     {
@@ -22626,8 +22626,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_test_unobserve",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "unobserve()"
     },
     {
@@ -22637,8 +22637,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_test_disconnect",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "disconnect()"
     },
     {
@@ -22648,8 +22648,8 @@
       "source_location": "L312",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_test_bucket",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "bucket()"
     },
     {
@@ -22659,8 +22659,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "usagecontent.tsx"
     },
     {
@@ -22670,8 +22670,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_chartconfig",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "chartconfig"
     },
     {
@@ -22681,8 +22681,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_pricerateschema",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "pricerateschema"
     },
     {
@@ -22692,8 +22692,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_usagecontentprops",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "usagecontentprops"
     },
     {
@@ -22703,8 +22703,8 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_usagecontent",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "usagecontent()"
     },
     {
@@ -22714,8 +22714,8 @@
       "source_location": "L317",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_setpricedialog",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "setpricedialog()"
     },
     {
@@ -22725,8 +22725,8 @@
       "source_location": "L445",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_dollarstorate",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "dollarstorate()"
     },
     {
@@ -22737,7 +22737,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_periodselector",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "periodselector()"
     },
     {
@@ -22747,8 +22747,8 @@
       "source_location": "L476",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_summarytile",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "summarytile()"
     },
     {
@@ -22758,8 +22758,8 @@
       "source_location": "L485",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_sum",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "sum()"
     },
     {
@@ -22769,8 +22769,8 @@
       "source_location": "L489",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usagecontent_sumnanos",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "sumnanos()"
     },
     {
@@ -22781,7 +22781,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_workspacedashboard_test",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "workspacedashboard.test.tsx"
     },
     {
@@ -22792,7 +22792,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_workspacedashboard_test_observe",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "observe()"
     },
     {
@@ -22803,7 +22803,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_workspacedashboard_test_unobserve",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "unobserve()"
     },
     {
@@ -22814,7 +22814,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_workspacedashboard_test_disconnect",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "disconnect()"
     },
     {
@@ -22825,7 +22825,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_workspacedashboard_test_makedata",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "makedata()"
     },
     {
@@ -22836,7 +22836,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_workspacedashboard_test_emptyusage",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "emptyusage"
     },
     {
@@ -22847,7 +22847,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_workspacedashboard_test_renderdashboard",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "renderdashboard()"
     },
     {
@@ -22858,7 +22858,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_workspacedashboard_test_createstoragemock",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "createstoragemock()"
     },
     {
@@ -22868,8 +22868,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_workspace_workspacedashboard",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "workspacedashboard.tsx"
     },
     {
@@ -22880,7 +22880,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_workspacedashboard_widgets_by_key",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "widgets_by_key"
     },
     {
@@ -22891,7 +22891,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_workspacedashboard_workspacedashboard",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "workspacedashboard()"
     },
     {
@@ -22901,8 +22901,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "apps_web_components_workspace_workspacedashboard_sortablewidget",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "sortablewidget()"
     },
     {
@@ -22912,8 +22912,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "dashboard-widgets.tsx"
     },
     {
@@ -22923,8 +22923,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_badgevariant",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "badgevariant"
     },
     {
@@ -22934,8 +22934,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_effectvariant",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "effectvariant"
     },
     {
@@ -22945,8 +22945,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_effect_order",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "effect_order"
     },
     {
@@ -22956,8 +22956,8 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_effectlabel",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "effectlabel()"
     },
     {
@@ -22967,8 +22967,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_shorttraceid",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "shorttraceid()"
     },
     {
@@ -22978,8 +22978,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_decisionrow",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "decisionrow"
     },
     {
@@ -22990,7 +22990,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_dashboardusagedata",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "dashboardusagedata"
     },
     {
@@ -23000,8 +23000,8 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_widgetprops",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "widgetprops"
     },
     {
@@ -23011,8 +23011,8 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_tracecell",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "tracecell()"
     },
     {
@@ -23022,8 +23022,8 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_decisioncolumns",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "decisioncolumns"
     },
     {
@@ -23033,8 +23033,8 @@
       "source_location": "L181",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_setupitem",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "setupitem"
     },
     {
@@ -23044,8 +23044,8 @@
       "source_location": "L190",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_configrow",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "configrow()"
     },
     {
@@ -23055,8 +23055,8 @@
       "source_location": "L210",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_shortcuttile",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "shortcuttile()"
     },
     {
@@ -23066,8 +23066,8 @@
       "source_location": "L237",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_effectcounts",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "effectcounts"
     },
     {
@@ -23077,8 +23077,8 @@
       "source_location": "L239",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_counteffects",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "counteffects()"
     },
     {
@@ -23088,8 +23088,8 @@
       "source_location": "L253",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_effectbar",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "effectbar()"
     },
     {
@@ -23099,8 +23099,8 @@
       "source_location": "L290",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_recentdecisionswidget",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "recentdecisionswidget()"
     },
     {
@@ -23110,8 +23110,8 @@
       "source_location": "L350",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_decisionmixwidget",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "decisionmixwidget()"
     },
     {
@@ -23121,8 +23121,8 @@
       "source_location": "L386",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_guardrailconfigwidget",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "guardrailconfigwidget()"
     },
     {
@@ -23132,8 +23132,8 @@
       "source_location": "L432",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_usagewidget",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "usagewidget()"
     },
     {
@@ -23143,8 +23143,8 @@
       "source_location": "L445",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_metricswidget",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "metricswidget()"
     },
     {
@@ -23154,8 +23154,8 @@
       "source_location": "L468",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_setupshortcutswidget",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "setupshortcutswidget()"
     },
     {
@@ -23166,7 +23166,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_widgetkey",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "widgetkey"
     },
     {
@@ -23176,8 +23176,8 @@
       "source_location": "L536",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_dashboardwidget",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "dashboardwidget"
     },
     {
@@ -23187,8 +23187,8 @@
       "source_location": "L546",
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_dashboard_widgets",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "dashboard_widgets"
     },
     {
@@ -23199,7 +23199,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_dashboard_widgets_dashboard_widget_keys",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "dashboard_widget_keys"
     },
     {
@@ -23287,7 +23287,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_test",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "financial-utils.test.tsx"
     },
     {
@@ -23298,7 +23298,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_test_action",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "action()"
     },
     {
@@ -23309,7 +23309,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "financial-utils.tsx"
     },
     {
@@ -23320,7 +23320,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_badgevariant",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "badgevariant"
     },
     {
@@ -23331,7 +23331,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_financialactionwithoptionalstate",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "financialactionwithoptionalstate"
     },
     {
@@ -23342,7 +23342,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_status_variant",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "status_variant"
     },
     {
@@ -23353,7 +23353,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_authorization_variant",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "authorization_variant"
     },
     {
@@ -23364,7 +23364,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_action_state_variant",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "action_state_variant"
     },
     {
@@ -23375,7 +23375,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_outcome_variant",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "outcome_variant"
     },
     {
@@ -23386,7 +23386,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_financialstatusbadge",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "financialstatusbadge()"
     },
     {
@@ -23397,7 +23397,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_financialauthorizationbadge",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "financialauthorizationbadge()"
     },
     {
@@ -23408,7 +23408,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_financialactionstatebadge",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "financialactionstatebadge()"
     },
     {
@@ -23419,7 +23419,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_outcomebadge",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "outcomebadge()"
     },
     {
@@ -23430,7 +23430,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_formatmoney",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "formatmoney()"
     },
     {
@@ -23452,7 +23452,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_formatdatetime",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "formatdatetime()"
     },
     {
@@ -23463,7 +23463,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_titlelabel",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "titlelabel()"
     },
     {
@@ -23474,7 +23474,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_latestoutcome",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "latestoutcome()"
     },
     {
@@ -23485,7 +23485,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_currentcontextquery",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "currentcontextquery()"
     },
     {
@@ -23496,7 +23496,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_counterpartylabel",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "counterpartylabel()"
     },
     {
@@ -23507,7 +23507,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_effectivefinancialactionstate",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "effectivefinancialactionstate()"
     },
     {
@@ -23518,7 +23518,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_evidence_failure_labels",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "evidence_failure_labels"
     },
     {
@@ -23529,7 +23529,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_firstfailedfinancialevidencereason",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "firstfailedfinancialevidencereason()"
     },
     {
@@ -23540,7 +23540,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_safeerror",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "safeerror()"
     },
     {
@@ -23551,7 +23551,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_financial_utils_isrecord",
       "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community_name": "FinancialActionsContent.tsx",
       "norm_label": "isrecord()"
     },
     {
@@ -23638,8 +23638,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usage_utils_usage_periods",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "usage_periods"
     },
     {
@@ -23671,8 +23671,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "apps_web_components_workspace_usage_utils_formattokens",
-      "community": 44,
-      "community_name": "UsageContent.tsx",
+      "community": 1880,
+      "community_name": "PoliciesPageContent.tsx",
       "norm_label": "formattokens()"
     },
     {
@@ -23683,7 +23683,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_use_dashboard_layout_test",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "use-dashboard-layout.test.ts"
     },
     {
@@ -23694,7 +23694,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_use_dashboard_layout_test_all_keys",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "all_keys"
     },
     {
@@ -23705,7 +23705,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_use_dashboard_layout",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "use-dashboard-layout.ts"
     },
     {
@@ -23716,7 +23716,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_use_dashboard_layout_dashboardlayout",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "dashboardlayout"
     },
     {
@@ -23727,7 +23727,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_use_dashboard_layout_storagekey",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "storagekey()"
     },
     {
@@ -23738,7 +23738,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_use_dashboard_layout_defaultlayout",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "defaultlayout()"
     },
     {
@@ -23749,7 +23749,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_use_dashboard_layout_reconcilelayout",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "reconcilelayout()"
     },
     {
@@ -23760,7 +23760,7 @@
       "_origin": "ast",
       "id": "apps_web_components_workspace_use_dashboard_layout_usedashboardlayout",
       "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community_name": "WorkspaceDashboard.test.tsx",
       "norm_label": "usedashboardlayout"
     },
     {
@@ -23792,8 +23792,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_env",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 146,
+      "community_name": "env.ts",
       "norm_label": "env.ts"
     },
     {
@@ -23803,8 +23803,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "apps_web_env_appenv",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 146,
+      "community_name": "env.ts",
       "norm_label": "appenv"
     },
     {
@@ -23814,8 +23814,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "apps_web_env_canonicalappenv",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 146,
+      "community_name": "env.ts",
       "norm_label": "canonicalappenv"
     },
     {
@@ -23825,8 +23825,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "apps_web_env_appenvschema",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 146,
+      "community_name": "env.ts",
       "norm_label": "appenvschema"
     },
     {
@@ -23836,8 +23836,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "apps_web_env_appurls",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 146,
+      "community_name": "env.ts",
       "norm_label": "appurls"
     },
     {
@@ -23847,8 +23847,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "apps_web_env_docsurls",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 146,
+      "community_name": "env.ts",
       "norm_label": "docsurls"
     },
     {
@@ -23858,8 +23858,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "apps_web_env_publicurlorpath",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 146,
+      "community_name": "env.ts",
       "norm_label": "publicurlorpath"
     },
     {
@@ -23869,8 +23869,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "apps_web_env_posthogprojecttoken",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 146,
+      "community_name": "env.ts",
       "norm_label": "posthogprojecttoken"
     },
     {
@@ -23880,8 +23880,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "apps_web_env_checkenv",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 146,
+      "community_name": "env.ts",
       "norm_label": "checkenv()"
     },
     {
@@ -23891,8 +23891,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "apps_web_env_getenv",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 146,
+      "community_name": "env.ts",
       "norm_label": "getenv()"
     },
     {
@@ -23902,8 +23902,8 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "apps_web_env_getappurl",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 146,
+      "community_name": "env.ts",
       "norm_label": "getappurl()"
     },
     {
@@ -23913,8 +23913,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "apps_web_env_getdocsurl",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 146,
+      "community_name": "env.ts",
       "norm_label": "getdocsurl()"
     },
     {
@@ -23980,7 +23980,7 @@
       "_origin": "ast",
       "id": "apps_web_instrumentation_client",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": "instrumentation-client.ts"
     },
     {
@@ -23990,8 +23990,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_lib_agents",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "agents.ts"
     },
     {
@@ -24001,8 +24001,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "apps_web_lib_agents_agentsummary",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "agentsummary"
     },
     {
@@ -24012,8 +24012,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "apps_web_lib_agents_createagentresult",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "createagentresult"
     },
     {
@@ -24023,8 +24023,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "apps_web_lib_agents_agentprofile",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "agentprofile"
     },
     {
@@ -24034,8 +24034,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "apps_web_lib_agents_workflowdefinitioninput",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "workflowdefinitioninput"
     },
     {
@@ -24045,8 +24045,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "apps_web_lib_agents_workflowrequirementinput",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "workflowrequirementinput"
     },
     {
@@ -24056,8 +24056,8 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "apps_web_lib_agents_createagentinput",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "createagentinput"
     },
     {
@@ -24067,8 +24067,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "apps_web_lib_agents_updateagentinput",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "updateagentinput"
     },
     {
@@ -24078,8 +24078,8 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "apps_web_lib_agents_agentwireschema",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "agentwireschema"
     },
     {
@@ -24089,8 +24089,8 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "apps_web_lib_agents_createagentresponseschema",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "createagentresponseschema"
     },
     {
@@ -24100,8 +24100,8 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "apps_web_lib_agents_agentlistschema",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "agentlistschema"
     },
     {
@@ -24111,8 +24111,8 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "apps_web_lib_agents_stringarrayschema",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "stringarrayschema"
     },
     {
@@ -24122,8 +24122,8 @@
       "source_location": "L114",
       "_origin": "ast",
       "id": "apps_web_lib_agents_workflowrequirementwireschema",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "workflowrequirementwireschema"
     },
     {
@@ -24133,8 +24133,8 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "apps_web_lib_agents_workflowdefinitionschema",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "workflowdefinitionschema"
     },
     {
@@ -24144,8 +24144,8 @@
       "source_location": "L135",
       "_origin": "ast",
       "id": "apps_web_lib_agents_agentprofilewireschema",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "agentprofilewireschema"
     },
     {
@@ -24166,8 +24166,8 @@
       "source_location": "L196",
       "_origin": "ast",
       "id": "apps_web_lib_agents_getagent",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "getagent()"
     },
     {
@@ -24177,8 +24177,8 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "apps_web_lib_agents_createagent",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "createagent()"
     },
     {
@@ -24188,8 +24188,8 @@
       "source_location": "L222",
       "_origin": "ast",
       "id": "apps_web_lib_agents_updateagent",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "updateagent()"
     },
     {
@@ -24408,8 +24408,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_lib_auth_capabilities",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "auth-capabilities.ts"
     },
     {
@@ -24419,8 +24419,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "apps_web_lib_auth_capabilities_oauthprovideravailability",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "oauthprovideravailability"
     },
     {
@@ -24430,8 +24430,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "apps_web_lib_auth_capabilities_authcapabilities",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "authcapabilities"
     },
     {
@@ -24452,8 +24452,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "apps_web_lib_auth_capabilities_getauthcapabilities",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "getauthcapabilities()"
     },
     {
@@ -24463,8 +24463,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "apps_web_lib_auth_capabilities_hasoauthprovider",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "hasoauthprovider()"
     },
     {
@@ -24771,8 +24771,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_lib_glossary",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "glossary.ts"
     },
     {
@@ -24782,8 +24782,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "apps_web_lib_glossary_glossaryentry",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "glossaryentry"
     },
     {
@@ -24793,8 +24793,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "apps_web_lib_glossary_glossary",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "glossary"
     },
     {
@@ -24804,8 +24804,8 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "apps_web_lib_glossary_glossaryterm",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 3,
+      "community_name": "cn",
       "norm_label": "glossaryterm"
     },
     {
@@ -25178,8 +25178,8 @@
       "source_location": "L470",
       "_origin": "ast",
       "id": "apps_web_lib_onboarding_approvedworkspacelandingpath",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 475,
+      "community_name": "ConnectAgentStep.tsx",
       "norm_label": "approvedworkspacelandingpath()"
     },
     {
@@ -25233,8 +25233,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_lib_password",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "password.ts"
     },
     {
@@ -25244,8 +25244,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "apps_web_lib_password_sha256hex",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "sha256hex()"
     },
     {
@@ -25784,7 +25784,7 @@
       "_origin": "ast",
       "id": "apps_web_lib_posthog_test",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": "posthog.test.ts"
     },
     {
@@ -25795,7 +25795,7 @@
       "_origin": "ast",
       "id": "apps_web_lib_posthog_test_fakeclient",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": "fakeclient()"
     },
     {
@@ -25806,7 +25806,7 @@
       "_origin": "ast",
       "id": "apps_web_lib_posthog",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": "posthog.ts"
     },
     {
@@ -25817,7 +25817,7 @@
       "_origin": "ast",
       "id": "apps_web_lib_posthog_posthogbrowserclient",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": "posthogbrowserclient"
     },
     {
@@ -25828,7 +25828,7 @@
       "_origin": "ast",
       "id": "apps_web_lib_posthog_posthogbrowserclient_init",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": ".init()"
     },
     {
@@ -25839,7 +25839,7 @@
       "_origin": "ast",
       "id": "apps_web_lib_posthog_posthogbrowserclient_register",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": ".register()"
     },
     {
@@ -25850,7 +25850,7 @@
       "_origin": "ast",
       "id": "apps_web_lib_posthog_posthogbrowserclient_identify",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": ".identify()"
     },
     {
@@ -25861,7 +25861,7 @@
       "_origin": "ast",
       "id": "apps_web_lib_posthog_posthogbrowserclient_get_distinct_id",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": ".get_distinct_id()"
     },
     {
@@ -25872,7 +25872,7 @@
       "_origin": "ast",
       "id": "apps_web_lib_posthog_posthogbrowserclient_reset",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": ".reset()"
     },
     {
@@ -25883,7 +25883,7 @@
       "_origin": "ast",
       "id": "apps_web_lib_posthog_posthogconfig",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": "posthogconfig"
     },
     {
@@ -25894,7 +25894,7 @@
       "_origin": "ast",
       "id": "apps_web_lib_posthog_posthoguser",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": "posthoguser"
     },
     {
@@ -25905,7 +25905,7 @@
       "_origin": "ast",
       "id": "apps_web_lib_posthog_initializedashboardposthog",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": "initializedashboardposthog()"
     },
     {
@@ -25916,7 +25916,7 @@
       "_origin": "ast",
       "id": "apps_web_lib_posthog_identifyposthoguser",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": "identifyposthoguser()"
     },
     {
@@ -25927,7 +25927,7 @@
       "_origin": "ast",
       "id": "apps_web_lib_posthog_resetposthogidentity",
       "community": 146,
-      "community_name": "posthog.ts",
+      "community_name": "env.ts",
       "norm_label": "resetposthogidentity()"
     },
     {
@@ -26146,8 +26146,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "apps_web_lib_redteam_core_isallowedagenttargeturl",
-      "community": 95,
-      "community_name": "redteam-jobs.ts",
+      "community": 117,
+      "community_name": "AgentEditDialog.tsx",
       "norm_label": "isallowedagenttargeturl()"
     },
     {
@@ -27686,8 +27686,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "apps_web_lib_server_dashboard_data_dashboardshelldata",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "dashboardshelldata"
     },
     {
@@ -27719,8 +27719,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "apps_web_lib_server_dashboard_data_workspacedashboarddata",
-      "community": 68,
-      "community_name": "dashboard-widgets.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "workspacedashboarddata"
     },
     {
@@ -27730,8 +27730,8 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "apps_web_lib_server_dashboard_data_agentrow",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "agentrow"
     },
     {
@@ -27741,8 +27741,8 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "apps_web_lib_server_dashboard_data_knowledgesourcerow",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "knowledgesourcerow"
     },
     {
@@ -27785,8 +27785,8 @@
       "source_location": "L146",
       "_origin": "ast",
       "id": "apps_web_lib_server_dashboard_data_teammemberrow",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "teammemberrow"
     },
     {
@@ -27829,8 +27829,8 @@
       "source_location": "L194",
       "_origin": "ast",
       "id": "apps_web_lib_server_dashboard_data_runtracerow",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "runtracerow"
     },
     {
@@ -27840,8 +27840,8 @@
       "source_location": "L205",
       "_origin": "ast",
       "id": "apps_web_lib_server_dashboard_data_runeventrow",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "runeventrow"
     },
     {
@@ -28511,8 +28511,8 @@
       "source_location": "L1131",
       "_origin": "ast",
       "id": "apps_web_lib_server_dashboard_data_getmyworkspaces",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "getmyworkspaces()"
     },
     {
@@ -28522,8 +28522,8 @@
       "source_location": "L1150",
       "_origin": "ast",
       "id": "apps_web_lib_server_dashboard_data_getworkspaceaccessstate",
-      "community": 1880,
-      "community_name": "PoliciesPageContent.tsx",
+      "community": 22,
+      "community_name": "dashboard-data.ts",
       "norm_label": "getworkspaceaccessstate()"
     },
     {
@@ -28720,8 +28720,8 @@
       "source_location": "L1438",
       "_origin": "ast",
       "id": "apps_web_lib_server_dashboard_data_sameoriginapiurl",
-      "community": 117,
-      "community_name": "input.tsx",
+      "community": 146,
+      "community_name": "env.ts",
       "norm_label": "sameoriginapiurl()"
     },
     {
@@ -29358,8 +29358,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_web_lib_utils",
-      "community": 3,
-      "community_name": "cn",
+      "community": 409,
+      "community_name": "page.tsx",
       "norm_label": "utils.ts"
     },
     {
@@ -64184,8 +64184,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "crates_tl_server_src_dashboard_admin_apikeystore",
-      "community": 116,
-      "community_name": "api_error_response",
+      "community": 163,
+      "community_name": "build_postgres_layer",
       "norm_label": "apikeystore"
     },
     {
@@ -64195,8 +64195,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_tl_server_src_dashboard_admin_rs_send",
-      "community": 116,
-      "community_name": "api_error_response",
+      "community": 163,
+      "community_name": "build_postgres_layer",
       "norm_label": "send"
     },
     {
@@ -64206,8 +64206,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_tl_server_src_dashboard_admin_rs_sync",
-      "community": 116,
-      "community_name": "api_error_response",
+      "community": 163,
+      "community_name": "build_postgres_layer",
       "norm_label": "sync"
     },
     {
@@ -64250,8 +64250,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "crates_tl_server_src_dashboard_admin_settingsstore",
-      "community": 116,
-      "community_name": "api_error_response",
+      "community": 163,
+      "community_name": "build_postgres_layer",
       "norm_label": "settingsstore"
     },
     {
@@ -71995,7 +71995,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_github_client_githubclient",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "githubclient"
     },
     {
@@ -72006,7 +72006,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_github_client_rs_send",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "send"
     },
     {
@@ -72017,7 +72017,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_github_client_rs_sync",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "sync"
     },
     {
@@ -73105,8 +73105,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_mod",
-      "community": 463,
-      "community_name": "mod.rs",
+      "community": 69,
+      "community_name": "UserContext",
       "norm_label": "mod.rs"
     },
     {
@@ -73304,7 +73304,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_mod_githubintegrationstore",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "githubintegrationstore"
     },
     {
@@ -73315,7 +73315,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_mod_rs_send",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "send"
     },
     {
@@ -73326,7 +73326,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_mod_rs_sync",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "sync"
     },
     {
@@ -73347,8 +73347,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_mod_rs_arc",
-      "community": 463,
-      "community_name": "mod.rs",
+      "community": 69,
+      "community_name": "UserContext",
       "norm_label": "arc"
     },
     {
@@ -73391,8 +73391,8 @@
       "source_location": "L249",
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_mod_intoresponsewithstatus",
-      "community": 463,
-      "community_name": "mod.rs",
+      "community": 69,
+      "community_name": "UserContext",
       "norm_label": "intoresponsewithstatus"
     },
     {
@@ -73402,8 +73402,8 @@
       "source_location": "L253",
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_mod_axum_json_t",
-      "community": 463,
-      "community_name": "mod.rs",
+      "community": 69,
+      "community_name": "UserContext",
       "norm_label": "axum::json<t>"
     },
     {
@@ -73436,7 +73436,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_orchestrator",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "orchestrator.rs"
     },
     {
@@ -73447,7 +73447,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_orchestrator_githubintegrationmessage",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "githubintegrationmessage"
     },
     {
@@ -73458,7 +73458,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_orchestrator_rs_string",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "string"
     },
     {
@@ -73469,7 +73469,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_orchestrator_spawn_github_integration_worker",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "spawn_github_integration_worker()"
     },
     {
@@ -73480,7 +73480,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_orchestrator_rs_arc",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "arc"
     },
     {
@@ -73491,7 +73491,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_orchestrator_rs_sender",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "sender"
     },
     {
@@ -73502,7 +73502,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_orchestrator_worker_loop",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "worker_loop()"
     },
     {
@@ -73513,7 +73513,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_orchestrator_rs_receiver",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "receiver"
     },
     {
@@ -73524,7 +73524,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_orchestrator_run_analyze",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "run_analyze()"
     },
     {
@@ -73535,7 +73535,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_orchestrator_run_apply",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "run_apply()"
     },
     {
@@ -73546,7 +73546,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_orchestrator_mark_error",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "mark_error()"
     },
     {
@@ -73557,7 +73557,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_orchestrator_pr_body",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "pr_body()"
     },
     {
@@ -73568,7 +73568,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_orchestrator_rs_githubintegrationjobsummary",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "githubintegrationjobsummary"
     },
     {
@@ -73579,7 +73579,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_github_integration_orchestrator_rs_githubconnectionsummary",
       "community": 463,
-      "community_name": "mod.rs",
+      "community_name": "GitHubIntegrationStore",
       "norm_label": "githubconnectionsummary"
     },
     {
@@ -81399,7 +81399,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_policystoreerror",
-      "community": 71,
+      "community": 147,
       "community_name": "PolicyStoreError",
       "norm_label": "policystoreerror"
     },
@@ -82115,7 +82115,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_mapping",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "mapping.rs"
     },
     {
@@ -82126,7 +82126,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_mapping_policy_document",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "policy_document()"
     },
     {
@@ -82137,7 +82137,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_mapping_rs_policydocument",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "policydocument"
     },
     {
@@ -82148,7 +82148,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_mapping_policy_summary",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "policy_summary()"
     },
     {
@@ -82159,7 +82159,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_mapping_rs_policysummary",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "policysummary"
     },
     {
@@ -82170,7 +82170,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_mapping_any_policy_document",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "any_policy_document()"
     },
     {
@@ -82181,7 +82181,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_mapping_any_policy_summary",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "any_policy_summary()"
     },
     {
@@ -82192,7 +82192,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_mapping_normalize_policy_ids",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "normalize_policy_ids()"
     },
     {
@@ -82203,7 +82203,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_mapping_rs_vec",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "vec"
     },
     {
@@ -82214,7 +82214,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_mapping_rs_string",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "string"
     },
     {
@@ -82225,7 +82225,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_mapping_rs_result",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "result"
     },
     {
@@ -82236,7 +82236,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_mapping_policy_action",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "policy_action()"
     },
     {
@@ -82247,7 +82247,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_mapping_rs_authorizationeffect",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "authorizationeffect"
     },
     {
@@ -82379,7 +82379,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "operations.rs"
     },
     {
@@ -82390,7 +82390,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_memorypolicystore",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "memorypolicystore"
     },
     {
@@ -82401,7 +82401,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_memorypolicystore_upsert",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": ".upsert()"
     },
     {
@@ -82412,7 +82412,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_rs_result",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "result"
     },
     {
@@ -82423,7 +82423,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_rs_policydocument",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "policydocument"
     },
     {
@@ -82434,7 +82434,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_memorypolicystore_get",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": ".get()"
     },
     {
@@ -82445,7 +82445,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_memorypolicystore_list",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": ".list()"
     },
     {
@@ -82456,7 +82456,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_rs_vec",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "vec"
     },
     {
@@ -82467,7 +82467,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_rs_policysummary",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "policysummary"
     },
     {
@@ -82478,7 +82478,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_memorypolicystore_list_enabled",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": ".list_enabled()"
     },
     {
@@ -82489,7 +82489,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_rs_arc",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "arc"
     },
     {
@@ -82500,7 +82500,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_memorypolicystore_upsert_family",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": ".upsert_family()"
     },
     {
@@ -82511,7 +82511,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_memorypolicystore_list_enabled_families",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": ".list_enabled_families()"
     },
     {
@@ -82522,7 +82522,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_memorypolicystore_set_enabled",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": ".set_enabled()"
     },
     {
@@ -82533,7 +82533,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_memorypolicystore_batch_set_enabled",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": ".batch_set_enabled()"
     },
     {
@@ -82544,7 +82544,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_rs_string",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "string"
     },
     {
@@ -82555,7 +82555,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_memorypolicystore_delete",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": ".delete()"
     },
     {
@@ -82566,7 +82566,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_memorypolicystore_list_for_agent",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": ".list_for_agent()"
     },
     {
@@ -82577,7 +82577,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_memorypolicystore_delete_for_agent",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": ".delete_for_agent()"
     },
     {
@@ -82588,7 +82588,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_memorypolicystore_list_versions",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": ".list_versions()"
     },
     {
@@ -82599,7 +82599,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_rs_entityversionlistresponse",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "entityversionlistresponse"
     },
     {
@@ -82610,7 +82610,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_memorypolicystore_get_version",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": ".get_version()"
     },
     {
@@ -82621,7 +82621,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_policies_memory_store_operations_rs_entityversiondetail",
       "community": 147,
-      "community_name": "MemoryPolicyStore",
+      "community_name": "PolicyStoreError",
       "norm_label": "entityversiondetail"
     },
     {
@@ -94655,7 +94655,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "policy.rs"
     },
     {
@@ -94666,7 +94666,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_postgrespolicyadapter",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "postgrespolicyadapter"
     },
     {
@@ -94677,7 +94677,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_rs_arc",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "arc"
     },
     {
@@ -94688,7 +94688,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_rs_policyrepo",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "policyrepo"
     },
     {
@@ -94699,7 +94699,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_postgrespolicyadapter_new",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": ".new()"
     },
     {
@@ -94710,7 +94710,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_rs_self",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "self"
     },
     {
@@ -94721,7 +94721,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_postgrespolicyadapter_upsert",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": ".upsert()"
     },
     {
@@ -94732,7 +94732,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_rs_result",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "result"
     },
     {
@@ -94743,7 +94743,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_rs_policydocument",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "policydocument"
     },
     {
@@ -94754,7 +94754,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_postgrespolicyadapter_get",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": ".get()"
     },
     {
@@ -94765,7 +94765,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_postgrespolicyadapter_list",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": ".list()"
     },
     {
@@ -94776,7 +94776,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_rs_vec",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "vec"
     },
     {
@@ -94787,7 +94787,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_rs_policysummary",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "policysummary"
     },
     {
@@ -94798,7 +94798,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_postgrespolicyadapter_list_enabled",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": ".list_enabled()"
     },
     {
@@ -94809,7 +94809,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_postgrespolicyadapter_upsert_family",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": ".upsert_family()"
     },
     {
@@ -94820,7 +94820,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_postgrespolicyadapter_list_enabled_families",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": ".list_enabled_families()"
     },
     {
@@ -94831,7 +94831,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_postgrespolicyadapter_set_enabled",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": ".set_enabled()"
     },
     {
@@ -94842,7 +94842,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_postgrespolicyadapter_batch_set_enabled",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": ".batch_set_enabled()"
     },
     {
@@ -94853,7 +94853,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_rs_string",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "string"
     },
     {
@@ -94864,7 +94864,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_postgrespolicyadapter_delete",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": ".delete()"
     },
     {
@@ -94875,7 +94875,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_postgrespolicyadapter_list_for_agent",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": ".list_for_agent()"
     },
     {
@@ -94886,7 +94886,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_postgrespolicyadapter_delete_for_agent",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": ".delete_for_agent()"
     },
     {
@@ -94897,7 +94897,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_postgrespolicyadapter_list_versions",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": ".list_versions()"
     },
     {
@@ -94908,7 +94908,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_rs_entityversionlistresponse",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "entityversionlistresponse"
     },
     {
@@ -94919,7 +94919,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_postgrespolicyadapter_get_version",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": ".get_version()"
     },
     {
@@ -94930,7 +94930,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_rs_entityversiondetail",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "entityversiondetail"
     },
     {
@@ -94941,7 +94941,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_policy_summary_from_row",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "policy_summary_from_row()"
     },
     {
@@ -94952,7 +94952,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_rs_policyrow",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "policyrow"
     },
     {
@@ -94963,7 +94963,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_policy_action",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "policy_action()"
     },
     {
@@ -94974,7 +94974,7 @@
       "_origin": "ast",
       "id": "crates_tl_server_src_state_postgres_adapters_policy_rs_authorizationeffect",
       "community": 71,
-      "community_name": "PolicyStoreError",
+      "community_name": "PostgresPolicyAdapter",
       "norm_label": "authorizationeffect"
     },
     {
@@ -132128,8 +132128,8 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "policies_agent_profile_schema_definitions_agentauthority",
-      "community": 162,
-      "community_name": "type",
+      "community": 1839,
+      "community_name": "definitions",
       "norm_label": "agentauthority"
     },
     {
@@ -132139,8 +132139,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "policies_agent_profile_schema_agentauthority_type",
-      "community": 162,
-      "community_name": "type",
+      "community": 1839,
+      "community_name": "definitions",
       "norm_label": "type"
     },
     {
@@ -132370,8 +132370,8 @@
       "source_location": "L116",
       "_origin": "ast",
       "id": "policies_agent_profile_schema_definitions_agenttone",
-      "community": 179,
-      "community_name": "AgentTone",
+      "community": 1839,
+      "community_name": "definitions",
       "norm_label": "agenttone"
     },
     {
@@ -132381,8 +132381,8 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "policies_agent_profile_schema_agenttone_type",
-      "community": 179,
-      "community_name": "AgentTone",
+      "community": 1839,
+      "community_name": "definitions",
       "norm_label": "type"
     },
     {
@@ -132392,8 +132392,8 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "policies_agent_profile_schema_agenttone_required",
-      "community": 179,
-      "community_name": "AgentTone",
+      "community": 1839,
+      "community_name": "definitions",
       "norm_label": "required"
     },
     {
@@ -132403,8 +132403,8 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "ref_target",
-      "community": 179,
-      "community_name": "AgentTone",
+      "community": 1839,
+      "community_name": "definitions",
       "norm_label": "target"
     },
     {
@@ -132415,7 +132415,7 @@
       "_origin": "ast",
       "id": "policies_agent_profile_schema_agenttone_properties",
       "community": 179,
-      "community_name": "AgentTone",
+      "community_name": "forbidden",
       "norm_label": "properties"
     },
     {
@@ -132426,7 +132426,7 @@
       "_origin": "ast",
       "id": "policies_agent_profile_schema_properties_forbidden",
       "community": 179,
-      "community_name": "AgentTone",
+      "community_name": "forbidden",
       "norm_label": "forbidden"
     },
     {
@@ -132437,7 +132437,7 @@
       "_origin": "ast",
       "id": "policies_agent_profile_schema_forbidden_default",
       "community": 179,
-      "community_name": "AgentTone",
+      "community_name": "forbidden",
       "norm_label": "default"
     },
     {
@@ -132448,7 +132448,7 @@
       "_origin": "ast",
       "id": "policies_agent_profile_schema_forbidden_type",
       "community": 179,
-      "community_name": "AgentTone",
+      "community_name": "forbidden",
       "norm_label": "type"
     },
     {
@@ -132459,7 +132459,7 @@
       "_origin": "ast",
       "id": "policies_agent_profile_schema_forbidden_items",
       "community": 179,
-      "community_name": "AgentTone",
+      "community_name": "forbidden",
       "norm_label": "items"
     },
     {
@@ -132470,7 +132470,7 @@
       "_origin": "ast",
       "id": "policies_agent_profile_schema_properties_target",
       "community": 179,
-      "community_name": "AgentTone",
+      "community_name": "forbidden",
       "norm_label": "target"
     },
     {
@@ -132481,7 +132481,7 @@
       "_origin": "ast",
       "id": "policies_agent_profile_schema_target_type",
       "community": 179,
-      "community_name": "AgentTone",
+      "community_name": "forbidden",
       "norm_label": "type"
     },
     {
@@ -135857,8 +135857,8 @@
       "source_location": "L188",
       "_origin": "ast",
       "id": "policies_guard_event_schema_definitions_authorizationeffect",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 509,
+      "community_name": "enum",
       "norm_label": "authorizationeffect"
     },
     {
@@ -135868,8 +135868,8 @@
       "source_location": "L189",
       "_origin": "ast",
       "id": "policies_guard_event_schema_authorizationeffect_description",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 509,
+      "community_name": "enum",
       "norm_label": "description"
     },
     {
@@ -135879,8 +135879,8 @@
       "source_location": "L190",
       "_origin": "ast",
       "id": "policies_guard_event_schema_authorizationeffect_type",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 509,
+      "community_name": "enum",
       "norm_label": "type"
     },
     {
@@ -135890,8 +135890,8 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "policies_guard_event_schema_authorizationeffect_enum",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 509,
+      "community_name": "enum",
       "norm_label": "enum"
     },
     {
@@ -135901,8 +135901,8 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_permit",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 509,
+      "community_name": "enum",
       "norm_label": "permit"
     },
     {
@@ -135912,8 +135912,8 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_deny",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 509,
+      "community_name": "enum",
       "norm_label": "deny"
     },
     {
@@ -135923,8 +135923,8 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_transform",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 509,
+      "community_name": "enum",
       "norm_label": "transform"
     },
     {
@@ -135934,8 +135934,8 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_require_approval",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 509,
+      "community_name": "enum",
       "norm_label": "require_approval"
     },
     {
@@ -135945,8 +135945,8 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_defer",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 509,
+      "community_name": "enum",
       "norm_label": "defer"
     },
     {
@@ -135956,8 +135956,8 @@
       "source_location": "L199",
       "_origin": "ast",
       "id": "policies_guard_event_schema_definitions_checkerfindingevidence",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 1886,
+      "community_name": "CheckerFindingEvidence",
       "norm_label": "checkerfindingevidence"
     },
     {
@@ -135967,8 +135967,8 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "policies_guard_event_schema_checkerfindingevidence_description",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 1886,
+      "community_name": "CheckerFindingEvidence",
       "norm_label": "description"
     },
     {
@@ -135978,8 +135978,8 @@
       "source_location": "L201",
       "_origin": "ast",
       "id": "policies_guard_event_schema_checkerfindingevidence_type",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 1886,
+      "community_name": "CheckerFindingEvidence",
       "norm_label": "type"
     },
     {
@@ -135989,8 +135989,8 @@
       "source_location": "L202",
       "_origin": "ast",
       "id": "policies_guard_event_schema_checkerfindingevidence_required",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 1886,
+      "community_name": "CheckerFindingEvidence",
       "norm_label": "required"
     },
     {
@@ -136000,8 +136000,8 @@
       "source_location": "L202",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_reason",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 1886,
+      "community_name": "CheckerFindingEvidence",
       "norm_label": "reason"
     },
     {
@@ -136011,8 +136011,8 @@
       "source_location": "L202",
       "_origin": "ast",
       "id": "ref_rule",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 1886,
+      "community_name": "CheckerFindingEvidence",
       "norm_label": "rule"
     },
     {
@@ -136363,8 +136363,8 @@
       "source_location": "L278",
       "_origin": "ast",
       "id": "policies_guard_event_schema_confidentiality_enum",
-      "community": 509,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "enum"
     },
     {
@@ -136374,8 +136374,8 @@
       "source_location": "L278",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_public",
-      "community": 509,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "public"
     },
     {
@@ -136385,8 +136385,8 @@
       "source_location": "L278",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_private",
-      "community": 509,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "private"
     },
     {
@@ -136396,8 +136396,8 @@
       "source_location": "L278",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_secret",
-      "community": 509,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "secret"
     },
     {
@@ -136407,8 +136407,8 @@
       "source_location": "L278",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_identity",
-      "community": 509,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "identity"
     },
     {
@@ -136418,8 +136418,8 @@
       "source_location": "L278",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_unknown",
-      "community": 509,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "unknown"
     },
     {
@@ -136660,8 +136660,8 @@
       "source_location": "L311",
       "_origin": "ast",
       "id": "policies_guard_event_schema_definitions_integrity",
-      "community": 1886,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "integrity"
     },
     {
@@ -136671,8 +136671,8 @@
       "source_location": "L312",
       "_origin": "ast",
       "id": "policies_guard_event_schema_integrity_type",
-      "community": 1886,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "type"
     },
     {
@@ -136682,8 +136682,8 @@
       "source_location": "L313",
       "_origin": "ast",
       "id": "policies_guard_event_schema_integrity_enum",
-      "community": 1886,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "enum"
     },
     {
@@ -136693,8 +136693,8 @@
       "source_location": "L313",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_low",
-      "community": 1886,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "low"
     },
     {
@@ -136704,8 +136704,8 @@
       "source_location": "L313",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_medium",
-      "community": 1886,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "medium"
     },
     {
@@ -136715,8 +136715,8 @@
       "source_location": "L313",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_high",
-      "community": 1886,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "high"
     },
     {
@@ -137188,8 +137188,8 @@
       "source_location": "L446",
       "_origin": "ast",
       "id": "policies_guard_event_schema_definitions_limitaction",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 509,
+      "community_name": "enum",
       "norm_label": "limitaction"
     },
     {
@@ -137199,8 +137199,8 @@
       "source_location": "L447",
       "_origin": "ast",
       "id": "policies_guard_event_schema_limitaction_description",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 509,
+      "community_name": "enum",
       "norm_label": "description"
     },
     {
@@ -137210,8 +137210,8 @@
       "source_location": "L448",
       "_origin": "ast",
       "id": "policies_guard_event_schema_limitaction_type",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 509,
+      "community_name": "enum",
       "norm_label": "type"
     },
     {
@@ -137221,8 +137221,8 @@
       "source_location": "L449",
       "_origin": "ast",
       "id": "policies_guard_event_schema_limitaction_enum",
-      "community": 1138,
-      "community_name": "definitions",
+      "community": 509,
+      "community_name": "enum",
       "norm_label": "enum"
     },
     {
@@ -137232,7 +137232,7 @@
       "source_location": "L454",
       "_origin": "ast",
       "id": "policies_guard_event_schema_definitions_origin",
-      "community": 509,
+      "community": 359,
       "community_name": "enum",
       "norm_label": "origin"
     },
@@ -137243,7 +137243,7 @@
       "source_location": "L455",
       "_origin": "ast",
       "id": "policies_guard_event_schema_origin_type",
-      "community": 509,
+      "community": 359,
       "community_name": "enum",
       "norm_label": "type"
     },
@@ -137254,7 +137254,7 @@
       "source_location": "L456",
       "_origin": "ast",
       "id": "policies_guard_event_schema_origin_enum",
-      "community": 509,
+      "community": 359,
       "community_name": "enum",
       "norm_label": "enum"
     },
@@ -137265,7 +137265,7 @@
       "source_location": "L456",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_user",
-      "community": 509,
+      "community": 359,
       "community_name": "enum",
       "norm_label": "user"
     },
@@ -137276,7 +137276,7 @@
       "source_location": "L456",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_system",
-      "community": 509,
+      "community": 359,
       "community_name": "enum",
       "norm_label": "system"
     },
@@ -137288,7 +137288,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_tool",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "tool"
     },
     {
@@ -137298,7 +137298,7 @@
       "source_location": "L456",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_memory",
-      "community": 509,
+      "community": 359,
       "community_name": "enum",
       "norm_label": "memory"
     },
@@ -137309,7 +137309,7 @@
       "source_location": "L456",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_file",
-      "community": 509,
+      "community": 359,
       "community_name": "enum",
       "norm_label": "file"
     },
@@ -137320,7 +137320,7 @@
       "source_location": "L456",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_web",
-      "community": 509,
+      "community": 359,
       "community_name": "enum",
       "norm_label": "web"
     },
@@ -137331,7 +137331,7 @@
       "source_location": "L456",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_email",
-      "community": 509,
+      "community": 359,
       "community_name": "enum",
       "norm_label": "email"
     },
@@ -137342,7 +137342,7 @@
       "source_location": "L456",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_api",
-      "community": 509,
+      "community": 359,
       "community_name": "enum",
       "norm_label": "api"
     },
@@ -138024,8 +138024,8 @@
       "source_location": "L587",
       "_origin": "ast",
       "id": "policies_guard_event_schema_definitions_severity",
-      "community": 1886,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "severity"
     },
     {
@@ -138035,8 +138035,8 @@
       "source_location": "L588",
       "_origin": "ast",
       "id": "policies_guard_event_schema_severity_type",
-      "community": 1886,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "type"
     },
     {
@@ -138046,8 +138046,8 @@
       "source_location": "L589",
       "_origin": "ast",
       "id": "policies_guard_event_schema_severity_enum",
-      "community": 1886,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "enum"
     },
     {
@@ -138057,8 +138057,8 @@
       "source_location": "L589",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_critical",
-      "community": 1886,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "critical"
     },
     {
@@ -138762,7 +138762,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_definitions_toolmetadata",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "toolmetadata"
     },
     {
@@ -138773,7 +138773,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_toolmetadata_type",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "type"
     },
     {
@@ -138784,7 +138784,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_toolmetadata_required",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "required"
     },
     {
@@ -138795,7 +138795,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_reversible",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "reversible"
     },
     {
@@ -138806,7 +138806,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_side_effect",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "side_effect"
     },
     {
@@ -138817,7 +138817,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_toolmetadata_properties",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "properties"
     },
     {
@@ -138828,7 +138828,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_properties_approval",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "approval"
     },
     {
@@ -138839,7 +138839,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_approval_anyof",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "anyof"
     },
     {
@@ -138850,7 +138850,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_properties_params",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "params"
     },
     {
@@ -138861,7 +138861,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_params_default",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "default"
     },
     {
@@ -138872,7 +138872,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_params_type",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "type"
     },
     {
@@ -138894,7 +138894,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_properties_reversible",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "reversible"
     },
     {
@@ -138905,7 +138905,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_reversible_type",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "type"
     },
     {
@@ -138916,7 +138916,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_properties_sandbox_hint",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "sandbox_hint"
     },
     {
@@ -138938,7 +138938,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_properties_tool",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "tool"
     },
     {
@@ -138949,7 +138949,7 @@
       "_origin": "ast",
       "id": "policies_guard_event_schema_tool_type",
       "community": 359,
-      "community_name": "properties",
+      "community_name": "enum",
       "norm_label": "type"
     },
     {
@@ -138992,8 +138992,8 @@
       "source_location": "L800",
       "_origin": "ast",
       "id": "policies_guard_event_schema_definitions_trust",
-      "community": 509,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "trust"
     },
     {
@@ -139003,8 +139003,8 @@
       "source_location": "L801",
       "_origin": "ast",
       "id": "policies_guard_event_schema_trust_type",
-      "community": 509,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "type"
     },
     {
@@ -139014,8 +139014,8 @@
       "source_location": "L802",
       "_origin": "ast",
       "id": "policies_guard_event_schema_trust_enum",
-      "community": 509,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "enum"
     },
     {
@@ -139025,8 +139025,8 @@
       "source_location": "L802",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_trusted",
-      "community": 509,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "trusted"
     },
     {
@@ -139036,8 +139036,8 @@
       "source_location": "L802",
       "_origin": "ast",
       "id": "policies_guard_event_schema_json_ref_untrusted",
-      "community": 509,
-      "community_name": "enum",
+      "community": 1138,
+      "community_name": "definitions",
       "norm_label": "untrusted"
     },
     {
@@ -229095,7 +229095,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/components/ui/page-header.tsx",
-      "source_location": "L23",
+      "source_location": "L25",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_web_components_ui_page_header",
@@ -229275,7 +229275,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/components/ui/page-header.tsx",
-      "source_location": "L33",
+      "source_location": "L36",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_web_components_ui_page_header_pageheader",
@@ -237197,7 +237197,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L84",
+      "source_location": "L151",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_web_components_workspace_mcpaccesspagecontent",
@@ -237208,7 +237208,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L78",
+      "source_location": "L145",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_web_components_workspace_mcpaccesspagecontent",
@@ -237230,7 +237230,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L83",
+      "source_location": "L150",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_web_components_workspace_mcpaccesspagecontent",
@@ -237252,7 +237252,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L85",
+      "source_location": "L152",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_web_components_workspace_mcpaccesspagecontent",
@@ -237263,7 +237263,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L86",
+      "source_location": "L153",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_web_components_workspace_mcpaccesspagecontent",
@@ -237285,7 +237285,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L61",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_web_components_workspace_mcpaccesspagecontent",
@@ -237296,7 +237296,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L74",
+      "source_location": "L141",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_web_components_workspace_mcpaccesspagecontent",
@@ -237367,7 +237367,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L56",
+      "source_location": "L86",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_web_components_workspace_mcpaccesspagecontent_toolaccess",
@@ -237379,7 +237379,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L75",
+      "source_location": "L142",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_web_components_workspace_mcpaccesspagecontent_sideeffectselect",
@@ -237391,7 +237391,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L75",
+      "source_location": "L142",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_web_components_workspace_mcpaccesspagecontent_sideeffectselect",
@@ -237403,7 +237403,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L85",
+      "source_location": "L152",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_web_components_workspace_mcpaccesspagecontent_replacetoolassignment",
@@ -237415,7 +237415,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/McpAccessPageContent.tsx",
-      "source_location": "L85",
+      "source_location": "L152",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_web_components_workspace_mcpaccesspagecontent_replacetoolassignment",
@@ -588434,5 +588434,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "639ac2f39f03a18a0e7307d443e07c3d81830e81"
+  "built_at_commit": "f0f945fff91ea38871dbaed5aedbe57063b9ddeb"
 }
