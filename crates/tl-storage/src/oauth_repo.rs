@@ -1,8 +1,9 @@
 //! Durable OAuth state for MCP dynamic clients, authorization codes, and refresh tokens.
 
 use chrono::{DateTime, Utc};
+use diesel::dsl::{exists, not};
 use diesel::prelude::*;
-use diesel_async::{AsyncConnection, RunQueryDsl};
+use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
 use crate::models::{
@@ -94,12 +95,9 @@ impl OAuthRepo {
         let redirect_uris = serde_json::to_value(redirect_uris)
             .map_err(|error| StorageError::Internal(error.to_string()))?;
         let row = conn
-            .transaction::<_, StorageError, _>(async move |conn| {
-                diesel::sql_query(
-                    "SELECT pg_advisory_xact_lock(hashtext('tlg_oauth_client_capacity'))",
-                )
-                .execute(&mut *conn)
-                .await?;
+            .build_transaction()
+            .serializable()
+            .run::<_, StorageError, _>(async move |conn| {
                 let count = mcp_oauth_clients::table
                     .count()
                     .get_result::<i64>(&mut *conn)
@@ -127,19 +125,19 @@ impl OAuthRepo {
         inactive_before: DateTime<Utc>,
     ) -> Result<usize, StorageError> {
         let mut conn = self.connection().await?;
-        let deleted = diesel::sql_query(
-            "DELETE FROM mcp_oauth_clients AS clients
-             WHERE clients.created_at < $1
-               AND NOT EXISTS (
-                 SELECT 1 FROM mcp_oauth_authorization_codes AS codes
-                 WHERE codes.client_id = clients.client_id AND codes.expires_at > now()
-               )
-               AND NOT EXISTS (
-                 SELECT 1 FROM mcp_oauth_refresh_tokens AS refresh
-                 WHERE refresh.client_id = clients.client_id AND refresh.expires_at > now()
-               )",
+        let now = Utc::now();
+        let active_code = mcp_oauth_authorization_codes::table
+            .filter(mcp_oauth_authorization_codes::client_id.eq(mcp_oauth_clients::client_id))
+            .filter(mcp_oauth_authorization_codes::expires_at.gt(now));
+        let active_refresh_token = mcp_oauth_refresh_tokens::table
+            .filter(mcp_oauth_refresh_tokens::client_id.eq(mcp_oauth_clients::client_id))
+            .filter(mcp_oauth_refresh_tokens::expires_at.gt(now));
+        let deleted = diesel::delete(
+            mcp_oauth_clients::table
+                .filter(mcp_oauth_clients::created_at.lt(inactive_before))
+                .filter(not(exists(active_code)))
+                .filter(not(exists(active_refresh_token))),
         )
-        .bind::<diesel::sql_types::Timestamptz, _>(inactive_before)
         .execute(&mut conn)
         .await?;
         Ok(deleted)
