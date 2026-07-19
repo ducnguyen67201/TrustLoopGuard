@@ -203,6 +203,7 @@ test('the page exposes chat, policies, boundaries, and synthetic-data warnings',
     new URL('../../../demo/healthcare/healthcare-demo.tsx', import.meta.url),
     'utf8',
   );
+  const styles = readFileSync(new URL('../../../demo/demo.module.css', import.meta.url), 'utf8');
   const source = `${page}\n${demo}`;
 
   assert.match(source, /CareDesk chat/i);
@@ -211,6 +212,10 @@ test('the page exposes chat, policies, boundaries, and synthetic-data warnings',
   assert.match(source, /Output boundary/i);
   assert.match(source, /Policies checked/i);
   assert.match(source, /Policy pack preview/i);
+  assert.match(source, /Checking now/i);
+  assert.match(source, /waitForMinimumDuration/i);
+  assert.match(styles, /@keyframes policyScan/);
+  assert.match(styles, /prefers-reduced-motion[\s\S]*scanningPolicy/);
   assert.match(source, /Synthetic demo only/i);
   assert.match(source, /do not enter real patient information/i);
   assert.match(source, /fetch\('\/api\/demo\/healthcare'/);

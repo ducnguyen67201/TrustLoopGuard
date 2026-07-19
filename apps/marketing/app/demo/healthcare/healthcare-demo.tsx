@@ -43,6 +43,10 @@ const PRESETS = [
 
 const GREETING =
   "Hello — I'm CareDesk. I can explain how to request, change, or cancel a fictional appointment. I can't provide medical advice or access patient records.";
+const MODEL_DRAFT_START_MS = 700;
+const OUTPUT_POLICY_SCAN_START_MS = 1_300;
+const INPUT_POLICY_SCAN_MIN_MS = 900;
+const FULL_POLICY_SCAN_MIN_MS = 2_100;
 
 type RunState =
   | 'idle'
@@ -112,6 +116,7 @@ export function HealthcareDemo() {
     event.preventDefault();
     const submittedMessage = message.trim();
     if (submittedMessage === '' || isRunning(runState)) return;
+    const runStartedAt = performance.now();
 
     const preset = PRESETS.find((candidate) => candidate.message === submittedMessage);
     const scenario = preset?.id ?? 'custom';
@@ -135,8 +140,8 @@ export function HealthcareDemo() {
 
     const timers: Array<ReturnType<typeof setTimeout>> = [];
     if (preset?.stopsAtInput !== true) {
-      timers.push(setTimeout(() => setRunState('generating'), 450));
-      timers.push(setTimeout(() => setRunState('checking_output'), 1_250));
+      timers.push(setTimeout(() => setRunState('generating'), MODEL_DRAFT_START_MS));
+      timers.push(setTimeout(() => setRunState('checking_output'), OUTPUT_POLICY_SCAN_START_MS));
     }
 
     try {
@@ -158,6 +163,14 @@ export function HealthcareDemo() {
       }
 
       const body = sanitizeHealthcareDemoResponse(await result.json());
+      if (!body.modelCalled) {
+        for (const timer of timers) clearTimeout(timer);
+        setRunState('checking_input');
+      }
+      await waitForMinimumDuration(
+        runStartedAt,
+        body.modelCalled ? FULL_POLICY_SCAN_MIN_MS : INPUT_POLICY_SCAN_MIN_MS,
+      );
       setResponse(body);
       if (body.policies.length > 0) {
         setPolicies(body.policies);
@@ -309,15 +322,11 @@ export function HealthcareDemo() {
             </div>
           </section>
 
-          <section aria-labelledby="policy-checks-title">
+          <section aria-labelledby="policy-checks-title" aria-busy={isRunning(runState)}>
             <div className={styles['monitorSectionHeading']}>
               <h3 id="policy-checks-title">Policies checked</h3>
-              <span>
-                {inventoryState === 'loading'
-                  ? 'Loading'
-                  : inventoryState === 'error'
-                    ? 'Unavailable'
-                    : `${policies.length} ${inventorySource === 'rust' ? 'active' : 'in pack'}`}
+              <span aria-live="polite">
+                {policyMonitorSummary(runState, policies, inventoryState, inventorySource)}
               </span>
             </div>
             {inventoryState === 'loading' ? (
@@ -342,28 +351,37 @@ export function HealthcareDemo() {
               </p>
             ) : null}
             <div className={styles['policyList']}>
-              {policies.map((policy) => (
-                <article
-                  key={policy.id}
-                  className={`${styles['policyCard']} ${
-                    matchedPolicyIds.has(policy.id) ? styles['matchedPolicy'] : ''
-                  } ${policy.enabled ? '' : styles['previewPolicy']}`}
-                >
-                  <span className={styles['policyDot']} aria-hidden="true" />
-                  <div>
-                    <strong>{policy.description ?? policy.id}</strong>
-                    <code>{policy.id}</code>
-                    <span className={styles['policyStatus']}>
-                      {policy.enabled ? 'Active in Rust' : 'Policy pack preview'}
-                    </span>
-                  </div>
-                  <div className={styles['policyMeta']}>
-                    {policy.phase !== undefined ? <span>{policy.phase}</span> : null}
-                    <span>{policy.severity}</span>
-                    <span>{policy.action ?? 'check'}</span>
-                  </div>
-                </article>
-              ))}
+              {policies.map((policy) => {
+                const matched = matchedPolicyIds.has(policy.id);
+                const scanning = isPolicyScanning(policy, runState);
+                const phaseCheck = policyPhaseCheck(policy, response);
+                return (
+                  <article
+                    key={policy.id}
+                    className={`${styles['policyCard']} ${
+                      matched ? styles['matchedPolicy'] : ''
+                    } ${scanning ? styles['scanningPolicy'] : ''} ${
+                      phaseCheck?.status === 'checked' ? styles['checkedPolicy'] : ''
+                    } ${phaseCheck?.status === 'skipped' ? styles['skippedPolicy'] : ''} ${
+                      policy.enabled ? '' : styles['previewPolicy']
+                    }`}
+                  >
+                    <span className={styles['policyDot']} aria-hidden="true" />
+                    <div>
+                      <strong>{policy.description ?? policy.id}</strong>
+                      <code>{policy.id}</code>
+                      <span className={styles['policyStatus']}>
+                        {policyStatusLabel(policy, scanning, matched, phaseCheck)}
+                      </span>
+                    </div>
+                    <div className={styles['policyMeta']}>
+                      {policy.phase !== undefined ? <span>{policy.phase}</span> : null}
+                      <span>{policy.severity}</span>
+                      <span>{policy.action ?? 'check'}</span>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </section>
         </div>
@@ -486,6 +504,69 @@ function checkStatusDetail(check: HealthcareCheck | undefined, pending: boolean)
 
 function displayMessage(role: DisplayMessage['role'], content: string): DisplayMessage {
   return { id: crypto.randomUUID(), role, content };
+}
+
+function policyMonitorSummary(
+  runState: RunState,
+  policies: HealthcarePolicy[],
+  inventoryState: InventoryState,
+  inventorySource: HealthcarePolicyInventory['source'] | null,
+): string {
+  if (isRunning(runState) && inventorySource !== 'rust') return 'Awaiting Rust guard';
+  if (runState === 'checking_input') {
+    return `${policyPhaseCount(policies, 'input')} input checks running`;
+  }
+  if (runState === 'generating') return 'Input checks passed';
+  if (runState === 'checking_output') {
+    return `${policyPhaseCount(policies, 'output')} output checks running`;
+  }
+  if (inventoryState === 'loading') return 'Loading';
+  if (inventoryState === 'error') return 'Unavailable';
+  return `${policies.length} ${inventorySource === 'rust' ? 'active' : 'in pack'}`;
+}
+
+function policyPhaseCount(
+  policies: HealthcarePolicy[],
+  phase: NonNullable<HealthcarePolicy['phase']>,
+): number {
+  return policies.filter((policy) => policy.phase === phase).length;
+}
+
+function isPolicyScanning(policy: HealthcarePolicy, runState: RunState): boolean {
+  if (!policy.enabled) return false;
+  return (
+    (policy.phase === 'input' && runState === 'checking_input') ||
+    (policy.phase === 'output' && runState === 'checking_output')
+  );
+}
+
+function policyPhaseCheck(
+  policy: HealthcarePolicy,
+  response: HealthcareDemoResponse | null,
+): HealthcareCheck | undefined {
+  if (policy.phase === 'input') return response?.checks[0];
+  if (policy.phase === 'output') return response?.checks[1];
+  return undefined;
+}
+
+function policyStatusLabel(
+  policy: HealthcarePolicy,
+  scanning: boolean,
+  matched: boolean,
+  phaseCheck: HealthcareCheck | undefined,
+): string {
+  if (scanning) return 'Checking now';
+  if (matched) return 'Matched this turn';
+  if (phaseCheck?.status === 'checked') return 'Checked this turn';
+  if (phaseCheck?.status === 'skipped') return 'Skipped this turn';
+  if (phaseCheck?.status === 'unavailable') return 'Check unavailable';
+  return policy.enabled ? 'Active in Rust' : 'Policy pack preview';
+}
+
+async function waitForMinimumDuration(startedAt: number, minimumMs: number): Promise<void> {
+  const remainingMs = minimumMs - (performance.now() - startedAt);
+  if (remainingMs <= 0) return;
+  await new Promise<void>((resolve) => setTimeout(resolve, remainingMs));
 }
 
 function isRunning(runState: RunState): boolean {

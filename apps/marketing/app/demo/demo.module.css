@@ -752,6 +752,11 @@
   border-radius: var(--radius-sm);
   padding: 0.8rem;
   background: var(--color-panel);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    opacity 180ms ease;
 }
 
 .matchedPolicy {
@@ -791,6 +796,45 @@
   background: var(--color-accent);
   box-shadow: 0 0 0 0.2rem var(--color-accent-wash);
   opacity: 1;
+}
+
+.scanningPolicy {
+  border-color: var(--color-accent);
+  background-image: linear-gradient(
+    100deg,
+    var(--color-panel) 20%,
+    var(--color-accent-wash) 48%,
+    var(--color-panel) 76%
+  );
+  background-position: 120% 0;
+  background-size: 240% 100%;
+  box-shadow: inset 0.2rem 0 var(--color-accent);
+  animation: policyScan 900ms ease-in-out infinite;
+}
+
+.scanningPolicy:nth-child(3n + 2) {
+  animation-delay: -140ms;
+}
+
+.scanningPolicy:nth-child(3n) {
+  animation-delay: -280ms;
+}
+
+.scanningPolicy .policyDot {
+  background: var(--color-accent);
+  animation: policyDotPulse 700ms ease-in-out infinite;
+}
+
+.scanningPolicy .policyStatus {
+  color: var(--color-accent);
+}
+
+.checkedPolicy:not(.matchedPolicy) {
+  border-color: var(--color-allow);
+}
+
+.skippedPolicy {
+  opacity: 0.68;
 }
 
 .policyCard strong,
@@ -835,6 +879,23 @@
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes policyScan {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+@keyframes policyDotPulse {
+  50% {
+    box-shadow: 0 0 0 0.3rem var(--color-accent-wash);
+    transform: scale(1.12);
   }
 }
 
@@ -929,7 +990,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .spinner,
-  .workflowStep.running > i {
+  .workflowStep.running > i,
+  .scanningPolicy,
+  .scanningPolicy .policyDot {
     animation: none;
   }
 }
