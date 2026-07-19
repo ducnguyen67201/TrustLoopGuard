@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { MarketingLocale } from '@/lib/marketing-locale';
 
 type Lang = 'ts' | 'python' | 'rust';
 
@@ -13,19 +14,28 @@ const LABELS: Record<Lang, string> = {
 interface CodeBlockProps {
   samples: Record<Lang, string>;
   footerLabel?: string;
+  locale?: MarketingLocale;
 }
 
-export function CodeBlock({ samples, footerLabel = 'POST /v1/events - Decision' }: CodeBlockProps) {
+export function CodeBlock({
+  samples,
+  footerLabel = 'POST /v1/events - Decision',
+  locale = 'en',
+}: CodeBlockProps) {
   const [lang, setLang] = useState<Lang>('ts');
+  const copy =
+    locale === 'vi'
+      ? { example: 'Ví dụ tích hợp', language: 'Ngôn ngữ SDK', returned: 'Đã trả về quyết định' }
+      : { example: 'Integration example', language: 'SDK language', returned: 'Decision returned' };
 
   return (
     <div className="code-panel">
       <div className="flex flex-col gap-3 border-b border-[var(--color-hairline)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <span className="code-panel-label">Integration example</span>
+        <span className="code-panel-label">{copy.example}</span>
         <div
           role="tablist"
-          aria-label="SDK language"
-            className="code-language-tabs flex p-0.5 text-xs"
+          aria-label={copy.language}
+          className="code-language-tabs flex p-0.5 text-xs"
         >
           {(Object.keys(samples) as Lang[]).map((l) => (
             <button
@@ -49,7 +59,7 @@ export function CodeBlock({ samples, footerLabel = 'POST /v1/events - Decision' 
       </pre>
       <div className="flex flex-col gap-1 border-t border-[var(--color-hairline)] px-4 py-3 text-xs text-[var(--color-ink-mute)] sm:flex-row sm:items-center sm:justify-between">
         <span>{footerLabel}</span>
-          <span className="font-mono text-[var(--color-allow)]">Decision returned</span>
+        <span className="font-mono text-[var(--color-allow)]">{copy.returned}</span>
       </div>
     </div>
   );

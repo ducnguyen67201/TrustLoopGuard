@@ -1,18 +1,45 @@
 'use client';
 
+import type { MarketingLocale } from '@/lib/marketing-locale';
 import { CodeBlock } from './code-block';
 
-const SDK_MODE = {
-  label: 'Published SDK',
-  summary: 'Install one package and decorate your agent',
-  title: 'Keep calling the same agent.',
-  copy: 'The SDK decorates your agent once, checks every final reply through the Rust runtime, and preserves the interface your application already calls.',
-  facts: [
-    ['Install', 'npm install @trustloopguard/sdk'],
-    ['Boundary', 'Your existing reply function'],
-    ['Endpoint', 'POST /v1/events'],
-  ],
-  footerLabel: 'Decorated agent → safe reply',
+const COPY = {
+  en: {
+    eyebrow: 'For developers',
+    heading: 'Install one package. Decorate one agent.',
+    intro:
+      'Keep your current model provider and reply call sites. TrustLoopGuard adds one SDK decorator at the final output boundary.',
+    mode: {
+      label: 'Published SDK',
+      summary: 'Install one package and decorate your agent',
+      title: 'Keep calling the same agent.',
+      copy: 'The SDK decorates your agent once, checks every final reply through the Rust runtime, and preserves the interface your application already calls.',
+      facts: [
+        ['Install', 'npm install @trustloopguard/sdk'],
+        ['Boundary', 'Your existing reply function'],
+        ['Endpoint', 'POST /v1/events'],
+      ],
+      footerLabel: 'Decorated agent → safe reply',
+    },
+  },
+  vi: {
+    eyebrow: 'Dành cho nhà phát triển',
+    heading: 'Cài một package. Bọc một tác nhân.',
+    intro:
+      'Giữ nguyên nhà cung cấp mô hình và các điểm gọi phản hồi hiện tại. TrustLoopGuard thêm một decorator SDK tại ranh giới đầu ra cuối cùng.',
+    mode: {
+      label: 'SDK đã phát hành',
+      summary: 'Cài một package và bọc tác nhân của bạn',
+      title: 'Tiếp tục gọi chính tác nhân hiện có.',
+      copy: 'SDK bọc tác nhân một lần, kiểm tra mọi phản hồi cuối qua runtime Rust và giữ nguyên giao diện mà ứng dụng của bạn đang gọi.',
+      facts: [
+        ['Cài đặt', 'npm install @trustloopguard/sdk'],
+        ['Ranh giới', 'Hàm phản hồi hiện có của bạn'],
+        ['Endpoint', 'POST /v1/events'],
+      ],
+      footerLabel: 'Tác nhân được bọc → phản hồi an toàn',
+    },
+  },
 } as const;
 
 const SDK_SAMPLES = {
@@ -42,21 +69,21 @@ match decision.effect {
 }`,
 } as const;
 
-export function Sdk() {
+export function Sdk({ locale = 'en' }: { locale?: MarketingLocale }) {
+  const copy = COPY[locale];
+  const mode = copy.mode;
+
   return (
     <section id="developers" aria-labelledby="developers-heading" className="developers-section">
       <div className="section">
         <div className="section-heading split-heading">
           <div>
-            <p className="eyebrow">For developers</p>
+            <p className="eyebrow">{copy.eyebrow}</p>
             <h2 id="developers-heading" className="section-title">
-              Install one package. Decorate one agent.
+              {copy.heading}
             </h2>
           </div>
-          <p className="section-copy">
-            Keep your current model provider and reply call sites. TrustLoopGuard adds one SDK
-            decorator at the final output boundary.
-          </p>
+          <p className="section-copy">{copy.intro}</p>
         </div>
 
         <div className="developer-grid">
@@ -65,17 +92,17 @@ export function Sdk() {
               <div className="integration-tab integration-tab-active">
                 <span>01</span>
                 <div>
-                  <strong>{SDK_MODE.label}</strong>
-                  <small>{SDK_MODE.summary}</small>
+                  <strong>{mode.label}</strong>
+                  <small>{mode.summary}</small>
                 </div>
               </div>
             </div>
 
             <div className="integration-copy">
-              <h3>{SDK_MODE.title}</h3>
-              <p>{SDK_MODE.copy}</p>
+              <h3>{mode.title}</h3>
+              <p>{mode.copy}</p>
               <dl>
-                {SDK_MODE.facts.map(([label, value]) => (
+                {mode.facts.map(([label, value]) => (
                   <div key={label}>
                     <dt>{label}</dt>
                     <dd>{value}</dd>
@@ -85,7 +112,7 @@ export function Sdk() {
             </div>
           </div>
 
-          <CodeBlock samples={SDK_SAMPLES} footerLabel={SDK_MODE.footerLabel} />
+          <CodeBlock samples={SDK_SAMPLES} footerLabel={mode.footerLabel} locale={locale} />
         </div>
       </div>
     </section>

@@ -17,3 +17,9 @@ test('the marketing header tracks the live demo on desktop and compact layouts',
     /@media\s*\(min-width:\s*1100px\)\s*{[\s\S]*?\.button-secondary\.nav-demo-compact\s*{[^}]*display:\s*none/,
   );
 });
+
+test('the marketing header does not expose a manual language switch', () => {
+  const compactNav = readFileSync(new URL('./nav-actions.tsx', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(compactNav, /languageCode|hrefLang|localePreferenceHref/);
+});

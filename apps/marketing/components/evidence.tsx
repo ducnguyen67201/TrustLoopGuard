@@ -1,4 +1,5 @@
 import { GITHUB_URL } from '@/lib/github';
+import type { MarketingLocale } from '@/lib/marketing-locale';
 
 const ACTION_ID = '0195f2a4-7c31-7a4e-a50e-2d36fb38ec42';
 const DISPLAY_ACTION_ID = '0195f2a4…38ec42';
@@ -10,30 +11,80 @@ const DECISION_FIELDS = [
   ['execution', 'not_started'],
 ] as const;
 
-export function Evidence() {
+const COPY = {
+  en: {
+    eyebrow: 'The evidence',
+    title: 'Every authorization leaves a record.',
+    intro:
+      'See what was requested, what passed, why approval is needed, and whether execution started.',
+    receiptLabel: 'Example financial action decision receipt',
+    receiptTitle: 'Example decision receipt',
+    approvalRequired: 'Approval required',
+    viewTypes: 'View types ↗',
+    notes: [
+      {
+        title: 'Authority is checked before policy',
+        body: 'Grant scope proves what this principal may do for this specific action.',
+      },
+      {
+        title: 'Execution is a separate state',
+        body: 'An approval-required action cannot execute until a matching grant and current policy produce permit.',
+      },
+      {
+        title: 'Proof exists on both sides',
+        body: 'A decision receipt explains authorization before execution; an execution receipt records what moved.',
+      },
+    ],
+  },
+  vi: {
+    eyebrow: 'Bằng chứng',
+    title: 'Mỗi lần cấp quyền đều để lại bản ghi.',
+    intro:
+      'Xem yêu cầu ban đầu, bước nào đã đạt, vì sao cần phê duyệt và việc thực thi đã bắt đầu hay chưa.',
+    receiptLabel: 'Ví dụ biên nhận quyết định cho hành động tài chính',
+    receiptTitle: 'Biên nhận quyết định mẫu',
+    approvalRequired: 'Cần phê duyệt',
+    viewTypes: 'Xem kiểu dữ liệu ↗',
+    notes: [
+      {
+        title: 'Thẩm quyền được kiểm tra trước chính sách',
+        body: 'Phạm vi ủy quyền chứng minh chủ thể này được phép làm gì đối với hành động cụ thể.',
+      },
+      {
+        title: 'Thực thi là một trạng thái riêng biệt',
+        body: 'Hành động cần phê duyệt không thể thực thi cho đến khi ủy quyền phù hợp và chính sách hiện hành trả về permit.',
+      },
+      {
+        title: 'Có bằng chứng ở cả hai phía',
+        body: 'Biên nhận quyết định giải thích việc cấp quyền trước khi thực thi; biên nhận thực thi ghi lại điều đã diễn ra.',
+      },
+    ],
+  },
+} as const;
+
+export function Evidence({ locale = 'en' }: { locale?: MarketingLocale }) {
+  const copy = COPY[locale];
+
   return (
     <section aria-labelledby="evidence-heading" className="section evidence-section">
       <div className="section-heading split-heading">
         <div>
-          <p className="eyebrow">The evidence</p>
+          <p className="eyebrow">{copy.eyebrow}</p>
           <h2 id="evidence-heading" className="section-title">
-            Every authorization leaves a record.
+            {copy.title}
           </h2>
         </div>
-        <p className="section-copy">
-          See what was requested, what passed, why approval is needed, and whether execution
-          started.
-        </p>
+        <p className="section-copy">{copy.intro}</p>
       </div>
 
       <div className="evidence-grid">
-        <article className="trace-sheet" aria-label="Example financial action decision receipt">
+        <article className="trace-sheet" aria-label={copy.receiptLabel}>
           <header>
             <div>
-              <span>Example decision receipt</span>
+              <span>{copy.receiptTitle}</span>
               <code title={ACTION_ID}>{DISPLAY_ACTION_ID}</code>
             </div>
-            <span className="record-state record-state-held">Approval required</span>
+            <span className="record-state record-state-held">{copy.approvalRequired}</span>
           </header>
 
           <div className="trace-event">
@@ -80,23 +131,17 @@ export function Evidence() {
               target="_blank"
               rel="noreferrer"
             >
-              View types ↗
+              {copy.viewTypes}
             </a>
           </footer>
         </article>
 
         <div className="evidence-notes">
-          <EvidenceNote number="01" title="Authority is checked before policy">
-            Grant scope proves what this principal may do for this specific action.
-          </EvidenceNote>
-          <EvidenceNote number="02" title="Execution is a separate state">
-            An approval-required action cannot execute until a matching grant and current policy
-            produce permit.
-          </EvidenceNote>
-          <EvidenceNote number="03" title="Proof exists on both sides">
-            A decision receipt explains authorization before execution; an execution receipt records
-            what moved.
-          </EvidenceNote>
+          {copy.notes.map((note, index) => (
+            <EvidenceNote key={note.title} number={`0${index + 1}`} title={note.title}>
+              {note.body}
+            </EvidenceNote>
+          ))}
         </div>
       </div>
     </section>
