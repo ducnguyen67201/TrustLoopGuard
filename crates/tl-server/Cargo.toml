@@ -46,8 +46,10 @@ utoipa = { version = "5", features = ["axum_extras"] }
 async-trait = { workspace = true }
 serde_yaml = { workspace = true }
 bytes = "1"
+futures = { workspace = true }
 base64 = "0.22"
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+sse-stream = "0.2.3"
 uuid = { workspace = true }
 chrono = { workspace = true }
 # `std` enables rand_core's getrandom, which exposes password_hash::rand_core::OsRng.

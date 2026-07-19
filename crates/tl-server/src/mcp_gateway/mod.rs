@@ -1,6 +1,7 @@
 //! Hosted, OAuth-authenticated MCP access gateway.
 
 mod api;
+mod bounded_http;
 mod handler;
 mod memory;
 mod naming;

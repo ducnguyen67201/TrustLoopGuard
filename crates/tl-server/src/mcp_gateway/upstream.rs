@@ -1,7 +1,8 @@
+use std::collections::HashSet;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::Duration;
 
-use rmcp::model::{CallToolRequestParams, CallToolResult, Tool};
+use rmcp::model::{CallToolRequestParams, CallToolResult, PaginatedRequestParams, Tool};
 use rmcp::service::RunningService;
 use rmcp::transport::streamable_http_client::{
     StreamableHttpClientTransport, StreamableHttpClientTransportConfig,
@@ -10,6 +11,7 @@ use rmcp::{RoleClient, ServiceExt};
 use sha2::{Digest, Sha256};
 use url::Url;
 
+use super::bounded_http::BoundedHttpClient;
 use super::naming::public_tool_names;
 use super::{CatalogToolInput, McpGatewayStoreError};
 
@@ -19,6 +21,8 @@ const MAX_TOOLS: usize = 500;
 const MAX_DESCRIPTION_BYTES: usize = 4 * 1024;
 const MAX_SCHEMA_BYTES: usize = 64 * 1024;
 const MAX_SCHEMA_DEPTH: usize = 32;
+const MAX_CATALOG_HTTP_BYTES: usize = 72 * 1024 * 1024;
+const MAX_TOOL_RESULT_HTTP_BYTES: usize = 1024 * 1024 + 64 * 1024;
 
 pub(super) struct PreparedUpstream {
     service: RunningService<RoleClient, ()>,
@@ -26,10 +30,43 @@ pub(super) struct PreparedUpstream {
 
 impl PreparedUpstream {
     pub(super) async fn list_tools(&self) -> Result<Vec<Tool>, McpGatewayStoreError> {
-        tokio::time::timeout(OPERATION_TIMEOUT, self.service.list_all_tools())
-            .await
-            .map_err(|_| safe_upstream("upstream tool listing timed out"))?
-            .map_err(|_| safe_upstream("upstream tool listing failed"))
+        tokio::time::timeout(OPERATION_TIMEOUT, async {
+            let mut tools = Vec::new();
+            let mut cursor = None;
+            let mut seen_cursors = HashSet::new();
+            loop {
+                let page = self
+                    .service
+                    .list_tools(Some(
+                        PaginatedRequestParams::default().with_cursor(cursor.clone()),
+                    ))
+                    .await?;
+                if !catalog_page_fits(tools.len(), page.tools.len()) {
+                    return Err(rmcp::ServiceError::McpError(
+                        rmcp::model::ErrorData::invalid_request(
+                            "upstream exposes more than 500 tools",
+                            None,
+                        ),
+                    ));
+                }
+                tools.extend(page.tools);
+                let Some(next) = page.next_cursor else {
+                    return Ok(tools);
+                };
+                if next.is_empty() || !seen_cursors.insert(next.clone()) {
+                    return Err(rmcp::ServiceError::McpError(
+                        rmcp::model::ErrorData::invalid_request(
+                            "upstream returned an invalid tools cursor",
+                            None,
+                        ),
+                    ));
+                }
+                cursor = Some(next);
+            }
+        })
+        .await
+        .map_err(|_| safe_upstream("upstream tool listing timed out"))?
+        .map_err(|_| safe_upstream("upstream tool listing failed"))
     }
 
     pub(super) async fn call_tool(
@@ -50,9 +87,10 @@ impl PreparedUpstream {
     }
 }
 
-pub(super) async fn prepare_upstream(
+async fn prepare_upstream(
     endpoint: &str,
     bearer: Option<&str>,
+    max_response_bytes: usize,
 ) -> Result<PreparedUpstream, McpGatewayStoreError> {
     let (url, host, addresses) = validate_and_resolve_endpoint(endpoint).await?;
     let client = reqwest::Client::builder()
@@ -70,12 +108,29 @@ pub(super) async fn prepare_upstream(
     if let Some(bearer) = bearer {
         config = config.auth_header(bearer.to_string());
     }
-    let transport = StreamableHttpClientTransport::with_client(client, config);
+    let transport = StreamableHttpClientTransport::with_client(
+        BoundedHttpClient::new(client, max_response_bytes),
+        config,
+    );
     let service = tokio::time::timeout(CONNECT_TIMEOUT, ().serve(transport))
         .await
         .map_err(|_| safe_upstream("upstream connection timed out"))?
         .map_err(|_| safe_upstream("upstream connection failed"))?;
     Ok(PreparedUpstream { service })
+}
+
+pub(super) async fn prepare_catalog_upstream(
+    endpoint: &str,
+    bearer: Option<&str>,
+) -> Result<PreparedUpstream, McpGatewayStoreError> {
+    prepare_upstream(endpoint, bearer, MAX_CATALOG_HTTP_BYTES).await
+}
+
+pub(super) async fn prepare_tool_upstream(
+    endpoint: &str,
+    bearer: Option<&str>,
+) -> Result<PreparedUpstream, McpGatewayStoreError> {
+    prepare_upstream(endpoint, bearer, MAX_TOOL_RESULT_HTTP_BYTES).await
 }
 
 pub(super) async fn sync_catalog(
@@ -84,7 +139,7 @@ pub(super) async fn sync_catalog(
     server_slug: &str,
     connection_id: uuid::Uuid,
 ) -> Result<Vec<CatalogToolInput>, McpGatewayStoreError> {
-    let peer = prepare_upstream(endpoint, bearer).await?;
+    let peer = prepare_catalog_upstream(endpoint, bearer).await?;
     let result = async {
         let tools = peer.list_tools().await?;
         normalize_catalog(server_slug, connection_id, tools)
@@ -235,10 +290,9 @@ async fn validate_and_resolve_endpoint(
     if addresses.is_empty() {
         return Err(safe_upstream("upstream hostname could not be resolved"));
     }
-    let local_http = url.scheme() == "http" && allow_http;
     if addresses
         .iter()
-        .any(|address| !(is_public_ip(address.ip()) || local_http && address.ip().is_loopback()))
+        .any(|address| !endpoint_address_allowed(url.scheme(), allow_http, address.ip()))
     {
         return Err(McpGatewayStoreError::Conflict(
             "endpoint resolves to a non-public network".into(),
@@ -256,7 +310,13 @@ pub(super) fn validate_endpoint_url(endpoint: &str) -> Result<Url, &'static str>
     {
         return Err("endpoint URL cannot contain credentials, query, or fragment");
     }
-    if url.scheme() != "https" && !(url.scheme() == "http" && insecure_http_allowed()) {
+    let loopback_http = url.scheme() == "http"
+        && insecure_http_allowed()
+        && matches!(
+            url.host_str(),
+            Some("localhost") | Some("127.0.0.1") | Some("::1")
+        );
+    if url.scheme() != "https" && !loopback_http {
         return Err("endpoint URL must use HTTPS");
     }
     if url.host_str().is_none() {
@@ -269,6 +329,20 @@ fn insecure_http_allowed() -> bool {
     std::env::var("TL_MCP_GATEWAY_ALLOW_INSECURE_HTTP")
         .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
         .unwrap_or(false)
+}
+
+pub(super) fn endpoint_address_allowed(scheme: &str, allow_http: bool, ip: IpAddr) -> bool {
+    match scheme {
+        "https" => is_public_ip(ip),
+        "http" => allow_http && ip.is_loopback(),
+        _ => false,
+    }
+}
+
+pub(super) fn catalog_page_fits(current: usize, page: usize) -> bool {
+    current
+        .checked_add(page)
+        .is_some_and(|total| total <= MAX_TOOLS)
 }
 
 fn is_public_ip(ip: IpAddr) -> bool {

@@ -20,21 +20,35 @@ impl PostgresOAuthAdapter {
 
 #[async_trait]
 impl OAuthStore for PostgresOAuthAdapter {
-    async fn client_count(&self) -> Result<usize, OAuthStoreError> {
-        let count = self.repo.client_count().await.map_err(map_error)?;
-        usize::try_from(count)
-            .map_err(|_| OAuthStoreError::Internal("OAuth client count overflow".to_string()))
-    }
-
-    async fn create_client(&self, client: OAuthClientRecord) -> Result<(), OAuthStoreError> {
+    async fn create_client_bounded(
+        &self,
+        client: OAuthClientRecord,
+        max_clients: usize,
+    ) -> Result<(), OAuthStoreError> {
         self.repo
-            .create_client(
+            .create_client_bounded(
                 &client.client_id,
                 client.client_name.as_deref(),
                 &client.redirect_uris,
+                i64::try_from(max_clients).map_err(|_| {
+                    OAuthStoreError::Internal("OAuth client capacity overflow".to_string())
+                })?,
             )
             .await
             .map(|_| ())
+            .map_err(|error| match error {
+                StorageError::Conflict => OAuthStoreError::Capacity,
+                other => map_error(other),
+            })
+    }
+
+    async fn prune_inactive_clients(
+        &self,
+        inactive_before: chrono::DateTime<chrono::Utc>,
+    ) -> Result<usize, OAuthStoreError> {
+        self.repo
+            .prune_inactive_clients(inactive_before)
+            .await
             .map_err(map_error)
     }
 

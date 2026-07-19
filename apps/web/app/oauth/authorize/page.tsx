@@ -45,7 +45,7 @@ export default async function OAuthAuthorizePage({
   };
 
   const session = await auth();
-  const user = session?.user as { id?: string; email?: string | null } | undefined;
+  const user = session?.user as { id?: string; email?: string | null; name?: string | null; username?: string | null } | undefined;
   const userId = user?.id;
 
   if (!userId) {
@@ -126,7 +126,7 @@ export default async function OAuthAuthorizePage({
           state={state}
           codeChallenge={codeChallenge}
           workspaces={workspaces}
-          userLabel={user?.email ?? userId}
+          userLabel={user?.email ?? user?.username ?? user?.name ?? userId}
           resource={get('resource')}
           scope={get('scope')}
         />

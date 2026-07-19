@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -59,6 +59,7 @@ describe('McpAccessPageContent', () => {
 
   it('labels member selection and lets admins classify a tool side effect', async () => {
     const user = userEvent.setup();
+    Element.prototype.scrollIntoView = vi.fn();
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     const admin = {
@@ -78,7 +79,7 @@ describe('McpAccessPageContent', () => {
 
     await user.click(screen.getByRole('tab', { name: 'Tool access' }));
     expect(screen.getByLabelText('Member')).toBeInTheDocument();
-    await user.click(screen.getByRole('combobox', { name: 'Classify company__charge' }));
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Classify company__charge' }), { key: 'ArrowDown' });
     await user.click(screen.getByRole('option', { name: 'API mutation' }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(

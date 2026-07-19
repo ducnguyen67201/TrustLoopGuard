@@ -12,6 +12,8 @@ pub enum OAuthStoreError {
     NotFound,
     #[error("conflict")]
     Conflict,
+    #[error("capacity reached")]
+    Capacity,
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -49,8 +51,15 @@ pub struct OAuthRefreshTokenRecord {
 
 #[async_trait]
 pub trait OAuthStore: Send + Sync {
-    async fn client_count(&self) -> Result<usize, OAuthStoreError>;
-    async fn create_client(&self, client: OAuthClientRecord) -> Result<(), OAuthStoreError>;
+    async fn create_client_bounded(
+        &self,
+        client: OAuthClientRecord,
+        max_clients: usize,
+    ) -> Result<(), OAuthStoreError>;
+    async fn prune_inactive_clients(
+        &self,
+        inactive_before: DateTime<Utc>,
+    ) -> Result<usize, OAuthStoreError>;
     async fn get_client(&self, client_id: &str) -> Result<OAuthClientRecord, OAuthStoreError>;
     async fn put_code(
         &self,
@@ -74,22 +83,18 @@ pub trait OAuthStore: Send + Sync {
 
 #[derive(Default)]
 pub struct MemoryOAuthStore {
-    clients: Mutex<HashMap<String, OAuthClientRecord>>,
+    clients: Mutex<HashMap<String, (OAuthClientRecord, DateTime<Utc>)>>,
     codes: Mutex<HashMap<String, OAuthAuthorizationCodeRecord>>,
     refresh: Mutex<HashMap<String, OAuthRefreshTokenRecord>>,
 }
 
 #[async_trait]
 impl OAuthStore for MemoryOAuthStore {
-    async fn client_count(&self) -> Result<usize, OAuthStoreError> {
-        Ok(self
-            .clients
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .len())
-    }
-
-    async fn create_client(&self, client: OAuthClientRecord) -> Result<(), OAuthStoreError> {
+    async fn create_client_bounded(
+        &self,
+        client: OAuthClientRecord,
+        max_clients: usize,
+    ) -> Result<(), OAuthStoreError> {
         let mut clients = self
             .clients
             .lock()
@@ -97,8 +102,45 @@ impl OAuthStore for MemoryOAuthStore {
         if clients.contains_key(&client.client_id) {
             return Err(OAuthStoreError::Conflict);
         }
-        clients.insert(client.client_id.clone(), client);
+        if clients.len() >= max_clients {
+            return Err(OAuthStoreError::Capacity);
+        }
+        clients.insert(client.client_id.clone(), (client, Utc::now()));
         Ok(())
+    }
+
+    async fn prune_inactive_clients(
+        &self,
+        inactive_before: DateTime<Utc>,
+    ) -> Result<usize, OAuthStoreError> {
+        let active_client_ids = {
+            let now = Utc::now();
+            let codes = self.codes.lock().unwrap_or_else(|error| error.into_inner());
+            let refresh = self
+                .refresh
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            codes
+                .values()
+                .filter(|record| record.expires_at > now)
+                .map(|record| record.client_id.clone())
+                .chain(
+                    refresh
+                        .values()
+                        .filter(|record| record.expires_at > now)
+                        .map(|record| record.client_id.clone()),
+                )
+                .collect::<std::collections::HashSet<_>>()
+        };
+        let mut clients = self
+            .clients
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        let before = clients.len();
+        clients.retain(|client_id, (_, created_at)| {
+            *created_at >= inactive_before || active_client_ids.contains(client_id)
+        });
+        Ok(before - clients.len())
     }
 
     async fn get_client(&self, client_id: &str) -> Result<OAuthClientRecord, OAuthStoreError> {
@@ -106,7 +148,7 @@ impl OAuthStore for MemoryOAuthStore {
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .get(client_id)
-            .cloned()
+            .map(|(client, _)| client.clone())
             .ok_or(OAuthStoreError::NotFound)
     }
 

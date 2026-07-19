@@ -2,7 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use diesel_async::{AsyncConnection, RunQueryDsl};
 use uuid::Uuid;
 
 use crate::models::{
@@ -81,33 +81,68 @@ impl OAuthRepo {
         Self { pool }
     }
 
-    pub async fn client_count(&self) -> Result<i64, StorageError> {
-        let mut conn = self.connection().await?;
-        mcp_oauth_clients::table
-            .count()
-            .get_result(&mut conn)
-            .await
-            .map_err(Into::into)
-    }
-
-    pub async fn create_client(
+    pub async fn create_client_bounded(
         &self,
         client_id: &str,
         client_name: Option<&str>,
         redirect_uris: &[String],
+        max_clients: i64,
     ) -> Result<StoredOAuthClient, StorageError> {
         let mut conn = self.connection().await?;
-        let row = diesel::insert_into(mcp_oauth_clients::table)
-            .values(NewMcpOAuthClient {
-                client_id: client_id.to_string(),
-                client_name: client_name.map(str::to_string),
-                redirect_uris: serde_json::to_value(redirect_uris)
-                    .map_err(|error| StorageError::Internal(error.to_string()))?,
+        let client_id = client_id.to_string();
+        let client_name = client_name.map(str::to_string);
+        let redirect_uris = serde_json::to_value(redirect_uris)
+            .map_err(|error| StorageError::Internal(error.to_string()))?;
+        let row = conn
+            .transaction::<_, StorageError, _>(async move |conn| {
+                diesel::sql_query(
+                    "SELECT pg_advisory_xact_lock(hashtext('tlg_oauth_client_capacity'))",
+                )
+                .execute(&mut *conn)
+                .await?;
+                let count = mcp_oauth_clients::table
+                    .count()
+                    .get_result::<i64>(&mut *conn)
+                    .await?;
+                if count >= max_clients {
+                    return Err(StorageError::Conflict);
+                }
+                diesel::insert_into(mcp_oauth_clients::table)
+                    .values(NewMcpOAuthClient {
+                        client_id,
+                        client_name,
+                        redirect_uris,
+                    })
+                    .returning(McpOAuthClientRecord::as_returning())
+                    .get_result::<McpOAuthClientRecord>(&mut *conn)
+                    .await
+                    .map_err(Into::into)
             })
-            .returning(McpOAuthClientRecord::as_returning())
-            .get_result::<McpOAuthClientRecord>(&mut conn)
             .await?;
         map_client(row)
+    }
+
+    pub async fn prune_inactive_clients(
+        &self,
+        inactive_before: DateTime<Utc>,
+    ) -> Result<usize, StorageError> {
+        let mut conn = self.connection().await?;
+        let deleted = diesel::sql_query(
+            "DELETE FROM mcp_oauth_clients AS clients
+             WHERE clients.created_at < $1
+               AND NOT EXISTS (
+                 SELECT 1 FROM mcp_oauth_authorization_codes AS codes
+                 WHERE codes.client_id = clients.client_id AND codes.expires_at > now()
+               )
+               AND NOT EXISTS (
+                 SELECT 1 FROM mcp_oauth_refresh_tokens AS refresh
+                 WHERE refresh.client_id = clients.client_id AND refresh.expires_at > now()
+               )",
+        )
+        .bind::<diesel::sql_types::Timestamptz, _>(inactive_before)
+        .execute(&mut conn)
+        .await?;
+        Ok(deleted)
     }
 
     pub async fn get_client(&self, client_id: &str) -> Result<StoredOAuthClient, StorageError> {

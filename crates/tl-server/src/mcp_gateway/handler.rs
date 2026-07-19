@@ -18,7 +18,7 @@ use crate::auth::McpAccessContext;
 use crate::AppState;
 
 use super::service::require_signed_member_feature;
-use super::upstream::{prepare_upstream, schema_hash};
+use super::upstream::{prepare_catalog_upstream, prepare_tool_upstream, schema_hash};
 use super::{EntitledMcpTool, McpGatewayStore, McpGatewayStoreError};
 
 const PAGE_SIZE: u32 = 100;
@@ -139,7 +139,7 @@ impl HostedMcpHandler {
         let arguments = request.arguments.clone().unwrap_or_default();
         validate_arguments(&entitled.tool.input_schema, &arguments)?;
         let bearer = decrypt_bearer(&entitled, &self.seal_key)?;
-        let prepared = prepare_upstream(&entitled.endpoint_url, bearer.as_deref())
+        let prepared = prepare_catalog_upstream(&entitled.endpoint_url, bearer.as_deref())
             .await
             .map_err(|_| "The upstream tool server is unavailable".to_string())?;
         let live_tools = prepared
@@ -165,6 +165,7 @@ impl HostedMcpHandler {
                 "The tool schema changed and requires an administrator to synchronize it".into(),
             );
         }
+        prepared.close().await;
         let event = build_event(&access, &environment_id, &entitled, &arguments, None);
         let principal_id = format!("mcp:user:{}", access.user_id);
         let mut decision = crate::services::event_service::execute_event_submission_as_principal(
@@ -179,7 +180,6 @@ impl HostedMcpHandler {
         .map_err(|_| "Runtime policy evaluation failed".to_string())?;
 
         if decision.decision.effect == AuthorizationEffect::RequireApproval {
-            prepared.close().await;
             let approval = decision
                 .decision
                 .approval
@@ -213,15 +213,12 @@ impl HostedMcpHandler {
                 }
             };
             let attempt_id = Uuid::new_v4().to_string();
-            let resumed = build_event(
-                &access,
-                &environment_id,
-                &entitled,
-                &arguments,
-                Some(AuthorizationClaim {
+            let resumed = resume_authorized_event(
+                event,
+                AuthorizationClaim {
                     grant_id,
                     attempt_id,
-                }),
+                },
             );
             decision = crate::services::event_service::execute_event_submission_as_principal(
                 &self.app,
@@ -252,14 +249,12 @@ impl HostedMcpHandler {
                 .await;
         }
         if decision.decision.effect != AuthorizationEffect::Permit {
-            prepared.close().await;
             return Err(match decision.decision.effect { AuthorizationEffect::Deny => "Runtime policy blocked this tool call", AuthorizationEffect::Transform => "Runtime policy requested a transformation; transformed MCP calls are not executable", AuthorizationEffect::Defer => "Runtime policy deferred this tool call", AuthorizationEffect::RequireApproval => "Approval is required", AuthorizationEffect::Permit => unreachable!() }.into());
         }
-        self.execute_with_prepared(
+        self.execute_permitted(
             &access,
             &entitled,
             arguments,
-            prepared,
             decision
                 .decision
                 .lease
@@ -287,7 +282,7 @@ impl HostedMcpHandler {
             .map_err(|_| "Tool access was revoked before execution".to_string())?;
         require_same_authority(original, &current)?;
         let bearer = decrypt_bearer(&current, &self.seal_key)?;
-        let prepared = prepare_upstream(&current.endpoint_url, bearer.as_deref())
+        let prepared = prepare_catalog_upstream(&current.endpoint_url, bearer.as_deref())
             .await
             .map_err(|_| "The upstream tool server is unavailable".to_string())?;
         let live = prepared
@@ -310,7 +305,11 @@ impl HostedMcpHandler {
                 .await;
             return Err("The tool schema changed before execution".into());
         }
-        self.execute_with_prepared(access, &current, arguments, prepared, lease_id)
+        prepared.close().await;
+        let execution = prepare_tool_upstream(&current.endpoint_url, bearer.as_deref())
+            .await
+            .map_err(|_| "The upstream tool server is unavailable".to_string())?;
+        self.execute_with_prepared(access, &current, arguments, execution, lease_id)
             .await
     }
 
@@ -379,6 +378,14 @@ impl HostedMcpHandler {
         }
         Ok(result)
     }
+}
+
+pub(super) fn resume_authorized_event(
+    mut event: GuardEvent,
+    authorization: AuthorizationClaim,
+) -> GuardEvent {
+    event.action.authorization = Some(authorization);
+    event
 }
 
 fn build_event(
@@ -453,13 +460,14 @@ fn decrypt_bearer(entitled: &EntitledMcpTool, key: &[u8; 32]) -> Result<Option<S
         None => Ok(None),
     }
 }
-fn require_same_authority(
+pub(super) fn require_same_authority(
     original: &EntitledMcpTool,
     current: &EntitledMcpTool,
 ) -> Result<(), String> {
     if original.tool.id != current.tool.id
         || original.tool.schema_hash != current.tool.schema_hash
         || original.tool.upstream_name != current.tool.upstream_name
+        || original.tool.side_effect != current.tool.side_effect
         || original.endpoint_url != current.endpoint_url
         || original.connection_updated_at != current.connection_updated_at
     {

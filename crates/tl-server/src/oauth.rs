@@ -1,5 +1,8 @@
 //! OAuth 2.1 authorization server for dashboard-approved MCP clients.
 
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
@@ -25,7 +28,57 @@ const MAX_CLIENTS: usize = 10_000;
 const MAX_REDIRECT_URIS: usize = 10;
 const MAX_REDIRECT_URI_LEN: usize = 2048;
 const MAX_CLIENT_NAME_LEN: usize = 100;
+const CLIENT_INACTIVE_TTL_DAYS: i64 = 30;
+const REGISTRATION_BURST: u32 = 20;
+const REGISTRATION_WINDOW: Duration = Duration::from_secs(60);
 pub const MCP_SCOPE: &str = "mcp:tools";
+
+#[derive(Clone)]
+struct OAuthPublicState {
+    app: AppState,
+    registration_limiter: Arc<RegistrationLimiter>,
+}
+
+struct RegistrationWindow {
+    started_at: Instant,
+    used: u32,
+}
+
+struct RegistrationLimiter {
+    limit: u32,
+    window: Duration,
+    current: Mutex<RegistrationWindow>,
+}
+
+impl RegistrationLimiter {
+    fn new(limit: u32, window: Duration) -> Self {
+        Self {
+            limit,
+            window,
+            current: Mutex::new(RegistrationWindow {
+                started_at: Instant::now(),
+                used: 0,
+            }),
+        }
+    }
+
+    fn try_acquire(&self) -> bool {
+        let now = Instant::now();
+        let mut current = self
+            .current
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        if now.duration_since(current.started_at) >= self.window {
+            current.started_at = now;
+            current.used = 0;
+        }
+        if current.used >= self.limit {
+            return false;
+        }
+        current.used += 1;
+        true
+    }
+}
 
 fn redirect_uri_acceptable(uri: &str) -> bool {
     if uri.is_empty() || uri.len() > MAX_REDIRECT_URI_LEN {
@@ -53,6 +106,20 @@ pub fn issuer() -> String {
 
 pub fn mcp_resource_url() -> String {
     format!("{}/mcp", issuer())
+}
+
+fn authorization_endpoint_for(issuer: &str, dashboard_url: Option<&str>) -> String {
+    let origin = dashboard_url
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(issuer)
+        .trim_end_matches('/');
+    format!("{origin}/oauth/authorize")
+}
+
+fn authorization_endpoint() -> String {
+    let issuer = issuer();
+    authorization_endpoint_for(&issuer, std::env::var("TL_DASHBOARD_URL").ok().as_deref())
 }
 
 fn random_token() -> String {
@@ -113,7 +180,7 @@ async fn authorization_server_metadata() -> Response {
     let issuer = issuer();
     Json(json!({
         "issuer": issuer,
-        "authorization_endpoint": format!("{issuer}/oauth/authorize"),
+        "authorization_endpoint": authorization_endpoint(),
         "token_endpoint": format!("{issuer}/oauth/token"),
         "registration_endpoint": format!("{issuer}/oauth/register"),
         "response_types_supported": ["code"],
@@ -152,7 +219,18 @@ struct RegisterRequest {
     client_name: Option<String>,
 }
 
-async fn register(State(app): State<AppState>, Json(req): Json<RegisterRequest>) -> Response {
+async fn register(
+    State(state): State<OAuthPublicState>,
+    Json(req): Json<RegisterRequest>,
+) -> Response {
+    if !state.registration_limiter.try_acquire() {
+        return oauth_error(
+            StatusCode::TOO_MANY_REQUESTS,
+            "temporarily_unavailable",
+            "client registration rate limit exceeded",
+        );
+    }
+    let app = &state.app;
     if req.redirect_uris.is_empty() || req.redirect_uris.len() > MAX_REDIRECT_URIS {
         return oauth_error(
             StatusCode::BAD_REQUEST,
@@ -185,23 +263,12 @@ async fn register(State(app): State<AppState>, Json(req): Json<RegisterRequest>)
             "client_name is too long",
         );
     }
-    match app.oauth_store.client_count().await {
-        Ok(count) if count < MAX_CLIENTS => {}
-        Ok(_) => {
-            return oauth_error(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "temporarily_unavailable",
-                "client registration capacity reached",
-            )
-        }
-        Err(error) => {
-            tracing::error!(error = %error, "oauth client count failed");
-            return oauth_error(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "server_error",
-                "client registration failed",
-            );
-        }
+    if let Err(error) = app
+        .oauth_store
+        .prune_inactive_clients(Utc::now() - chrono::Duration::days(CLIENT_INACTIVE_TTL_DAYS))
+        .await
+    {
+        tracing::warn!(error = %error, "oauth inactive client pruning failed");
     }
     let client_id = format!("mcp_{}", random_token());
     let client = OAuthClientRecord {
@@ -209,13 +276,26 @@ async fn register(State(app): State<AppState>, Json(req): Json<RegisterRequest>)
         client_name: client_name.clone(),
         redirect_uris: req.redirect_uris.clone(),
     };
-    if let Err(error) = app.oauth_store.create_client(client).await {
-        tracing::error!(error = %error, "oauth client registration failed");
-        return oauth_error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "server_error",
-            "client registration failed",
-        );
+    if let Err(error) = app
+        .oauth_store
+        .create_client_bounded(client, MAX_CLIENTS)
+        .await
+    {
+        return match error {
+            OAuthStoreError::Capacity => oauth_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "temporarily_unavailable",
+                "client registration capacity reached",
+            ),
+            error => {
+                tracing::error!(error = %error, "oauth client registration failed");
+                oauth_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "server_error",
+                    "client registration failed",
+                )
+            }
+        };
     }
     (
         StatusCode::CREATED,
@@ -231,9 +311,10 @@ async fn register(State(app): State<AppState>, Json(req): Json<RegisterRequest>)
 }
 
 async fn client_redirect_uris(
-    State(app): State<AppState>,
+    State(state): State<OAuthPublicState>,
     axum::extract::Path(client_id): axum::extract::Path<String>,
 ) -> Response {
+    let app = &state.app;
     match app.oauth_store.get_client(&client_id).await {
         Ok(client) => Json(json!({
             "client_name": client.client_name,
@@ -391,7 +472,8 @@ fn verify_pkce_s256(verifier: &str, challenge: &str) -> bool {
     URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes())) == challenge
 }
 
-async fn token(State(app): State<AppState>, Form(form): Form<TokenForm>) -> Response {
+async fn token(State(state): State<OAuthPublicState>, Form(form): Form<TokenForm>) -> Response {
+    let app = state.app;
     let Some(signer) = app.jwt_signer.as_ref() else {
         return oauth_error(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -587,6 +669,13 @@ async fn issue_tokens(
 }
 
 pub fn oauth_public_routes(app: AppState) -> Router {
+    let state = OAuthPublicState {
+        app,
+        registration_limiter: Arc::new(RegistrationLimiter::new(
+            REGISTRATION_BURST,
+            REGISTRATION_WINDOW,
+        )),
+    };
     Router::new()
         .route(
             "/.well-known/oauth-authorization-server",
@@ -612,7 +701,7 @@ pub fn oauth_public_routes(app: AppState) -> Router {
             "/oauth/clients/:client_id/redirect-uris",
             get(client_redirect_uris),
         )
-        .with_state(app)
+        .with_state(state)
 }
 
 pub fn oauth_protected_routes(app: AppState) -> Router {
