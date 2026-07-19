@@ -32,25 +32,17 @@ export default function DemoPage() {
 
       <section className={styles['intro']} aria-labelledby="demo-title">
         <div>
-          <p className={styles['eyebrow']}>Interactive Product Hunt demo</p>
-          <h1 id="demo-title">Ask the agent for a refund. Watch the control layer decide.</h1>
+          <p className={styles['eyebrow']}>Live refund demo</p>
+          <h1 id="demo-title">Ask the agent. Watch the guard decide.</h1>
         </div>
-        <div className={styles['introCopy']}>
-          <p>
-            This is not a scripted animation. Each run creates a fresh Stripe test order, lets an
-            OpenAI agent choose its tools, and sends the proposed refund through TrustLoopGuard’s
-            real authorization API before Stripe can execute.
-          </p>
-          <small>No live cards or real money are used.</small>
-        </div>
+        <p className={styles['introCopy']}>
+          Pick an amount below. TrustLoopGuard allows, holds, or blocks the agent before Stripe —
+          real APIs, not a scripted animation.
+        </p>
+        <small className={styles['safetyNote']}>Test data · No real money</small>
       </section>
 
       <RefundDemo />
-
-      <footer className={styles['demoFooter']}>
-        <p>Control before AI touches payments, refunds, invoices, or payouts.</p>
-        <Link href="/">Explore TrustLoopGuard <span aria-hidden="true">→</span></Link>
-      </footer>
     </main>
   );
 }

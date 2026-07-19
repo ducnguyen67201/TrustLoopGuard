@@ -210,7 +210,7 @@ export function RefundDemo() {
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
             maxLength={500}
-            rows={3}
+            rows={2}
           />
           <button className={styles['runButton']} type="submit" disabled={runState === 'running'}>
             {runState === 'running' ? 'Running live workflow' : 'Run live refund'}
