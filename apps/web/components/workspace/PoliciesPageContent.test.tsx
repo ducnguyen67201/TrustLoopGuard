@@ -77,6 +77,7 @@ function shellData(): DashboardShellData {
       role: 'owner',
       isKnowledgeBaseEnabled: false,
       isAttacksEnabled: false,
+      isMcpGatewayEnabled: false,
     },
     workspaces: [],
     activeEnvironment: {

@@ -19,6 +19,11 @@ import type {
   GatewayProviderConnectionListResponse,
   GatewayRoute,
   GatewayRouteListResponse,
+  McpGatewayConnectInfo,
+  McpGatewayConnection,
+  McpGatewayConnectionListResponse,
+  McpGatewayTool,
+  McpGatewayToolListResponse,
 } from '@trustloopguard/sdk';
 import {
   isUserApprovalRequiredError,
@@ -60,6 +65,7 @@ export interface WorkspaceSummary {
   role: string;
   isKnowledgeBaseEnabled: boolean;
   isAttacksEnabled: boolean;
+  isMcpGatewayEnabled: boolean;
 }
 
 export interface WorkspaceEnvironmentSummary {
@@ -127,6 +133,14 @@ export type GatewayPageData = DashboardShellData & {
   providerConnections: GatewayProviderConnection[];
   gatewayRoutes: GatewayRoute[];
   activeRuntimeKeyCount: number;
+};
+
+export type McpAccessPageData = DashboardShellData & {
+  isAdmin: boolean;
+  connectInfo: McpGatewayConnectInfo;
+  connections: McpGatewayConnection[];
+  tools: McpGatewayTool[];
+  members: Array<{ user_id: string; username: string; role: string }>;
 };
 
 export type TeamMemberRow = {
@@ -746,6 +760,58 @@ export async function getGatewayPageData(
   };
 }
 
+export async function getMcpAccessPageData(
+  workspaceSlug?: string | null,
+  environmentId?: string | null,
+): Promise<McpAccessPageData> {
+  const user = await getCurrentUser();
+  const shell = await buildDashboardShell(user, workspaceSlug, environmentId);
+  const workspaceId = shell.activeWorkspace.id;
+  const role = shell.activeWorkspace.role.toLowerCase();
+  const isAdmin = role === 'owner' || role === 'admin';
+  const connectInfo = await rustApiForUserWorkspace<McpGatewayConnectInfo>(
+    user,
+    workspaceId,
+    '/v1/mcp-gateway/connect-info',
+    {},
+    shell.activeEnvironment.id,
+  );
+  if (!isAdmin) {
+    return { ...shell, isAdmin, connectInfo, connections: [], tools: [], members: [] };
+  }
+  const [connectionResponse, toolResponse, memberResponse] = await Promise.all([
+    rustApiForUserWorkspace<McpGatewayConnectionListResponse>(
+      user,
+      workspaceId,
+      '/v1/mcp-gateway/connections',
+      {},
+      shell.activeEnvironment.id,
+    ),
+    rustApiForUserWorkspace<McpGatewayToolListResponse>(
+      user,
+      workspaceId,
+      '/v1/mcp-gateway/tools',
+      {},
+      shell.activeEnvironment.id,
+    ),
+    rustApiForUserWorkspace<{ members: RustMember[] }>(
+      user,
+      workspaceId,
+      '/v1/team/members',
+      {},
+      shell.activeEnvironment.id,
+    ),
+  ]);
+  return {
+    ...shell,
+    isAdmin,
+    connectInfo,
+    connections: connectionResponse.connections,
+    tools: toolResponse.tools,
+    members: memberResponse.members,
+  };
+}
+
 interface RustMember {
   user_id: string;
   username: string;
@@ -1051,6 +1117,7 @@ interface MyWorkspaceWire {
   organization_id: string;
   is_knowledge_base_enabled: boolean;
   is_attacks_enabled: boolean;
+  is_mcp_gateway_enabled: boolean;
 }
 
 interface MyWorkspacesWire {
@@ -1186,6 +1253,7 @@ async function buildWorkspaceSummary(
     role: membership?.role ?? 'Owner',
     isKnowledgeBaseEnabled: membership?.is_knowledge_base_enabled ?? false,
     isAttacksEnabled: membership?.is_attacks_enabled ?? false,
+    isMcpGatewayEnabled: membership?.is_mcp_gateway_enabled ?? false,
   };
 }
 

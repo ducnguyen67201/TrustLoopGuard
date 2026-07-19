@@ -5,6 +5,7 @@ import { getVisibleNavGroups } from './app-sidebar';
 const workspace = {
   isAttacksEnabled: false,
   isKnowledgeBaseEnabled: false,
+  isMcpGatewayEnabled: false,
 };
 
 describe('getVisibleNavGroups', () => {
@@ -15,6 +16,7 @@ describe('getVisibleNavGroups', () => {
 
     expect(titles).not.toContain('Attacks (Beta)');
     expect(titles).not.toContain('Knowledge sources (Beta)');
+    expect(titles).not.toContain('MCP Access');
   });
 
   it('shows independently enabled workspace features', () => {
@@ -34,5 +36,14 @@ describe('getVisibleNavGroups', () => {
     ).flatMap((group) => group.items.map((item) => item.title));
 
     expect(titles).toContain('Knowledge sources (Beta)');
+  });
+
+  it('shows MCP Access only for enabled workspaces', () => {
+    const titles = getVisibleNavGroups(
+      { ...workspace, isMcpGatewayEnabled: true },
+      (url) => url,
+    ).flatMap((group) => group.items.map((item) => item.title));
+
+    expect(titles).toContain('MCP Access');
   });
 });

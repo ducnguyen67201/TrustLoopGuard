@@ -70,7 +70,11 @@ pub mod llm_pricing_repo;
 #[cfg(feature = "postgres")]
 pub mod llm_usage_repo;
 #[cfg(feature = "postgres")]
+pub mod mcp_gateway_repo;
+#[cfg(feature = "postgres")]
 pub mod models;
+#[cfg(feature = "postgres")]
+pub mod oauth_repo;
 #[cfg(feature = "postgres")]
 pub mod policy_repo;
 #[cfg(feature = "postgres")]
@@ -147,7 +151,17 @@ pub use llm_usage_repo::{
     NewLlmUsageEventParams, ReserveLlmBudgetResult, StoredLlmUsageEvent,
 };
 #[cfg(feature = "postgres")]
+pub use mcp_gateway_repo::{
+    CatalogToolInput, CredentialPatch, EntitledMcpTool, McpConnectionPatch, McpConnectionSecret,
+    McpGatewayRepo, NewMcpConnection,
+};
+#[cfg(feature = "postgres")]
 pub use models::UserRecord;
+#[cfg(feature = "postgres")]
+pub use oauth_repo::{
+    NewOAuthAuthorizationCode, NewOAuthRefreshToken, OAuthRepo, StoredOAuthAuthorizationCode,
+    StoredOAuthClient, StoredOAuthRefreshToken,
+};
 #[cfg(feature = "postgres")]
 pub use policy_repo::{PolicyRepo, PolicyRow};
 #[cfg(feature = "postgres")]

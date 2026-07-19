@@ -49,7 +49,7 @@ fn seal_key_material(
     )
 }
 
-pub(super) fn seal_provider_key(provider_key: &str, seal_key: &[u8; 32]) -> String {
+pub(crate) fn seal_provider_key(provider_key: &str, seal_key: &[u8; 32]) -> String {
     let unbound = UnboundKey::new(&AES_256_GCM, seal_key).expect("valid AES-256-GCM key");
     let sealing_key = LessSafeKey::new(unbound);
     let rng = SystemRandom::new();

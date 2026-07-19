@@ -11,6 +11,8 @@ type Props = {
   codeChallenge: string;
   workspaces: WorkspaceMembership[];
   userLabel: string;
+  resource?: string | undefined;
+  scope?: string | undefined;
 };
 
 export function ConsentForm({
@@ -20,6 +22,8 @@ export function ConsentForm({
   codeChallenge,
   workspaces,
   userLabel,
+  resource,
+  scope,
 }: Props) {
   const [workspaceId, setWorkspaceId] = useState(workspaces[0]?.id ?? '');
   const [loading, setLoading] = useState(false);
@@ -43,7 +47,7 @@ export function ConsentForm({
       const res = await fetch('/api/oauth/authorize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, redirectUri, state, codeChallenge, workspaceId }),
+        body: JSON.stringify({ clientId, redirectUri, state, codeChallenge, workspaceId, resource, scope }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };

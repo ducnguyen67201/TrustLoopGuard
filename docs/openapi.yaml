@@ -2566,6 +2566,174 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/mcp-gateway/connect-info:
+    get:
+      tags:
+      - mcp-gateway
+      operationId: connect_info
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpGatewayConnectInfo'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/mcp-gateway/connections:
+    get:
+      tags:
+      - mcp-gateway
+      operationId: list_connections
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpGatewayConnectionListResponse'
+    post:
+      tags:
+      - mcp-gateway
+      operationId: create_connection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMcpGatewayConnectionRequest'
+        required: true
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpGatewayConnection'
+  /v1/mcp-gateway/connections/{id}:
+    delete:
+      tags:
+      - mcp-gateway
+      operationId: delete_connection
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: ''
+    patch:
+      tags:
+      - mcp-gateway
+      operationId: patch_connection
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMcpGatewayConnectionRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpGatewayConnection'
+  /v1/mcp-gateway/connections/{id}/sync:
+    post:
+      tags:
+      - mcp-gateway
+      operationId: sync_connection
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpGatewaySyncResponse'
+        '502':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/mcp-gateway/tools:
+    get:
+      tags:
+      - mcp-gateway
+      operationId: list_tools
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpGatewayToolListResponse'
+  /v1/mcp-gateway/tools/{id}:
+    patch:
+      tags:
+      - mcp-gateway
+      operationId: patch_tool
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMcpGatewayToolRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpGatewayTool'
+  /v1/mcp-gateway/tools/{id}/assignments:
+    put:
+      tags:
+      - mcp-gateway
+      operationId: replace_assignments
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceMcpGatewayToolAssignmentsRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpGatewayToolAssignmentsResponse'
   /v1/policies:
     get:
       tags:
@@ -5859,6 +6027,26 @@ components:
           - 'null'
         title:
           type: string
+    CreateMcpGatewayConnectionRequest:
+      type: object
+      required:
+      - display_name
+      - server_slug
+      - endpoint_url
+      - auth_kind
+      properties:
+        auth_kind:
+          $ref: '#/components/schemas/McpGatewayAuthKind'
+        credential:
+          type:
+          - string
+          - 'null'
+        display_name:
+          type: string
+        endpoint_url:
+          type: string
+        server_slug:
+          type: string
     CreateReportRequest:
       type: object
       description: Body of `POST /v1/redteam/reports` — mint a shareable report link.
@@ -7859,6 +8047,189 @@ components:
         `GET /v1/llm-usage` 200 body: the raw event list, or grouped buckets
         when `group_by` is set. Untagged — the two shapes are distinguished
         by their sole field (`events` vs `buckets`).
+    McpGatewayAuthKind:
+      type: string
+      enum:
+      - none
+      - static_bearer
+    McpGatewayCatalogStatus:
+      type: string
+      enum:
+      - active
+      - schema_changed
+      - missing
+    McpGatewayConnectInfo:
+      type: object
+      required:
+      - resource_url
+      - scope
+      - oauth_configured
+      - default_environment_id
+      - default_environment_name
+      properties:
+        default_environment_id:
+          type: string
+        default_environment_name:
+          type: string
+        oauth_configured:
+          type: boolean
+        resource_url:
+          type: string
+        scope:
+          type: string
+    McpGatewayConnection:
+      type: object
+      required:
+      - id
+      - display_name
+      - server_slug
+      - endpoint_url
+      - auth_kind
+      - credential_status
+      - enabled
+      - last_sync_status
+      - tool_count
+      - created_at
+      - updated_at
+      properties:
+        auth_kind:
+          $ref: '#/components/schemas/McpGatewayAuthKind'
+        created_at:
+          type: string
+        credential_status:
+          $ref: '#/components/schemas/McpGatewayCredentialStatus'
+        display_name:
+          type: string
+        enabled:
+          type: boolean
+        endpoint_url:
+          type: string
+        id:
+          type: string
+        last_sync_error:
+          type:
+          - string
+          - 'null'
+        last_sync_status:
+          $ref: '#/components/schemas/McpGatewaySyncStatus'
+        last_synced_at:
+          type:
+          - string
+          - 'null'
+        server_slug:
+          type: string
+        tool_count:
+          type: integer
+          format: int32
+          minimum: 0
+        updated_at:
+          type: string
+    McpGatewayConnectionListResponse:
+      type: object
+      required:
+      - connections
+      properties:
+        connections:
+          type: array
+          items:
+            $ref: '#/components/schemas/McpGatewayConnection'
+    McpGatewayCredentialStatus:
+      type: string
+      enum:
+      - not_required
+      - configured
+      - missing
+    McpGatewaySyncResponse:
+      type: object
+      required:
+      - connection
+      - tool_count
+      properties:
+        connection:
+          $ref: '#/components/schemas/McpGatewayConnection'
+        tool_count:
+          type: integer
+          format: int32
+          minimum: 0
+    McpGatewaySyncStatus:
+      type: string
+      enum:
+      - never
+      - succeeded
+      - failed
+    McpGatewayTool:
+      type: object
+      required:
+      - id
+      - connection_id
+      - connection_name
+      - upstream_name
+      - public_name
+      - input_schema
+      - annotations
+      - schema_hash
+      - side_effect
+      - catalog_status
+      - assigned_user_ids
+      - created_at
+      - updated_at
+      properties:
+        annotations: {}
+        assigned_user_ids:
+          type: array
+          items:
+            type: string
+        catalog_status:
+          $ref: '#/components/schemas/McpGatewayCatalogStatus'
+        connection_id:
+          type: string
+        connection_name:
+          type: string
+        created_at:
+          type: string
+        description:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+        input_schema: {}
+        output_schema: {}
+        public_name:
+          type: string
+        schema_hash:
+          type: string
+        side_effect:
+          $ref: '#/components/schemas/SideEffectClass'
+        title:
+          type:
+          - string
+          - 'null'
+        updated_at:
+          type: string
+        upstream_name:
+          type: string
+    McpGatewayToolAssignmentsResponse:
+      type: object
+      required:
+      - tool_id
+      - user_ids
+      properties:
+        tool_id:
+          type: string
+        user_ids:
+          type: array
+          items:
+            type: string
+    McpGatewayToolListResponse:
+      type: object
+      required:
+      - tools
+      properties:
+        tools:
+          type: array
+          items:
+            $ref: '#/components/schemas/McpGatewayTool'
     MemberListResponse:
       type: object
       required:
@@ -7892,12 +8263,15 @@ components:
       - organization_id
       - is_knowledge_base_enabled
       - is_attacks_enabled
+      - is_mcp_gateway_enabled
       properties:
         id:
           type: string
         is_attacks_enabled:
           type: boolean
         is_knowledge_base_enabled:
+          type: boolean
+        is_mcp_gateway_enabled:
           type: boolean
         name:
           type: string
@@ -8880,6 +9254,15 @@ components:
           type:
           - string
           - 'null'
+    ReplaceMcpGatewayToolAssignmentsRequest:
+      type: object
+      required:
+      - user_ids
+      properties:
+        user_ids:
+          type: array
+          items:
+            type: string
     ReportSeverity:
       type: string
       description: |-
@@ -9738,6 +10121,36 @@ components:
           type:
           - string
           - 'null'
+    UpdateMcpGatewayConnectionRequest:
+      type: object
+      properties:
+        auth_kind:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/McpGatewayAuthKind'
+        credential:
+          type:
+          - string
+          - 'null'
+        display_name:
+          type:
+          - string
+          - 'null'
+        enabled:
+          type:
+          - boolean
+          - 'null'
+        endpoint_url:
+          type:
+          - string
+          - 'null'
+    UpdateMcpGatewayToolRequest:
+      type: object
+      required:
+      - side_effect
+      properties:
+        side_effect:
+          $ref: '#/components/schemas/SideEffectClass'
     UpdateRunRequest:
       type: object
       properties:
@@ -10291,3 +10704,5 @@ tags:
   description: Dashboard user identity and session helpers
 - name: team
   description: Workspace team membership and invites
+- name: mcp-gateway
+  description: Managed MCP servers, catalog, and member tool assignments

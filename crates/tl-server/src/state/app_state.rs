@@ -19,6 +19,8 @@ use crate::knowledge_sources::KnowledgeStore;
 use crate::label_policy::LabelPolicyStore;
 use crate::llm_pricing::LlmPricingStore;
 use crate::llm_usage::LlmUsageStore;
+use crate::mcp_gateway::McpGatewayStore;
+use crate::oauth_store::OAuthStore;
 use crate::policies::PolicyStore;
 use crate::redteam::{DispatchJob, RedteamJobStore, RedteamPlanStore, RedteamReportShareStore};
 use crate::runs::RunStore;
@@ -93,6 +95,10 @@ pub struct AppState {
     pub team_store: Arc<dyn TeamStore>,
     /// Gateway provider connections and proxy routes.
     pub gateway_store: Arc<dyn GatewayStore>,
+    /// Durable OAuth registrations, one-time codes, and rotating refresh tokens.
+    pub oauth_store: Arc<dyn OAuthStore>,
+    /// Durable server catalog and per-user MCP tool entitlements.
+    pub mcp_gateway_store: Arc<dyn McpGatewayStore>,
     /// HS256 signer used to mint user-session JWTs on signup/login
     /// and verify them on protected `/v1/*` routes. `None` when
     /// `TL_JWT_SECRET` is unset — the server runs without per-user

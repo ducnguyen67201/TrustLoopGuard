@@ -43,7 +43,7 @@ use axum::{
 use crate::auth_user::UserStore;
 use crate::jwt::{JwtSigner, UserContext};
 use approval::{forwarded_user_id, require_approved_user};
-use response::unauthorized;
+use response::{unauthorized, unauthorized_mcp};
 pub(crate) use token::sha256_hex;
 use token::{jwt_path_allowed, subtle_eq};
 
@@ -142,6 +142,18 @@ pub struct WorkspaceKeyContext {
 /// service/dashboard bearer token rather than a user JWT or runtime key.
 #[derive(Debug, Clone, Copy)]
 pub struct InternalServiceContext;
+
+/// Strict OAuth identity for the hosted MCP resource. This is deliberately
+/// separate from every credential accepted by the generic `/v1` middleware.
+#[derive(Debug, Clone)]
+pub struct McpAccessContext {
+    pub user_id: uuid::Uuid,
+    pub username: String,
+    pub workspace_id: String,
+    pub client_id: String,
+    pub resource: String,
+    pub scope: String,
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum WorkspaceApiKeyVerifyError {
@@ -294,4 +306,57 @@ pub async fn require_internal_bearer(
     }
 
     Err(unauthorized("invalid bearer token"))
+}
+
+/// Authentication boundary for the managed `/mcp` resource. Only a hosted,
+/// audience-bound OAuth access token is accepted; internal keys, ordinary user
+/// JWTs, and runtime workspace keys never enter this lane.
+pub async fn require_mcp_bearer(
+    State(cfg): State<Arc<AuthConfig>>,
+    mut req: Request,
+    next: Next,
+) -> Result<Response, Response> {
+    let token = req
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .ok_or_else(|| unauthorized_mcp("missing bearer token"))?;
+    let signer = cfg
+        .jwt
+        .as_ref()
+        .ok_or_else(|| unauthorized_mcp("MCP OAuth is not configured"))?;
+    let issuer = crate::oauth::issuer();
+    let resource = crate::oauth::mcp_resource_url();
+    let claims = signer
+        .verify_mcp_access_token(token, &issuer, &resource)
+        .map_err(|_| unauthorized_mcp("invalid bearer token"))?;
+    let user_id =
+        uuid::Uuid::parse_str(&claims.sub).map_err(|_| unauthorized_mcp("invalid bearer token"))?;
+    let workspace_id = claims
+        .workspace_id
+        .ok_or_else(|| unauthorized_mcp("invalid bearer token"))?;
+    let client_id = claims
+        .oauth_client_id
+        .ok_or_else(|| unauthorized_mcp("invalid bearer token"))?;
+    let scope = claims
+        .scope
+        .ok_or_else(|| unauthorized_mcp("invalid bearer token"))?;
+    let workspace_header = HeaderValue::from_str(&workspace_id)
+        .map_err(|_| unauthorized_mcp("invalid bearer token"))?;
+    req.headers_mut()
+        .insert("x-tlg-workspace-id", workspace_header);
+    req.extensions_mut().insert(UserContext {
+        user_id,
+        username: claims.username.clone(),
+    });
+    req.extensions_mut().insert(McpAccessContext {
+        user_id,
+        username: claims.username,
+        workspace_id,
+        client_id,
+        resource,
+        scope,
+    });
+    Ok(next.run(req).await)
 }

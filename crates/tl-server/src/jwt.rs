@@ -30,7 +30,7 @@ pub const JWT_TTL_DAYS: i64 = 7;
 /// How long an OAuth access token (MCP) stays valid. Short — refresh to renew.
 pub const ACCESS_TOKEN_TTL_MINUTES: i64 = 60;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String,
     pub username: String,
@@ -45,6 +45,14 @@ pub struct Claims {
     /// user-session JWTs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub token_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub iss: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aud: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oauth_client_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -114,6 +122,10 @@ impl JwtSigner {
             exp: (now + Duration::days(JWT_TTL_DAYS)).timestamp(),
             workspace_id: None,
             token_type: None,
+            iss: None,
+            aud: None,
+            oauth_client_id: None,
+            scope: None,
         };
         self.encode(&claims)
     }
@@ -134,8 +146,38 @@ impl JwtSigner {
             exp: (now + Duration::minutes(ACCESS_TOKEN_TTL_MINUTES)).timestamp(),
             workspace_id: Some(workspace_id.to_string()),
             token_type: Some("access".to_string()),
+            iss: None,
+            aud: None,
+            oauth_client_id: None,
+            scope: None,
         };
         self.encode(&claims)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn mint_mcp_access_token(
+        &self,
+        user_id: Uuid,
+        username: &str,
+        workspace_id: &str,
+        issuer: &str,
+        resource: &str,
+        client_id: &str,
+        scope: &str,
+    ) -> Result<String, JwtError> {
+        let now = Utc::now();
+        self.encode(&Claims {
+            sub: user_id.to_string(),
+            username: username.to_string(),
+            iat: now.timestamp(),
+            exp: (now + Duration::minutes(ACCESS_TOKEN_TTL_MINUTES)).timestamp(),
+            workspace_id: Some(workspace_id.to_string()),
+            token_type: Some("access".to_string()),
+            iss: Some(issuer.to_string()),
+            aud: Some(resource.to_string()),
+            oauth_client_id: Some(client_id.to_string()),
+            scope: Some(scope.to_string()),
+        })
     }
 
     fn encode(&self, claims: &Claims) -> Result<String, JwtError> {
@@ -154,7 +196,42 @@ impl JwtSigner {
         // Sanity check the sub is a parseable uuid; the middleware
         // attaches it as Uuid so handlers don't need to re-parse.
         Uuid::parse_str(&data.claims.sub).map_err(|_| JwtError::BadSubject)?;
+        if data.claims.aud.is_some() {
+            return Err(JwtError::Invalid(
+                "audience-bound token is not valid on generic routes".to_string(),
+            ));
+        }
         Ok(data.claims)
+    }
+
+    pub fn verify_mcp_access_token(
+        &self,
+        token: &str,
+        expected_issuer: &str,
+        expected_resource: &str,
+    ) -> Result<Claims, JwtError> {
+        let mut validation = self.validation.clone();
+        validation.set_issuer(&[expected_issuer]);
+        validation.set_audience(&[expected_resource]);
+        let claims = decode::<Claims>(token, &self.decode_key, &validation)
+            .map_err(|error| match error.kind() {
+                ErrorKind::ExpiredSignature => JwtError::Expired,
+                _ => JwtError::Invalid(error.to_string()),
+            })?
+            .claims;
+        Uuid::parse_str(&claims.sub).map_err(|_| JwtError::BadSubject)?;
+        if matches!(claims.workspace_id.as_deref(), None | Some(""))
+            || claims.token_type.as_deref() != Some("access")
+            || claims.iss.as_deref() != Some(expected_issuer)
+            || claims.aud.as_deref() != Some(expected_resource)
+            || matches!(claims.oauth_client_id.as_deref(), None | Some(""))
+            || claims.scope.as_deref() != Some(crate::oauth::MCP_SCOPE)
+        {
+            return Err(JwtError::Invalid(
+                "incomplete MCP access token claims".to_string(),
+            ));
+        }
+        Ok(claims)
     }
 }
 
@@ -202,6 +279,35 @@ mod tests {
         let claims = s.verify(&token).unwrap();
         assert_eq!(claims.workspace_id.as_deref(), Some("ws_test"));
         assert_eq!(claims.token_type.as_deref(), Some("access"));
+    }
+
+    #[test]
+    fn hosted_token_is_strictly_audience_bound() {
+        let signer = signer();
+        let id = Uuid::new_v4();
+        let token = signer
+            .mint_mcp_access_token(
+                id,
+                "alice",
+                "ws_test",
+                "https://guard.example",
+                "https://guard.example/mcp",
+                "client",
+                crate::oauth::MCP_SCOPE,
+            )
+            .unwrap();
+        assert!(signer.verify(&token).is_err());
+        let claims = signer
+            .verify_mcp_access_token(&token, "https://guard.example", "https://guard.example/mcp")
+            .unwrap();
+        assert_eq!(claims.oauth_client_id.as_deref(), Some("client"));
+        assert!(signer
+            .verify_mcp_access_token(
+                &token,
+                "https://guard.example",
+                "https://guard.example/other",
+            )
+            .is_err());
     }
 
     #[test]

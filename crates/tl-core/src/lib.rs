@@ -36,6 +36,7 @@ pub mod label;
 pub mod label_policy;
 pub mod llm_pricing;
 pub mod llm_usage;
+pub mod mcp_gateway;
 pub mod policy;
 pub mod provenance;
 pub mod redteam;
@@ -148,6 +149,14 @@ pub use llm_pricing::{
 pub use llm_usage::{
     LlmUsageBucket, LlmUsageBucketsResponse, LlmUsageEvent, LlmUsageKind, LlmUsageListResponse,
     LlmUsageResponse,
+};
+pub use mcp_gateway::{
+    CreateMcpGatewayConnectionRequest, McpGatewayAuthKind, McpGatewayCatalogStatus,
+    McpGatewayConnectInfo, McpGatewayConnection, McpGatewayConnectionListResponse,
+    McpGatewayCredentialStatus, McpGatewaySyncResponse, McpGatewaySyncStatus, McpGatewayTool,
+    McpGatewayToolAssignmentsResponse, McpGatewayToolListResponse,
+    ReplaceMcpGatewayToolAssignmentsRequest, UpdateMcpGatewayConnectionRequest,
+    UpdateMcpGatewayToolRequest,
 };
 pub use policy::{
     AiEditRequest, AiEditResponse, EntityVersionDetail, EntityVersionListResponse,

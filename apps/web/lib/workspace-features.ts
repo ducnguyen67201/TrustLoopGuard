@@ -1,15 +1,16 @@
-export type WorkspaceFeature = 'attacks' | 'knowledgeBase';
+export type WorkspaceFeature = 'attacks' | 'knowledgeBase' | 'mcpAccess';
 
 interface WorkspaceFeatureFlags {
   isAttacksEnabled: boolean;
   isKnowledgeBaseEnabled: boolean;
+  isMcpGatewayEnabled: boolean;
 }
 
 export function isWorkspaceFeatureEnabled(
   workspace: WorkspaceFeatureFlags,
   feature: WorkspaceFeature,
 ): boolean {
-  return feature === 'attacks'
-    ? workspace.isAttacksEnabled
-    : workspace.isKnowledgeBaseEnabled;
+  if (feature === 'attacks') return workspace.isAttacksEnabled;
+  if (feature === 'knowledgeBase') return workspace.isKnowledgeBaseEnabled;
+  return workspace.isMcpGatewayEnabled;
 }

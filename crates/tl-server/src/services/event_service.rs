@@ -45,8 +45,38 @@ pub(crate) async fn execute_event_submission(
     state: &AppState,
     workspace_id: &str,
     environment_id: &str,
+    event: GuardEvent,
+    start: std::time::Instant,
+) -> Result<EventSubmissionResult, Response> {
+    execute_event_submission_inner(state, workspace_id, environment_id, event, start, None).await
+}
+
+pub(crate) async fn execute_event_submission_as_principal(
+    state: &AppState,
+    workspace_id: &str,
+    environment_id: &str,
+    event: GuardEvent,
+    start: std::time::Instant,
+    authorization_principal_id: &str,
+) -> Result<EventSubmissionResult, Response> {
+    execute_event_submission_inner(
+        state,
+        workspace_id,
+        environment_id,
+        event,
+        start,
+        Some(authorization_principal_id),
+    )
+    .await
+}
+
+async fn execute_event_submission_inner(
+    state: &AppState,
+    workspace_id: &str,
+    environment_id: &str,
     mut event: GuardEvent,
     start: std::time::Instant,
+    authorization_principal_id: Option<&str>,
 ) -> Result<EventSubmissionResult, Response> {
     // Authorization is a replay credential, not trace evidence. Extract it
     // before validation/pipeline work and never persist it with the event.
@@ -241,7 +271,9 @@ pub(crate) async fn execute_event_submission(
         .evaluate(crate::authorization::AuthorizationEvaluationRequest {
             workspace_id: workspace_id.to_string(),
             environment_id: environment_id.to_string(),
-            principal_id: event.principal.agent_id.clone(),
+            principal_id: authorization_principal_id
+                .unwrap_or(&event.principal.agent_id)
+                .to_string(),
             subject,
             findings,
             requirements: requirement.into_iter().collect(),

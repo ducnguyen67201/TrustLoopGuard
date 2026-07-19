@@ -148,4 +148,10 @@ The common `AuthorizationReceipt` proves why execution was permitted. `Financial
 
 `apps/mcp-proxy` uses the TypeScript guarded-action helper. It mirrors the downstream tool schema, submits exact parameters, waits for authorization, calls the downstream MCP server once after `permit`, and completes or cancels the lease. A timeout, cancellation, denial, deferral, changed schema, or changed parameters never reaches the downstream tool.
 
+The hosted MCP access gateway requires no SDK wrapper. A member adds the
+workspace's managed `/mcp` URL to their AI client and completes OAuth. Rust
+then applies durable assignments and the same event/authorization runtime.
+The local `apps/mcp-proxy` flow remains unchanged for customers who explicitly
+run it. See [the hosted gateway concept](concept/hosted-mcp-access-gateway.md).
+
 See [authorization-kernel.md](concept/authorization-kernel.md), [event-engine.md](concept/event-engine.md), [command-safety.md](concept/command-safety.md), and [financial-authorization.md](concept/financial-authorization.md).

@@ -287,6 +287,25 @@ The common audit record written for an authorization evaluation. It preserves th
 
 The separate `apps/mcp-proxy` process that mirrors one downstream stdio MCP server and uses durable exact-action approval before forwarding a tool call. It is not the operator-facing TrustLoopGuard MCP server.
 
+### Hosted MCP access gateway
+
+The Rust-owned, OAuth-authenticated `/mcp` endpoint that presents each employee
+only the active tools assigned to them and applies the common runtime policy
+and authorization kernel before contacting an administrator-approved remote
+MCP server. It is distinct from both `apps/mcp-server` and `apps/mcp-proxy`.
+
+### MCP catalog
+
+The durable, administrator-accepted snapshot of tools exposed by one remote MCP
+server. Runtime discovery uses this snapshot without upstream I/O. A tool is
+executable only while its catalog status is `active`.
+
+### MCP tool assignment
+
+A workspace-scoped grant that makes one active catalog tool discoverable and
+callable by one current workspace member. Assignment does not bypass runtime
+policy evaluation.
+
 ### Signal evidence
 
 Advisory evidence from one LLM/classifier signal provider, attached by the event pipeline as `signals` on the event and persisted in traces. Signals never decide authorization effects; they exist so traces show what advisory layers observed alongside deterministic checker findings.

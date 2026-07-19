@@ -49,6 +49,12 @@ use crate::llm_pricing::MemoryLlmPricingStore;
 #[cfg(not(feature = "postgres"))]
 use crate::llm_usage::LlmUsageStore;
 use crate::llm_usage::MemoryLlmUsageStore;
+#[cfg(not(feature = "postgres"))]
+use crate::mcp_gateway::McpGatewayStore;
+use crate::mcp_gateway::MemoryMcpGatewayStore;
+use crate::oauth_store::MemoryOAuthStore;
+#[cfg(not(feature = "postgres"))]
+use crate::oauth_store::OAuthStore;
 use crate::policies::{MemoryPolicyStore, PolicyStore};
 use crate::redteam::{
     MemoryRedteamJobStore, MemoryRedteamPlanStore, MemoryRedteamReportShareStore,
@@ -144,6 +150,8 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         workspace_self_service_enabled: true,
         team_store: Arc::new(MemoryTeamStore::new()),
         gateway_store: Arc::new(MemoryGatewayStore::new()),
+        oauth_store: Arc::new(MemoryOAuthStore::default()),
+        mcp_gateway_store: Arc::new(MemoryMcpGatewayStore::default()),
         jwt_signer: None,
         escalation_tx: None,
         redteam_job_store: Arc::new(MemoryRedteamJobStore::new()),
@@ -178,6 +186,8 @@ pub(super) fn build_memory_layer(
     Arc<dyn UserStore>,
     Arc<dyn TeamStore>,
     Arc<dyn GatewayStore>,
+    Arc<dyn OAuthStore>,
+    Arc<dyn McpGatewayStore>,
     Arc<dyn ToolMetadataStore>,
     Arc<dyn tl_engine::ToolMetadataProvider>,
     Arc<dyn AuthorizationStore>,
@@ -213,6 +223,8 @@ pub(super) fn build_memory_layer(
         Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
         Arc::new(MemoryTeamStore::new()) as Arc<dyn TeamStore>,
         Arc::new(MemoryGatewayStore::new()) as Arc<dyn GatewayStore>,
+        Arc::new(MemoryOAuthStore::default()) as Arc<dyn OAuthStore>,
+        Arc::new(MemoryMcpGatewayStore::default()) as Arc<dyn McpGatewayStore>,
         tool_metadata.clone() as Arc<dyn ToolMetadataStore>,
         tool_metadata as Arc<dyn tl_engine::ToolMetadataProvider>,
         Arc::new(MemoryAuthorizationStore::new()) as Arc<dyn AuthorizationStore>,
