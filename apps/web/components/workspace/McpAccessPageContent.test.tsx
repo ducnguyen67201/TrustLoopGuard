@@ -1,4 +1,5 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { McpAccessPageData } from '@/lib/server/dashboard-data';
@@ -26,6 +27,7 @@ describe('McpAccessPageContent', () => {
     expect(screen.getByRole('tab', { name: 'Connect' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Servers' })).not.toBeInTheDocument();
     expect(screen.getByDisplayValue('https://guard.example/mcp')).toBeInTheDocument();
+    expect(screen.getByLabelText('Remote MCP endpoint')).toHaveValue('https://guard.example/mcp');
   });
 
   it('shows the setup runway and admin workbenches for owners', () => {
@@ -34,5 +36,54 @@ describe('McpAccessPageContent', () => {
     expect(screen.getByRole('tab', { name: 'Servers' })).toBeInTheDocument();
     expect(screen.getByText('Connect server')).toBeInTheDocument();
     expect(screen.getByText('Runtime policy')).toBeInTheDocument();
+  });
+
+  it('clears a write-only credential after connecting a server', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'connection' }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ tool_count: 1 }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    render(<McpAccessPageContent data={{ ...base, isAdmin: true, activeWorkspace: { ...base.activeWorkspace, role: 'owner' } }} />);
+
+    await user.click(screen.getByRole('tab', { name: 'Servers' }));
+    await user.type(screen.getByLabelText('Display name'), 'Company tools');
+    await user.type(screen.getByLabelText('Stable slug'), 'company');
+    await user.type(screen.getByLabelText('HTTPS endpoint'), 'https://tools.example/mcp');
+    const credential = screen.getByLabelText('Bearer token (optional)');
+    await user.type(credential, 'secret-value');
+    await user.click(screen.getByRole('button', { name: 'Connect and sync' }));
+
+    await waitFor(() => expect(credential).toHaveValue(''));
+  });
+
+  it('labels member selection and lets admins classify a tool side effect', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const admin = {
+      ...base,
+      isAdmin: true,
+      activeWorkspace: { ...base.activeWorkspace, role: 'owner' as const },
+      members: [{ user_id: 'intern', username: 'leo_intern', role: 'viewer' as const }],
+      tools: [{
+        id: 'tool', connection_id: 'connection', connection_name: 'Company tools',
+        upstream_name: 'charge', public_name: 'company__charge', input_schema: {},
+        annotations: {}, schema_hash: 'hash', side_effect: 'read' as const,
+        catalog_status: 'active' as const, assigned_user_ids: [],
+        created_at: '2026-07-19T00:00:00Z', updated_at: '2026-07-19T00:00:00Z',
+      }],
+    };
+    render(<McpAccessPageContent data={admin} />);
+
+    await user.click(screen.getByRole('tab', { name: 'Tool access' }));
+    expect(screen.getByLabelText('Member')).toBeInTheDocument();
+    await user.click(screen.getByRole('combobox', { name: 'Classify company__charge' }));
+    await user.click(screen.getByRole('option', { name: 'API mutation' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/mcp-gateway/tools/tool'),
+      expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ side_effect: 'api_mutation' }) }),
+    ));
   });
 });

@@ -624,6 +624,7 @@ pub fn oauth_protected_routes(app: AppState) -> Router {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
     #[test]
     fn pkce_s256_matches_known_vector() {
@@ -648,5 +649,28 @@ mod tests {
         assert!(!redirect_uri_acceptable("http://example.com/callback"));
         assert!(redirect_uri_acceptable("http://127.0.0.1:3000/callback"));
         assert!(redirect_uri_acceptable("https://example.com/callback"));
+    }
+
+    #[test]
+    fn authorization_metadata_can_point_at_the_dashboard_origin() {
+        assert_eq!(
+            authorization_endpoint_for(
+                "https://guard.example",
+                Some("https://app.gettrustloop.app/")
+            ),
+            "https://app.gettrustloop.app/oauth/authorize"
+        );
+        assert_eq!(
+            authorization_endpoint_for("https://guard.example/", None),
+            "https://guard.example/oauth/authorize"
+        );
+    }
+
+    #[test]
+    fn dynamic_registration_limiter_rejects_a_burst() {
+        let limiter = RegistrationLimiter::new(2, Duration::from_secs(60));
+        assert!(limiter.try_acquire());
+        assert!(limiter.try_acquire());
+        assert!(!limiter.try_acquire());
     }
 }

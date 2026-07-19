@@ -189,4 +189,28 @@ mod tests {
         assert!(!hash.contains("sensitive-token"));
         assert_eq!(hash, hash_opaque_token("sensitive-token"));
     }
+
+    #[tokio::test]
+    async fn bounded_registration_is_atomic_for_the_memory_store() {
+        let store = MemoryOAuthStore::default();
+        let first = OAuthClientRecord {
+            client_id: "first".into(),
+            client_name: None,
+            redirect_uris: vec!["http://127.0.0.1/callback".into()],
+        };
+        let second = OAuthClientRecord {
+            client_id: "second".into(),
+            client_name: None,
+            redirect_uris: vec!["http://127.0.0.1/callback".into()],
+        };
+
+        store
+            .create_client_bounded(first, 1)
+            .await
+            .expect("first registration");
+        assert!(matches!(
+            store.create_client_bounded(second, 1).await,
+            Err(OAuthStoreError::Capacity)
+        ));
+    }
 }

@@ -8,6 +8,9 @@ mod service;
 mod store;
 mod upstream;
 
+#[cfg(test)]
+mod regression_tests;
+
 pub use api::*;
 pub use handler::HostedMcpHandler;
 pub use memory::MemoryMcpGatewayStore;

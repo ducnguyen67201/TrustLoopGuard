@@ -96,11 +96,13 @@ describe('workspace feature pages', () => {
   });
 
   it('returns not found for disabled MCP access', async () => {
-    mocks.getMcpAccessPageData.mockResolvedValue(disabledShell);
+    mocks.getDashboardShell.mockResolvedValue(disabledShell);
     await expect(McpAccessPage({ searchParams: Promise.resolve({ workspace: 'acme' }) })).rejects.toThrow('NOT_FOUND');
+    expect(mocks.getMcpAccessPageData).not.toHaveBeenCalled();
   });
 
   it('renders MCP access when enabled', async () => {
+    mocks.getDashboardShell.mockResolvedValue({ activeWorkspace: { ...disabledShell.activeWorkspace, isMcpGatewayEnabled: true } });
     mocks.getMcpAccessPageData.mockResolvedValue({ activeWorkspace: { ...disabledShell.activeWorkspace, isMcpGatewayEnabled: true } });
     await expect(McpAccessPage({ searchParams: Promise.resolve({ workspace: 'acme' }) })).resolves.toBeDefined();
   });
