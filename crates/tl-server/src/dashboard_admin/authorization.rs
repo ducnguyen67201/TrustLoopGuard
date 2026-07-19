@@ -5,7 +5,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::Response,
 };
-use tl_core::{ApiErrorCode, WorkspaceRole};
+use tl_core::{ApiErrorCode, MyWorkspace, WorkspaceRole};
 use uuid::Uuid;
 
 use crate::{
@@ -131,6 +131,62 @@ pub(crate) async fn authorize_workspace_admin_for_workspace(
 
     require_admin_role(team_store, workspace_id, user_id, action).await?;
     Ok(user_id)
+}
+
+/// Resolve a dashboard member from signed/forwarded identity and return the
+/// authoritative workspace record, including operational feature flags.
+pub(crate) async fn authorize_workspace_member(
+    team_store: &Arc<dyn TeamStore>,
+    headers: &HeaderMap,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
+    action: &str,
+) -> Result<MyWorkspace, Response> {
+    if runtime_key.is_some() {
+        return Err(api_error_response(
+            StatusCode::FORBIDDEN,
+            ApiErrorCode::Forbidden,
+            format!("workspace runtime keys cannot {action}"),
+        ));
+    }
+    let workspace_id = crate::policies::workspace_id_from_headers(headers)?;
+    let user_id = match user {
+        Some(Extension(context)) => context.user_id,
+        None if internal.is_some() => forwarded_user_id(headers).ok_or_else(|| {
+            api_error_response(
+                StatusCode::FORBIDDEN,
+                ApiErrorCode::Forbidden,
+                format!("signed-in user context is required to {action}"),
+            )
+        })?,
+        None => forwarded_user_id(headers).ok_or_else(|| {
+            api_error_response(
+                StatusCode::UNAUTHORIZED,
+                ApiErrorCode::Unauthorized,
+                format!("authenticated user is required to {action}"),
+            )
+        })?,
+    };
+    team_store
+        .list_workspaces_for_user(user_id)
+        .await
+        .map_err(|error| {
+            api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                error.to_string(),
+            )
+        })?
+        .into_iter()
+        .find(|workspace| workspace.id == workspace_id)
+        .ok_or_else(|| {
+            api_error_response(
+                StatusCode::FORBIDDEN,
+                ApiErrorCode::Forbidden,
+                format!("workspace membership is required to {action}"),
+            )
+        })
 }
 
 async fn require_admin_role(

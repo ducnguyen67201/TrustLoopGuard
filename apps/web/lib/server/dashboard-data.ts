@@ -60,6 +60,7 @@ export interface WorkspaceSummary {
   role: string;
   isKnowledgeBaseEnabled: boolean;
   isAttacksEnabled: boolean;
+  isMcpGatewayEnabled: boolean;
 }
 
 export interface WorkspaceEnvironmentSummary {
@@ -127,6 +128,55 @@ export type GatewayPageData = DashboardShellData & {
   providerConnections: GatewayProviderConnection[];
   gatewayRoutes: GatewayRoute[];
   activeRuntimeKeyCount: number;
+};
+
+export type McpGatewayConnectionView = {
+  id: string;
+  display_name: string;
+  server_slug: string;
+  endpoint_url: string;
+  auth_kind: 'none' | 'static_bearer';
+  credential_status: 'not_required' | 'configured' | 'missing';
+  enabled: boolean;
+  last_sync_status: 'never' | 'succeeded' | 'failed';
+  last_sync_error?: string;
+  last_synced_at?: string;
+  tool_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type McpGatewayToolView = {
+  id: string;
+  connection_id: string;
+  connection_name: string;
+  upstream_name: string;
+  public_name: string;
+  title?: string;
+  description?: string;
+  input_schema: Record<string, unknown>;
+  output_schema?: Record<string, unknown>;
+  annotations: Record<string, unknown>;
+  schema_hash: string;
+  side_effect: string;
+  catalog_status: 'active' | 'schema_changed' | 'missing';
+  assigned_user_ids: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type McpAccessPageData = DashboardShellData & {
+  isAdmin: boolean;
+  connectInfo: {
+    resource_url: string;
+    scope: string;
+    oauth_configured: boolean;
+    default_environment_id: string;
+    default_environment_name: string;
+  };
+  connections: McpGatewayConnectionView[];
+  tools: McpGatewayToolView[];
+  members: Array<{ user_id: string; username: string; role: string }>;
 };
 
 export type TeamMemberRow = {
@@ -746,6 +796,58 @@ export async function getGatewayPageData(
   };
 }
 
+export async function getMcpAccessPageData(
+  workspaceSlug?: string | null,
+  environmentId?: string | null,
+): Promise<McpAccessPageData> {
+  const user = await getCurrentUser();
+  const shell = await buildDashboardShell(user, workspaceSlug, environmentId);
+  const workspaceId = shell.activeWorkspace.id;
+  const role = shell.activeWorkspace.role.toLowerCase();
+  const isAdmin = role === 'owner' || role === 'admin';
+  const connectInfo = await rustApiForUserWorkspace<McpAccessPageData['connectInfo']>(
+    user,
+    workspaceId,
+    '/v1/mcp-gateway/connect-info',
+    {},
+    shell.activeEnvironment.id,
+  );
+  if (!isAdmin) {
+    return { ...shell, isAdmin, connectInfo, connections: [], tools: [], members: [] };
+  }
+  const [connectionResponse, toolResponse, memberResponse] = await Promise.all([
+    rustApiForUserWorkspace<{ connections: McpGatewayConnectionView[] }>(
+      user,
+      workspaceId,
+      '/v1/mcp-gateway/connections',
+      {},
+      shell.activeEnvironment.id,
+    ),
+    rustApiForUserWorkspace<{ tools: McpGatewayToolView[] }>(
+      user,
+      workspaceId,
+      '/v1/mcp-gateway/tools',
+      {},
+      shell.activeEnvironment.id,
+    ),
+    rustApiForUserWorkspace<{ members: RustMember[] }>(
+      user,
+      workspaceId,
+      '/v1/team/members',
+      {},
+      shell.activeEnvironment.id,
+    ),
+  ]);
+  return {
+    ...shell,
+    isAdmin,
+    connectInfo,
+    connections: connectionResponse.connections,
+    tools: toolResponse.tools,
+    members: memberResponse.members,
+  };
+}
+
 interface RustMember {
   user_id: string;
   username: string;
@@ -1051,6 +1153,7 @@ interface MyWorkspaceWire {
   organization_id: string;
   is_knowledge_base_enabled: boolean;
   is_attacks_enabled: boolean;
+  is_mcp_gateway_enabled: boolean;
 }
 
 interface MyWorkspacesWire {
@@ -1186,6 +1289,7 @@ async function buildWorkspaceSummary(
     role: membership?.role ?? 'Owner',
     isKnowledgeBaseEnabled: membership?.is_knowledge_base_enabled ?? false,
     isAttacksEnabled: membership?.is_attacks_enabled ?? false,
+    isMcpGatewayEnabled: membership?.is_mcp_gateway_enabled ?? false,
   };
 }
 

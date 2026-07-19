@@ -6,6 +6,7 @@ describe('isWorkspaceFeatureEnabled', () => {
   const disabledWorkspace = {
     isAttacksEnabled: false,
     isKnowledgeBaseEnabled: false,
+    isMcpGatewayEnabled: false,
   };
 
   it('keeps attacks unavailable by default', () => {
@@ -14,6 +15,10 @@ describe('isWorkspaceFeatureEnabled', () => {
 
   it('keeps knowledge sources unavailable by default', () => {
     expect(isWorkspaceFeatureEnabled(disabledWorkspace, 'knowledgeBase')).toBe(false);
+  });
+
+  it('keeps MCP access unavailable by default', () => {
+    expect(isWorkspaceFeatureEnabled(disabledWorkspace, 'mcpAccess')).toBe(false);
   });
 
   it('allows each feature to be rolled out independently', () => {
@@ -27,6 +32,12 @@ describe('isWorkspaceFeatureEnabled', () => {
       isWorkspaceFeatureEnabled(
         { ...disabledWorkspace, isKnowledgeBaseEnabled: true },
         'knowledgeBase',
+      ),
+    ).toBe(true);
+    expect(
+      isWorkspaceFeatureEnabled(
+        { ...disabledWorkspace, isMcpGatewayEnabled: true },
+        'mcpAccess',
       ),
     ).toBe(true);
   });

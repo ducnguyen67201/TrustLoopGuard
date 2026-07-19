@@ -44,6 +44,7 @@ const shell: Pick<
     role: 'admin',
     isKnowledgeBaseEnabled: false,
     isAttacksEnabled: false,
+    isMcpGatewayEnabled: false,
   },
   workspaces: [],
   activeEnvironment: {

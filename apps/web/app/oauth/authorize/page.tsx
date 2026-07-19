@@ -10,20 +10,21 @@ import { ConsentForm } from './consent-form';
 // Validate redirect_uri against the registered client server-side before
 // rendering — never redirect (Approve or Deny) to an unvalidated URI
 // (open-redirect / state-leak guard).
-async function redirectUriIsRegistered(
+async function registeredClient(
   clientId: string,
   redirectUri: string,
-): Promise<boolean> {
+): Promise<{ clientName: string | null } | null> {
   try {
     const res = await fetch(
       `${getServerUrl()}/oauth/clients/${encodeURIComponent(clientId)}/redirect-uris`,
       { cache: 'no-store' },
     );
-    if (!res.ok) return false;
-    const body = (await res.json()) as { redirect_uris?: string[] };
-    return Array.isArray(body.redirect_uris) && body.redirect_uris.includes(redirectUri);
+    if (!res.ok) return null;
+    const body = (await res.json()) as { redirect_uris?: string[]; client_name?: string | null };
+    if (!Array.isArray(body.redirect_uris) || !body.redirect_uris.includes(redirectUri)) return null;
+    return { clientName: typeof body.client_name === 'string' ? body.client_name : null };
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -58,6 +59,7 @@ export default async function OAuthAuthorizePage({
       'code_challenge',
       'code_challenge_method',
       'scope',
+      'resource',
     ]) {
       const value = get(key);
       if (value) qs.set(key, value);
@@ -80,7 +82,8 @@ export default async function OAuthAuthorizePage({
     );
   }
 
-  if (!(await redirectUriIsRegistered(clientId, redirectUri))) {
+  const client = await registeredClient(clientId, redirectUri);
+  if (!client) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background p-6">
         <p className="text-sm text-muted-foreground">
@@ -111,9 +114,11 @@ export default async function OAuthAuthorizePage({
         <div className="space-y-1">
           <h1 className="text-xl font-semibold text-foreground">Authorize access</h1>
           <p className="text-sm text-muted-foreground">
-            An MCP client wants to act on your TrustLoopGuard workspace. Choose which workspace to
-            grant access to.
+            {client.clientName ?? 'An MCP client'} wants to use managed tools from your
+            TrustLoopGuard workspace. Choose which workspace identity to connect.
           </p>
+          {get('resource') ? <p className="text-xs text-muted-foreground">Resource: {get('resource')}</p> : null}
+          {get('scope') ? <p className="text-xs text-muted-foreground">Scope: {get('scope')}</p> : null}
         </div>
         <ConsentForm
           clientId={clientId}
@@ -122,6 +127,8 @@ export default async function OAuthAuthorizePage({
           codeChallenge={codeChallenge}
           workspaces={workspaces}
           userLabel={user?.email ?? userId}
+          resource={get('resource')}
+          scope={get('scope')}
         />
       </div>
     </main>

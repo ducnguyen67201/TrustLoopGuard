@@ -41,13 +41,13 @@ Runtime/product pages carry the selected environment in the URL as `environment=
 The primary sidebar groups runtime monitoring separately from configuration:
 
 - **Monitor** — `/`, `/runs`, `/approvals`, `/financial`, `/analytics`, and `/attacks`.
-- **Configure** — `/policies`, `/grants`, `/agents`, `/knowledge-sources`, and `/gateway`.
+- **Configure** — `/policies`, `/grants`, `/agents`, `/knowledge-sources`, `/gateway`, and feature-gated `/mcp-access`.
 
 `/approvals` is the only actionable authorization queue. It reads common approvals from Rust, separates pending decisions from read-only history, shows the immutable envelope and hash, and lets an Owner/Admin deny pending requests or mint exact/bounded authority. `/grants` lists and revokes that common authority. Historical human-review events remain analytics-only and cannot resume execution or mint grants. See [`authorization-kernel.md`](authorization-kernel.md) for the runtime contract.
 
 Keep workspace/admin surfaces in the secondary section below the separator. Do not add new primary items as a flat list; choose the existing group that matches the workflow.
 
-Workspace rollout flags returned by `GET /v1/team/my-workspaces` control unavailable product areas. A gated navigation item declares its workspace feature in `components/app-sidebar.tsx`; `lib/workspace-features.ts` is the canonical evaluator. The page entry point must apply the same evaluator and call `notFound()` when disabled, so hiding a link never becomes the only gate. `/attacks` uses `isAttacksEnabled`; `/knowledge-sources` uses `isKnowledgeBaseEnabled`. Both default to disabled for new and existing workspaces. When enabled during rollout, their sidebar labels remain `Attacks (Beta)` and `Knowledge sources (Beta)` until the product marks them generally available.
+Workspace rollout flags returned by `GET /v1/team/my-workspaces` control unavailable product areas. A gated navigation item declares its workspace feature in `components/app-sidebar.tsx`; `lib/workspace-features.ts` is the canonical evaluator. The page entry point must apply the same evaluator and call `notFound()` when disabled, so hiding a link never becomes the only gate. `/attacks` uses `isAttacksEnabled`; `/knowledge-sources` uses `isKnowledgeBaseEnabled`; `/mcp-access` uses `isMcpGatewayEnabled`. All three default to disabled for new and existing workspaces. When enabled during rollout, the earlier beta sidebar labels remain until the product marks them generally available.
 
 The sidebar owns the workspace switcher and environment switcher. Runtime/product pages should preserve both URL parameters when linking within the dashboard so policy deployment toggles, runs, traces, and analytics stay scoped to the selected environment.
 
@@ -141,6 +141,7 @@ Always pass an `empty` message tailored to the page (e.g. `"No agents in this wo
 - `/agents`, `/runs`, `/runs/[id]`, `/knowledge-sources`, `/api-keys`, `/team` — management tables in `components/workspace/ManagementPages.tsx`.
 - `/approvals` — pending and historical common authorization envelopes (`components/workspace/AuthorizationApprovalsContent.tsx`).
 - `/grants` — active and historical common authority (`components/workspace/AuthorizationGrantsContent.tsx`).
+- `/mcp-access` — remote server and member tool assignment tables (`components/workspace/McpAccessPageContent.tsx`).
 
 When adding a new page with a table, add an entry to this list in the same PR.
 

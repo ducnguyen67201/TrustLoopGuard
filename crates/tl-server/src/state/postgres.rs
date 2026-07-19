@@ -9,9 +9,9 @@ use tl_engine::ToolMetadataProvider;
 use tl_storage::{
     connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, AuthorizationRepo,
     BudgetAlertRepo, DashboardAdminRepo, EnvironmentRepo, EscalationRepo, FinancialRepo,
-    GatewayRepo, GitHubIntegrationRepo, KnowledgeRepo, LlmPricingRepo, LlmUsageRepo, PolicyRepo,
-    RedteamJobRepo, RedteamPlanRepo, RedteamReportShareRepo, RunRepo, TeamRepo, ToolMetadataRepo,
-    TraceRepo, UserRepo, WriterConfig,
+    GatewayRepo, GitHubIntegrationRepo, KnowledgeRepo, LlmPricingRepo, LlmUsageRepo,
+    McpGatewayRepo, OAuthRepo, PolicyRepo, RedteamJobRepo, RedteamPlanRepo, RedteamReportShareRepo,
+    RunRepo, TeamRepo, ToolMetadataRepo, TraceRepo, UserRepo, WriterConfig,
 };
 
 use crate::agents::{AgentStore, MemoryAgentStore};
@@ -29,6 +29,8 @@ use crate::knowledge_sources::{KnowledgeStore, MemoryKnowledgeStore};
 use crate::label_policy::{LabelPolicyStore, MemoryLabelPolicyStore};
 use crate::llm_pricing::{LlmPricingStore, MemoryLlmPricingStore};
 use crate::llm_usage::{LlmUsageStore, MemoryLlmUsageStore};
+use crate::mcp_gateway::{McpGatewayStore, MemoryMcpGatewayStore};
+use crate::oauth_store::{MemoryOAuthStore, OAuthStore};
 use crate::policies::{MemoryPolicyStore, PolicyStore};
 use crate::redteam::{
     MemoryRedteamJobStore, MemoryRedteamPlanStore, MemoryRedteamReportShareStore, RedteamJobStore,
@@ -65,6 +67,8 @@ pub(super) async fn build_postgres_layer(
     Arc<dyn UserStore>,
     Arc<dyn TeamStore>,
     Arc<dyn GatewayStore>,
+    Arc<dyn OAuthStore>,
+    Arc<dyn McpGatewayStore>,
     Arc<dyn ToolMetadataStore>,
     Arc<dyn ToolMetadataProvider>,
     Arc<dyn AuthorizationStore>,
@@ -107,6 +111,8 @@ pub(super) async fn build_postgres_layer(
             Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
             Arc::new(MemoryTeamStore::new()) as Arc<dyn TeamStore>,
             Arc::new(MemoryGatewayStore::new()) as Arc<dyn GatewayStore>,
+            Arc::new(MemoryOAuthStore::default()) as Arc<dyn OAuthStore>,
+            Arc::new(MemoryMcpGatewayStore::new()) as Arc<dyn McpGatewayStore>,
             tool_metadata.clone() as Arc<dyn ToolMetadataStore>,
             tool_metadata as Arc<dyn ToolMetadataProvider>,
             Arc::new(MemoryAuthorizationStore::new()) as Arc<dyn AuthorizationStore>,
@@ -162,6 +168,9 @@ pub(super) async fn build_postgres_layer(
         TeamRepo::new(pool.clone()),
     ));
     let gateway_adapter = PostgresGatewayAdapter::new(Arc::new(GatewayRepo::new(pool.clone())));
+    let oauth_adapter = PostgresOAuthAdapter::new(Arc::new(OAuthRepo::new(pool.clone())));
+    let mcp_gateway_adapter =
+        PostgresMcpGatewayAdapter::new(Arc::new(McpGatewayRepo::new(pool.clone())));
     let tool_metadata_adapter =
         PostgresToolMetadataAdapter::new(Arc::new(ToolMetadataRepo::new(pool.clone())));
     let authorization_adapter =
@@ -198,6 +207,8 @@ pub(super) async fn build_postgres_layer(
         user_adapter as Arc<dyn UserStore>,
         team_adapter,
         gateway_adapter as Arc<dyn GatewayStore>,
+        Arc::new(oauth_adapter) as Arc<dyn OAuthStore>,
+        Arc::new(mcp_gateway_adapter) as Arc<dyn McpGatewayStore>,
         tool_metadata_adapter.clone() as Arc<dyn ToolMetadataStore>,
         tool_metadata_adapter as Arc<dyn ToolMetadataProvider>,
         authorization_adapter as Arc<dyn AuthorizationStore>,

@@ -9,6 +9,7 @@ import {
   IconDashboard,
   IconActivity,
   IconKey,
+  IconPlugConnected,
   IconRobot,
   IconSettings,
   IconShieldCheck,
@@ -130,6 +131,13 @@ const data = {
           icon: IconActivity,
           description: 'Route provider calls through the guardrail automatically',
         },
+        {
+          title: 'MCP Access',
+          url: '/mcp-access',
+          icon: IconPlugConnected,
+          description: 'Centrally control the tools available to employee agents',
+          feature: 'mcpAccess' as const,
+        },
       ],
     },
   ],
@@ -164,7 +172,10 @@ const data = {
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & DashboardShellData;
 
 export function getVisibleNavGroups(
-  workspace: Pick<WorkspaceSummary, 'isAttacksEnabled' | 'isKnowledgeBaseEnabled'>,
+  workspace: Pick<
+    WorkspaceSummary,
+    'isAttacksEnabled' | 'isKnowledgeBaseEnabled' | 'isMcpGatewayEnabled'
+  >,
   withContext: (url: string) => string,
 ) {
   return data.navMain.map((group) => ({

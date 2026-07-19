@@ -11,6 +11,7 @@ The event engine evaluates normalized proposed agent steps. `POST /v1/events` re
 | Authentication, workspace/environment resolution, coordinator, traces | `crates/tl-server` |
 | Tool metadata, policies, authorization records, traces | `crates/tl-storage` |
 | SDK and MCP host translation | SDK packages and `apps/mcp-proxy`; TypeScript agent discovery is defined in [sdk-agent-adapters.md](sdk-agent-adapters.md) |
+| Hosted MCP translation | The Rust-owned managed endpoint described in [hosted-mcp-access-gateway.md](hosted-mcp-access-gateway.md) |
 
 The web dashboard may display persisted traces through Rust APIs. It is not in the runtime path and does not evaluate or store decisions.
 
@@ -57,6 +58,10 @@ Signals are advisory and never weaken a deterministic finding. A grant can satis
 ## MCP proxy
 
 `apps/mcp-proxy` mirrors one downstream stdio MCP server. For each call it binds server ID, tool name, schema hash, operation, side-effect class, and canonical parameters. It uses `withAuthorizedAction`, waits through the common queue, and calls downstream once after `permit`. Cancellation, denial, deferral, changed schema/parameters, or a completion-report failure never causes a second downstream call.
+
+The hosted `/mcp` gateway is a separate Rust runtime path with OAuth identity,
+durable catalogs, and per-member assignments. Its event construction and
+failure semantics are owned by [hosted-mcp-access-gateway.md](hosted-mcp-access-gateway.md).
 
 ## Traces and receipts
 

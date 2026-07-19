@@ -6,6 +6,22 @@ use axum::{
 use tl_core::{ApiError, ApiErrorCode};
 
 pub(super) fn unauthorized(message: &str) -> Response {
+    unauthorized_with_resource_metadata(message, "/.well-known/oauth-protected-resource", None)
+}
+
+pub(super) fn unauthorized_mcp(message: &str) -> Response {
+    unauthorized_with_resource_metadata(
+        message,
+        "/.well-known/oauth-protected-resource/mcp",
+        Some(crate::oauth::MCP_SCOPE),
+    )
+}
+
+fn unauthorized_with_resource_metadata(
+    message: &str,
+    metadata_path: &str,
+    scope: Option<&str>,
+) -> Response {
     let mut response = api_error(
         StatusCode::UNAUTHORIZED,
         ApiErrorCode::Unauthorized,
@@ -15,8 +31,10 @@ pub(super) fn unauthorized(message: &str) -> Response {
     // discover the authorization server and start the OAuth flow on a 401.
     let issuer =
         std::env::var("TL_PUBLIC_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
-    let challenge =
-        format!("Bearer resource_metadata=\"{issuer}/.well-known/oauth-protected-resource\"");
+    let scope = scope
+        .map(|scope| format!(", scope=\"{scope}\""))
+        .unwrap_or_default();
+    let challenge = format!("Bearer resource_metadata=\"{issuer}{metadata_path}\"{scope}");
     if let Ok(value) = HeaderValue::from_str(&challenge) {
         response.headers_mut().insert(WWW_AUTHENTICATE, value);
     }

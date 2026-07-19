@@ -11,6 +11,9 @@ interface MyWorkspace {
   name: string;
   role: string;
   organization_id: string;
+  is_knowledge_base_enabled: boolean;
+  is_attacks_enabled: boolean;
+  is_mcp_gateway_enabled: boolean;
 }
 
 interface MyWorkspacesResponse {

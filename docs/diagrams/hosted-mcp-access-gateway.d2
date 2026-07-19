@@ -1,0 +1,17 @@
+direction: right
+
+client: "Employee AI client"
+oauth: "TrustLoopGuard OAuth\nidentity + workspace"
+gateway: "Hosted /mcp\nassigned catalog"
+policy: "Runtime policy\napprovals + lease"
+upstream: "Admin-approved\nremote MCP server"
+storage: "Postgres\nOAuth + catalog + assignments"
+
+client -> oauth: "resource-bound token"
+oauth -> gateway: "signed member"
+gateway -> policy: "server-authored GuardEvent"
+policy -> gateway: "permit only"
+gateway -> upstream: "at most once"
+oauth -> storage
+gateway -> storage
+policy -> storage: "trace + authority"

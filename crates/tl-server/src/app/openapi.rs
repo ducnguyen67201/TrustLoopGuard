@@ -4,7 +4,7 @@ use crate::{
     agents, analytics, api::events::__path_submit_event, api::guard::__path_health, auth_user,
     authorization, budget_alerts, dashboard_admin, environments, financial, gateway,
     github_integration, human_review, knowledge_sources, label_policy, llm_pricing, llm_usage,
-    policies, redteam, runs, team, tool_metadata, traces,
+    mcp_gateway, policies, redteam, runs, team, tool_metadata, traces,
 };
 
 #[derive(OpenApi)]
@@ -137,6 +137,15 @@ use crate::{
         auth_user::oauth::oauth_session,
         team::list_my_workspaces,
         team::create_my_workspace,
+        mcp_gateway::connect_info,
+        mcp_gateway::list_connections,
+        mcp_gateway::create_connection,
+        mcp_gateway::patch_connection,
+        mcp_gateway::delete_connection,
+        mcp_gateway::sync_connection,
+        mcp_gateway::list_tools,
+        mcp_gateway::patch_tool,
+        mcp_gateway::replace_assignments,
     ),
     components(schemas(
         tl_core::AuthorizationDecision,
@@ -441,6 +450,21 @@ use crate::{
         tl_core::MyWorkspace,
         tl_core::MyWorkspacesResponse,
         tl_core::CreateWorkspaceRequest,
+        tl_core::McpGatewayAuthKind,
+        tl_core::McpGatewayCredentialStatus,
+        tl_core::McpGatewaySyncStatus,
+        tl_core::McpGatewayCatalogStatus,
+        tl_core::McpGatewayConnection,
+        tl_core::CreateMcpGatewayConnectionRequest,
+        tl_core::UpdateMcpGatewayConnectionRequest,
+        tl_core::McpGatewayConnectionListResponse,
+        tl_core::McpGatewaySyncResponse,
+        tl_core::McpGatewayTool,
+        tl_core::McpGatewayToolListResponse,
+        tl_core::UpdateMcpGatewayToolRequest,
+        tl_core::ReplaceMcpGatewayToolAssignmentsRequest,
+        tl_core::McpGatewayToolAssignmentsResponse,
+        tl_core::McpGatewayConnectInfo,
     )),
     tags(
         (name = "guard", description = "Real-time guard checks"),
@@ -466,6 +490,7 @@ use crate::{
         (name = "knowledge-sources", description = "Workspace knowledge source metadata and files"),
         (name = "auth", description = "Dashboard user identity and session helpers"),
         (name = "team", description = "Workspace team membership and invites"),
+        (name = "mcp-gateway", description = "Managed MCP servers, catalog, and member tool assignments"),
     ),
 )]
 pub struct ApiDoc;

@@ -16,6 +16,8 @@ const requestSchema = z.object({
   state: z.string().trim().min(1),
   codeChallenge: z.string().trim().min(1),
   workspaceId: z.string().trim().min(1),
+  resource: z.string().url().optional(),
+  scope: z.string().trim().min(1).optional(),
 });
 
 export async function POST(req: Request) {
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { clientId, redirectUri, codeChallenge, workspaceId } = parsed.data;
+  const { clientId, redirectUri, codeChallenge, workspaceId, resource, scope } = parsed.data;
 
   try {
     const { code } = await rustApiForUserWorkspace<{ code: string }>(
@@ -54,6 +56,8 @@ export async function POST(req: Request) {
           client_id: clientId,
           redirect_uri: redirectUri,
           code_challenge: codeChallenge,
+          resource,
+          scope,
         }),
       },
     );

@@ -7,6 +7,7 @@ use axum::{
 };
 
 mod gateway_routes;
+mod mcp_gateway_routes;
 
 use crate::{
     agents, analytics, auth_user, authorization, budget_alerts, dashboard_admin, environments,
@@ -14,6 +15,8 @@ use crate::{
     llm_usage, policies, redteam, runs, team, tool_metadata, traces, AgentState, AppState,
     AuthUserState, LabelPolicyState, PolicyState, ToolMetadataState,
 };
+
+pub(super) use mcp_gateway_routes::{mcp_gateway_routes, mcp_resource_routes};
 
 pub(super) fn public_routes(
     state: &AppState,

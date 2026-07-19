@@ -14,6 +14,8 @@ use crate::{
     StorageError,
 };
 
+type WorkspaceMembershipRow = (String, String, String, String, String, bool, bool, bool);
+
 impl TeamRepo {
     /// Create a fresh organization + workspace pair, with `user_id`
     /// as `owner` on both. Used by the `/welcome` "create your own
@@ -105,6 +107,7 @@ impl TeamRepo {
                 role: WorkspaceRole::Owner,
                 is_knowledge_base_enabled: false,
                 is_attacks_enabled: false,
+                is_mcp_gateway_enabled: false,
             })
         })
         .await
@@ -118,32 +121,37 @@ impl TeamRepo {
         user_id: Uuid,
     ) -> Result<Vec<MyWorkspace>, StorageError> {
         let mut conn = self.connection().await?;
-        let rows: Vec<(String, String, String, String, String, bool, bool)> =
-            workspace_members::table
-                .inner_join(
-                    workspaces::table.on(workspaces::id.eq(workspace_members::workspace_id)),
-                )
-                .filter(workspace_members::user_id.eq(user_id))
-                .filter(workspaces::deleted_at.is_null())
-                .order(workspaces::name.asc())
-                .select((
-                    workspaces::id,
-                    workspaces::slug,
-                    workspaces::name,
-                    workspaces::organization_id,
-                    workspace_members::role,
-                    workspaces::is_knowledge_base_enabled,
-                    workspaces::is_attacks_enabled,
-                ))
-                .load::<(String, String, String, String, String, bool, bool)>(&mut conn)
-                .await
-                .map_err(|error| {
-                    StorageError::Internal(format!("list user workspaces: {error}"))
-                })?;
+        let rows: Vec<WorkspaceMembershipRow> = workspace_members::table
+            .inner_join(workspaces::table.on(workspaces::id.eq(workspace_members::workspace_id)))
+            .filter(workspace_members::user_id.eq(user_id))
+            .filter(workspaces::deleted_at.is_null())
+            .order(workspaces::name.asc())
+            .select((
+                workspaces::id,
+                workspaces::slug,
+                workspaces::name,
+                workspaces::organization_id,
+                workspace_members::role,
+                workspaces::is_knowledge_base_enabled,
+                workspaces::is_attacks_enabled,
+                workspaces::is_mcp_gateway_enabled,
+            ))
+            .load::<WorkspaceMembershipRow>(&mut conn)
+            .await
+            .map_err(|error| StorageError::Internal(format!("list user workspaces: {error}")))?;
         Ok(rows
             .into_iter()
             .map(
-                |(id, slug, name, org_id, role, is_knowledge_base_enabled, is_attacks_enabled)| {
+                |(
+                    id,
+                    slug,
+                    name,
+                    org_id,
+                    role,
+                    is_knowledge_base_enabled,
+                    is_attacks_enabled,
+                    is_mcp_gateway_enabled,
+                )| {
                     MyWorkspace {
                         id,
                         slug,
@@ -152,6 +160,7 @@ impl TeamRepo {
                         role: WorkspaceRole::parse(&role).unwrap_or(WorkspaceRole::Viewer),
                         is_knowledge_base_enabled,
                         is_attacks_enabled,
+                        is_mcp_gateway_enabled,
                     }
                 },
             )

@@ -82,3 +82,42 @@ export async function deleteRustResource(
     return handleRustError(err);
   }
 }
+
+export async function proxyRustResourceAction(
+  req: Request,
+  params: Promise<{ id: string }>,
+  rustPathPrefix: string,
+  action: string,
+): Promise<Response> {
+  try {
+    const { id } = await params;
+    const data = await rustApiForAuthorizedWorkspace<JsonValue>(
+      req,
+      `${rustPathPrefix}/${encodeURIComponent(id)}/${action}`,
+      { method: 'POST' },
+    );
+    return NextResponse.json(data);
+  } catch (err) {
+    return handleRustError(err);
+  }
+}
+
+export async function putRustResource(
+  req: Request,
+  params: Promise<{ id: string }>,
+  rustPathPrefix: string,
+  suffix?: string,
+): Promise<Response> {
+  try {
+    const { id } = await params;
+    const path = `${rustPathPrefix}/${encodeURIComponent(id)}${suffix ? `/${suffix}` : ''}`;
+    const data = await rustApiForAuthorizedWorkspace<JsonValue>(req, path, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: await req.text(),
+    });
+    return NextResponse.json(data);
+  } catch (err) {
+    return handleRustError(err);
+  }
+}

@@ -177,6 +177,7 @@ impl TeamStore for MemoryTeamStore {
                 role: m.role,
                 is_knowledge_base_enabled: false,
                 is_attacks_enabled: false,
+                is_mcp_gateway_enabled: false,
             })
             .collect())
     }
@@ -212,6 +213,7 @@ impl TeamStore for MemoryTeamStore {
             role: WorkspaceRole::Owner,
             is_knowledge_base_enabled: false,
             is_attacks_enabled: false,
+            is_mcp_gateway_enabled: false,
         })
     }
 }

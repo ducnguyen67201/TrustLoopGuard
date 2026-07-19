@@ -26,16 +26,13 @@ pub fn router(
     gateway_seal_key: [u8; 32],
 ) -> Router {
     let jwt_signer = state.jwt_signer.clone();
+    let mcp_jwt_signer = jwt_signer.clone();
+    let mcp_auth = auth.clone();
     let api_key_store = state.api_key_store.clone();
     let user_store = state.user_store.clone();
 
-    // Shared OAuth state: discovery/registration/token are public; code
-    // issuance (/v1/oauth/authorize) is under the bearer layer below.
-    let oauth_store = Arc::new(crate::oauth::OAuthStore::default());
-
-    let public = route_groups::public_routes(&state, jwt_signer.clone()).merge(
-        crate::oauth::oauth_public_routes(state.clone(), oauth_store.clone()),
-    );
+    let public = route_groups::public_routes(&state, jwt_signer.clone())
+        .merge(crate::oauth::oauth_public_routes(state.clone()));
     let auth_identity_routes = route_groups::auth_identity_routes(&state, jwt_signer.clone());
 
     let draft_llm = build_policy_draft_llm();
@@ -83,14 +80,12 @@ pub fn router(
         .merge(route_groups::dashboard_admin_routes(&state))
         .merge(route_groups::environment_routes(&state))
         .merge(route_groups::gateway_routes(&state, gateway_seal_key))
+        .merge(route_groups::mcp_gateway_routes(&state, gateway_seal_key))
         .merge(route_groups::knowledge_routes(&state))
         .merge(route_groups::team_routes(&state))
         // OAuth code issuance — called by the web consent page with the
         // internal key + forwarded user/workspace; needs the bearer layer.
-        .merge(crate::oauth::oauth_protected_routes(
-            state.clone(),
-            oauth_store.clone(),
-        ));
+        .merge(crate::oauth::oauth_protected_routes(state.clone()));
 
     if let Some(cfg) = auth {
         let cfg = cfg.with_jwt(jwt_signer);
@@ -105,7 +100,20 @@ pub fn router(
         protected = protected.merge(auth_identity_routes);
     }
 
-    public.merge(protected).layer(from_fn(log_http_response))
+    let mut app = public.merge(protected);
+    match (mcp_auth, mcp_jwt_signer) {
+        (Some(config), Some(signer)) => {
+            app = app.merge(route_groups::mcp_resource_routes(
+                &state,
+                config.with_jwt(Some(signer)),
+                gateway_seal_key,
+            ));
+        }
+        _ => tracing::info!(
+            "hosted /mcp resource disabled because bearer auth or JWT signing is not configured"
+        ),
+    }
+    app.layer(from_fn(log_http_response))
 }
 
 fn build_policy_draft_llm() -> Option<Arc<dyn tl_llm::LlmClient>> {

@@ -12,9 +12,11 @@ use crate::schema::{
     gateway_provider_connections, gateway_routes, github_installation_states, github_installations,
     github_integration_jobs, github_repository_connections, human_review_events,
     llm_budget_principal_locks, llm_budget_reservations, llm_model_prices, llm_usage_events,
-    oauth_identities, policies, policy_environment_deployments, redteam_attack_sessions,
-    redteam_jobs, redteam_plans, redteam_report_shares, redteam_session_events, run_events, runs,
-    tool_metadata, traces, users, workspace_environments,
+    mcp_oauth_authorization_codes, mcp_oauth_clients, mcp_oauth_refresh_tokens,
+    mcp_server_connections, mcp_tool_assignments, mcp_tools, oauth_identities, policies,
+    policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
+    redteam_report_shares, redteam_session_events, run_events, runs, tool_metadata, traces, users,
+    workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -880,6 +882,164 @@ pub struct OAuthIdentityRecord {
     pub email: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = mcp_oauth_clients)]
+pub struct NewMcpOAuthClient {
+    pub client_id: String,
+    pub client_name: Option<String>,
+    pub redirect_uris: Value,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = mcp_oauth_clients)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct McpOAuthClientRecord {
+    pub client_id: String,
+    pub client_name: Option<String>,
+    pub redirect_uris: Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = mcp_oauth_authorization_codes)]
+pub struct NewMcpOAuthAuthorizationCode {
+    pub code_hash: String,
+    pub client_id: String,
+    pub redirect_uri: String,
+    pub user_id: Uuid,
+    pub username: String,
+    pub workspace_id: String,
+    pub resource: String,
+    pub scope: String,
+    pub code_challenge: String,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = mcp_oauth_authorization_codes)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct McpOAuthAuthorizationCodeRecord {
+    pub code_hash: String,
+    pub client_id: String,
+    pub redirect_uri: String,
+    pub user_id: Uuid,
+    pub username: String,
+    pub workspace_id: String,
+    pub resource: String,
+    pub scope: String,
+    pub code_challenge: String,
+    pub expires_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = mcp_oauth_refresh_tokens)]
+pub struct NewMcpOAuthRefreshToken {
+    pub token_hash: String,
+    pub client_id: String,
+    pub user_id: Uuid,
+    pub username: String,
+    pub workspace_id: String,
+    pub resource: String,
+    pub scope: String,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = mcp_oauth_refresh_tokens)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct McpOAuthRefreshTokenRecord {
+    pub token_hash: String,
+    pub client_id: String,
+    pub user_id: Uuid,
+    pub username: String,
+    pub workspace_id: String,
+    pub resource: String,
+    pub scope: String,
+    pub expires_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = mcp_server_connections)]
+pub struct NewMcpServerConnection {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub display_name: String,
+    pub server_slug: String,
+    pub endpoint_url: String,
+    pub auth_kind: String,
+    pub encrypted_credential: Option<String>,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = mcp_server_connections)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct McpServerConnectionRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub display_name: String,
+    pub server_slug: String,
+    pub endpoint_url: String,
+    pub auth_kind: String,
+    pub encrypted_credential: Option<String>,
+    pub enabled: bool,
+    pub last_sync_status: String,
+    pub last_sync_error: Option<String>,
+    pub last_synced_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = mcp_tools)]
+pub struct NewMcpTool {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub connection_id: Uuid,
+    pub upstream_name: String,
+    pub public_name: String,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub input_schema: Value,
+    pub output_schema: Option<Value>,
+    pub annotations: Value,
+    pub schema_hash: String,
+    pub side_effect: String,
+    pub catalog_status: String,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = mcp_tools)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct McpToolRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub connection_id: Uuid,
+    pub upstream_name: String,
+    pub public_name: String,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub input_schema: Value,
+    pub output_schema: Option<Value>,
+    pub annotations: Value,
+    pub schema_hash: String,
+    pub side_effect: String,
+    pub catalog_status: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = mcp_tool_assignments)]
+pub struct NewMcpToolAssignment {
+    pub workspace_id: String,
+    pub tool_id: Uuid,
+    pub user_id: Uuid,
+    pub created_by: Option<Uuid>,
 }
 
 #[derive(Debug, Insertable)]

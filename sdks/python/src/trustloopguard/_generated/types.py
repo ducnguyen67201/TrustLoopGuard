@@ -859,6 +859,42 @@ class LlmUsageKind(Enum):
     guardrail = 'guardrail'
 
 
+class McpGatewayAuthKind(Enum):
+    none = 'none'
+    static_bearer = 'static_bearer'
+
+
+class McpGatewayCatalogStatus(Enum):
+    active = 'active'
+    schema_changed = 'schema_changed'
+    missing = 'missing'
+
+
+class McpGatewayConnectInfo(BaseModel):
+    default_environment_id: str
+    default_environment_name: str
+    oauth_configured: bool
+    resource_url: str
+    scope: str
+
+
+class McpGatewayCredentialStatus(Enum):
+    not_required = 'not_required'
+    configured = 'configured'
+    missing = 'missing'
+
+
+class McpGatewaySyncStatus(Enum):
+    never = 'never'
+    succeeded = 'succeeded'
+    failed = 'failed'
+
+
+class McpGatewayToolAssignmentsResponse(BaseModel):
+    tool_id: str
+    user_ids: list[str]
+
+
 class MoneyAmount(BaseModel):
     amount_minor: int
     currency: str
@@ -1089,6 +1125,10 @@ class RedteamSessionEvent(BaseModel):
     payload: Any | None = None
     seq: int
     trace_id: str | None = None
+
+
+class ReplaceMcpGatewayToolAssignmentsRequest(BaseModel):
+    user_ids: list[str]
 
 
 class ReportSeverity(Enum):
@@ -1355,6 +1395,18 @@ class UpdateGatewayRouteRequest(BaseModel):
     agent_id: str | None = None
     display_name: str | None = None
     provider_connection_id: str | None = None
+
+
+class UpdateMcpGatewayConnectionRequest(BaseModel):
+    auth_kind: McpGatewayAuthKind | None = None
+    credential: str | None = None
+    display_name: str | None = None
+    enabled: bool | None = None
+    endpoint_url: str | None = None
+
+
+class UpdateMcpGatewayToolRequest(BaseModel):
+    side_effect: SideEffectClass
 
 
 class UpdateRunRequest(BaseModel):
@@ -1851,6 +1903,14 @@ class CreateKnowledgeSourceRequest(BaseModel):
     title: str
 
 
+class CreateMcpGatewayConnectionRequest(BaseModel):
+    auth_kind: McpGatewayAuthKind
+    credential: str | None = None
+    display_name: str
+    endpoint_url: str
+    server_slug: str
+
+
 class CreateRunEventRequest(BaseModel):
     input_summary: str | None = None
     kind: RunEventKind
@@ -2096,10 +2156,59 @@ class LlmUsageResponse(RootModel[LlmUsageListResponse | LlmUsageBucketsResponse]
     )
 
 
+class McpGatewayConnection(BaseModel):
+    auth_kind: McpGatewayAuthKind
+    created_at: str
+    credential_status: McpGatewayCredentialStatus
+    display_name: str
+    enabled: bool
+    endpoint_url: str
+    id: str
+    last_sync_error: str | None = None
+    last_sync_status: McpGatewaySyncStatus
+    last_synced_at: str | None = None
+    server_slug: str
+    tool_count: conint(ge=0)
+    updated_at: str
+
+
+class McpGatewayConnectionListResponse(BaseModel):
+    connections: list[McpGatewayConnection]
+
+
+class McpGatewaySyncResponse(BaseModel):
+    connection: McpGatewayConnection
+    tool_count: conint(ge=0)
+
+
+class McpGatewayTool(BaseModel):
+    annotations: Any
+    assigned_user_ids: list[str]
+    catalog_status: McpGatewayCatalogStatus
+    connection_id: str
+    connection_name: str
+    created_at: str
+    description: str | None = None
+    id: str
+    input_schema: Any
+    output_schema: Any | None = None
+    public_name: str
+    schema_hash: str
+    side_effect: SideEffectClass
+    title: str | None = None
+    updated_at: str
+    upstream_name: str
+
+
+class McpGatewayToolListResponse(BaseModel):
+    tools: list[McpGatewayTool]
+
+
 class MyWorkspace(BaseModel):
     id: str
     is_attacks_enabled: bool
     is_knowledge_base_enabled: bool
+    is_mcp_gateway_enabled: bool
     name: str
     organization_id: str
     role: WorkspaceRole

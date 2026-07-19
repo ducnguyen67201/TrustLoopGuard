@@ -171,6 +171,7 @@ pub struct MyWorkspace {
     pub organization_id: String,
     pub is_knowledge_base_enabled: bool,
     pub is_attacks_enabled: bool,
+    pub is_mcp_gateway_enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

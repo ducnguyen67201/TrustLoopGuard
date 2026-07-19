@@ -49,6 +49,7 @@ function makeData(): WorkspaceDashboardData {
     role: 'owner',
     isKnowledgeBaseEnabled: false,
     isAttacksEnabled: false,
+    isMcpGatewayEnabled: false,
   };
   const environment = {
     id: 'env_prod',

@@ -219,6 +219,7 @@ diesel::table! {
         description -> Nullable<Text>,
         is_knowledge_base_enabled -> Bool,
         is_attacks_enabled -> Bool,
+        is_mcp_gateway_enabled -> Bool,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         deleted_at -> Nullable<Timestamptz>,
@@ -852,6 +853,93 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    mcp_oauth_clients (client_id) {
+        client_id -> Text,
+        client_name -> Nullable<Text>,
+        redirect_uris -> Jsonb,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    mcp_oauth_authorization_codes (code_hash) {
+        code_hash -> Text,
+        client_id -> Text,
+        redirect_uri -> Text,
+        user_id -> Uuid,
+        username -> Text,
+        workspace_id -> Text,
+        resource -> Text,
+        scope -> Text,
+        code_challenge -> Text,
+        expires_at -> Timestamptz,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    mcp_oauth_refresh_tokens (token_hash) {
+        token_hash -> Text,
+        client_id -> Text,
+        user_id -> Uuid,
+        username -> Text,
+        workspace_id -> Text,
+        resource -> Text,
+        scope -> Text,
+        expires_at -> Timestamptz,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    mcp_server_connections (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        display_name -> Text,
+        server_slug -> Text,
+        endpoint_url -> Text,
+        auth_kind -> Text,
+        encrypted_credential -> Nullable<Text>,
+        enabled -> Bool,
+        last_sync_status -> Text,
+        last_sync_error -> Nullable<Text>,
+        last_synced_at -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    mcp_tools (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        connection_id -> Uuid,
+        upstream_name -> Text,
+        public_name -> Text,
+        title -> Nullable<Text>,
+        description -> Nullable<Text>,
+        input_schema -> Jsonb,
+        output_schema -> Nullable<Jsonb>,
+        annotations -> Jsonb,
+        schema_hash -> Text,
+        side_effect -> Text,
+        catalog_status -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    mcp_tool_assignments (workspace_id, tool_id, user_id) {
+        workspace_id -> Text,
+        tool_id -> Uuid,
+        user_id -> Uuid,
+        created_by -> Nullable<Uuid>,
+        created_at -> Timestamptz,
+    }
+}
+
 diesel::joinable!(organization_members -> organizations (organization_id));
 diesel::joinable!(organization_members -> users (user_id));
 diesel::joinable!(oauth_identities -> users (user_id));
@@ -928,4 +1016,10 @@ diesel::allow_tables_to_appear_in_same_query!(
     authorization_grants,
     authorization_leases,
     authorization_receipts,
+    mcp_oauth_clients,
+    mcp_oauth_authorization_codes,
+    mcp_oauth_refresh_tokens,
+    mcp_server_connections,
+    mcp_tools,
+    mcp_tool_assignments,
 );
