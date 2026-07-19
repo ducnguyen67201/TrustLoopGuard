@@ -6,6 +6,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
+    "./procurement-agent/hosted": "./procurement-agent/hosted.ts",
     "./stripe-refund-agent/hosted": "./stripe-refund-agent/hosted.ts",
     "./stripe-refund-agent/provider-adapter": "./stripe-refund-agent/provider-adapter.ts",
     "./stripe-refund-agent/provider": "./stripe-refund-agent/provider.ts",
@@ -24,6 +25,7 @@
     "dispute:byo": "tsx dispute/byo.example.ts",
     "financial-refund": "tsx financial-refund/scenarios.ts",
     "financial-refund:check": "tsx financial-refund/financial-refund.check.ts",
+    "procurement-agent:setup": "tsx procurement-agent/setup.ts",
     "agent-visibility": "tsx agent-visibility/guarded-agent.ts",
     "stripe-refund-agent": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/chat.ts",
     "stripe-refund-agent:db": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/db.ts",
@@ -36,10 +38,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@openai/agents": "^0.13.5",
     "@trustloopguard/sdk": "workspace:*",
     "openai": "^6.45.0",
     "pdfjs-dist": "^4.10.38",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.0",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

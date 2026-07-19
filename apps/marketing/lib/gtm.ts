@@ -10,7 +10,8 @@ export type MarketingEventName =
   | 'landing_cta_click'
   | 'demo_click'
   | 'demo_started'
-  | 'demo_decision_shown';
+  | 'demo_decision_shown'
+  | 'demo_policy_changed';
 
 export interface MarketingEventParams extends Record<string, string | undefined> {
   page?: string;
