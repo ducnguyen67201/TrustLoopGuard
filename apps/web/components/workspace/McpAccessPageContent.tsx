@@ -22,7 +22,7 @@ import { SwitchyardMap } from './mcp-access/SwitchyardMap';
 
 export function McpAccessPageContent({ data }: { data: McpAccessPageData }) {
   const defaultTab = data.isAdmin ? 'overview' : 'connect';
-  return <div className="space-y-6"><PageHeader eyebrow={data.activeWorkspace.name} title="MCP Access" description="One managed endpoint for employee AI agents, with workspace assignments and runtime policy enforcement." /><Tabs defaultValue={defaultTab}><TabsList>{data.isAdmin ? <><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="servers">Servers</TabsTrigger><TabsTrigger value="tools">Tool access</TabsTrigger></> : null}<TabsTrigger value="connect">Connect</TabsTrigger></TabsList>{data.isAdmin ? <><TabsContent value="overview" className="space-y-4"><SwitchyardMap connections={data.connections} />{data.connections.length === 0 ? <SetupRunway hasServer={false} hasAssignments={false} /> : <SetupRunway hasServer hasAssignments={data.tools.some((tool) => tool.assigned_user_ids.length > 0)} />}<Exceptions data={data} /></TabsContent><TabsContent value="servers"><Servers data={data} /></TabsContent><TabsContent value="tools"><ToolAccess data={data} /></TabsContent></> : null}<TabsContent value="connect"><Connect data={data} /></TabsContent></Tabs></div>;
+  return <div className="space-y-6"><PageHeader eyebrow={data.activeWorkspace.name} title="MCP Access" description="One managed endpoint for employee AI agents, with workspace assignments and runtime policy enforcement." descriptionClassName="max-w-4xl" /><Tabs defaultValue={defaultTab}><TabsList>{data.isAdmin ? <><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="servers">Servers</TabsTrigger><TabsTrigger value="tools">Tool access</TabsTrigger></> : null}<TabsTrigger value="connect">Connect</TabsTrigger></TabsList>{data.isAdmin ? <><TabsContent value="overview" className="space-y-4"><SwitchyardMap connections={data.connections} />{data.connections.length === 0 ? <SetupRunway hasServer={false} hasAssignments={false} /> : <SetupRunway hasServer hasAssignments={data.tools.some((tool) => tool.assigned_user_ids.length > 0)} />}<Exceptions data={data} /></TabsContent><TabsContent value="servers"><Servers data={data} /></TabsContent><TabsContent value="tools"><ToolAccess data={data} /></TabsContent></> : null}<TabsContent value="connect"><Connect data={data} /></TabsContent></Tabs></div>;
 }
 
 function Exceptions({ data }: { data: McpAccessPageData }) {
@@ -49,13 +49,80 @@ function ToolAccess({ data }: { data: McpAccessPageData }) {
   const router = useRouter();
   const [memberId, setMemberId] = useState(data.members[0]?.user_id ?? '');
   const columns = useMemo<DataTableColumn<McpGatewayTool>[]>(() => [
-    { id: 'tool', header: 'Tool', cell: (row) => <div><p className="font-mono text-xs">{row.public_name}</p><p className="text-xs text-muted-foreground">{row.connection_name}</p></div> },
-    { id: 'status', header: 'Catalog', cell: (row) => row.catalog_status },
-    { id: 'effect', header: 'Side effect', cell: (row) => <SideEffectSelect tool={row} data={data} router={router} /> },
-    { id: 'assigned', header: 'Assigned', cell: (row) => row.assigned_user_ids.length, align: 'right' },
-    { id: 'access', header: '', cell: (row) => { const assigned = row.assigned_user_ids.includes(memberId); return <Button size="sm" variant={assigned ? 'outline' : 'default'} disabled={!memberId || row.catalog_status !== 'active'} onClick={() => void replaceToolAssignment(row, memberId, !assigned, router, data)}>{assigned ? 'Revoke' : 'Grant'}</Button>; }, align: 'right' },
+    {
+      id: 'tool',
+      header: 'Tool',
+      headerClassName: 'min-w-72 px-6',
+      cellClassName: 'px-6 py-4',
+      cell: (row) => <div><p className="font-mono text-xs font-medium">{row.public_name}</p><p className="mt-1 text-xs text-muted-foreground">{row.connection_name}</p></div>,
+    },
+    {
+      id: 'status',
+      header: 'Catalog',
+      headerClassName: 'min-w-40 px-4',
+      cellClassName: 'px-4 py-4',
+      cell: (row) => <Badge variant="outline" className="font-normal capitalize">{row.catalog_status.replaceAll('_', ' ')}</Badge>,
+    },
+    {
+      id: 'effect',
+      header: 'Side effect',
+      headerClassName: 'min-w-56 px-4',
+      cellClassName: 'px-4 py-4',
+      cell: (row) => <SideEffectSelect tool={row} data={data} router={router} className="w-full" />,
+    },
+    {
+      id: 'assigned',
+      header: 'Assigned',
+      headerClassName: 'min-w-32 px-4',
+      cellClassName: 'px-4 py-4',
+      cell: (row) => <Badge variant="secondary" className="min-w-7 font-data tabular-nums">{row.assigned_user_ids.length}</Badge>,
+      align: 'right',
+    },
+    {
+      id: 'access',
+      header: <span className="sr-only">Access</span>,
+      headerClassName: 'w-28 px-6',
+      cellClassName: 'px-6 py-4',
+      cell: (row) => { const assigned = row.assigned_user_ids.includes(memberId); return <Button size="sm" variant={assigned ? 'outline' : 'default'} disabled={!memberId || row.catalog_status !== 'active'} onClick={() => void replaceToolAssignment(row, memberId, !assigned, router, data)}>{assigned ? 'Revoke' : 'Grant'}</Button>; },
+      align: 'right',
+    },
   ], [data, memberId, router]);
-  return <Card><CardHeader><CardTitle>Tool access</CardTitle><CardDescription>Assignments control discovery. Runtime policy still evaluates every permitted call.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="max-w-sm"><Label htmlFor="mcp-member">Member</Label><Select value={memberId} onValueChange={setMemberId}><SelectTrigger id="mcp-member"><SelectValue placeholder="Choose a member" /></SelectTrigger><SelectContent>{data.members.map((member) => <SelectItem key={member.user_id} value={member.user_id}>{member.username} · {member.role}</SelectItem>)}</SelectContent></Select></div><DataTable columns={columns} rows={data.tools} getRowKey={(row) => row.id} empty="Synchronize a server to review its tools." /></CardContent></Card>;
+  return (
+    <Card className="gap-0 overflow-hidden py-0">
+      <CardHeader className="border-b bg-muted/30 px-6 py-5">
+        <div className="grid gap-5 md:grid-cols-2 md:items-end">
+          <div className="space-y-2">
+            <CardTitle>Tool access</CardTitle>
+            <CardDescription>
+              Assignments control discovery. Runtime policy still evaluates every permitted call.
+            </CardDescription>
+          </div>
+          <div className="w-full space-y-1.5 md:max-w-sm md:justify-self-end">
+            <Label htmlFor="mcp-member" className="text-xs font-medium text-muted-foreground">
+              Member
+            </Label>
+            <Select value={memberId} onValueChange={setMemberId}>
+              <SelectTrigger id="mcp-member" className="w-full bg-background">
+                <SelectValue placeholder="Choose a member" />
+              </SelectTrigger>
+              <SelectContent>
+                {data.members.map((member) => <SelectItem key={member.user_id} value={member.user_id}>{member.username} · {member.role}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        <DataTable
+          columns={columns}
+          rows={data.tools}
+          getRowKey={(row) => row.id}
+          caption="MCP tools and access assignments for the selected member."
+          empty="Synchronize a server to review its tools."
+        />
+      </CardContent>
+    </Card>
+  );
 }
 
 const SIDE_EFFECTS: ReadonlyArray<{ value: SideEffectClass; label: string }> = [
@@ -71,8 +138,8 @@ const SIDE_EFFECTS: ReadonlyArray<{ value: SideEffectClass; label: string }> = [
   { value: 'publish', label: 'Publish' },
 ];
 
-function SideEffectSelect({ tool, data, router }: { tool: McpGatewayTool; data: McpAccessPageData; router: ReturnType<typeof useRouter> }) {
-  return <Select value={tool.side_effect} onValueChange={(sideEffect: SideEffectClass) => void act(scoped(`/api/mcp-gateway/tools/${tool.id}`, data), 'PATCH', router, { side_effect: sideEffect })}><SelectTrigger size="sm" aria-label={`Classify ${tool.public_name}`}><SelectValue /></SelectTrigger><SelectContent>{SIDE_EFFECTS.map((effect) => <SelectItem key={effect.value} value={effect.value}>{effect.label}</SelectItem>)}</SelectContent></Select>;
+function SideEffectSelect({ tool, data, router, className }: { tool: McpGatewayTool; data: McpAccessPageData; router: ReturnType<typeof useRouter>; className?: string }) {
+  return <Select value={tool.side_effect} onValueChange={(sideEffect: SideEffectClass) => void act(scoped(`/api/mcp-gateway/tools/${tool.id}`, data), 'PATCH', router, { side_effect: sideEffect })}><SelectTrigger size="sm" className={className} aria-label={`Classify ${tool.public_name}`}><SelectValue /></SelectTrigger><SelectContent>{SIDE_EFFECTS.map((effect) => <SelectItem key={effect.value} value={effect.value}>{effect.label}</SelectItem>)}</SelectContent></Select>;
 }
 
 function Connect({ data }: { data: McpAccessPageData }) {

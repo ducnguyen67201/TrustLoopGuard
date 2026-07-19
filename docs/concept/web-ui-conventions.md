@@ -64,6 +64,7 @@ interface PageHeaderProps {
   eyebrow?: ReactNode;      // short context line above the title (e.g. workspace name)
   title: ReactNode;         // rendered as the page's <h1>
   description?: ReactNode;  // sentence-length explanation under the title
+  descriptionClassName?: string; // page-specific description measure/typography
   help?: ReactNode;         // optional inline help beside the title — typically an <InfoHint>
   actions?: ReactNode;      // primary action(s), right-aligned on md+
   className?: string;
@@ -74,6 +75,8 @@ Use `description` for the plain-language "what is this page for" sentence (write
 for a non-technical teammate, not an operator who already knows the jargon). Reach
 for `help` only when a single word in the title needs defining — pass
 `<InfoHint term="…" />` (see below) rather than lengthening the description.
+Descriptions use `max-w-prose` by default. Use `descriptionClassName` only when a
+page needs a different readable measure, while leaving the shared default intact.
 
 ### When to use it
 

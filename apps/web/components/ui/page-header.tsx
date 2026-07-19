@@ -8,6 +8,8 @@ interface PageHeaderProps {
   title: ReactNode;
   /** Sentence-length explanation shown below the title. */
   description?: ReactNode;
+  /** Optional page-specific measure or typography adjustment for the description. */
+  descriptionClassName?: string;
   /** Optional inline help next to the title — typically an `<InfoHint>`. */
   help?: ReactNode;
   /** Primary action(s), right-aligned on wide viewports. */
@@ -24,6 +26,7 @@ export function PageHeader({
   eyebrow,
   title,
   description,
+  descriptionClassName,
   help,
   actions,
   className,
@@ -46,7 +49,9 @@ export function PageHeader({
           {help ? <span className="flex items-center">{help}</span> : null}
         </div>
         {description ? (
-          <p className="max-w-prose text-sm text-muted-foreground">{description}</p>
+          <p className={cn('max-w-prose text-sm text-muted-foreground', descriptionClassName)}>
+            {description}
+          </p>
         ) : null}
       </div>
       {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
