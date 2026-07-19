@@ -538,9 +538,364 @@
   white-space: nowrap;
 }
 
+.demoFooter {
+  display: flex;
+  width: min(100% - 2rem, 90rem);
+  min-height: 7rem;
+  margin-inline: auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
+.demoFooter a {
+  color: var(--color-accent-deep);
+  font-weight: 700;
+}
+
+.healthcareShell {
+  grid-template-columns: minmax(22rem, 0.9fr) minmax(30rem, 1.1fr);
+}
+
+.healthcareShell .chatPanel {
+  min-height: 49rem;
+}
+
+.syntheticBanner {
+  border: 1px solid color-mix(in srgb, var(--color-rewrite) 35%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.85rem;
+  background: color-mix(in srgb, var(--color-rewrite) 7%, var(--color-panel));
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.healthcareShell .assistantMessage span {
+  color: var(--color-muted);
+}
+
+.selectedPreset {
+  border-color: var(--color-accent) !important;
+  background: var(--color-accent-wash) !important;
+  color: var(--color-accent-deep) !important;
+}
+
+.decisionBadge.permit {
+  border-color: color-mix(in srgb, var(--color-allow) 40%, transparent);
+  background: color-mix(in srgb, var(--color-allow) 8%, var(--color-panel));
+  color: var(--color-allow);
+}
+
+.decisionBadge.transform {
+  border-color: color-mix(in srgb, var(--color-rewrite) 40%, transparent);
+  background: color-mix(in srgb, var(--color-rewrite) 8%, var(--color-panel));
+  color: var(--color-rewrite);
+}
+
+.decisionBadge.deny {
+  border-color: color-mix(in srgb, var(--color-block) 40%, transparent);
+  background: color-mix(in srgb, var(--color-block) 8%, var(--color-panel));
+  color: var(--color-block);
+}
+
+.decisionBadge.require_approval,
+.decisionBadge.defer {
+  border-color: color-mix(in srgb, var(--color-escalate) 40%, transparent);
+  background: color-mix(in srgb, var(--color-escalate) 8%, var(--color-panel));
+  color: var(--color-escalate);
+}
+
+.healthcareMonitor {
+  display: grid;
+  gap: 2rem;
+  padding: 1.5rem;
+}
+
+.monitorSectionHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.monitorSectionHeading h3 {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.monitorSectionHeading span {
+  color: var(--color-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.checkTimeline {
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+}
+
+.checkStep {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 2rem 1fr;
+  gap: 0.8rem;
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid var(--color-line);
+  box-shadow: inset 0.2rem 0 transparent;
+}
+
+.checkStep:last-child {
+  border-bottom: 0;
+}
+
+.checkStep > span {
+  padding-top: 0.15rem;
+  color: var(--color-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+}
+
+.checkStepTitle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.checkStep h4 {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.checkStep strong {
+  color: var(--color-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.checkStep p {
+  margin: 0.28rem 0 0;
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.checkStep small {
+  display: block;
+  margin-top: 0.4rem;
+  overflow-wrap: anywhere;
+  color: var(--color-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6rem;
+}
+
+.checkStep.running {
+  background: var(--color-accent-wash);
+  box-shadow: inset 0.2rem 0 var(--color-accent);
+}
+
+.checkStep.permit {
+  box-shadow: inset 0.2rem 0 var(--color-allow);
+}
+
+.checkStep.transform {
+  box-shadow: inset 0.2rem 0 var(--color-rewrite);
+}
+
+.checkStep.deny {
+  box-shadow: inset 0.2rem 0 var(--color-block);
+}
+
+.checkStep.require_approval,
+.checkStep.defer,
+.checkStep.unavailable {
+  box-shadow: inset 0.2rem 0 var(--color-escalate);
+}
+
+.checkStep.skipped {
+  opacity: 0.68;
+}
+
+.inventoryNotice {
+  margin: 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  padding: 0.8rem;
+  background: var(--color-panel);
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.policyList {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.policyCard {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  padding: 0.8rem;
+  background: var(--color-panel);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    opacity 180ms ease;
+}
+
+.matchedPolicy {
+  border-style: solid;
+  border-color: var(--color-accent);
+  background: var(--color-accent-wash);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.previewPolicy {
+  border-style: dashed;
+}
+
+.policyDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.25rem;
+  border-radius: 50%;
+  background: var(--color-allow);
+}
+
+.matchedPolicy .policyDot {
+  background: var(--color-accent);
+  box-shadow: 0 0 0 0.2rem var(--color-accent-wash);
+}
+
+.previewPolicy .policyDot {
+  background: var(--color-muted);
+  opacity: 0.55;
+}
+
+.previewPolicy.matchedPolicy {
+  border-style: solid;
+}
+
+.previewPolicy.matchedPolicy .policyDot {
+  background: var(--color-accent);
+  box-shadow: 0 0 0 0.2rem var(--color-accent-wash);
+  opacity: 1;
+}
+
+.scanningPolicy {
+  border-color: var(--color-accent);
+  background-image: linear-gradient(
+    100deg,
+    var(--color-panel) 20%,
+    var(--color-accent-wash) 48%,
+    var(--color-panel) 76%
+  );
+  background-position: 120% 0;
+  background-size: 240% 100%;
+  box-shadow: inset 0.2rem 0 var(--color-accent);
+  animation: policyScan 900ms ease-in-out infinite;
+}
+
+.scanningPolicy:nth-child(3n + 2) {
+  animation-delay: -140ms;
+}
+
+.scanningPolicy:nth-child(3n) {
+  animation-delay: -280ms;
+}
+
+.scanningPolicy .policyDot {
+  background: var(--color-accent);
+  animation: policyDotPulse 700ms ease-in-out infinite;
+}
+
+.scanningPolicy .policyStatus {
+  color: var(--color-accent);
+}
+
+.checkedPolicy:not(.matchedPolicy) {
+  border-color: var(--color-allow);
+}
+
+.skippedPolicy {
+  opacity: 0.68;
+}
+
+.policyCard strong,
+.policyCard code {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.policyStatus {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--color-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.policyCard strong {
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.policyCard code {
+  margin-top: 0.25rem;
+  color: var(--color-muted);
+  font-size: 0.6rem;
+}
+
+.policyMeta {
+  display: grid;
+  justify-items: end;
+  gap: 0.25rem;
+  color: var(--color-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes policyScan {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+@keyframes policyDotPulse {
+  50% {
+    box-shadow: 0 0 0 0.3rem var(--color-accent-wash);
+    transform: scale(1.12);
   }
 }
 
@@ -566,6 +921,14 @@
     height: auto;
     min-height: 0;
     grid-template-columns: 1fr;
+  }
+
+  .healthcareShell {
+    grid-template-columns: 1fr;
+  }
+
+  .healthcareShell .chatPanel {
+    min-height: 36rem;
   }
 
   .chatPanel {
@@ -601,11 +964,35 @@
   .proofGrid {
     grid-template-columns: 1fr;
   }
+
+  .healthcareMonitor,
+  .chatBody,
+  .composer {
+    padding-inline: 1rem;
+  }
+
+  .policyCard {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .policyMeta {
+    grid-column: 2;
+    grid-auto-flow: column;
+    justify-content: start;
+  }
+
+  .demoFooter {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .spinner,
-  .workflowStep.running > i {
+  .workflowStep.running > i,
+  .scanningPolicy,
+  .scanningPolicy .policyDot {
     animation: none;
   }
 }

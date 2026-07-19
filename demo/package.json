@@ -7,6 +7,7 @@
   "type": "module",
   "exports": {
     "./procurement-agent/hosted": "./procurement-agent/hosted.ts",
+    "./healthcare-agent/hosted": "./healthcare-agent/hosted.ts",
     "./stripe-refund-agent/hosted": "./stripe-refund-agent/hosted.ts",
     "./stripe-refund-agent/provider-adapter": "./stripe-refund-agent/provider-adapter.ts",
     "./stripe-refund-agent/provider": "./stripe-refund-agent/provider.ts",
@@ -27,6 +28,7 @@
     "financial-refund:check": "tsx financial-refund/financial-refund.check.ts",
     "procurement-agent:setup": "tsx procurement-agent/setup.ts",
     "agent-visibility": "tsx agent-visibility/guarded-agent.ts",
+    "healthcare-agent:setup": "NODE_NO_WARNINGS=1 tsx healthcare-agent/setup.ts",
     "stripe-refund-agent": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/chat.ts",
     "stripe-refund-agent:db": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/db.ts",
     "stripe-refund-agent:setup": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/setup.ts",

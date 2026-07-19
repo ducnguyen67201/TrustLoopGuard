@@ -20,6 +20,7 @@
     "dispute/**/*.ts",
     "financial-refund/**/*.ts",
     "procurement-agent/**/*.ts",
+    "healthcare-agent/**/*.ts",
     "stripe-refund-agent/**/*.ts",
     "shared/**/*.ts"
   ]

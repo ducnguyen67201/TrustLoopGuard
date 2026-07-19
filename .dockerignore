@@ -36,6 +36,8 @@ demo/*
 !demo/shared/**
 !demo/procurement-agent/
 !demo/procurement-agent/**
+!demo/healthcare-agent/
+!demo/healthcare-agent/**
 !demo/stripe-refund-agent/
 !demo/stripe-refund-agent/**
 demo/stripe-refund-agent/.data/

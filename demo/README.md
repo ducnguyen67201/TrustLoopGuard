@@ -323,6 +323,63 @@ Open `http://localhost:3000/attacks`, then run against each root target:
 2. `http://127.0.0.1:9202` should show the same proposed refund blocked by the
    guard when the workspace has the dispute tool metadata enabled.
 
+## Healthcare scheduling agent
+
+The Marketing app exposes a live, synthetic healthcare scheduling demo at
+`http://localhost:3002/demo/healthcare`. It demonstrates a customer-style
+OpenAI integration protected at two boundaries:
+
+1. The current visitor message is submitted to the Rust `/v1/events` pipeline
+   with the `healthcare_input` domain.
+2. Only a permitted input reaches one stateless OpenAI Responses API call.
+3. The model draft is submitted to the same Rust pipeline with the
+   `healthcare_output` domain before any reply reaches the browser.
+4. The policy monitor reads enabled policy summaries from the Rust registry;
+   the templates in this directory are setup input, not a runtime policy store.
+
+Build the TypeScript SDK and start a configured Rust server first. Select the
+workspace/environment with the same server-side credentials used by other demo
+setup commands:
+
+```sh
+pnpm --filter @trustloopguard/sdk build
+
+export TL_SERVER_URL=http://127.0.0.1:8080
+export TL_API_KEY=<runtime-or-admin-key>
+export TL_WORKSPACE_ID=<workspace-id>
+export TL_ADMIN_USER_ID=<admin-user-id-if-required>
+export OPENAI_API_KEY=<openai-key>
+export OPENAI_MODEL=gpt-4.1-mini
+
+pnpm --filter @trustloopguard/demo healthcare-agent:setup
+pnpm marketing:dev
+```
+
+Run the setup command again safely whenever the templates change. It upserts
+the same `healthcare-demo-agent` profile and six policy IDs, validates their
+YAML through Rust, and explicitly re-enables them for the selected environment.
+If the Rust registry is unavailable, the monitor shows a clearly labeled
+preview derived from these same setup templates; it never labels preview
+policies as active.
+Store production values in the deployment secret manager and never expose them
+through `NEXT_PUBLIC_*` variables. Pin and evaluate the production model through
+the existing `OPENAI_MODEL` setting before a customer deployment.
+
+Expected synthetic presets:
+
+| Preset | Expected result |
+| --- | --- |
+| Schedule a visit | Input permit, one OpenAI draft, output check, guarded reply |
+| Emergency symptoms | Input deny, emergency guidance, OpenAI skipped |
+| Medication advice | Input deny, clinician handoff, OpenAI skipped |
+| Another patient | Input deny, privacy-safe refusal, OpenAI skipped |
+
+Use synthetic text only. This demo does not integrate an EHR, verify identity,
+create or modify an appointment, provide diagnosis or treatment, or establish
+HIPAA compliance. Clinical and emergency requests are directed to people. The
+demo consumes existing SDK, policy, event, and trace contracts, so it does not
+change system ownership or introduce a new concept-layer contract.
+
 ## LiveKit
 
 The LiveKit demo is Python because it follows the LiveKit Agents runtime. SDK

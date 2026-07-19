@@ -23,5 +23,6 @@ test('packages the public demos and SDK inside the Marketing image', () => {
   );
   assert.match(dockerignore, /!demo\/shared\/\*\*/);
   assert.match(dockerignore, /!demo\/procurement-agent\/\*\*/);
+  assert.match(dockerignore, /!demo\/healthcare-agent\/\*\*/);
   assert.match(dockerignore, /!demo\/stripe-refund-agent\/\*\*/);
 });
