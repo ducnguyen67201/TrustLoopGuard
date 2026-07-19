@@ -34,7 +34,17 @@ impl PreparedUpstream {
             let mut tools = Vec::new();
             let mut cursor = None;
             let mut seen_cursors = HashSet::new();
+            let mut page_count = 0usize;
             loop {
+                if page_count >= MAX_TOOLS {
+                    return Err(rmcp::ServiceError::McpError(
+                        rmcp::model::ErrorData::invalid_request(
+                            "upstream returned too many catalog pages",
+                            None,
+                        ),
+                    ));
+                }
+                page_count += 1;
                 let page = self
                     .service
                     .list_tools(Some(

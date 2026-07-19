@@ -46,6 +46,10 @@ and workspace runtime keys; generic `/v1` authentication rejects hosted MCP
 tokens. Authorization codes and rotating refresh tokens are hashed in durable
 Rust-owned storage. See [hosted MCP access gateway](hosted-mcp-access-gateway.md).
 
+`TL_DASHBOARD_URL` is the Rust server's public reference to this same dashboard
+origin. OAuth discovery uses it for the employee consent endpoint; in production
+it should be `https://app.gettrustloop.app` when `AUTH_URL` has that value.
+
 `AUTH_URL` is the canonical dashboard URL used for Auth.js redirects and OAuth callbacks. It must
 point at the frontend app (`https://staging3.gettrustloop.app` in staging,
 `https://app.gettrustloop.app` in production), not the Rust API.

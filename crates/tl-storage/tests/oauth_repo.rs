@@ -59,13 +59,24 @@ async fn fresh() -> (DbPool, Uuid, testcontainers::ContainerAsync<PostgresImage>
 async fn authorization_code_is_hash_only_and_atomically_single_use() {
     let (pool, user, _container) = fresh().await;
     let repo = Arc::new(OAuthRepo::new(pool.clone()));
-    repo.create_client(
+    repo.create_client_bounded(
         "client",
         Some("AI client"),
         &["https://client.example/callback".into()],
+        10_000,
     )
     .await
     .unwrap();
+    assert!(matches!(
+        repo.create_client_bounded(
+            "over-capacity",
+            None,
+            &["https://client.example/callback".into()],
+            1,
+        )
+        .await,
+        Err(StorageError::Conflict)
+    ));
     let raw = "raw-secret-code";
     let hash = tl_server_hash_for_test(raw);
     repo.put_code(NewOAuthAuthorizationCode {
@@ -96,6 +107,27 @@ async fn authorization_code_is_hash_only_and_atomically_single_use() {
     assert!(matches!(
         one.err().or(two.err()),
         Some(StorageError::NotFound)
+    ));
+
+    let mut conn = pool.get().await.unwrap();
+    diesel::update(
+        tl_storage::schema::mcp_oauth_clients::table
+            .filter(tl_storage::schema::mcp_oauth_clients::client_id.eq("client")),
+    )
+    .set(tl_storage::schema::mcp_oauth_clients::created_at.eq(Utc::now() - Duration::days(31)))
+    .execute(&mut conn)
+    .await
+    .unwrap();
+    drop(conn);
+    assert_eq!(
+        repo.prune_inactive_clients(Utc::now() - Duration::days(30))
+            .await
+            .unwrap(),
+        1
+    );
+    assert!(matches!(
+        repo.get_client("client").await,
+        Err(StorageError::NotFound)
     ));
 }
 

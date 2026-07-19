@@ -104,7 +104,7 @@ impl BoundedHttpClient {
             if body
                 .len()
                 .checked_add(chunk.len())
-                .is_none_or(|length| length > self.max_response_bytes)
+                .map_or(true, |length| length > self.max_response_bytes)
             {
                 return Err(StreamableHttpError::Client(
                     BoundedHttpError::ResponseTooLarge,
@@ -260,5 +260,37 @@ impl StreamableHttpClient for BoundedHttpClient {
             }
             _ => Err(StreamableHttpError::UnexpectedContentType(content_type)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[tokio::test]
+    async fn stops_reading_an_oversized_response() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/large"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![b'x'; 128]))
+            .mount(&server)
+            .await;
+        let response = reqwest::Client::new()
+            .get(format!("{}/large", server.uri()))
+            .send()
+            .await
+            .expect("response");
+        let client = BoundedHttpClient::new(reqwest::Client::new(), 64);
+
+        let error = client
+            .bounded_bytes(response)
+            .await
+            .expect_err("oversized body must fail");
+        assert!(matches!(
+            error,
+            StreamableHttpError::Client(BoundedHttpError::ResponseTooLarge)
+        ));
     }
 }

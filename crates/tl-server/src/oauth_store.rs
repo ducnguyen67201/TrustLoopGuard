@@ -255,4 +255,39 @@ mod tests {
             Err(OAuthStoreError::Capacity)
         ));
     }
+
+    #[tokio::test]
+    async fn inactive_registration_without_live_tokens_is_pruned() {
+        let store = MemoryOAuthStore::default();
+        store
+            .create_client_bounded(
+                OAuthClientRecord {
+                    client_id: "inactive".into(),
+                    client_name: None,
+                    redirect_uris: vec!["http://127.0.0.1/callback".into()],
+                },
+                10,
+            )
+            .await
+            .expect("registration");
+        store
+            .clients
+            .lock()
+            .unwrap()
+            .get_mut("inactive")
+            .expect("stored client")
+            .1 = Utc::now() - chrono::Duration::days(31);
+
+        assert_eq!(
+            store
+                .prune_inactive_clients(Utc::now() - chrono::Duration::days(30))
+                .await
+                .expect("prune"),
+            1
+        );
+        assert!(matches!(
+            store.get_client("inactive").await,
+            Err(OAuthStoreError::NotFound)
+        ));
+    }
 }

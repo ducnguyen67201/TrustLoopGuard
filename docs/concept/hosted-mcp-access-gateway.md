@@ -47,6 +47,15 @@ effects, and replace per-tool member assignments under `/v1/mcp-gateway/*`.
 Other members can read only connect information. Runtime keys cannot use the
 control plane.
 
+OAuth discovery is served by the Rust public origin. Its token and dynamic
+registration endpoints remain on `$TL_PUBLIC_URL`, while its authorization
+endpoint points to `$TL_DASHBOARD_URL/oauth/authorize`, where the existing
+dashboard session renders consent and a human-readable username or email.
+Dynamic client registration is limited to 20 requests per minute per server
+instance, inserts under one atomic 10,000-client capacity check, and prunes
+clients older than 30 days when they have no unexpired authorization code or
+refresh token. Production ingress must apply a distributed rate limit as well.
+
 ## Safe remote servers
 
 The MVP supports remote MCP Streamable HTTP only. It does not launch commands,
@@ -54,7 +63,9 @@ stdio servers, WebSockets, or legacy HTTP+SSE servers. Production endpoints
 must use HTTPS. URLs with user info, query credentials, or fragments are
 rejected. Every connection resolves DNS again, rejects non-public and metadata
 addresses, pins accepted addresses in a no-proxy client, disables redirects
-and retries, and applies bounded connect and operation timeouts.
+and retries, and applies bounded connect and operation timeouts. The insecure
+HTTP development switch accepts only `localhost` and literal loopback hosts;
+it cannot send a bearer credential to a public HTTP endpoint.
 
 An administrator-triggered sync pins names, descriptions, annotations, input
 and output schemas, and schema hashes. Catalog limits are 500 tools, 4 KiB per
@@ -62,11 +73,15 @@ description, and 64 KiB per schema. External `$ref` values and deeply nested or
 non-object input schemas are rejected. An absent tool becomes `missing`; a
 runtime schema mismatch becomes `schema_changed`. Either status hides the tool
 until an administrator synchronizes and accepts the current catalog.
+Catalog pagination rejects repeated or empty cursors and stops before retaining
+more than 500 tools. HTTP response bodies are byte-bounded while streaming,
+before JSON or SSE buffering; catalog traffic has a 72 MiB envelope derived
+from the per-tool schema limits.
 
 ## Governed execution
 
 For an assigned `tools/call`, Rust validates the arguments against the pinned
-schema, prepares one safe upstream connection, verifies the live tool and
+schema, prepares a safe catalog connection, verifies the live tool and
 schema hash, and submits a server-authored `tool.call.proposed` `GuardEvent` to
 the existing event service with authorization principal
 `mcp:user:<user UUID>`.
@@ -75,17 +90,20 @@ Only `permit` is executable. `deny`, `defer`, and `transform` return an MCP tool
 error without an upstream call. `require_approval` closes the prepared peer,
 waits for the existing approval record for at most 60 seconds, resubmits the
 same action with the approval grant, and requires a current permit and lease.
-Immediately before execution the gateway re-reads assignment and connection
-authority. It never automatically retries an upstream call after execution
-may have started. Leases are completed as consumed or canceled, and a
-completion failure tells the caller not to retry automatically.
+Immediately before execution the gateway re-reads assignment, side-effect
+classification, and connection authority. It opens a separately byte-bounded
+execution connection only after authorization. It never automatically retries
+an upstream call after execution may have started. Leases are completed as
+consumed or canceled, and a completion failure tells the caller not to retry
+automatically.
 
 Structured output is checked against a pinned output schema when present. The
-serialized result is capped at 1 MiB.
+HTTP execution response is capped while streaming and the serialized MCP result
+is independently capped at 1 MiB.
 
 ## Rollout and rollback
 
-Hosted rollout requires `TL_PUBLIC_URL`, `TL_JWT_SECRET`, and
+Hosted rollout requires `TL_PUBLIC_URL`, `TL_DASHBOARD_URL`, `TL_JWT_SECRET`, and
 `TL_GATEWAY_CREDENTIAL_KEY`. Plain HTTP is unavailable unless
 `TL_MCP_GATEWAY_ALLOW_INSECURE_HTTP=true`; that switch exists for loopback test
 servers only.
