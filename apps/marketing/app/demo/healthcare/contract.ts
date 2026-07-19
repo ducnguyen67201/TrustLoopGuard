@@ -14,6 +14,7 @@ const historyItemSchema = z.object({
 
 const healthcareDemoRequestSchema = z
   .object({
+    locale: z.enum(['en', 'vi']).default('en'),
     sessionId: z.string().uuid('Session ID must be a UUID.'),
     message: z
       .string()
