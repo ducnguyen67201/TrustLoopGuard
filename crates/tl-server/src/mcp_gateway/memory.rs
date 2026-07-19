@@ -26,12 +26,6 @@ struct MemoryState {
     assignments: HashMap<(String, Uuid), BTreeSet<Uuid>>,
 }
 
-impl MemoryMcpGatewayStore {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
 fn credential_status(
     kind: McpGatewayAuthKind,
     secret: &Option<String>,
@@ -359,7 +353,7 @@ impl McpGatewayStore for MemoryMcpGatewayStore {
         public_name: &str,
     ) -> Result<EntitledMcpTool, McpGatewayStoreError> {
         let state = self.inner.read().await;
-        let (id, tool) = state
+        let tool = state
             .tools
             .iter()
             .find(|((workspace, id), tool)| {
@@ -371,7 +365,7 @@ impl McpGatewayStore for MemoryMcpGatewayStore {
                         .get(&(workspace.clone(), *id))
                         .is_some_and(|users| users.contains(&user_id))
             })
-            .map(|((_, id), tool)| (*id, tool.clone()))
+            .map(|(_, tool)| tool.clone())
             .ok_or(McpGatewayStoreError::NotFound)?;
         let (connection, secret) = state
             .connections
@@ -384,7 +378,6 @@ impl McpGatewayStore for MemoryMcpGatewayStore {
             .ok_or(McpGatewayStoreError::NotFound)?;
         let mut tool = tool;
         tool.assigned_user_ids = vec![user_id.to_string()];
-        let _ = id;
         Ok(EntitledMcpTool {
             tool,
             endpoint_url: connection.endpoint_url.clone(),

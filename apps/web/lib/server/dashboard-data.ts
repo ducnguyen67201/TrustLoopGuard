@@ -19,6 +19,11 @@ import type {
   GatewayProviderConnectionListResponse,
   GatewayRoute,
   GatewayRouteListResponse,
+  McpGatewayConnectInfo,
+  McpGatewayConnection,
+  McpGatewayConnectionListResponse,
+  McpGatewayTool,
+  McpGatewayToolListResponse,
 } from '@trustloopguard/sdk';
 import {
   isUserApprovalRequiredError,
@@ -130,52 +135,11 @@ export type GatewayPageData = DashboardShellData & {
   activeRuntimeKeyCount: number;
 };
 
-export type McpGatewayConnectionView = {
-  id: string;
-  display_name: string;
-  server_slug: string;
-  endpoint_url: string;
-  auth_kind: 'none' | 'static_bearer';
-  credential_status: 'not_required' | 'configured' | 'missing';
-  enabled: boolean;
-  last_sync_status: 'never' | 'succeeded' | 'failed';
-  last_sync_error?: string;
-  last_synced_at?: string;
-  tool_count: number;
-  created_at: string;
-  updated_at: string;
-};
-
-export type McpGatewayToolView = {
-  id: string;
-  connection_id: string;
-  connection_name: string;
-  upstream_name: string;
-  public_name: string;
-  title?: string;
-  description?: string;
-  input_schema: Record<string, unknown>;
-  output_schema?: Record<string, unknown>;
-  annotations: Record<string, unknown>;
-  schema_hash: string;
-  side_effect: string;
-  catalog_status: 'active' | 'schema_changed' | 'missing';
-  assigned_user_ids: string[];
-  created_at: string;
-  updated_at: string;
-};
-
 export type McpAccessPageData = DashboardShellData & {
   isAdmin: boolean;
-  connectInfo: {
-    resource_url: string;
-    scope: string;
-    oauth_configured: boolean;
-    default_environment_id: string;
-    default_environment_name: string;
-  };
-  connections: McpGatewayConnectionView[];
-  tools: McpGatewayToolView[];
+  connectInfo: McpGatewayConnectInfo;
+  connections: McpGatewayConnection[];
+  tools: McpGatewayTool[];
   members: Array<{ user_id: string; username: string; role: string }>;
 };
 
@@ -805,7 +769,7 @@ export async function getMcpAccessPageData(
   const workspaceId = shell.activeWorkspace.id;
   const role = shell.activeWorkspace.role.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
-  const connectInfo = await rustApiForUserWorkspace<McpAccessPageData['connectInfo']>(
+  const connectInfo = await rustApiForUserWorkspace<McpGatewayConnectInfo>(
     user,
     workspaceId,
     '/v1/mcp-gateway/connect-info',
@@ -816,14 +780,14 @@ export async function getMcpAccessPageData(
     return { ...shell, isAdmin, connectInfo, connections: [], tools: [], members: [] };
   }
   const [connectionResponse, toolResponse, memberResponse] = await Promise.all([
-    rustApiForUserWorkspace<{ connections: McpGatewayConnectionView[] }>(
+    rustApiForUserWorkspace<McpGatewayConnectionListResponse>(
       user,
       workspaceId,
       '/v1/mcp-gateway/connections',
       {},
       shell.activeEnvironment.id,
     ),
-    rustApiForUserWorkspace<{ tools: McpGatewayToolView[] }>(
+    rustApiForUserWorkspace<McpGatewayToolListResponse>(
       user,
       workspaceId,
       '/v1/mcp-gateway/tools',

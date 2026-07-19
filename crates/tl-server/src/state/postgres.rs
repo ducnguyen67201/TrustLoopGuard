@@ -112,7 +112,7 @@ pub(super) async fn build_postgres_layer(
             Arc::new(MemoryTeamStore::new()) as Arc<dyn TeamStore>,
             Arc::new(MemoryGatewayStore::new()) as Arc<dyn GatewayStore>,
             Arc::new(MemoryOAuthStore::default()) as Arc<dyn OAuthStore>,
-            Arc::new(MemoryMcpGatewayStore::new()) as Arc<dyn McpGatewayStore>,
+            Arc::new(MemoryMcpGatewayStore::default()) as Arc<dyn McpGatewayStore>,
             tool_metadata.clone() as Arc<dyn ToolMetadataStore>,
             tool_metadata as Arc<dyn ToolMetadataProvider>,
             Arc::new(MemoryAuthorizationStore::new()) as Arc<dyn AuthorizationStore>,

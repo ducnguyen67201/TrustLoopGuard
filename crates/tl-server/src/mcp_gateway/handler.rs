@@ -2,14 +2,12 @@ use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use rmcp::model::{
     CallToolRequestParams, CallToolResult, ContentBlock, ErrorData as McpError, ListToolsResult,
     PaginatedRequestParams, ServerCapabilities, ServerInfo, Tool, ToolAnnotations,
 };
 use rmcp::service::RequestContext;
 use rmcp::{RoleServer, ServerHandler};
-use serde::{Deserialize, Serialize};
 use tl_core::{
     Action, ApprovalStatus, AuthorizationClaim, AuthorizationEffect,
     CompleteAuthorizationLeaseRequest, EventKind, GuardEvent, LeaseStatus, Principal, ToolIdentity,
@@ -77,10 +75,10 @@ impl ServerHandler for HostedMcpHandler {
         context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, McpError> {
         let access = self.access(&context).await?;
-        let cursor = request
-            .and_then(|request| request.cursor)
-            .map(decode_cursor)
-            .transpose()?;
+        let cursor = request.and_then(|request| request.cursor);
+        if cursor.as_deref() == Some("") {
+            return Err(McpError::invalid_params("Invalid tools/list cursor", None));
+        }
         let mut rows = self
             .store
             .list_entitled_tools(
@@ -94,7 +92,7 @@ impl ServerHandler for HostedMcpHandler {
         let next_cursor = if rows.len() > PAGE_SIZE as usize {
             let last = rows[PAGE_SIZE as usize - 1].tool.public_name.clone();
             rows.truncate(PAGE_SIZE as usize);
-            Some(encode_cursor(&last))
+            Some(last)
         } else {
             None
         };
@@ -262,7 +260,6 @@ impl HostedMcpHandler {
             &entitled,
             arguments,
             prepared,
-            live_tool,
             decision
                 .decision
                 .lease
@@ -313,7 +310,7 @@ impl HostedMcpHandler {
                 .await;
             return Err("The tool schema changed before execution".into());
         }
-        self.execute_with_prepared(access, &current, arguments, prepared, live, lease_id)
+        self.execute_with_prepared(access, &current, arguments, prepared, lease_id)
             .await
     }
 
@@ -323,7 +320,6 @@ impl HostedMcpHandler {
         entitled: &EntitledMcpTool,
         arguments: serde_json::Map<String, serde_json::Value>,
         prepared: super::upstream::PreparedUpstream,
-        _live: Tool,
         lease_id: Option<&str>,
     ) -> Result<CallToolResult, String> {
         let current = self
@@ -523,30 +519,4 @@ fn store_mcp_error(error: McpGatewayStoreError) -> McpError {
 }
 fn tool_error(message: String) -> CallToolResult {
     CallToolResult::error(vec![ContentBlock::text(message)])
-}
-
-#[derive(Serialize, Deserialize)]
-struct CursorV1 {
-    v: u8,
-    after: String,
-}
-fn encode_cursor(after: &str) -> String {
-    URL_SAFE_NO_PAD.encode(
-        serde_json::to_vec(&CursorV1 {
-            v: 1,
-            after: after.to_string(),
-        })
-        .expect("cursor serializes"),
-    )
-}
-fn decode_cursor(value: String) -> Result<String, McpError> {
-    let bytes = URL_SAFE_NO_PAD
-        .decode(value)
-        .map_err(|_| McpError::invalid_params("Invalid tools/list cursor", None))?;
-    let cursor: CursorV1 = serde_json::from_slice(&bytes)
-        .map_err(|_| McpError::invalid_params("Invalid tools/list cursor", None))?;
-    if cursor.v != 1 || cursor.after.is_empty() {
-        return Err(McpError::invalid_params("Invalid tools/list cursor", None));
-    }
-    Ok(cursor.after)
 }

@@ -1,10 +1,10 @@
 import { IconArrowRight, IconLockAccess, IconPlugConnected } from '@tabler/icons-react';
+import type { McpGatewayConnection } from '@trustloopguard/sdk';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { McpGatewayConnectionView } from '@/lib/server/dashboard-data';
 
-export function SwitchyardMap({ connections }: { connections: McpGatewayConnectionView[] }) {
+export function SwitchyardMap({ connections }: { connections: McpGatewayConnection[] }) {
   return (
     <Card>
       <CardHeader><CardTitle>Managed tool route</CardTitle></CardHeader>

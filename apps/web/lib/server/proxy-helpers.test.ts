@@ -38,7 +38,7 @@ vi.mock('@/lib/server/tl-client', () => ({
   rustApiForAuthorizedWorkspace: mockTlClient.rustApiForAuthorizedWorkspace,
 }));
 
-import { deleteRustResource, patchRustResource, proxyRustCollection } from './proxy-helpers';
+import { proxyRustCollection, proxyRustResource } from './proxy-helpers';
 
 describe('proxyRustCollection', () => {
   beforeEach(() => {
@@ -107,7 +107,7 @@ describe('proxyRustCollection', () => {
   });
 });
 
-describe('patchRustResource', () => {
+describe('proxyRustResource', () => {
   beforeEach(() => {
     mockTlClient.rustApiForAuthorizedWorkspace.mockReset();
   });
@@ -119,10 +119,11 @@ describe('patchRustResource', () => {
       body: JSON.stringify({ enabled: false }),
     });
 
-    const res = await patchRustResource(
+    const res = await proxyRustResource(
       req,
       Promise.resolve({ id: 'route/a b' }),
       '/v1/gateway/routes',
+      'PATCH',
     );
 
     expect(mockTlClient.rustApiForAuthorizedWorkspace).toHaveBeenCalledWith(
@@ -137,9 +138,55 @@ describe('patchRustResource', () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ id: 'route/a b' });
   });
+
+  it('proxies PUT resource requests with a suffix and JSON body', async () => {
+    mockTlClient.rustApiForAuthorizedWorkspace.mockResolvedValue({ user_ids: ['user-1'] });
+    const body = JSON.stringify({ user_ids: ['user-1'] });
+    const req = new Request('https://app.test/api/mcp-gateway/tools/tool-1/assignments', {
+      method: 'PUT',
+      body,
+    });
+
+    const res = await proxyRustResource(
+      req,
+      Promise.resolve({ id: 'tool-1' }),
+      '/v1/mcp-gateway/tools',
+      'PUT',
+      'assignments',
+    );
+
+    expect(mockTlClient.rustApiForAuthorizedWorkspace).toHaveBeenCalledWith(
+      req,
+      '/v1/mcp-gateway/tools/tool-1/assignments',
+      { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body },
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it('proxies POST resource actions without inventing a request body', async () => {
+    mockTlClient.rustApiForAuthorizedWorkspace.mockResolvedValue({ tool_count: 3 });
+    const req = new Request('https://app.test/api/mcp-gateway/connections/connection-1/sync', {
+      method: 'POST',
+    });
+
+    const res = await proxyRustResource(
+      req,
+      Promise.resolve({ id: 'connection-1' }),
+      '/v1/mcp-gateway/connections',
+      'POST',
+      'sync',
+    );
+
+    expect(mockTlClient.rustApiForAuthorizedWorkspace).toHaveBeenCalledWith(
+      req,
+      '/v1/mcp-gateway/connections/connection-1/sync',
+      { method: 'POST' },
+    );
+    expect(res.status).toBe(200);
+  });
 });
 
-describe('deleteRustResource', () => {
+describe('proxyRustResource DELETE', () => {
   beforeEach(() => {
     mockTlClient.rustApiForAuthorizedWorkspace.mockReset();
   });
@@ -151,10 +198,11 @@ describe('deleteRustResource', () => {
       { method: 'DELETE' },
     );
 
-    const res = await deleteRustResource(
+    const res = await proxyRustResource(
       req,
       Promise.resolve({ id: 'provider/a' }),
       '/v1/gateway/provider-connections',
+      'DELETE',
     );
 
     expect(mockTlClient.rustApiForAuthorizedWorkspace).toHaveBeenCalledWith(
