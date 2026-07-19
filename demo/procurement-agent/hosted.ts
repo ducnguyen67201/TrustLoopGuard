@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+import type { Client, PolicySummary, Severity } from '@trustloopguard/sdk';
+
 import { createClient } from '../shared/env';
 import {
   runProcurementAgent,
@@ -25,6 +27,30 @@ export interface HostedProcurementPolicy {
   description: string;
   effect: ProcurementPolicyEffect;
   enabled: boolean;
+}
+
+export interface HostedProcurementPolicyInventoryItem {
+  id: ProcurementPolicyId;
+  description?: string;
+  severity: Severity;
+  action?: string;
+  enabled: boolean;
+}
+
+export type HostedProcurementPolicyInventoryResponse =
+  | {
+      policies: Array<HostedProcurementPolicyInventoryItem & { enabled: true }>;
+      source: 'rust';
+      runtime: HostedProcurementDemoResponse['runtime'];
+    }
+  | {
+      policies: Array<HostedProcurementPolicyInventoryItem & { enabled: false }>;
+      source: 'demo_template';
+      runtime: HostedProcurementDemoResponse['runtime'];
+    };
+
+export interface ProcurementPolicyInventoryClient {
+  listPolicies: Client['listPolicies'];
 }
 
 export interface HostedProcurementLogEntry {
@@ -135,10 +161,66 @@ export async function runHostedProcurementDemo(
       enabled: normalizedPolicyIds.includes(policy.id),
     })),
     logs,
-    runtime: {
-      agent: 'openai-agents-js',
-      guard: 'trustloopguard-rust-api',
-      provider: 'simulated-procurement-api',
-    },
+    runtime: procurementRuntime(),
+  };
+}
+
+export async function readHostedProcurementDemoPolicies(
+  dependencies: { createClient?: () => ProcurementPolicyInventoryClient } = {},
+): Promise<HostedProcurementPolicyInventoryResponse> {
+  const client = (dependencies.createClient ?? createClient)();
+  const response = await client.listPolicies({ family: 'tool' });
+  return {
+    policies: projectProcurementPolicies(response.policies),
+    source: 'rust',
+    runtime: procurementRuntime(),
+  };
+}
+
+export function readHostedProcurementDemoPolicyPreview(): HostedProcurementPolicyInventoryResponse {
+  return {
+    policies: PROCUREMENT_POLICIES.map((policy) => ({
+      id: policy.id,
+      description: policy.description,
+      severity: policy.effect === 'require_approval' ? 'high' : 'critical',
+      action: policy.effect,
+      enabled: false,
+    })),
+    source: 'demo_template',
+    runtime: procurementRuntime(),
+  };
+}
+
+function projectProcurementPolicies(
+  policies: PolicySummary[],
+): Array<HostedProcurementPolicyInventoryItem & { enabled: true }> {
+  const policiesById = new Map(
+    policies
+      .filter((policy) => policy.family === 'tool' && policy.enabled)
+      .map((policy) => [policy.id, policy]),
+  );
+
+  return PROCUREMENT_POLICIES.flatMap((definition) => {
+    const policy = policiesById.get(definition.id);
+    if (policy === undefined) return [];
+    return [
+      {
+        id: definition.id,
+        ...(policy.description === undefined
+          ? {}
+          : { description: policy.description.slice(0, 300) }),
+        severity: policy.severity,
+        ...(policy.action === undefined ? {} : { action: policy.action.slice(0, 100) }),
+        enabled: true as const,
+      },
+    ];
+  });
+}
+
+function procurementRuntime(): HostedProcurementDemoResponse['runtime'] {
+  return {
+    agent: 'openai-agents-js',
+    guard: 'trustloopguard-rust-api',
+    provider: 'simulated-procurement-api',
   };
 }

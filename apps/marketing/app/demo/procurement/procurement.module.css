@@ -145,7 +145,7 @@
 .buyerMessage span {
   display: block;
   margin-bottom: 0.35rem;
-  color: var(--color-faint);
+  color: var(--color-muted);
   font-family: var(--font-mono), monospace;
   font-size: 0.62rem;
   font-weight: 700;
@@ -258,125 +258,129 @@
   opacity: 0.6;
 }
 
-.policyStack {
+.policyInventory {
   display: grid;
-  gap: 0.7rem;
-  padding: 1.5rem 1.5rem 0;
+  gap: 0.75rem;
+  padding: 0 1.5rem 1.5rem;
 }
 
-.policyCard {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 0.85rem;
-  align-items: center;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius);
-  padding: 0.9rem 1rem;
-  background: var(--color-panel);
-  cursor: pointer;
+.monitorSectionHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-.policyCard input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
+.monitorSectionHeading h3 {
+  margin: 0;
+  font-size: 0.85rem;
 }
 
-.policyCard:has(input:focus-visible) {
-  outline: 3px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
-  outline-offset: 2px;
-}
-
-.policyCard:has(input:disabled) {
-  cursor: wait;
-  opacity: 0.68;
-}
-
-.switchTrack {
-  position: relative;
-  display: block;
-  width: 2.3rem;
-  height: 1.3rem;
-  border: 1px solid var(--color-line-strong);
-  border-radius: 999px;
-  background: var(--color-panel-3);
-  transition:
-    background 150ms ease,
-    border-color 150ms ease;
-}
-
-.switchTrack i {
-  position: absolute;
-  top: 0.18rem;
-  left: 0.18rem;
-  width: 0.8rem;
-  height: 0.8rem;
-  border-radius: 50%;
-  background: var(--color-panel);
-  box-shadow: 0 1px 3px var(--color-line-strong);
-  transition: transform 150ms ease;
-}
-
-.policyCard input:checked + .switchTrack {
-  border-color: var(--color-accent-deep);
-  background: var(--color-accent-deep);
-}
-
-.policyCard input:checked + .switchTrack i {
-  transform: translateX(1rem);
-}
-
-.policyCopy {
-  min-width: 0;
-}
-
-.policyCopy strong,
-.policyCopy small {
-  display: block;
-}
-
-.policyCopy strong {
-  margin-bottom: 0.2rem;
-  font-size: 0.86rem;
-}
-
-.policyCopy small {
+.monitorSectionHeading span {
   color: var(--color-muted);
-  font-size: 0.7rem;
-  line-height: 1.4;
-}
-
-.denyEffect,
-.reviewEffect {
-  border-radius: 999px;
-  padding: 0.3rem 0.5rem;
   font-family: var(--font-mono), monospace;
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
-.denyEffect {
-  background: color-mix(in srgb, var(--color-block) 9%, var(--color-panel));
-  color: var(--color-block);
-}
-
-.reviewEffect {
-  background: color-mix(in srgb, var(--color-escalate) 9%, var(--color-panel));
-  color: var(--color-escalate);
-}
-
-.unprotectedNotice {
+.inventoryNotice {
   margin: 0;
-  border: 1px solid color-mix(in srgb, var(--color-block) 30%, var(--color-line));
+  border: 1px solid var(--color-line);
   border-radius: var(--radius-sm);
-  padding: 0.75rem 0.85rem;
-  background: color-mix(in srgb, var(--color-block) 5%, var(--color-panel));
-  color: var(--color-block);
-  font-size: 0.7rem;
+  padding: 0.8rem;
+  background: var(--color-panel);
+  color: var(--color-muted);
+  font-size: 0.72rem;
   line-height: 1.45;
+}
+
+.policyList {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.policyCard {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  padding: 0.8rem;
+  background: var(--color-panel);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.matchedPolicy {
+  border-color: var(--color-accent);
+  background: var(--color-accent-wash);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.previewPolicy {
+  border-style: dashed;
+}
+
+.policyDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.25rem;
+  border-radius: 50%;
+  background: var(--color-allow);
+}
+
+.matchedPolicy .policyDot {
+  background: var(--color-accent);
+  box-shadow: 0 0 0 0.2rem var(--color-accent-wash);
+}
+
+.previewPolicy .policyDot {
+  background: var(--color-muted);
+  opacity: 0.55;
+}
+
+.policyCard strong,
+.policyCard code {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.policyCard strong {
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.policyCard code {
+  margin-top: 0.25rem;
+  color: var(--color-muted);
+  font-size: 0.6rem;
+}
+
+.policyStatus {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--color-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.policyMeta {
+  display: grid;
+  justify-items: end;
+  gap: 0.25rem;
+  color: var(--color-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .workflow {
@@ -407,7 +411,7 @@
 }
 
 .workflowStep > span {
-  color: var(--color-faint);
+  color: var(--color-muted);
   font-family: var(--font-mono), monospace;
   font-size: 0.65rem;
 }
@@ -475,7 +479,7 @@
 }
 
 .proofGrid article > span {
-  color: var(--color-faint);
+  color: var(--color-muted);
   font-family: var(--font-mono), monospace;
   font-size: 0.62rem;
   font-weight: 700;
@@ -510,7 +514,7 @@
 }
 
 .proofGrid dt {
-  color: var(--color-faint);
+  color: var(--color-muted);
 }
 
 .proofGrid dd {
@@ -551,10 +555,10 @@
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .denyEffect,
-  .reviewEffect {
+  .policyMeta {
     grid-column: 2;
-    justify-self: start;
+    grid-auto-flow: column;
+    justify-content: start;
   }
 
   .proofGrid {
@@ -566,10 +570,5 @@
   .spinner,
   .workflowStep.running > i {
     animation: none;
-  }
-
-  .switchTrack,
-  .switchTrack i {
-    transition: none;
   }
 }

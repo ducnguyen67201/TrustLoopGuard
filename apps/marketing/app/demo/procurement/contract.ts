@@ -7,6 +7,7 @@ export const PROCUREMENT_POLICY_IDS = [
 ] as const;
 
 const policyIdSchema = z.enum(PROCUREMENT_POLICY_IDS);
+const severitySchema = z.enum(['low', 'medium', 'high', 'critical']);
 
 const requestSchema = z
   .object({
@@ -38,7 +39,7 @@ const findingSchema = z.object({
   id: z.string().max(200),
   effect: z.enum(['permit', 'deny', 'transform', 'require_approval', 'defer']),
   reason: z.string().max(1_000),
-  severity: z.enum(['low', 'medium', 'high', 'critical']),
+  severity: severitySchema,
   policyId: z.string().max(200).optional(),
 });
 
@@ -75,6 +76,29 @@ const publicPolicySchema = z.object({
   enabled: z.boolean(),
 });
 
+const policyInventoryFields = {
+  id: policyIdSchema,
+  description: z.string().max(300).optional(),
+  severity: severitySchema,
+  action: z.string().max(100).optional(),
+};
+
+const activePolicyInventorySchema = z.object({
+  ...policyInventoryFields,
+  enabled: z.literal(true),
+});
+
+const previewPolicyInventorySchema = z.object({
+  ...policyInventoryFields,
+  enabled: z.literal(false),
+});
+
+const runtimeSchema = z.object({
+  agent: z.literal('openai-agents-js'),
+  guard: z.literal('trustloopguard-rust-api'),
+  provider: z.literal('simulated-procurement-api'),
+});
+
 const responseSchema = z.object({
   result: z.object({
     finalMessage: z.string().max(2_000),
@@ -85,12 +109,21 @@ const responseSchema = z.object({
     purchaseOrders: z.array(purchaseOrderSchema).max(1),
   }),
   activePolicies: z.array(publicPolicySchema).length(3),
-  runtime: z.object({
-    agent: z.literal('openai-agents-js'),
-    guard: z.literal('trustloopguard-rust-api'),
-    provider: z.literal('simulated-procurement-api'),
-  }),
+  runtime: runtimeSchema,
 });
+
+const policyInventorySchema = z.discriminatedUnion('source', [
+  z.object({
+    policies: z.array(activePolicyInventorySchema).max(3),
+    source: z.literal('rust'),
+    runtime: runtimeSchema,
+  }),
+  z.object({
+    policies: z.array(previewPolicyInventorySchema).length(3),
+    source: z.literal('demo_template'),
+    runtime: runtimeSchema,
+  }),
+]);
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | JsonObject;
 export interface JsonObject {
@@ -100,6 +133,8 @@ export interface JsonObject {
 export type ProcurementPolicyId = z.infer<typeof policyIdSchema>;
 export type ProcurementDemoRequest = z.infer<typeof requestSchema>;
 export type ProcurementDemoResponse = z.infer<typeof responseSchema>;
+export type ProcurementPolicyInventory = z.infer<typeof policyInventorySchema>;
+export type ProcurementPolicy = ProcurementPolicyInventory['policies'][number];
 
 export function parseProcurementDemoRequest(input: JsonValue): ProcurementDemoRequest {
   return requestSchema.parse(input);
@@ -107,4 +142,10 @@ export function parseProcurementDemoRequest(input: JsonValue): ProcurementDemoRe
 
 export function sanitizeProcurementDemoResponse(input: JsonValue): ProcurementDemoResponse {
   return responseSchema.parse(input);
+}
+
+export function sanitizeProcurementPolicyInventory(
+  input: object,
+): ProcurementPolicyInventory {
+  return policyInventorySchema.parse(input);
 }

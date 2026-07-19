@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { AuthorizationDecision } from '@trustloopguard/sdk';
+import type { AuthorizationDecision, PolicyListResponse } from '@trustloopguard/sdk';
 
 import {
   runProcurementAgent,
@@ -17,7 +17,12 @@ import {
   PROCUREMENT_POLICY_IDS,
   type ProcurementPolicyId,
 } from './fixtures';
-import { ProcurementDemoRequestBudget, runHostedProcurementDemo } from './hosted';
+import {
+  ProcurementDemoRequestBudget,
+  readHostedProcurementDemoPolicies,
+  readHostedProcurementDemoPolicyPreview,
+  runHostedProcurementDemo,
+} from './hosted';
 
 test('maps every policy subset to one stable three-bit principal', () => {
   for (let profile = 0; profile < 8; profile += 1) {
@@ -147,6 +152,61 @@ test('enforces the central process-local request budget', () => {
   assert.equal(budget.tryAcquire(101), true);
   assert.equal(budget.tryAcquire(102), false);
   assert.equal(budget.tryAcquire(1_100), true);
+});
+
+test('projects the enabled procurement policy inventory from the Rust registry', async () => {
+  const inventory = await readHostedProcurementDemoPolicies({
+    createClient: () => ({
+      async listPolicies(): Promise<PolicyListResponse> {
+        return {
+          policies: [
+            {
+              id: 'procurement-restricted-categories',
+              family: 'tool',
+              description: 'Rust-owned restricted category policy.',
+              severity: 'critical',
+              action: 'deny',
+              enabled: true,
+            },
+            {
+              id: 'procurement-high-value-review',
+              family: 'tool',
+              severity: 'high',
+              action: 'require_approval',
+              enabled: false,
+            },
+            {
+              id: 'unrelated-tool-policy',
+              family: 'tool',
+              severity: 'low',
+              enabled: true,
+            },
+          ],
+        };
+      },
+    }),
+  });
+
+  assert.equal(inventory.source, 'rust');
+  assert.deepEqual(inventory.policies, [
+    {
+      id: 'procurement-restricted-categories',
+      description: 'Rust-owned restricted category policy.',
+      severity: 'critical',
+      action: 'deny',
+      enabled: true,
+    },
+  ]);
+});
+
+test('builds a disabled preview of the policies installed by demo setup', () => {
+  const preview = readHostedProcurementDemoPolicyPreview();
+  assert.equal(preview.source, 'demo_template');
+  assert.deepEqual(
+    preview.policies.map((policy) => policy.id),
+    [...PROCUREMENT_POLICY_IDS],
+  );
+  assert.equal(preview.policies.every((policy) => !policy.enabled), true);
 });
 
 test('keeps concurrent hosted runs isolated', async () => {

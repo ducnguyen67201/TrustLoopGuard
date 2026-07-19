@@ -1,15 +1,17 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import { trackMarketingEvent } from '@/lib/gtm';
 
 import {
   PROCUREMENT_POLICY_IDS,
   sanitizeProcurementDemoResponse,
+  sanitizeProcurementPolicyInventory,
   type JsonValue,
   type ProcurementDemoResponse,
-  type ProcurementPolicyId,
+  type ProcurementPolicy,
+  type ProcurementPolicyInventory,
 } from './contract';
 import styles from './procurement.module.css';
 
@@ -32,41 +34,51 @@ const EXAMPLES = [
   },
 ] as const;
 
-const POLICY_COPY: Readonly<
-  Record<ProcurementPolicyId, { title: string; description: string; effect: 'Deny' | 'Review' }>
-> = {
-  'procurement-approved-suppliers': {
-    title: 'Approved suppliers only',
-    description: 'Block purchase orders from vendors outside the approved supplier list.',
-    effect: 'Deny',
-  },
-  'procurement-high-value-review': {
-    title: 'Review high-value orders',
-    description: 'Require an owner or administrator to approve high-value purchase orders.',
-    effect: 'Review',
-  },
-  'procurement-restricted-categories': {
-    title: 'Block restricted categories',
-    description: 'Stop gift cards and other categories procurement does not permit.',
-    effect: 'Deny',
-  },
-};
-
 type RunState = 'idle' | 'running' | 'success' | 'error';
 type StepState = 'idle' | 'running' | 'complete' | 'stopped';
+type InventoryState = 'loading' | 'ready' | 'error';
 
 export function ProcurementDemo() {
   const [prompt, setPrompt] = useState<string>(EXAMPLES[1].prompt);
   const [submittedPrompt, setSubmittedPrompt] = useState('');
   const [runState, setRunState] = useState<RunState>('idle');
   const [response, setResponse] = useState<ProcurementDemoResponse | null>(null);
+  const [policies, setPolicies] = useState<ProcurementPolicy[]>([]);
+  const [inventoryState, setInventoryState] = useState<InventoryState>('loading');
+  const [inventorySource, setInventorySource] = useState<
+    ProcurementPolicyInventory['source'] | null
+  >(null);
   const [error, setError] = useState('');
-  const [selectedPolicies, setSelectedPolicies] = useState<Set<ProcurementPolicyId>>(
-    () => new Set(PROCUREMENT_POLICY_IDS),
-  );
 
-  const activePolicyIds = PROCUREMENT_POLICY_IDS.filter((policyId) =>
-    selectedPolicies.has(policyId),
+  useEffect(() => {
+    let active = true;
+    async function loadPolicies(): Promise<void> {
+      try {
+        const result = await fetch('/api/demo/procurement', { cache: 'no-store' });
+        if (!result.ok) throw new Error('Policy inventory request failed');
+        const inventory = sanitizeProcurementPolicyInventory(await result.json());
+        if (!active) return;
+        setPolicies(inventory.policies);
+        setInventorySource(inventory.source);
+        setInventoryState('ready');
+      } catch {
+        if (active) setInventoryState('error');
+      }
+    }
+    void loadPolicies();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const matchedPolicyIdSet = useMemo(
+    () =>
+      new Set(
+        response?.result.decision?.findings.flatMap((finding) =>
+          finding.policyId === undefined ? [] : [finding.policyId],
+        ) ?? [],
+      ),
+    [response],
   );
   const decision = response?.result.decision;
   const purchaseOrder = response?.state.purchaseOrders[0];
@@ -81,7 +93,7 @@ export function ProcurementDemo() {
       page: '/demo/procurement',
       location: 'procurement_composer',
       scenario,
-      label: activePolicyIds.join(','),
+      label: PROCUREMENT_POLICY_IDS.join(','),
     });
 
     setRunState('running');
@@ -93,7 +105,7 @@ export function ProcurementDemo() {
       const result = await fetch('/api/demo/procurement', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ prompt: message, activePolicyIds }),
+        body: JSON.stringify({ prompt: message, activePolicyIds: PROCUREMENT_POLICY_IDS }),
       });
       const payload: JsonValue = await result.json().catch(() => null);
       if (!result.ok) {
@@ -108,7 +120,7 @@ export function ProcurementDemo() {
         scenario,
         decision: body.result.decision?.effect ?? 'no_action',
         outcome: body.state.purchaseOrders.length === 1 ? 'submitted' : 'not_submitted',
-        label: activePolicyIds.join(','),
+        label: PROCUREMENT_POLICY_IDS.join(','),
       });
     } catch (requestError) {
       setError(
@@ -123,29 +135,9 @@ export function ProcurementDemo() {
         scenario,
         decision: 'request_error',
         outcome: 'error',
-        label: activePolicyIds.join(','),
+        label: PROCUREMENT_POLICY_IDS.join(','),
       });
     }
-  }
-
-  function togglePolicy(policyId: ProcurementPolicyId, enabled: boolean) {
-    if (runState === 'running') return;
-    setSelectedPolicies((current) => {
-      const next = new Set(current);
-      if (enabled) next.add(policyId);
-      else next.delete(policyId);
-      return next;
-    });
-    setRunState('idle');
-    setSubmittedPrompt('');
-    setResponse(null);
-    setError('');
-    trackMarketingEvent('demo_policy_changed', {
-      page: '/demo/procurement',
-      location: 'procurement_policy_stack',
-      label: policyId,
-      outcome: enabled ? 'enabled' : 'disabled',
-    });
   }
 
   return (
@@ -237,41 +229,6 @@ export function ProcurementDemo() {
           <DecisionBadge response={response} runState={runState} />
         </div>
 
-        <div className={styles['policyStack']}>
-          {PROCUREMENT_POLICY_IDS.map((policyId) => {
-            const policy = POLICY_COPY[policyId];
-            const checked = selectedPolicies.has(policyId);
-            return (
-              <label className={styles['policyCard']} key={policyId}>
-                <input
-                  type="checkbox"
-                  role="switch"
-                  checked={checked}
-                  onChange={(event) => togglePolicy(policyId, event.currentTarget.checked)}
-                  disabled={runState === 'running'}
-                  aria-describedby={`${policyId}-description`}
-                />
-                <span className={styles['switchTrack']} aria-hidden="true">
-                  <i />
-                </span>
-                <span className={styles['policyCopy']}>
-                  <strong>{policy.title}</strong>
-                  <small id={`${policyId}-description`}>{policy.description}</small>
-                </span>
-                <b className={styles[policy.effect === 'Review' ? 'reviewEffect' : 'denyEffect']}>
-                  {policy.effect}
-                </b>
-              </label>
-            );
-          })}
-          {activePolicyIds.length === 0 ? (
-            <p className={styles['unprotectedNotice']} role="status">
-              Unprotected profile selected. TrustLoopGuard will still record the proposed action,
-              but these three demo policies will not apply.
-            </p>
-          ) : null}
-        </div>
-
         <div className={styles['workflow']} aria-live="polite">
           <WorkflowStep
             number="01"
@@ -293,7 +250,7 @@ export function ProcurementDemo() {
             title="TrustLoopGuard"
             detail={
               decision?.reason ??
-              'Evaluates the exact action against the selected Rust policy profile.'
+              'Evaluates the exact action against the enabled Rust policy profile.'
             }
             state={guardStepState(response, runState)}
             emphasized
@@ -305,6 +262,67 @@ export function ProcurementDemo() {
             state={providerStepState(response, runState)}
           />
         </div>
+
+        <section className={styles['policyInventory']} aria-labelledby="policy-checks-title">
+          <div className={styles['monitorSectionHeading']}>
+            <h3 id="policy-checks-title">Policies checked</h3>
+            <span aria-live="polite">
+              {policyMonitorSummary(policies, inventoryState, inventorySource)}
+            </span>
+          </div>
+          {inventoryState === 'loading' ? (
+            <p className={styles['inventoryNotice']} role="status">
+              Loading the policy registry…
+            </p>
+          ) : null}
+          {inventoryState === 'error' ? (
+            <p className={styles['inventoryNotice']} role="status">
+              Policy inventory unavailable. Purchase actions still fail closed.
+            </p>
+          ) : null}
+          {inventoryState === 'ready' && inventorySource === 'demo_template' ? (
+            <p className={styles['inventoryNotice']} role="status">
+              <strong>Policy pack preview.</strong> The Rust registry is unavailable, so these are
+              the action policies installed by the demo setup. Runtime checks still fail closed.
+            </p>
+          ) : null}
+          {inventoryState === 'ready' && inventorySource === 'rust' && policies.length === 0 ? (
+            <p className={styles['inventoryNotice']}>
+              No enabled procurement demo policies were found. Run the demo setup command.
+            </p>
+          ) : null}
+          <div className={styles['policyList']}>
+            {policies.map((policy) => {
+              const matched = matchedPolicyIdSet.has(policy.id);
+              return (
+                <article
+                  key={policy.id}
+                  className={`${styles['policyCard']} ${
+                    matched ? styles['matchedPolicy'] : ''
+                  } ${policy.enabled ? '' : styles['previewPolicy']}`}
+                >
+                  <span className={styles['policyDot']} aria-hidden="true" />
+                  <div>
+                    <strong>{policy.description ?? policy.id}</strong>
+                    <code>{policy.id}</code>
+                    <span className={styles['policyStatus']}>
+                      {matched
+                        ? 'Matched this action'
+                        : policy.enabled
+                          ? 'Active in Rust'
+                          : 'Policy pack preview'}
+                    </span>
+                  </div>
+                  <div className={styles['policyMeta']}>
+                    <span>Action</span>
+                    <span>{policy.severity}</span>
+                    <span>{policyActionLabel(policy.action)}</span>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
 
         <div className={styles['proofGrid']}>
           <article>
@@ -371,7 +389,9 @@ function WorkflowStep({
 }) {
   return (
     <article
-      className={`${styles['workflowStep']} ${styles[state]} ${emphasized ? styles['guardStep'] : ''}`}
+      className={`${styles['workflowStep']} ${state === 'idle' ? '' : styles[state]} ${
+        emphasized ? styles['guardStep'] : ''
+      }`}
     >
       <span>{number}</span>
       <div>
@@ -462,6 +482,20 @@ function matchedPolicyIds(response: ProcurementDemoResponse | null): string {
     .map((finding) => finding.policyId)
     .filter((policyId): policyId is string => policyId !== undefined);
   return policyIds === undefined || policyIds.length === 0 ? 'None' : policyIds.join(', ');
+}
+
+function policyMonitorSummary(
+  policies: ProcurementPolicy[],
+  inventoryState: InventoryState,
+  inventorySource: ProcurementPolicyInventory['source'] | null,
+): string {
+  if (inventoryState === 'loading') return 'Loading';
+  if (inventoryState === 'error') return 'Unavailable';
+  return `${policies.length} ${inventorySource === 'rust' ? 'active' : 'in pack'}`;
+}
+
+function policyActionLabel(action?: string): string {
+  return action?.replaceAll('_', ' ') ?? 'check';
 }
 
 function demoScenario(message: string): string {

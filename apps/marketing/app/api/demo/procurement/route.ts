@@ -1,6 +1,9 @@
 import {
+  readHostedProcurementDemoPolicies,
+  readHostedProcurementDemoPolicyPreview,
   runHostedProcurementDemo,
   type HostedProcurementDemoResponse,
+  type HostedProcurementPolicyInventoryResponse,
 } from '@trustloopguard/demo/procurement-agent/hosted';
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
@@ -8,6 +11,7 @@ import { ZodError } from 'zod';
 import {
   parseProcurementDemoRequest,
   sanitizeProcurementDemoResponse,
+  sanitizeProcurementPolicyInventory,
   type JsonValue,
   type ProcurementPolicyId,
 } from '@/app/demo/procurement/contract';
@@ -24,16 +28,38 @@ interface ProcurementDemoHandlersDependencies {
     prompt: string,
     activePolicyIds: readonly ProcurementPolicyId[],
   ) => Promise<HostedProcurementDemoResponse | JsonValue>;
+  readPolicies?: () => Promise<HostedProcurementPolicyInventoryResponse>;
 }
 
 export function createProcurementDemoHandlers(
   dependencies: ProcurementDemoHandlersDependencies = {
     runWorkflow: runHostedProcurementDemo,
+    readPolicies: readHostedProcurementDemoPolicies,
   },
 ) {
   // The public Marketing deployment uses one replica, so this fixed-window
   // visitor control is intentionally process-local.
   const hits = new Map<string, { count: number; resetAt: number }>();
+
+  async function GET() {
+    try {
+      const inventory = await (
+        dependencies.readPolicies ?? readHostedProcurementDemoPolicies
+      )();
+      return NextResponse.json(sanitizeProcurementPolicyInventory(inventory), {
+        headers: { 'cache-control': 'no-store' },
+      });
+    } catch (error) {
+      console.warn(
+        'procurement demo policy inventory unavailable; showing template preview',
+        safeErrorForLog(error instanceof Error ? error : undefined),
+      );
+      return NextResponse.json(
+        sanitizeProcurementPolicyInventory(readHostedProcurementDemoPolicyPreview()),
+        { headers: { 'cache-control': 'no-store' } },
+      );
+    }
+  }
 
   async function POST(request: Request) {
     if (isRateLimited(request, hits)) {
@@ -102,10 +128,11 @@ export function createProcurementDemoHandlers(
     }
   }
 
-  return { POST };
+  return { GET, POST };
 }
 
 const handlers = createProcurementDemoHandlers();
+export const GET = handlers.GET;
 export const POST = handlers.POST;
 
 function isRateLimited(

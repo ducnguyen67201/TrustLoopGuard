@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   parseProcurementDemoRequest,
   sanitizeProcurementDemoResponse,
+  sanitizeProcurementPolicyInventory,
   PROCUREMENT_POLICY_IDS,
 } from './contract';
 
@@ -121,7 +122,34 @@ test('exposes only bounded public decision and purchase-order fields', () => {
   assert.equal('apiKey' in response, false);
 });
 
-test('the page presents live OpenAI, Rust policies, all outcomes, and accessible controls', () => {
+test('accepts only bounded Rust or template policy inventory', () => {
+  const inventory = sanitizeProcurementPolicyInventory({
+    policies: [
+      {
+        id: 'procurement-approved-suppliers',
+        description: 'Blocks purchase orders from unapproved suppliers.',
+        severity: 'critical',
+        action: 'deny',
+        enabled: true,
+        privateMatcher: '/supplier_status',
+      },
+    ],
+    source: 'rust',
+    runtime: {
+      agent: 'openai-agents-js',
+      guard: 'trustloopguard-rust-api',
+      provider: 'simulated-procurement-api',
+    },
+    apiKey: 'private',
+  });
+
+  assert.equal(inventory.source, 'rust');
+  assert.equal(inventory.policies[0]?.enabled, true);
+  assert.equal('privateMatcher' in inventory.policies[0]!, false);
+  assert.equal('apiKey' in inventory, false);
+});
+
+test('the page presents live OpenAI, Rust policies, all outcomes, and a read-only policy list', () => {
   const page = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
   const demo = readFileSync(new URL('./procurement-demo.tsx', import.meta.url), 'utf8');
   const source = `${page}\n${demo}`;
@@ -129,10 +157,10 @@ test('the page presents live OpenAI, Rust policies, all outcomes, and accessible
   assert.match(source, /OpenAI proposes/i);
   assert.match(source, /TrustLoopGuard decides/i);
   assert.match(source, /Demo catalog only/i);
-  assert.match(source, /Approved suppliers only/i);
-  assert.match(source, /Review high-value orders/i);
-  assert.match(source, /Block restricted categories/i);
-  assert.match(source, /role="switch"/);
+  assert.match(source, /Policies checked/i);
+  assert.match(source, /Active in Rust/i);
+  assert.match(source, /fetch\('\/api\/demo\/procurement'/);
+  assert.doesNotMatch(source, /role="switch"/);
   assert.match(source, /aria-live="polite"/);
   assert.match(source, /require_approval/);
   assert.match(source, /effect === 'deny'/);
@@ -144,10 +172,10 @@ test('analytics events omit prompts and runtime identifiers', () => {
 
   assert.match(demo, /trackMarketingEvent\('demo_started'/);
   assert.match(demo, /trackMarketingEvent\('demo_decision_shown'/);
-  assert.match(demo, /trackMarketingEvent\('demo_policy_changed'/);
+  assert.doesNotMatch(demo, /trackMarketingEvent\('demo_policy_changed'/);
 
   const analyticsCalls = demo.match(/trackMarketingEvent\([\s\S]*?\n\s*\}\);/g) ?? [];
-  assert.equal(analyticsCalls.length, 4);
+  assert.equal(analyticsCalls.length, 3);
   for (const analyticsCall of analyticsCalls) {
     assert.doesNotMatch(analyticsCall, /prompt\s*:/);
     assert.doesNotMatch(analyticsCall, /traceId|approvalId|purchaseOrderId/);

@@ -1,12 +1,55 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { HostedProcurementDemoResponse } from '@trustloopguard/demo/procurement-agent/hosted';
+import type {
+  HostedProcurementDemoResponse,
+  HostedProcurementPolicyInventoryResponse,
+} from '@trustloopguard/demo/procurement-agent/hosted';
 
 import { createProcurementDemoHandlers } from './route';
 
 const mutableEnv = process.env as Record<string, string | undefined>;
 mutableEnv['NODE_ENV'] = 'production';
+
+test('returns the Rust procurement policy inventory without caching it', async () => {
+  const { GET } = createProcurementDemoHandlers({
+    runWorkflow: async () => workflowPayload(),
+    readPolicies: async () => inventoryPayload(),
+  });
+
+  const response = await GET();
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal(body.source, 'rust');
+  assert.equal(body.policies[0].id, 'procurement-approved-suppliers');
+  assert.equal(body.policies[0].privateMatcher, undefined);
+});
+
+test('returns a safe policy pack preview when the Rust inventory is unavailable', async () => {
+  const originalWarn = console.warn;
+  console.warn = () => {};
+  try {
+    const { GET } = createProcurementDemoHandlers({
+      runWorkflow: async () => workflowPayload(),
+      readPolicies: async () => {
+        throw new Error('private backend details');
+      },
+    });
+
+    const response = await GET();
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal(body.source, 'demo_template');
+    assert.equal(body.policies.length, 3);
+    assert.equal(body.policies.every((policy: { enabled: boolean }) => !policy.enabled), true);
+  } finally {
+    console.warn = originalWarn;
+  }
+});
 
 test('runs a valid request in-process, normalizes policies, and returns no-store data', async () => {
   let receivedPrompt = '';
@@ -229,6 +272,29 @@ function workflowPayload(): HostedProcurementDemoResponse {
       },
     ],
     logs: [{ step: 'chat_received' }],
+    runtime: {
+      agent: 'openai-agents-js',
+      guard: 'trustloopguard-rust-api',
+      provider: 'simulated-procurement-api',
+    },
+  };
+}
+
+function inventoryPayload(): Extract<
+  HostedProcurementPolicyInventoryResponse,
+  { source: 'rust' }
+> {
+  return {
+    policies: [
+      {
+        id: 'procurement-approved-suppliers',
+        description: 'Blocks purchase orders from unapproved suppliers.',
+        severity: 'critical',
+        action: 'deny',
+        enabled: true,
+      },
+    ],
+    source: 'rust',
     runtime: {
       agent: 'openai-agents-js',
       guard: 'trustloopguard-rust-api',
