@@ -22,5 +22,6 @@ test('packages the refund demo and SDK inside the Marketing image', () => {
     /RUN pnpm --filter @trustloopguard\/sdk build \\\n && pnpm --filter marketing build/,
   );
   assert.match(dockerignore, /!demo\/shared\/\*\*/);
+  assert.match(dockerignore, /!demo\/healthcare-agent\/\*\*/);
   assert.match(dockerignore, /!demo\/stripe-refund-agent\/\*\*/);
 });

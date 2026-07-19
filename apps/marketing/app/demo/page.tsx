@@ -37,7 +37,8 @@ export default function DemoPage() {
         </div>
         <p className={styles['introCopy']}>
           Pick an amount below. TrustLoopGuard allows, holds, or blocks the agent before Stripe —
-          real APIs, not a scripted animation.
+          real APIs, not a scripted animation.{' '}
+          <Link href="/demo/healthcare">Try the healthcare demo →</Link>
         </p>
         <small className={styles['safetyNote']}>Test data · No real money</small>
       </section>

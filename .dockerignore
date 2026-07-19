@@ -34,6 +34,8 @@ demo/*
 !demo/package.json
 !demo/shared/
 !demo/shared/**
+!demo/healthcare-agent/
+!demo/healthcare-agent/**
 !demo/stripe-refund-agent/
 !demo/stripe-refund-agent/**
 demo/stripe-refund-agent/.data/
