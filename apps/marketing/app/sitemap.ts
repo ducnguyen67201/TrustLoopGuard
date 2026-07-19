@@ -4,6 +4,8 @@ import { absoluteUrl, landingPages } from '@/lib/seo';
 
 const HOME_LAST_MODIFIED = new Date('2026-07-19');
 const USE_CASES_LAST_MODIFIED = new Date('2026-07-16');
+const REFUND_DEMO_LAST_MODIFIED = new Date('2026-07-19');
+const HEALTHCARE_DEMO_LAST_MODIFIED = new Date('2026-07-19');
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
@@ -36,6 +38,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: USE_CASES_LAST_MODIFIED,
       changeFrequency: 'monthly',
       priority: 0.9,
+    },
+    {
+      url: absoluteUrl('/demo'),
+      lastModified: REFUND_DEMO_LAST_MODIFIED,
+      changeFrequency: 'monthly',
+      priority: 0.85,
+    },
+    {
+      url: absoluteUrl('/demo/healthcare'),
+      lastModified: HEALTHCARE_DEMO_LAST_MODIFIED,
+      changeFrequency: 'monthly',
+      priority: 0.85,
     },
     ...USE_CASES.map((useCase) => ({
       url: absoluteUrl(useCase.href),
