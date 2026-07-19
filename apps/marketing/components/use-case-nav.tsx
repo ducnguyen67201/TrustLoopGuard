@@ -3,11 +3,38 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { USE_CASE_MENU_CLOSE_DELAY_MS, USE_CASE_NAV_GROUPS } from '@/app/use-cases/content';
+import type { MarketingLocale } from '@/lib/marketing-locale';
 
-export function UseCaseNav() {
+const VI_DETAILS = [
+  { label: 'An toàn lệnh shell', detail: 'Từ chối hoặc phê duyệt trước khi thực thi' },
+  { label: 'Email gửi đi', detail: 'Cho phép hoặc viết lại trước khi gửi' },
+  { label: 'Hạn mức chi tiêu của tác nhân', detail: 'Cho phép, giữ hoặc từ chối thanh toán' },
+  { label: 'Chi phí suy luận AI', detail: 'Đo lường, cảnh báo và đặt trần cứng' },
+  { label: 'Thanh toán x402 của tác nhân', detail: 'Cấp quyền trước khi ví ký' },
+  { label: 'Cấp quyền hành động', detail: 'Kiểm soát trước điểm không thể quay lại' },
+] as const;
+
+export function UseCaseNav({ locale = 'en' }: { locale?: MarketingLocale }) {
   const [isOpen, setIsOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const triggerRef = useRef<HTMLAnchorElement>(null);
+  const copy =
+    locale === 'vi'
+      ? {
+          label: 'Tình huống sử dụng',
+          heading: 'Chọn nơi TrustLoopGuard kiểm soát hành động.',
+          viewAll: 'Xem tất cả tình huống',
+          details: USE_CASE_NAV_GROUPS.details.map((item, index) => ({
+            ...item,
+            ...VI_DETAILS[index],
+          })),
+        }
+      : {
+          label: 'Use cases',
+          heading: 'Choose where TrustLoopGuard controls the action.',
+          viewAll: 'View all use cases',
+          details: USE_CASE_NAV_GROUPS.details,
+        };
 
   const cancelClose = useCallback(() => {
     if (closeTimer.current) {
@@ -61,20 +88,20 @@ export function UseCaseNav() {
         aria-expanded={isOpen}
         aria-controls="use-cases-menu"
       >
-        Use cases <span className="site-nav-dropdown-chevron" aria-hidden="true" />
+        {copy.label} <span className="site-nav-dropdown-chevron" aria-hidden="true" />
       </Link>
-      <div id="use-cases-menu" className="site-nav-dropdown-menu" aria-label="Use cases">
+      <div id="use-cases-menu" className="site-nav-dropdown-menu" aria-label={copy.label}>
         <div className="site-nav-mega-header">
           <div>
-            <small>Use cases</small>
-            <strong>Choose where TrustLoopGuard controls the action.</strong>
+            <small>{copy.label}</small>
+            <strong>{copy.heading}</strong>
           </div>
           <Link href={USE_CASE_NAV_GROUPS.overview.href}>
-            View all use cases <span aria-hidden="true">→</span>
+            {copy.viewAll} <span aria-hidden="true">→</span>
           </Link>
         </div>
         <ul className="site-nav-mega-grid">
-          {USE_CASE_NAV_GROUPS.details.map((item, index) => (
+          {copy.details.map((item, index) => (
             <li key={item.href}>
               <Link href={item.href}>
                 <small>0{index + 1}</small>

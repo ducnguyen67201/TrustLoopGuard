@@ -1,16 +1,40 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import type { MarketingLocale } from '@/lib/marketing-locale';
 import { MarketingEventLink } from './marketing-event-link';
 
 interface NavActionsProps {
   bookMeetingUrl: string;
   githubUrl: string;
   stars: number | null;
+  locale: MarketingLocale;
 }
 
-export function NavActions({ bookMeetingUrl, githubUrl, stars }: NavActionsProps) {
+const COPY = {
+  en: {
+    demo: 'Demo',
+    demoEventLabel: 'Live demo',
+    compactTalk: 'Talk',
+    talk: 'Talk to us',
+    talkEventLabel: 'Book a meeting',
+    github: 'View TrustLoopGuard on GitHub',
+    stars: 'stars',
+  },
+  vi: {
+    demo: 'Dùng thử',
+    demoEventLabel: 'Bản demo trực tiếp',
+    compactTalk: 'Trao đổi',
+    talk: 'Trao đổi với chúng tôi',
+    talkEventLabel: 'Đặt lịch trao đổi',
+    github: 'Xem TrustLoopGuard trên GitHub',
+    stars: 'sao',
+  },
+} as const;
+
+export function NavActions({ bookMeetingUrl, githubUrl, stars, locale }: NavActionsProps) {
   const page = usePathname() || '/';
+  const copy = COPY[locale];
 
   return (
     <div className="flex items-center gap-2">
@@ -18,20 +42,20 @@ export function NavActions({ bookMeetingUrl, githubUrl, stars }: NavActionsProps
         href="/demo"
         className="nav-demo-compact button-secondary h-10 px-3 text-sm"
         event="demo_click"
-        eventParams={{ page, location: 'nav', label: 'Live demo' }}
+        eventParams={{ page, location: 'nav', label: copy.demoEventLabel }}
       >
-        Demo
+        {copy.demo}
       </MarketingEventLink>
-      <GitHubStarLink githubUrl={githubUrl} page={page} stars={stars} />
+      <GitHubStarLink githubUrl={githubUrl} page={page} stars={stars} locale={locale} />
       <MarketingEventLink
         href={bookMeetingUrl}
         target="_blank"
         className="button-primary h-10 px-4 text-sm"
         event="book_meeting_click"
-        eventParams={{ page, location: 'nav', label: 'Book a meeting' }}
+        eventParams={{ page, location: 'nav', label: copy.talkEventLabel }}
       >
-        <span className="min-[420px]:hidden">Talk</span>
-        <span className="hidden min-[420px]:inline">Talk to us</span>
+        <span className="min-[420px]:hidden">{copy.compactTalk}</span>
+        <span className="hidden min-[420px]:inline">{copy.talk}</span>
       </MarketingEventLink>
     </div>
   );
@@ -41,20 +65,20 @@ function GitHubStarLink({
   githubUrl,
   page,
   stars,
+  locale,
 }: {
   githubUrl: string;
   page: string;
   stars: number | null;
+  locale: MarketingLocale;
 }) {
+  const copy = COPY[locale];
+
   return (
     <MarketingEventLink
       href={githubUrl}
       target="_blank"
-      aria-label={
-        stars === null
-          ? 'View TrustLoopGuard on GitHub'
-          : `View TrustLoopGuard on GitHub - ${stars} stars`
-      }
+      aria-label={stars === null ? copy.github : `${copy.github} - ${stars} ${copy.stars}`}
       className="github-link hidden h-10 items-center gap-2 px-3 text-sm font-medium sm:inline-flex"
       event="github_click"
       eventParams={{ page, location: 'nav', label: 'GitHub' }}

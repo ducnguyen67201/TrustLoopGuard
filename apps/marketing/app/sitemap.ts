@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 import { USE_CASES } from '@/app/use-cases/content';
 import { absoluteUrl, landingPages } from '@/lib/seo';
 
-const HOME_LAST_MODIFIED = new Date('2026-07-16');
+const HOME_LAST_MODIFIED = new Date('2026-07-19');
 const USE_CASES_LAST_MODIFIED = new Date('2026-07-16');
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -12,6 +12,24 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: HOME_LAST_MODIFIED,
       changeFrequency: 'weekly',
       priority: 1,
+      alternates: {
+        languages: {
+          en: absoluteUrl('/'),
+          vi: absoluteUrl('/vi'),
+        },
+      },
+    },
+    {
+      url: absoluteUrl('/vi'),
+      lastModified: HOME_LAST_MODIFIED,
+      changeFrequency: 'weekly',
+      priority: 0.95,
+      alternates: {
+        languages: {
+          en: absoluteUrl('/'),
+          vi: absoluteUrl('/vi'),
+        },
+      },
     },
     {
       url: absoluteUrl('/use-cases'),

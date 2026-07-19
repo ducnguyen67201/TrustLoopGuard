@@ -30,6 +30,10 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   alternates: {
     canonical: '/',
+    languages: {
+      en: '/',
+      vi: '/vi',
+    },
   },
   openGraph: {
     title: 'TrustLoopGuard — Runtime control for AI agents',

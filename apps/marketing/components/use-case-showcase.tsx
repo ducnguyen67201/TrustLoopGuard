@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRef, useState } from 'react';
 import type { UseCaseData, UseCaseDemo } from '@/app/use-cases/content';
+import type { MarketingLocale } from '@/lib/marketing-locale';
 import { UseCaseFlowDemo } from './use-case-flow-demo';
 
 type FeaturedUseCase = UseCaseData & { demo: UseCaseDemo };
@@ -17,13 +18,29 @@ function hasDemo(useCase: UseCaseData): useCase is FeaturedUseCase {
   return useCase.demo !== undefined;
 }
 
-export function UseCaseShowcase({ useCases }: { useCases: readonly UseCaseData[] }) {
+export function UseCaseShowcase({
+  useCases,
+  locale = 'en',
+}: {
+  useCases: readonly UseCaseData[];
+  locale?: MarketingLocale;
+}) {
   const featured = useCases.filter(hasDemo);
   const [activeSlug, setActiveSlug] = useState(featured[0]?.slug);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const active = featured.find((useCase) => useCase.slug === activeSlug) ?? featured[0];
 
   if (!active) return null;
+
+  const tabLabels =
+    locale === 'vi'
+      ? { shell: 'Lệnh shell', email: 'Email gửi đi', spend: 'Chi tiêu tác nhân' }
+      : TAB_LABELS;
+  const showcaseLabel =
+    locale === 'vi'
+      ? 'Các tình huống sử dụng nổi bật của TrustLoopGuard'
+      : 'Featured TrustLoopGuard use cases';
+  const exploreLabel = locale === 'vi' ? 'Xem đầy đủ tình huống này' : 'Explore the full use case';
 
   function selectTab(index: number) {
     const next = featured[index];
@@ -34,11 +51,7 @@ export function UseCaseShowcase({ useCases }: { useCases: readonly UseCaseData[]
 
   return (
     <div className="use-case-showcase">
-      <div
-        className="use-case-showcase-tabs"
-        role="tablist"
-        aria-label="Featured TrustLoopGuard use cases"
-      >
+      <div className="use-case-showcase-tabs" role="tablist" aria-label={showcaseLabel}>
         {featured.map((useCase, index) => {
           const selected = useCase.slug === active.slug;
 
@@ -76,7 +89,7 @@ export function UseCaseShowcase({ useCases }: { useCases: readonly UseCaseData[]
               }}
             >
               <span>{useCase.number}</span>
-              <strong>{TAB_LABELS[useCase.demo.kind]}</strong>
+              <strong>{tabLabels[useCase.demo.kind]}</strong>
               <small>{useCase.result}</small>
             </button>
           );
@@ -97,11 +110,11 @@ export function UseCaseShowcase({ useCases }: { useCases: readonly UseCaseData[]
           <div>
             <p>{active.summary}</p>
             <Link href={active.href}>
-              Explore the full use case <span aria-hidden="true">→</span>
+              {exploreLabel} <span aria-hidden="true">→</span>
             </Link>
           </div>
         </header>
-        <UseCaseFlowDemo demo={active.demo} />
+        <UseCaseFlowDemo demo={active.demo} locale={locale} />
       </section>
     </div>
   );

@@ -1,56 +1,127 @@
 import { GITHUB_URL } from '@/lib/github';
+import type { MarketingLocale } from '@/lib/marketing-locale';
 import { MarketingEventLink } from './marketing-event-link';
 
 const FINANCIAL_CONTRACT_URL = `${GITHUB_URL}/blob/main/docs/concept/financial-authorization.md`;
 
-const PROOF_POINTS = [
-  {
-    label: 'Apache-2.0',
-    detail: 'Inspect every decision path',
-    href: `${GITHUB_URL}/blob/main/LICENSE`,
+const COPY = {
+  en: {
+    statusLabel: 'TrustLoopGuard product status',
+    status: 'Open-source control boundary',
+    statusDetail: 'Proposed action in. Typed decision out. Side effect stays on your side.',
+    eyebrow: 'Runtime control for production AI agents',
+    title: 'Stop AI agents',
+    titleDetail: 'before they send, spend, or execute.',
+    introBefore:
+      'TrustLoopGuard checks a proposed output or action before it becomes a real side effect. Your runtime gets',
+    effects: 'permit, deny, transform, require approval, or defer',
+    introAfter: '—plus a receipt showing why.',
+    founderProof: 'Built by a former engineer at a company backed by',
+    demo: 'Try the live refund demo',
+    controlFlow: 'See the control flow',
+    demoProof: 'No card. No signup. Runs against the real authorization path.',
+    inspectSource: 'Inspect the source ↗',
+    proofLabel: 'Inspectable product facts',
+    proofPoints: [
+      { label: 'Apache-2.0', detail: 'Inspect every decision path' },
+      { label: 'Self-hostable', detail: 'Rust runtime in your infrastructure' },
+      { label: 'TypeScript · Python · Rust', detail: 'One generated decision contract' },
+      { label: 'Decision + receipt', detail: 'Authorization before, proof after' },
+    ],
+    previewLabel:
+      'Example control boundary: refund-bot proposes a 75 dollar refund, TrustLoopGuard requires approval, and execution does not start.',
+    liveBoundary: 'Live control boundary',
+    proposes: 'Agent proposes',
+    proposed: 'Proposed',
+    checks: 'TrustLoopGuard checks',
+    authority: 'Authority',
+    orderEvidence: 'Order evidence',
+    refundPolicy: 'Refund policy',
+    pass: 'pass',
+    approval: 'approval',
+    effect: 'Effect',
+    decisionReturned: 'Typed decision returned',
+    executionNotStarted: 'Execution not started',
+    receiptReserved: 'Receipt reserved',
+    stopped: 'Side effect stopped at the boundary',
+    noStripeCall: 'No Stripe call made',
   },
-  {
-    label: 'Self-hostable',
-    detail: 'Rust runtime in your infrastructure',
-    href: `${GITHUB_URL}#quickstart`,
+  vi: {
+    statusLabel: 'Trạng thái sản phẩm TrustLoopGuard',
+    status: 'Ranh giới kiểm soát mã nguồn mở',
+    statusDetail:
+      'Nhận hành động đề xuất. Trả về quyết định có kiểu. Tác dụng phụ vẫn do bạn kiểm soát.',
+    eyebrow: 'Kiểm soát tác nhân AI trong môi trường production',
+    title: 'Chặn tác nhân AI',
+    titleDetail: 'trước khi chúng gửi, chi tiền hoặc thực thi.',
+    introBefore:
+      'TrustLoopGuard kiểm tra đầu ra hoặc hành động được đề xuất trước khi nó tạo ra tác dụng thực tế. Hệ thống của bạn nhận về',
+    effects: 'cho phép, từ chối, chuyển đổi, yêu cầu phê duyệt hoặc trì hoãn',
+    introAfter: '—kèm biên nhận giải thích lý do.',
+    founderProof: 'Được xây dựng bởi cựu kỹ sư tại một công ty được hậu thuẫn bởi',
+    demo: 'Thử bản demo hoàn tiền trực tiếp',
+    controlFlow: 'Xem luồng kiểm soát',
+    demoProof: 'Không cần thẻ. Không cần đăng ký. Chạy trên luồng cấp quyền thực tế.',
+    inspectSource: 'Xem mã nguồn ↗',
+    proofLabel: 'Thông tin sản phẩm có thể kiểm chứng',
+    proofPoints: [
+      { label: 'Apache-2.0', detail: 'Kiểm tra mọi đường dẫn quyết định' },
+      { label: 'Tự lưu trữ', detail: 'Runtime Rust trong hạ tầng của bạn' },
+      { label: 'TypeScript · Python · Rust', detail: 'Một hợp đồng quyết định được sinh tự động' },
+      { label: 'Quyết định + biên nhận', detail: 'Cấp quyền trước, bằng chứng sau' },
+    ],
+    previewLabel:
+      'Ví dụ về ranh giới kiểm soát: refund-bot đề xuất hoàn 75 đô la, TrustLoopGuard yêu cầu phê duyệt và việc thực thi chưa bắt đầu.',
+    liveBoundary: 'Ranh giới kiểm soát trực tiếp',
+    proposes: 'Tác nhân đề xuất',
+    proposed: 'Đã đề xuất',
+    checks: 'TrustLoopGuard kiểm tra',
+    authority: 'Thẩm quyền',
+    orderEvidence: 'Bằng chứng đơn hàng',
+    refundPolicy: 'Chính sách hoàn tiền',
+    pass: 'đạt',
+    approval: 'cần phê duyệt',
+    effect: 'Hiệu lực',
+    decisionReturned: 'Đã trả về quyết định có kiểu',
+    executionNotStarted: 'Chưa bắt đầu thực thi',
+    receiptReserved: 'Đã dành mã biên nhận',
+    stopped: 'Tác dụng phụ bị chặn tại ranh giới',
+    noStripeCall: 'Không gọi Stripe',
   },
-  {
-    label: 'TypeScript · Python · Rust',
-    detail: 'One generated decision contract',
-    href: `${GITHUB_URL}#sdk-quickstarts`,
-  },
-  {
-    label: 'Decision + receipt',
-    detail: 'Authorization before, proof after',
-    href: FINANCIAL_CONTRACT_URL,
-  },
-] as const;
+} as const;
 
-export function Hero() {
+export function Hero({ locale = 'en' }: { locale?: MarketingLocale }) {
+  const copy = COPY[locale];
+  const proofHrefs = [
+    `${GITHUB_URL}/blob/main/LICENSE`,
+    `${GITHUB_URL}#quickstart`,
+    `${GITHUB_URL}#sdk-quickstarts`,
+    FINANCIAL_CONTRACT_URL,
+  ] as const;
+
   return (
     <section id="product" className="hero" aria-labelledby="hero-heading">
-      <div className="hero-signal" aria-label="TrustLoopGuard product status">
+      <div className="hero-signal" aria-label={copy.statusLabel}>
         <p>
           <span className="hero-signal-dot" aria-hidden="true" />
-          Open-source control boundary
+          {copy.status}
         </p>
-        <span>Proposed action in. Typed decision out. Side effect stays on your side.</span>
+        <span>{copy.statusDetail}</span>
       </div>
 
       <div className="hero-inner">
         <div className="hero-copy">
-          <p className="eyebrow">Runtime control for production AI agents</p>
+          <p className="eyebrow">{copy.eyebrow}</p>
           <h1 id="hero-heading" className="hero-title">
-            Stop AI agents
-            <span>before they send, spend, or execute.</span>
+            {copy.title}
+            <span>{copy.titleDetail}</span>
           </h1>
           <p className="hero-sub">
-            TrustLoopGuard checks a proposed output or action before it becomes a real side effect.
-            Your runtime gets <strong>permit, deny, transform, require approval, or defer</strong>—
-            plus a receipt showing why.
+            {copy.introBefore} <strong>{copy.effects}</strong>
+            {copy.introAfter}
           </p>
           <p className="hero-backing-proof">
-            <span>Built by a former engineer at a company backed by</span>
+            <span>{copy.founderProof}</span>
             <span className="hero-backing-logos">
               <span className="hero-backing-chip hero-backing-chip-yc">
                 <img src="/yc-logo.svg" alt="Y Combinator" width="24" height="24" />
@@ -69,43 +140,55 @@ export function Hero() {
               href="/demo"
               className="button-primary h-12 px-6"
               event="demo_click"
-              eventParams={{ page: '/', location: 'hero', label: 'Try the live refund demo' }}
+              eventParams={{
+                page: locale === 'vi' ? '/vi' : '/',
+                location: 'hero',
+                label: copy.demo,
+              }}
             >
               <PlayIcon />
-              Try the live refund demo
+              {copy.demo}
             </MarketingEventLink>
             <MarketingEventLink
               href="#how"
               className="button-secondary h-12 px-6"
               event="landing_cta_click"
-              eventParams={{ page: '/', location: 'hero', label: 'See the control flow' }}
+              eventParams={{
+                page: locale === 'vi' ? '/vi' : '/',
+                location: 'hero',
+                label: copy.controlFlow,
+              }}
             >
-              See the control flow
+              {copy.controlFlow}
               <ArrowIcon />
             </MarketingEventLink>
           </div>
           <div className="hero-source-row">
-            <span>No card. No signup. Runs against the real authorization path.</span>
+            <span>{copy.demoProof}</span>
             <MarketingEventLink
               href={GITHUB_URL}
               target="_blank"
               className="hero-source-link"
               event="github_click"
-              eventParams={{ page: '/', location: 'hero', label: 'Inspect the source' }}
+              eventParams={{
+                page: locale === 'vi' ? '/vi' : '/',
+                location: 'hero',
+                label: copy.inspectSource,
+              }}
             >
-              Inspect the source ↗
+              {copy.inspectSource}
             </MarketingEventLink>
           </div>
         </div>
 
-        <ControlBoundaryPreview />
+        <ControlBoundaryPreview locale={locale} />
       </div>
 
-      <div className="proof-strip" aria-label="Inspectable product facts">
-        {PROOF_POINTS.map((item, index) => (
+      <div className="proof-strip" aria-label={copy.proofLabel}>
+        {copy.proofPoints.map((item, index) => (
           <a
             key={item.label}
-            href={item.href}
+            href={proofHrefs[index]}
             target="_blank"
             rel="noreferrer"
             className="proof-item"
@@ -125,16 +208,15 @@ export function Hero() {
   );
 }
 
-function ControlBoundaryPreview() {
+function ControlBoundaryPreview({ locale }: { locale: MarketingLocale }) {
+  const copy = COPY[locale];
+
   return (
-    <article
-      className="control-preview"
-      aria-label="Example control boundary: refund-bot proposes a 75 dollar refund, TrustLoopGuard requires approval, and execution does not start."
-    >
+    <article className="control-preview" aria-label={copy.previewLabel}>
       <header className="control-preview-header">
         <div>
           <span className="control-live-dot" aria-hidden="true" />
-          Live control boundary
+          {copy.liveBoundary}
         </div>
         <code>POST /v1/financial/actions</code>
       </header>
@@ -142,7 +224,7 @@ function ControlBoundaryPreview() {
       <div className="control-proposal">
         <span className="control-node-number">01</span>
         <div>
-          <p>Agent proposes</p>
+          <p>{copy.proposes}</p>
           <strong>issue_refund</strong>
           <dl>
             <div>
@@ -155,7 +237,7 @@ function ControlBoundaryPreview() {
             </div>
           </dl>
         </div>
-        <span className="control-proposal-state">Proposed</span>
+        <span className="control-proposal-state">{copy.proposed}</span>
       </div>
 
       <div className="control-gate">
@@ -163,19 +245,19 @@ function ControlBoundaryPreview() {
           <span />
         </div>
         <div className="control-gate-copy">
-          <p>TrustLoopGuard checks</p>
+          <p>{copy.checks}</p>
           <ul>
             <li>
-              <span>Authority</span>
-              <strong>pass</strong>
+              <span>{copy.authority}</span>
+              <strong>{copy.pass}</strong>
             </li>
             <li>
-              <span>Order evidence</span>
-              <strong>pass</strong>
+              <span>{copy.orderEvidence}</span>
+              <strong>{copy.pass}</strong>
             </li>
             <li>
-              <span>Refund policy</span>
-              <strong className="control-check-held">approval</strong>
+              <span>{copy.refundPolicy}</span>
+              <strong className="control-check-held">{copy.approval}</strong>
             </li>
           </ul>
         </div>
@@ -183,16 +265,16 @@ function ControlBoundaryPreview() {
 
       <div className="control-decision">
         <div className="control-decision-stamp">
-          <small>Effect</small>
+          <small>{copy.effect}</small>
           <strong>REQUIRE</strong>
           <strong>APPROVAL</strong>
         </div>
         <div className="control-decision-copy">
-          <p>Typed decision returned</p>
+          <p>{copy.decisionReturned}</p>
           <code>effect: require_approval</code>
           <div>
-            <span>Execution not started</span>
-            <span>Receipt reserved</span>
+            <span>{copy.executionNotStarted}</span>
+            <span>{copy.receiptReserved}</span>
           </div>
         </div>
       </div>
@@ -200,9 +282,9 @@ function ControlBoundaryPreview() {
       <footer className="control-preview-footer">
         <span>
           <StopIcon />
-          Side effect stopped at the boundary
+          {copy.stopped}
         </span>
-        <strong>No Stripe call made</strong>
+        <strong>{copy.noStripeCall}</strong>
       </footer>
     </article>
   );

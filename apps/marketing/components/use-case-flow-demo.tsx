@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { UseCaseDemo, UseCaseDemoEffect, UseCaseDemoField } from '@/app/use-cases/content';
+import type { MarketingLocale } from '@/lib/marketing-locale';
 
 const EFFECT_LABELS: Record<UseCaseDemoEffect, string> = {
   permit: 'Permit',
@@ -8,39 +9,55 @@ const EFFECT_LABELS: Record<UseCaseDemoEffect, string> = {
   deny: 'Denied',
 };
 
-export function UseCaseFlowDemo({ demo }: { demo: UseCaseDemo }) {
+const EFFECT_LABELS_VI: Record<UseCaseDemoEffect, string> = {
+  permit: 'Cho phép',
+  transform: 'Chuyển đổi',
+  require_approval: 'Cần phê duyệt',
+  deny: 'Từ chối',
+};
+
+export function UseCaseFlowDemo({
+  demo,
+  locale = 'en',
+}: {
+  demo: UseCaseDemo;
+  locale?: MarketingLocale;
+}) {
+  const isVietnamese = locale === 'vi';
+  const effectLabels = isVietnamese ? EFFECT_LABELS_VI : EFFECT_LABELS;
+
   return (
     <div className="use-case-flow-demo" data-kind={demo.kind}>
       <div className="use-case-flow-demo-grid">
-        <FlowStage number="01" label="Proposed action">
+        <FlowStage number="01" label={isVietnamese ? 'Hành động đề xuất' : 'Proposed action'}>
           <h3>{demo.proposalTitle}</h3>
           <code>{demo.proposalCode}</code>
           <FieldList fields={demo.proposalFields} />
         </FlowStage>
 
-        <FlowStage number="02" label="Policy check">
+        <FlowStage number="02" label={isVietnamese ? 'Kiểm tra chính sách' : 'Policy check'}>
           <h3>{demo.policyTitle}</h3>
           <FieldList fields={demo.policyFields} />
           <span className="use-case-flow-demo-active">
             <i aria-hidden="true" />
-            Policy on
+            {isVietnamese ? 'Chính sách đang bật' : 'Policy on'}
           </span>
         </FlowStage>
 
-        <FlowStage number="03" label="Decision">
-          <h3>Return an explicit effect</h3>
+        <FlowStage number="03" label={isVietnamese ? 'Quyết định' : 'Decision'}>
+          <h3>{isVietnamese ? 'Trả về hiệu lực rõ ràng' : 'Return an explicit effect'}</h3>
           <div className="use-case-flow-demo-decisions">
             {demo.decisions.map((decision) => (
               <div key={decision.subject} data-effect={decision.effect}>
                 <span>{decision.subject}</span>
-                <strong>{EFFECT_LABELS[decision.effect]}</strong>
+                <strong>{effectLabels[decision.effect]}</strong>
                 <small>{decision.detail}</small>
               </div>
             ))}
           </div>
         </FlowStage>
 
-        <FlowStage number="04" label="Execution">
+        <FlowStage number="04" label={isVietnamese ? 'Thực thi' : 'Execution'}>
           <h3>{demo.executionTitle}</h3>
           <div className="use-case-flow-demo-gate" aria-hidden="true">
             <span />
@@ -52,7 +69,7 @@ export function UseCaseFlowDemo({ demo }: { demo: UseCaseDemo }) {
       </div>
 
       <div className="use-case-flow-demo-boundary">
-        <span>Execution boundary</span>
+        <span>{isVietnamese ? 'Ranh giới thực thi' : 'Execution boundary'}</span>
         <strong>{demo.boundary}</strong>
       </div>
     </div>
