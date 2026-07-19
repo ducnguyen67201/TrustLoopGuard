@@ -11,6 +11,7 @@ import {
   type HealthcareDemoRequest,
   type HealthcareDemoResponse,
   type HealthcarePolicy,
+  type HealthcarePolicyInventory,
 } from './contract';
 
 const PRESETS = [
@@ -69,6 +70,9 @@ export function HealthcareDemo() {
   const [response, setResponse] = useState<HealthcareDemoResponse | null>(null);
   const [policies, setPolicies] = useState<HealthcarePolicy[]>([]);
   const [inventoryState, setInventoryState] = useState<InventoryState>('loading');
+  const [inventorySource, setInventorySource] = useState<
+    HealthcarePolicyInventory['source'] | null
+  >(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -80,6 +84,7 @@ export function HealthcareDemo() {
         const inventory = sanitizeHealthcarePolicyInventory(await result.json());
         if (!active) return;
         setPolicies(inventory.policies);
+        setInventorySource(inventory.source);
         setInventoryState('ready');
       } catch {
         if (active) setInventoryState('error');
@@ -154,8 +159,11 @@ export function HealthcareDemo() {
 
       const body = sanitizeHealthcareDemoResponse(await result.json());
       setResponse(body);
-      setPolicies(body.policies);
-      setInventoryState('ready');
+      if (body.policies.length > 0) {
+        setPolicies(body.policies);
+        setInventorySource('rust');
+        setInventoryState('ready');
+      }
       setMessages((current) => [...current, displayMessage('assistant', body.reply)].slice(-8));
       setRunState('success');
       trackMarketingEvent('healthcare_demo_decision_shown', {
@@ -301,10 +309,16 @@ export function HealthcareDemo() {
             </div>
           </section>
 
-          <section aria-labelledby="active-policies-title">
+          <section aria-labelledby="policy-checks-title">
             <div className={styles['monitorSectionHeading']}>
-              <h3 id="active-policies-title">Active Rust policies</h3>
-              <span>{policies.length} enabled</span>
+              <h3 id="policy-checks-title">Policies checked</h3>
+              <span>
+                {inventoryState === 'loading'
+                  ? 'Loading'
+                  : inventoryState === 'error'
+                    ? 'Unavailable'
+                    : `${policies.length} ${inventorySource === 'rust' ? 'active' : 'in pack'}`}
+              </span>
             </div>
             {inventoryState === 'loading' ? (
               <p className={styles['inventoryNotice']} role="status">
@@ -316,7 +330,13 @@ export function HealthcareDemo() {
                 Policy inventory unavailable. Chat checks still fail closed.
               </p>
             ) : null}
-            {inventoryState === 'ready' && policies.length === 0 ? (
+            {inventoryState === 'ready' && inventorySource === 'demo_template' ? (
+              <p className={styles['inventoryNotice']} role="status">
+                <strong>Policy pack preview.</strong> The Rust registry is unavailable, so these
+                are the policies the demo setup installs. Runtime checks still fail closed.
+              </p>
+            ) : null}
+            {inventoryState === 'ready' && inventorySource === 'rust' && policies.length === 0 ? (
               <p className={styles['inventoryNotice']}>
                 No enabled healthcare demo policies were found. Run the demo setup command.
               </p>
@@ -327,14 +347,18 @@ export function HealthcareDemo() {
                   key={policy.id}
                   className={`${styles['policyCard']} ${
                     matchedPolicyIds.has(policy.id) ? styles['matchedPolicy'] : ''
-                  }`}
+                  } ${policy.enabled ? '' : styles['previewPolicy']}`}
                 >
                   <span className={styles['policyDot']} aria-hidden="true" />
                   <div>
                     <strong>{policy.description ?? policy.id}</strong>
                     <code>{policy.id}</code>
+                    <span className={styles['policyStatus']}>
+                      {policy.enabled ? 'Active in Rust' : 'Policy pack preview'}
+                    </span>
                   </div>
                   <div className={styles['policyMeta']}>
+                    {policy.phase !== undefined ? <span>{policy.phase}</span> : null}
                     <span>{policy.severity}</span>
                     <span>{policy.action ?? 'check'}</span>
                   </div>

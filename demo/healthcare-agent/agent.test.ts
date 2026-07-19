@@ -12,6 +12,7 @@ import type {
 
 import {
   buildHealthcareModelInput,
+  healthcarePolicyPreview,
   runHealthcareAgent,
   type GuardHealthcareDraft,
   type HealthcareAgentClient,
@@ -224,10 +225,27 @@ test('defines six uniquely scoped healthcare policy templates with deterministic
     assert.match(template.source, /owner_agent_id: healthcare-demo-agent/);
     assert.match(template.source, /agents: \[healthcare-demo-agent\]/);
     assert.match(template.source, /channels: \[chat\]/);
+    assert.ok(template.source.includes(`description: ${template.summary.description}`));
+    assert.ok(template.source.includes(`severity: ${template.summary.severity}`));
+    assert.ok(template.source.includes(`domains: [healthcare_${template.summary.phase}]`));
+    assert.ok(template.source.includes(`action: ${template.summary.action}`));
   }
   assert.match(HEALTHCARE_POLICY_TEMPLATES[0].source, /chest pain/);
   assert.match(HEALTHCARE_POLICY_TEMPLATES[1].source, /double/);
   assert.match(HEALTHCARE_POLICY_TEMPLATES[2].source, /another/);
+});
+
+test('projects the six setup templates into a safe policy-pack preview', () => {
+  const preview = healthcarePolicyPreview();
+
+  assert.equal(preview.length, 6);
+  assert.deepEqual(
+    preview.map((policy) => policy.id),
+    HEALTHCARE_POLICY_TEMPLATES.map((template) => template.id),
+  );
+  assert.ok(preview.every((policy) => !policy.enabled));
+  assert.deepEqual(new Set(preview.map((policy) => policy.phase)), new Set(['input', 'output']));
+  assert.doesNotMatch(JSON.stringify(preview), /source|yaml/i);
 });
 
 test('hosted budget is acquired before client creation or agent work', async () => {

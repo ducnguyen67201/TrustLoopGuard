@@ -2,12 +2,14 @@ import { randomUUID } from 'node:crypto';
 
 import { createClient } from '../shared/env';
 import {
+  healthcarePolicyPreview,
   readHealthcarePolicies,
   runHealthcareAgent,
   type HealthcareAgentClient,
   type HealthcareAgentDependencies,
   type HealthcareAgentRequest,
   type HealthcareAgentResult,
+  type HealthcarePolicyPreview,
   type HealthcarePolicySummary,
 } from './agent';
 
@@ -19,10 +21,17 @@ export interface HostedHealthcareDemoResponse extends HealthcareAgentResult {
   };
 }
 
-export interface HostedHealthcarePolicyInventoryResponse {
-  policies: HealthcarePolicySummary[];
-  runtime: HostedHealthcareDemoResponse['runtime'];
-}
+export type HostedHealthcarePolicyInventoryResponse =
+  | {
+      policies: HealthcarePolicySummary[];
+      source: 'rust';
+      runtime: HostedHealthcareDemoResponse['runtime'];
+    }
+  | {
+      policies: HealthcarePolicyPreview[];
+      source: 'demo_template';
+      runtime: HostedHealthcareDemoResponse['runtime'];
+    };
 
 export interface HealthcareDemoBudget {
   tryAcquire(now?: number): boolean;
@@ -106,6 +115,15 @@ export async function readHostedHealthcareDemoPolicies(
   const client = (dependencies.createClient ?? createClient)();
   return {
     policies: await readHealthcarePolicies(client),
+    source: 'rust',
+    runtime: healthcareRuntime(),
+  };
+}
+
+export function readHostedHealthcareDemoPolicyPreview(): HostedHealthcarePolicyInventoryResponse {
+  return {
+    policies: healthcarePolicyPreview(),
+    source: 'demo_template',
     runtime: healthcareRuntime(),
   };
 }

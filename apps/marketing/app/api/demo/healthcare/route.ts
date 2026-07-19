@@ -1,5 +1,6 @@
 import {
   HealthcareDemoBudgetExceededError,
+  readHostedHealthcareDemoPolicyPreview,
   readHostedHealthcareDemoPolicies,
   runHostedHealthcareDemo,
   type HostedHealthcareDemoResponse,
@@ -44,15 +45,15 @@ export function createHealthcareDemoHandlers(
         headers: { 'cache-control': 'no-store' },
       });
     } catch (error) {
-      console.error(
-        'healthcare demo policy inventory failed',
+      console.warn(
+        'healthcare demo policy inventory unavailable; showing template preview',
         error instanceof Error
           ? `${error.name}: ${error.message}`.slice(0, 500)
           : 'unknown error',
       );
       return NextResponse.json(
-        { error: 'The policy inventory is temporarily unavailable.' },
-        { status: 503 },
+        sanitizeHealthcarePolicyInventory(readHostedHealthcareDemoPolicyPreview()),
+        { headers: { 'cache-control': 'no-store' } },
       );
     }
   }

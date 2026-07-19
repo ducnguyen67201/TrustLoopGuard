@@ -17,7 +17,9 @@ import {
   HEALTHCARE_AGENT_INSTRUCTIONS,
   HEALTHCARE_INPUT_DOMAIN,
   HEALTHCARE_OUTPUT_DOMAIN,
+  HEALTHCARE_POLICY_TEMPLATES,
   HEALTHCARE_SAFE_MESSAGES,
+  type HealthcarePolicyPhase,
 } from './config';
 
 const MAX_MODEL_OUTPUT_TOKENS = 300;
@@ -64,12 +66,21 @@ export type HealthcarePhaseCheck<Phase extends HealthcareCheckSummary['phase']> 
   'phase'
 > & { phase: Phase };
 
-export interface HealthcarePolicySummary {
+interface HealthcarePolicyDetails {
   id: string;
   description?: string;
   severity: Severity;
   action?: string;
+  phase?: HealthcarePolicyPhase;
+}
+
+export interface HealthcarePolicySummary extends HealthcarePolicyDetails {
   enabled: true;
+}
+
+export interface HealthcarePolicyPreview extends HealthcarePolicyDetails {
+  phase: HealthcarePolicyPhase;
+  enabled: false;
 }
 
 export interface HealthcareAgentResult {
@@ -233,6 +244,14 @@ export async function readHealthcarePolicies(
   return projectPolicies(response.policies);
 }
 
+export function healthcarePolicyPreview(): HealthcarePolicyPreview[] {
+  return HEALTHCARE_POLICY_TEMPLATES.map((template) => ({
+    id: template.id,
+    ...template.summary,
+    enabled: false,
+  }));
+}
+
 async function guardHealthcareDraft(
   request: GuardHealthcareDraftRequest,
 ): Promise<GuardHealthcareDraftResult> {
@@ -370,15 +389,23 @@ function projectPolicies(policies: PolicySummary[]): HealthcarePolicySummary[] {
         left.id.localeCompare(right.id),
     )
     .slice(0, MAX_POLICIES)
-    .map((policy) => ({
-      id: cap(policy.id, 200),
-      ...(policy.description === undefined
-        ? {}
-        : { description: cap(policy.description, MAX_DESCRIPTION_CHARACTERS) }),
-      severity: policy.severity,
-      ...(policy.action === undefined ? {} : { action: cap(policy.action, 100) }),
-      enabled: true,
-    }));
+    .map((policy) => {
+      const phase = policyTemplatePhase(policy.id);
+      return {
+        id: cap(policy.id, 200),
+        ...(policy.description === undefined
+          ? {}
+          : { description: cap(policy.description, MAX_DESCRIPTION_CHARACTERS) }),
+        severity: policy.severity,
+        ...(policy.action === undefined ? {} : { action: cap(policy.action, 100) }),
+        ...(phase === undefined ? {} : { phase }),
+        enabled: true,
+      };
+    });
+}
+
+function policyTemplatePhase(policyId: string): HealthcarePolicyPhase | undefined {
+  return HEALTHCARE_POLICY_TEMPLATES.find((template) => template.id === policyId)?.summary.phase;
 }
 
 async function readHealthcarePoliciesSafely(

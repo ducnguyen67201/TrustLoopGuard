@@ -1,4 +1,4 @@
-import type { AgentProfile } from '@trustloopguard/sdk';
+import type { AgentProfile, Severity } from '@trustloopguard/sdk';
 
 export const HEALTHCARE_AGENT_ID = 'healthcare-demo-agent';
 export const HEALTHCARE_AGENT_DISPLAY_NAME = 'CareDesk Healthcare Demo';
@@ -96,14 +96,30 @@ export const HEALTHCARE_PRESETS = [
 
 export type HealthcarePresetId = (typeof HEALTHCARE_PRESETS)[number]['id'];
 
+export type HealthcarePolicyPhase = 'input' | 'output';
+
+export interface HealthcarePolicyTemplateSummary {
+  description: string;
+  severity: Severity;
+  action: 'deny' | 'transform';
+  phase: HealthcarePolicyPhase;
+}
+
 export interface HealthcarePolicyTemplate {
   id: string;
+  summary: HealthcarePolicyTemplateSummary;
   source: string;
 }
 
 export const HEALTHCARE_POLICY_TEMPLATES: readonly HealthcarePolicyTemplate[] = [
   {
     id: 'healthcare-emergency-input',
+    summary: {
+      description: 'Escalate emergency symptoms before model generation.',
+      severity: 'critical',
+      action: 'deny',
+      phase: 'input',
+    },
     source: `id: healthcare-emergency-input
 description: Escalate emergency symptoms before model generation.
 severity: critical
@@ -121,6 +137,12 @@ action: deny
   },
   {
     id: 'healthcare-clinical-advice-input',
+    summary: {
+      description: 'Keep the scheduling agent out of diagnosis and prescribing.',
+      severity: 'high',
+      action: 'deny',
+      phase: 'input',
+    },
     source: `id: healthcare-clinical-advice-input
 description: Keep the scheduling agent out of diagnosis and prescribing.
 severity: high
@@ -138,6 +160,12 @@ action: deny
   },
   {
     id: 'healthcare-other-patient-data-input',
+    summary: {
+      description: "Refuse requests for another person's health information.",
+      severity: 'critical',
+      action: 'deny',
+      phase: 'input',
+    },
     source: `id: healthcare-other-patient-data-input
 description: Refuse requests for another person's health information.
 severity: critical
@@ -155,6 +183,12 @@ action: deny
   },
   {
     id: 'healthcare-clinical-advice-output',
+    summary: {
+      description: 'Replace clinical recommendations with a clinician handoff.',
+      severity: 'high',
+      action: 'transform',
+      phase: 'output',
+    },
     source: `id: healthcare-clinical-advice-output
 description: Replace clinical recommendations with a clinician handoff.
 severity: high
@@ -173,6 +207,12 @@ rewrite: "I can help schedule a visit, but I can't diagnose symptoms or recommen
   },
   {
     id: 'healthcare-identifier-output',
+    summary: {
+      description: 'Suppress patient identifiers and unverified record disclosure.',
+      severity: 'critical',
+      action: 'deny',
+      phase: 'output',
+    },
     source: `id: healthcare-identifier-output
 description: Suppress patient identifiers and unverified record disclosure.
 severity: critical
@@ -191,6 +231,12 @@ action: deny
   },
   {
     id: 'healthcare-respectful-output',
+    summary: {
+      description: 'Replace demeaning or dismissive healthcare replies with a calm handoff.',
+      severity: 'high',
+      action: 'transform',
+      phase: 'output',
+    },
     source: `id: healthcare-respectful-output
 description: Replace demeaning or dismissive healthcare replies with a calm handoff.
 severity: high

@@ -43,6 +43,8 @@ const findingSchema = z.object({
   reason: z.string().max(500),
 });
 
+const policyPhaseSchema = z.enum(['input', 'output']);
+
 const checkFields = {
   status: z.enum(['checked', 'skipped', 'unavailable']),
   effect: effectSchema.optional(),
@@ -62,12 +64,23 @@ const outputCheckSchema = z.object({
   ...checkFields,
 });
 
-const policySchema = z.object({
+const policyFields = {
   id: z.string().max(200),
   description: z.string().max(300).optional(),
   severity: severitySchema,
   action: z.string().max(100).optional(),
+  phase: policyPhaseSchema.optional(),
+};
+
+const activePolicySchema = z.object({
+  ...policyFields,
   enabled: z.literal(true),
+});
+
+const previewPolicySchema = z.object({
+  ...policyFields,
+  phase: policyPhaseSchema,
+  enabled: z.literal(false),
 });
 
 const runtimeSchema = z.object({
@@ -80,20 +93,28 @@ const healthcareDemoResponseSchema = z.object({
   reply: z.string().min(1).max(2_000),
   modelCalled: z.boolean(),
   checks: z.tuple([inputCheckSchema, outputCheckSchema]),
-  policies: z.array(policySchema).max(20),
+  policies: z.array(activePolicySchema).max(20),
   runtime: runtimeSchema,
 });
 
-const healthcarePolicyInventorySchema = z.object({
-  policies: z.array(policySchema).max(20),
-  runtime: runtimeSchema,
-});
+const healthcarePolicyInventorySchema = z.discriminatedUnion('source', [
+  z.object({
+    policies: z.array(activePolicySchema).max(20),
+    source: z.literal('rust'),
+    runtime: runtimeSchema,
+  }),
+  z.object({
+    policies: z.array(previewPolicySchema).max(20),
+    source: z.literal('demo_template'),
+    runtime: runtimeSchema,
+  }),
+]);
 
 export type HealthcareDemoRequest = z.infer<typeof healthcareDemoRequestSchema>;
 export type HealthcareDemoResponse = z.infer<typeof healthcareDemoResponseSchema>;
 export type HealthcareCheck = HealthcareDemoResponse['checks'][number];
-export type HealthcarePolicy = HealthcareDemoResponse['policies'][number];
 export type HealthcarePolicyInventory = z.infer<typeof healthcarePolicyInventorySchema>;
+export type HealthcarePolicy = HealthcarePolicyInventory['policies'][number];
 
 export function parseHealthcareDemoRequest(
   input: z.input<typeof healthcareDemoRequestSchema>,

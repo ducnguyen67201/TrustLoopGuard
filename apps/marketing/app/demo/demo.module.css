@@ -755,9 +755,14 @@
 }
 
 .matchedPolicy {
+  border-style: solid;
   border-color: var(--color-accent);
   background: var(--color-accent-wash);
   box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.previewPolicy {
+  border-style: dashed;
 }
 
 .policyDot {
@@ -773,10 +778,36 @@
   box-shadow: 0 0 0 0.2rem var(--color-accent-wash);
 }
 
+.previewPolicy .policyDot {
+  background: var(--color-muted);
+  opacity: 0.55;
+}
+
+.previewPolicy.matchedPolicy {
+  border-style: solid;
+}
+
+.previewPolicy.matchedPolicy .policyDot {
+  background: var(--color-accent);
+  box-shadow: 0 0 0 0.2rem var(--color-accent-wash);
+  opacity: 1;
+}
+
 .policyCard strong,
 .policyCard code {
   display: block;
   overflow-wrap: anywhere;
+}
+
+.policyStatus {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--color-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .policyCard strong {

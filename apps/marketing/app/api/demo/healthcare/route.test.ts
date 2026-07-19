@@ -164,8 +164,33 @@ test('loads the Rust-owned policy inventory through a no-store GET', async () =>
 
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal(body.source, 'rust');
   assert.equal(body.policies[0].id, 'healthcare-emergency-input');
+  assert.equal(body.policies[0].phase, 'input');
   assert.equal(body.policies[0].enabled, true);
+  assert.equal(body.policies[0].source_yaml, undefined);
+});
+
+test('shows a labeled policy-pack preview when the Rust inventory is unavailable', async () => {
+  const { GET } = handlers({
+    readPolicies: async () => {
+      throw new Error('Rust registry unavailable');
+    },
+  });
+
+  const response = await GET();
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal(body.source, 'demo_template');
+  assert.equal(body.policies.length, 6);
+  assert.ok(body.policies.every((policy: { enabled: boolean }) => !policy.enabled));
+  assert.deepEqual(
+    new Set(body.policies.map((policy: { phase: string }) => policy.phase)),
+    new Set(['input', 'output']),
+  );
+  assert.equal(body.policies[0].source, undefined);
   assert.equal(body.policies[0].source_yaml, undefined);
 });
 
@@ -184,6 +209,8 @@ test('the page exposes chat, policies, boundaries, and synthetic-data warnings',
   assert.match(source, /TrustLoopGuard policy monitor/i);
   assert.match(source, /Input boundary/i);
   assert.match(source, /Output boundary/i);
+  assert.match(source, /Policies checked/i);
+  assert.match(source, /Policy pack preview/i);
   assert.match(source, /Synthetic demo only/i);
   assert.match(source, /do not enter real patient information/i);
   assert.match(source, /fetch\('\/api\/demo\/healthcare'/);
@@ -252,7 +279,10 @@ function workflowPayload(): HostedHealthcareDemoResponse {
   };
 }
 
-function inventoryPayload(): HostedHealthcarePolicyInventoryResponse {
+function inventoryPayload(): Extract<
+  HostedHealthcarePolicyInventoryResponse,
+  { source: 'rust' }
+> {
   return {
     policies: [
       {
@@ -260,9 +290,11 @@ function inventoryPayload(): HostedHealthcarePolicyInventoryResponse {
         description: 'Escalate emergency symptoms before model generation.',
         severity: 'critical',
         action: 'deny',
+        phase: 'input',
         enabled: true,
       },
     ],
+    source: 'rust',
     runtime: {
       agent: 'openai-responses',
       guard: 'trustloopguard-rust-api',

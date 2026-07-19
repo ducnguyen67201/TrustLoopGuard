@@ -276,6 +276,9 @@ pnpm marketing:dev
 Run the setup command again safely whenever the templates change. It upserts
 the same `healthcare-demo-agent` profile and six policy IDs, validates their
 YAML through Rust, and explicitly re-enables them for the selected environment.
+If the Rust registry is unavailable, the monitor shows a clearly labeled
+preview derived from these same setup templates; it never labels preview
+policies as active.
 Store production values in the deployment secret manager and never expose them
 through `NEXT_PUBLIC_*` variables. Pin and evaluate the production model through
 the existing `OPENAI_MODEL` setting before a customer deployment.
