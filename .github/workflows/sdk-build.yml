@@ -43,7 +43,7 @@ jobs:
           # `packageManager` from package.json. Specifying both here
           # errors with ERR_PNPM_BAD_PM_VERSION.
           run_install: false
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: pnpm
