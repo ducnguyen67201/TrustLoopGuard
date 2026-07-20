@@ -15,7 +15,6 @@ import {
   type HealthcareDemoRequest,
   type HealthcareDemoResponse,
   type HealthcarePolicy,
-  type HealthcarePolicyInventory,
 } from './contract';
 
 const MODEL_DRAFT_START_MS = 700;
@@ -61,9 +60,6 @@ export function HealthcareDemo({
   const [response, setResponse] = useState<HealthcareDemoResponse | null>(null);
   const [policies, setPolicies] = useState<HealthcarePolicy[]>([]);
   const [inventoryState, setInventoryState] = useState<InventoryState>('loading');
-  const [inventorySource, setInventorySource] = useState<
-    HealthcarePolicyInventory['source'] | null
-  >(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -75,7 +71,6 @@ export function HealthcareDemo({
         const inventory = sanitizeHealthcarePolicyInventory(await result.json());
         if (!active) return;
         setPolicies(inventory.policies);
-        setInventorySource(inventory.source);
         setInventoryState('ready');
       } catch {
         if (active) setInventoryState('error');
@@ -165,7 +160,6 @@ export function HealthcareDemo({
       setResponse(body);
       if (body.policies.length > 0) {
         setPolicies(body.policies);
-        setInventorySource('rust');
         setInventoryState('ready');
       }
       setMessages((current) => [...current, displayMessage('assistant', body.reply)].slice(-8));
@@ -322,13 +316,7 @@ export function HealthcareDemo({
             <div className={styles['monitorSectionHeading']}>
               <h3 id="policy-checks-title">{copy.policiesChecked}</h3>
               <span aria-live="polite">
-                {policyMonitorSummary(
-                  runState,
-                  policies,
-                  inventoryState,
-                  inventorySource,
-                  locale,
-                )}
+                {policyMonitorSummary(runState, policies, inventoryState, locale)}
               </span>
             </div>
             {inventoryState === 'loading' ? (
@@ -341,12 +329,7 @@ export function HealthcareDemo({
                 {copy.inventoryUnavailable}
               </p>
             ) : null}
-            {inventoryState === 'ready' && inventorySource === 'demo_template' ? (
-              <p className={styles['inventoryNotice']} role="status">
-                <strong>{copy.previewTitle}</strong> {copy.previewExplanation}
-              </p>
-            ) : null}
-            {inventoryState === 'ready' && inventorySource === 'rust' && policies.length === 0 ? (
+            {inventoryState === 'ready' && policies.length === 0 ? (
               <p className={styles['inventoryNotice']}>{copy.noPolicies}</p>
             ) : null}
             <div className={styles['policyList']}>
@@ -361,16 +344,14 @@ export function HealthcareDemo({
                       matched ? styles['matchedPolicy'] : ''
                     } ${scanning ? styles['scanningPolicy'] : ''} ${
                       phaseCheck?.status === 'checked' ? styles['checkedPolicy'] : ''
-                    } ${phaseCheck?.status === 'skipped' ? styles['skippedPolicy'] : ''} ${
-                      policy.enabled ? '' : styles['previewPolicy']
-                    }`}
+                    } ${phaseCheck?.status === 'skipped' ? styles['skippedPolicy'] : ''}`}
                   >
                     <span className={styles['policyDot']} aria-hidden="true" />
                     <div>
                       <strong>{localizedPolicyDescription(policy, locale)}</strong>
                       <code>{policy.id}</code>
                       <span className={styles['policyStatus']}>
-                        {policyStatusLabel(policy, scanning, matched, phaseCheck, locale)}
+                        {policyStatusLabel(scanning, matched, phaseCheck, locale)}
                       </span>
                     </div>
                     <div className={styles['policyMeta']}>
@@ -550,11 +531,9 @@ function policyMonitorSummary(
   runState: RunState,
   policies: HealthcarePolicy[],
   inventoryState: InventoryState,
-  inventorySource: HealthcarePolicyInventory['source'] | null,
   locale: HealthcareDemoLocale,
 ): string {
   const copy = HEALTHCARE_UI_COPY[locale];
-  if (isRunning(runState) && inventorySource !== 'rust') return copy.awaitingRust;
   if (runState === 'checking_input') {
     return copy.inputChecksRunning(policyPhaseCount(policies, 'input'));
   }
@@ -564,9 +543,7 @@ function policyMonitorSummary(
   }
   if (inventoryState === 'loading') return copy.loading;
   if (inventoryState === 'error') return copy.unavailable;
-  return inventorySource === 'rust'
-    ? copy.activePolicies(policies.length)
-    : copy.packPolicies(policies.length);
+  return copy.activePolicies(policies.length);
 }
 
 function policyPhaseCount(
@@ -577,7 +554,6 @@ function policyPhaseCount(
 }
 
 function isPolicyScanning(policy: HealthcarePolicy, runState: RunState): boolean {
-  if (!policy.enabled) return false;
   return (
     (policy.phase === 'input' && runState === 'checking_input') ||
     (policy.phase === 'output' && runState === 'checking_output')
@@ -594,7 +570,6 @@ function policyPhaseCheck(
 }
 
 function policyStatusLabel(
-  policy: HealthcarePolicy,
   scanning: boolean,
   matched: boolean,
   phaseCheck: HealthcareCheck | undefined,
@@ -606,7 +581,7 @@ function policyStatusLabel(
   if (phaseCheck?.status === 'checked') return copy.checkedThisTurn;
   if (phaseCheck?.status === 'skipped') return copy.skippedThisTurn;
   if (phaseCheck?.status === 'unavailable') return copy.checkUnavailable;
-  return policy.enabled ? copy.activeInRust : copy.policyPackPreview;
+  return copy.activeInRust;
 }
 
 function localizedPolicyDescription(

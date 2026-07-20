@@ -1,17 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
-import { createClient } from '../shared/env';
 import {
-  healthcarePolicyPreview,
   readHealthcarePolicies,
   runHealthcareAgent,
   type HealthcareAgentClient,
   type HealthcareAgentDependencies,
   type HealthcareAgentRequest,
   type HealthcareAgentResult,
-  type HealthcarePolicyPreview,
   type HealthcarePolicySummary,
 } from './agent';
+import { createHealthcareRuntimeClient } from './runtime-client';
 
 export interface HostedHealthcareDemoResponse extends HealthcareAgentResult {
   runtime: {
@@ -21,17 +19,11 @@ export interface HostedHealthcareDemoResponse extends HealthcareAgentResult {
   };
 }
 
-export type HostedHealthcarePolicyInventoryResponse =
-  | {
-      policies: HealthcarePolicySummary[];
-      source: 'rust';
-      runtime: HostedHealthcareDemoResponse['runtime'];
-    }
-  | {
-      policies: HealthcarePolicyPreview[];
-      source: 'demo_template';
-      runtime: HostedHealthcareDemoResponse['runtime'];
-    };
+export interface HostedHealthcarePolicyInventoryResponse {
+  policies: HealthcarePolicySummary[];
+  source: 'rust';
+  runtime: HostedHealthcareDemoResponse['runtime'];
+}
 
 export interface HealthcareDemoBudget {
   tryAcquire(now?: number): boolean;
@@ -92,7 +84,7 @@ export async function runHostedHealthcareDemo(
       console.info('[healthcare-demo]', { requestId, step });
     },
   };
-  const client = (dependencies.createClient ?? createClient)();
+  const client = (dependencies.createClient ?? createHealthcareRuntimeClient)();
   const runAgent = dependencies.runAgent ?? runHealthcareAgent;
 
   console.info('[healthcare-demo]', { requestId, step: 'request_received' });
@@ -112,18 +104,10 @@ export async function runHostedHealthcareDemo(
 export async function readHostedHealthcareDemoPolicies(
   dependencies: Pick<HostedHealthcareDemoDependencies, 'createClient'> = {},
 ): Promise<HostedHealthcarePolicyInventoryResponse> {
-  const client = (dependencies.createClient ?? createClient)();
+  const client = (dependencies.createClient ?? createHealthcareRuntimeClient)();
   return {
     policies: await readHealthcarePolicies(client),
     source: 'rust',
-    runtime: healthcareRuntime(),
-  };
-}
-
-export function readHostedHealthcareDemoPolicyPreview(): HostedHealthcarePolicyInventoryResponse {
-  return {
-    policies: healthcarePolicyPreview(),
-    source: 'demo_template',
     runtime: healthcareRuntime(),
   };
 }

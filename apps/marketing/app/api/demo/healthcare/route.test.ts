@@ -192,7 +192,7 @@ test('loads the Rust-owned policy inventory through a no-store GET', async () =>
   assert.equal(body.policies[0].source_yaml, undefined);
 });
 
-test('shows a labeled policy-pack preview when the Rust inventory is unavailable', async () => {
+test('returns unavailable instead of hard-coded policies when the Rust inventory fails', async () => {
   const { GET } = handlers({
     readPolicies: async () => {
       throw new Error('Rust registry unavailable');
@@ -202,17 +202,11 @@ test('shows a labeled policy-pack preview when the Rust inventory is unavailable
   const response = await GET();
   const body = await response.json();
 
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 503);
   assert.equal(response.headers.get('cache-control'), 'no-store');
-  assert.equal(body.source, 'demo_template');
-  assert.equal(body.policies.length, 6);
-  assert.ok(body.policies.every((policy: { enabled: boolean }) => !policy.enabled));
-  assert.deepEqual(
-    new Set(body.policies.map((policy: { phase: string }) => policy.phase)),
-    new Set(['input', 'output']),
-  );
-  assert.equal(body.policies[0].source, undefined);
-  assert.equal(body.policies[0].source_yaml, undefined);
+  assert.deepEqual(body, {
+    error: 'The healthcare policy registry is temporarily unavailable.',
+  });
 });
 
 test('the page exposes chat, policies, boundaries, and synthetic-data warnings', () => {
@@ -240,7 +234,8 @@ test('the page exposes chat, policies, boundaries, and synthetic-data warnings',
   assert.match(source, /Input boundary/i);
   assert.match(source, /Output boundary/i);
   assert.match(source, /Policies checked/i);
-  assert.match(source, /Policy pack preview/i);
+  assert.match(source, /Policy inventory unavailable/i);
+  assert.doesNotMatch(source, /Policy pack preview/i);
   assert.match(source, /Checking now/i);
   assert.match(source, /waitForMinimumDuration/i);
   assert.match(styles, /@keyframes policyScan/);
@@ -347,10 +342,7 @@ function workflowPayload(): HostedHealthcareDemoResponse {
   };
 }
 
-function inventoryPayload(): Extract<
-  HostedHealthcarePolicyInventoryResponse,
-  { source: 'rust' }
-> {
+function inventoryPayload(): HostedHealthcarePolicyInventoryResponse {
   return {
     policies: [
       {

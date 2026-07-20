@@ -14,6 +14,9 @@ export const API_KEY = process.env.TL_API_KEY;
 export const DEFAULT_AGENT_ID = process.env.TL_AGENT_ID ?? 'demo-acme-support';
 export const WORKSPACE_ID = process.env.TL_WORKSPACE_ID;
 export const ADMIN_USER_ID = cleanOptionalEnv(process.env.TL_ADMIN_USER_ID);
+export const HEALTHCARE_DEMO_API_KEY = cleanOptionalEnv(
+  process.env.TL_HEALTHCARE_DEMO_API_KEY,
+);
 export const REFUND_GRANT_ID = cleanOptionalEnv(process.env.TL_REFUND_GRANT_ID);
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 export const OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4.1-mini';

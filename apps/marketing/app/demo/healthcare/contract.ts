@@ -78,12 +78,6 @@ const activePolicySchema = z.object({
   enabled: z.literal(true),
 });
 
-const previewPolicySchema = z.object({
-  ...policyFields,
-  phase: policyPhaseSchema,
-  enabled: z.literal(false),
-});
-
 const runtimeSchema = z.object({
   agent: z.literal('openai-responses'),
   guard: z.literal('trustloopguard-rust-api'),
@@ -98,18 +92,11 @@ const healthcareDemoResponseSchema = z.object({
   runtime: runtimeSchema,
 });
 
-const healthcarePolicyInventorySchema = z.discriminatedUnion('source', [
-  z.object({
-    policies: z.array(activePolicySchema).max(20),
-    source: z.literal('rust'),
-    runtime: runtimeSchema,
-  }),
-  z.object({
-    policies: z.array(previewPolicySchema).max(20),
-    source: z.literal('demo_template'),
-    runtime: runtimeSchema,
-  }),
-]);
+const healthcarePolicyInventorySchema = z.object({
+  policies: z.array(activePolicySchema).max(20),
+  source: z.literal('rust'),
+  runtime: runtimeSchema,
+});
 
 export type HealthcareDemoRequest = z.infer<typeof healthcareDemoRequestSchema>;
 export type HealthcareDemoResponse = z.infer<typeof healthcareDemoResponseSchema>;
