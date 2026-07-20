@@ -39,7 +39,7 @@ import { SwitchyardMap } from './mcp-access/SwitchyardMap';
 export function McpAccessPageContent({ data }: { data: McpAccessPageData }) {
   const defaultTab = data.isAdmin ? 'overview' : 'connect';
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 sm:px-6 lg:px-8">
       <PageHeader
         eyebrow={data.activeWorkspace.name}
         title="MCP Access"
