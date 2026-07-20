@@ -13,7 +13,9 @@ export type MarketingEventName =
   | 'demo_decision_shown'
   | 'demo_policy_changed'
   | 'healthcare_demo_started'
-  | 'healthcare_demo_decision_shown';
+  | 'healthcare_demo_decision_shown'
+  | 'contextual_demo_started'
+  | 'contextual_demo_decision_shown';
 
 export interface MarketingEventParams extends Record<string, string | undefined> {
   page?: string;

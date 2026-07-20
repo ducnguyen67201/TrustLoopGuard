@@ -17,6 +17,9 @@ export const ADMIN_USER_ID = cleanOptionalEnv(process.env.TL_ADMIN_USER_ID);
 export const HEALTHCARE_DEMO_API_KEY = cleanOptionalEnv(
   process.env.TL_HEALTHCARE_DEMO_API_KEY,
 );
+export const CONTEXTUAL_DEMO_API_KEY = cleanOptionalEnv(
+  process.env.TL_CONTEXTUAL_DEMO_API_KEY,
+);
 export const REFUND_GRANT_ID = cleanOptionalEnv(process.env.TL_REFUND_GRANT_ID);
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 export const OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4.1-mini';

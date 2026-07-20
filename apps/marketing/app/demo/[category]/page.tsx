@@ -2,20 +2,20 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import { getDemoProfileBySlug } from '../../../lib/server/outbound-demo-profile-store';
+import { getGenericDemoProfile } from '../../../lib/server/outbound-demo-profile-store';
 import type { CompanyDemoViewModel } from '../company-profile';
 import styles from '../demo.module.css';
 import { CompanyDemo } from './company-demo';
 
 type CompanyDemoPageProps = {
-  params: Promise<{ company: string }>;
+  params: Promise<{ category: string }>;
 };
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: CompanyDemoPageProps): Promise<Metadata> {
-  const { company } = await params;
-  const profile = await getDemoProfileBySlug(company);
+  const { category } = await params;
+  const profile = await getGenericDemoProfile(category);
 
   return {
     title: profile ? `${profile.company_name} AI Guardrail Concept` : 'Personalized AI Guardrail Demo',
@@ -28,13 +28,14 @@ export async function generateMetadata({ params }: CompanyDemoPageProps): Promis
 }
 
 export default async function CompanyDemoPage({ params }: CompanyDemoPageProps) {
-  const { company } = await params;
-  const profile = await getDemoProfileBySlug(company);
+  const { category } = await params;
+  const profile = await getGenericDemoProfile(category);
   if (!profile) {
     notFound();
   }
 
   const demoProfile: CompanyDemoViewModel = {
+    slug: profile.slug,
     company_name: profile.company_name,
     scenario_id: profile.scenario_id,
     user_profile: profile.user_profile,
@@ -48,7 +49,6 @@ export default async function CompanyDemoPage({ params }: CompanyDemoPageProps) 
       secondary_color: profile.branding.secondary_color,
     },
     paths: profile.paths,
-    sources: profile.sources,
     disclaimer: profile.disclaimer,
   };
 

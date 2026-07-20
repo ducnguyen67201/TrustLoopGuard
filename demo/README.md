@@ -41,6 +41,7 @@ Optional environment:
 | `TL_WORKSPACE_ID` | unset | Optional local workspace header override, e.g. `ws_test` |
 | `TL_ADMIN_USER_ID` | unset | Optional owner/admin identity header for policy setup operations |
 | `TL_HEALTHCARE_DEMO_API_KEY` | unset | Workspace-scoped runtime key created by `healthcare-agent:setup`; required by the hosted healthcare demo |
+| `TL_CONTEXTUAL_DEMO_API_KEY` | unset | Agent-bound runtime key created by `contextual-agent:setup`; required by generic `/demo/{workflow-category}` chats |
 | `OPENAI_API_KEY` | unset | Enables real OpenAI-backed replies |
 | `OPENAI_MODEL` | `gpt-4.1-mini` | OpenAI model for LLM-backed replies |
 | `TL_USER_ID` | unset | Workspace owner/admin UUID — lets `dispute:setup` arm `enforce` checker modes |
@@ -49,6 +50,37 @@ Optional environment:
 | `STRIPE_PAYMENT_INTENT_ID` | seeded demo id | Optional Stripe test PaymentIntent id for the refund-agent order |
 | `STRIPE_REFUND_PROVIDER_PORT` | `9303` | Local provider sidecar port for Stripe refund execution |
 | `STRIPE_REFUND_PROVIDER_API_KEY` | local demo token | Bearer token TrustLoopGuard uses when calling the provider sidecar |
+
+## Contextual outbound demo agent
+
+Every generic personalized page at `http://localhost:3002/demo/{workflow-category}` uses one shared protected chat runtime. Creating or updating a profile does not create a workspace. All pages reuse the Rust-owned `Contextual Demo` workspace, its default environment, the `contextual-demo-agent` principal, one runtime key, and the reviewed `internal-agent-tool-action-v1` policy pack.
+
+The browser sends only the current message, a session id, and bounded chat history. Marketing loads the public profile server-side and adds its company/workflow/risk text as bounded model context. Rust checks the visitor input before OpenAI is called and checks the OpenAI draft before it is returned. The policy monitor reads Rust policy summaries and findings; it never derives policies from the profile.
+
+Start a configured Rust server, then provision the shared runtime once with an internal management credential and an approved owner/admin user:
+
+```sh
+pnpm --filter @trustloopguard/sdk build
+
+export TL_SERVER_URL=http://127.0.0.1:8080
+export TL_API_KEY=<internal-management-key>
+export TL_ADMIN_USER_ID=<approved-owner-or-admin-user-id>
+
+pnpm --filter @trustloopguard/demo contextual-agent:setup
+```
+
+The first setup prints `TL_CONTEXTUAL_DEMO_API_KEY` exactly once. Store it only in the Marketing server environment, remove setup credentials from that environment, and start Marketing with OpenAI configured:
+
+```sh
+export TL_SERVER_URL=http://127.0.0.1:8080
+export TL_CONTEXTUAL_DEMO_API_KEY=<tl_live_key_printed_by_setup>
+export OPENAI_API_KEY=<openai-key>
+export OPENAI_MODEL=gpt-4.1-mini
+
+pnpm marketing:dev
+```
+
+Setup is idempotent: it reuses the named workspace and default environment, disables the workspace's generic starter policies, upserts the same five reviewed policy IDs and agent, and reuses active runtime-key metadata. It never rotates or recreates the key implicitly. The running demo rejects an inventory with another enabled global or contextual-agent policy, keeping the monitor identical to the evaluated pack. The approved generic pack permits read-only discussion, defers shared changes to human review without creating an executable approval from a content observation, blocks authorization bypass and secret disclosure, and transforms false execution claims.
 
 ## Procurement agent
 
