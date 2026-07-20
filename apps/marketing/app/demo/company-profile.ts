@@ -151,6 +151,7 @@ export const outboundDemoProfileSchema = z
 export type DemoEffect = z.infer<typeof demoEffectSchema>;
 export type DemoCategory = z.infer<typeof demoCategorySchema>;
 export type OutboundDemoProfile = z.infer<typeof outboundDemoProfileSchema>;
+export type OutboundDemoLocale = 'en' | 'vi';
 export type CompanyDemoViewModel = Pick<
   OutboundDemoProfile,
   | 'slug'
@@ -175,6 +176,36 @@ export type JsonValue =
   | null
   | JsonValue[]
   | { [key: string]: JsonValue };
+
+const vietnameseProfileSignals = [
+  'trợ lý',
+  'không được',
+  'được phép',
+  'khách hàng',
+  'bệnh viện',
+] as const;
+
+export function inferOutboundDemoProfileLocale(
+  profile: Pick<
+    OutboundDemoProfile,
+    'workflow' | 'risk_boundary' | 'rule' | 'approval_step' | 'record_shown'
+  >,
+): OutboundDemoLocale {
+  const publicCopy = [
+    profile.workflow,
+    profile.risk_boundary,
+    profile.rule,
+    profile.approval_step,
+    profile.record_shown,
+  ]
+    .join(' ')
+    .toLocaleLowerCase('vi');
+  const matchingSignals = vietnameseProfileSignals.filter((signal) =>
+    publicCopy.includes(signal),
+  );
+
+  return matchingSignals.length >= 2 ? 'vi' : 'en';
+}
 
 export function parseOutboundDemoProfile(value: JsonValue): OutboundDemoProfile | null {
   const result = outboundDemoProfileSchema.safeParse(value);
