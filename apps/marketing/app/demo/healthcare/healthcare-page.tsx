@@ -1,14 +1,37 @@
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 
+import type { OutboundDemoProfile } from '../company-profile';
 import styles from '../demo.module.css';
 import { HEALTHCARE_PAGE_COPY, type HealthcareDemoLocale } from './content';
 import { HealthcareDemo } from './healthcare-demo';
 
-export function HealthcareDemoPageContent({ locale }: { locale: HealthcareDemoLocale }) {
+type PersonalizedHealthcareStyle = CSSProperties & {
+  '--color-accent': string;
+  '--color-accent-deep': string;
+  '--color-accent-wash': string;
+};
+
+type HealthcareDemoPageContentProps = {
+  locale: HealthcareDemoLocale;
+  profile?: OutboundDemoProfile;
+};
+
+export function HealthcareDemoPageContent({
+  locale,
+  profile,
+}: HealthcareDemoPageContentProps) {
   const copy = HEALTHCARE_PAGE_COPY[locale];
+  const brandStyle: PersonalizedHealthcareStyle | undefined = profile
+    ? {
+        '--color-accent': profile.branding.primary_color,
+        '--color-accent-deep': profile.branding.primary_color,
+        '--color-accent-wash': profile.branding.secondary_color,
+      }
+    : undefined;
 
   return (
-    <main className={styles['page']} lang={locale}>
+    <main className={styles['page']} lang={locale} style={brandStyle}>
       <header className={styles['topbar']}>
         <Link
           href={locale === 'vi' ? '/vi' : '/'}
@@ -19,7 +42,7 @@ export function HealthcareDemoPageContent({ locale }: { locale: HealthcareDemoLo
           <span>TrustLoopGuard</span>
         </Link>
         <div className={styles['stackStatus']}>
-          <span>OpenAI Responses</span>
+          <span>{profile?.company_name ?? 'OpenAI Responses'}</span>
           <i aria-hidden="true" />
           <span>TrustLoopGuard</span>
           <i aria-hidden="true" />
@@ -36,22 +59,47 @@ export function HealthcareDemoPageContent({ locale }: { locale: HealthcareDemoLo
 
       <section className={styles['intro']} aria-labelledby="healthcare-demo-title">
         <div>
-          <p className={styles['eyebrow']}>{copy.eyebrow}</p>
-          <h1 id="healthcare-demo-title">{copy.heading}</h1>
+          <p className={styles['eyebrow']}>
+            {profile ? `Prepared for ${profile.company_name}` : copy.eyebrow}
+          </p>
+          <h1 id="healthcare-demo-title">
+            {profile
+              ? `${profile.company_name} healthcare scheduling concept.`
+              : copy.heading}
+          </h1>
         </div>
-        <p className={styles['introCopy']}>{copy.introduction}</p>
+        <p className={styles['introCopy']}>
+          {profile?.risk_boundary ?? copy.introduction}
+        </p>
         <small className={styles['safetyNote']} aria-label={copy.safetyLabel}>
           {copy.safetyNote}
         </small>
       </section>
 
-      <HealthcareDemo locale={locale} />
+      <HealthcareDemo
+        locale={locale}
+        presentation={
+          profile
+            ? { companyName: profile.company_name, workflow: profile.workflow }
+            : undefined
+        }
+      />
 
       <footer className={styles['demoFooter']}>
-        <p>{copy.disclaimer}</p>
-        <Link href="/demo">
-          {copy.refundDemo} <span aria-hidden="true">→</span>
-        </Link>
+        <p>{profile?.disclaimer ?? copy.disclaimer}</p>
+        {profile ? (
+          <div className={styles['demoFooterSources']}>
+            {profile.sources.map((source) => (
+              <a key={source.url} href={source.url} target="_blank" rel="noreferrer">
+                {source.title} <span aria-hidden="true">↗</span>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <Link href="/demo">
+            {copy.refundDemo} <span aria-hidden="true">→</span>
+          </Link>
+        )}
       </footer>
     </main>
   );

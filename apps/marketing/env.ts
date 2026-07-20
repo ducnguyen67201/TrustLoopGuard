@@ -8,6 +8,9 @@ const postHogProjectToken = z
   .regex(/^phc_[A-Za-z0-9]+$/, 'Must be a PostHog project token');
 
 export const env = createEnv({
+  server: {
+    OUTBOUND_DEMO_DATABASE_URL: z.string().url().optional(),
+  },
   client: {
     NEXT_PUBLIC_BOOK_MEETING_URL: publicUrl.default(
       'https://calendar.app.google/aQc6ws3pDWpUKFzS9',
@@ -19,6 +22,7 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_HOST: publicUrl.default('https://us.i.posthog.com'),
   },
   runtimeEnv: {
+    OUTBOUND_DEMO_DATABASE_URL: process.env['OUTBOUND_DEMO_DATABASE_URL'],
     NEXT_PUBLIC_BOOK_MEETING_URL: process.env['NEXT_PUBLIC_BOOK_MEETING_URL'],
     NEXT_PUBLIC_DOCS_URL: process.env['NEXT_PUBLIC_DOCS_URL'],
     NEXT_PUBLIC_SITE_URL: process.env['NEXT_PUBLIC_SITE_URL'],

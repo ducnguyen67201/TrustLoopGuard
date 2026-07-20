@@ -274,7 +274,10 @@ test('the Vietnamese healthcare route reuses the guarded demo with localized met
   assert.match(page, /canonical: '\/vi\/demo\/healthcare'/);
   assert.match(page, /locale: 'vi_VN'/);
   assert.match(page, /HealthcareDemoPageContent locale="vi"/);
-  assert.match(pageContent, /<main className={styles\['page'\]} lang={locale}>/);
+  assert.match(
+    pageContent,
+    /<main className={styles\['page'\]} lang={locale} style={brandStyle}>/,
+  );
   assert.match(source, /Trò chuyện với tác nhân bệnh viện được bảo vệ/);
   assert.match(source, /Các chính sách được kiểm tra/);
   assert.match(source, /Gửi qua TrustLoopGuard/);

@@ -38,7 +38,18 @@ interface DisplayMessage {
   content: string;
 }
 
-export function HealthcareDemo({ locale = 'en' }: { locale?: HealthcareDemoLocale }) {
+type HealthcareDemoPresentation = {
+  companyName: string;
+  workflow: string;
+};
+
+export function HealthcareDemo({
+  locale = 'en',
+  presentation,
+}: {
+  locale?: HealthcareDemoLocale;
+  presentation?: HealthcareDemoPresentation;
+}) {
   const copy = HEALTHCARE_UI_COPY[locale];
   const [sessionId] = useState(() => crypto.randomUUID());
   const [message, setMessage] = useState<string>(copy.presets[0].message);
@@ -195,8 +206,12 @@ export function HealthcareDemo({ locale = 'en' }: { locale?: HealthcareDemoLocal
       <section className={styles['chatPanel']} aria-labelledby="healthcare-chat-title">
         <div className={styles['panelHeader']}>
           <div>
-            <p>{copy.chatKicker}</p>
-            <h2 id="healthcare-chat-title">{copy.chatTitle}</h2>
+            <p>
+              {presentation ? `Prepared for ${presentation.companyName}` : copy.chatKicker}
+            </p>
+            <h2 id="healthcare-chat-title">
+              {presentation?.workflow ?? copy.chatTitle}
+            </h2>
           </div>
           <span className={styles['liveBadge']}>
             <i aria-hidden="true" /> {copy.protected}
