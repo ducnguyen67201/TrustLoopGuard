@@ -92,7 +92,7 @@ export function HealthcareDemoPageContent({
             : copy.disclaimer}
         </p>
         {!profile ? (
-          <Link href="/demo">
+          <Link href={locale === 'vi' ? '/vi/demo' : '/demo'}>
             {copy.refundDemo} <span aria-hidden="true">→</span>
           </Link>
         ) : null}

@@ -51,7 +51,7 @@ export async function Nav({ locale = 'en' }: { locale?: MarketingLocale }) {
           <UseCaseNav locale={locale} />
           <li>
             <MarketingEventLink
-              href={locale === 'vi' ? '/vi/demo/procurement' : '/demo'}
+              href={locale === 'vi' ? '/vi/demo' : '/demo'}
               event="demo_click"
               eventParams={{ location: 'nav', label: copy.demoEventLabel }}
             >

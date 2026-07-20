@@ -12,6 +12,7 @@ import {
   type ContextualDemoResponse,
   type ContextualPolicy,
 } from '../contextual-contract';
+import { DemoMeetingPrompt, useDemoMeetingPrompt } from '../demo-meeting-prompt';
 import styles from '../demo.module.css';
 import type { HealthcareDemoLocale } from '../healthcare/content';
 
@@ -49,6 +50,8 @@ export function CompanyDemo({
   locale = 'en',
   pagePath = `/demo/${profile.slug}`,
 }: CompanyDemoProps) {
+  const { isMeetingPromptOpen, recordCompletedInteraction, dismissMeetingPrompt } =
+    useDemoMeetingPrompt();
   const copy = CONTEXTUAL_UI_COPY[locale];
   const endpoint = `/api/demo/contextual/${encodeURIComponent(profile.slug)}`;
   const [sessionId] = useState(() => crypto.randomUUID());
@@ -164,6 +167,7 @@ export function CompanyDemo({
       }
       setMessages((current) => [...current, displayMessage('assistant', body.reply)].slice(-8));
       setRunState('success');
+      recordCompletedInteraction();
       trackMarketingEvent('contextual_demo_decision_shown', {
         page: pagePath,
         location: 'contextual_policy_monitor',
@@ -377,6 +381,12 @@ export function CompanyDemo({
           </footer>
         </section>
       </div>
+      <DemoMeetingPrompt
+        open={isMeetingPromptOpen}
+        onClose={dismissMeetingPrompt}
+        page={pagePath}
+        locale={locale}
+      />
     </div>
   );
 }
