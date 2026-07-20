@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use async_trait::async_trait;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use rand::Rng;
@@ -17,6 +19,7 @@ pub struct MemoryTeamStore {
 struct MemoryTeamState {
     members: Vec<(String, WorkspaceMember)>,
     invites: Vec<WorkspaceInvite>,
+    deleted_workspaces: HashSet<String>,
 }
 
 impl MemoryTeamStore {
@@ -64,6 +67,9 @@ impl TeamStore for MemoryTeamStore {
         workspace_id: &str,
     ) -> Result<Vec<WorkspaceMember>, TeamStoreError> {
         let guard = self.inner.read().await;
+        if guard.deleted_workspaces.contains(workspace_id) {
+            return Ok(Vec::new());
+        }
         Ok(guard
             .members
             .iter()
@@ -168,7 +174,9 @@ impl TeamStore for MemoryTeamStore {
         Ok(guard
             .members
             .iter()
-            .filter(|(_, m)| m.user_id == user_str)
+            .filter(|(workspace_id, m)| {
+                m.user_id == user_str && !guard.deleted_workspaces.contains(workspace_id)
+            })
             .map(|(ws_id, m)| MyWorkspace {
                 id: ws_id.clone(),
                 slug: ws_id.clone(),
@@ -215,6 +223,36 @@ impl TeamStore for MemoryTeamStore {
             is_attacks_enabled: false,
             is_mcp_gateway_enabled: false,
         })
+    }
+
+    async fn delete_workspace(
+        &self,
+        user_id: Uuid,
+        workspace_id: &str,
+    ) -> Result<(), TeamStoreError> {
+        let mut guard = self.inner.write().await;
+        if guard.deleted_workspaces.contains(workspace_id)
+            || !guard.members.iter().any(|(id, _)| id == workspace_id)
+        {
+            return Err(TeamStoreError::NotFound);
+        }
+
+        let is_owner = guard.members.iter().any(|(id, member)| {
+            id == workspace_id
+                && member.user_id == user_id.to_string()
+                && member.role == WorkspaceRole::Owner
+        });
+        if !is_owner {
+            return Err(TeamStoreError::Forbidden);
+        }
+
+        for invite in &mut guard.invites {
+            if invite.workspace_id == workspace_id && invite.status == InviteStatus::Pending {
+                invite.status = InviteStatus::Revoked;
+            }
+        }
+        guard.deleted_workspaces.insert(workspace_id.to_string());
+        Ok(())
     }
 }
 

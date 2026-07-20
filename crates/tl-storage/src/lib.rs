@@ -179,7 +179,7 @@ pub use redteam_report_share_repo::{NewShare, RedteamReportShareRepo, ReportShar
 #[cfg(feature = "postgres")]
 pub use run_repo::{RunFilter, RunRepo};
 #[cfg(feature = "postgres")]
-pub use team_repo::{AddMemberOutcome, TeamRepo};
+pub use team_repo::{AddMemberOutcome, TeamRepo, WorkspaceDeletionOutcome};
 #[cfg(feature = "postgres")]
 pub use tool_metadata_repo::{StoredToolMetadata, ToolMetadataRepo};
 #[cfg(feature = "postgres")]

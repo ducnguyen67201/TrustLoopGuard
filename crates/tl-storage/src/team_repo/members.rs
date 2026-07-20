@@ -9,7 +9,7 @@ use uuid::Uuid;
 use super::{MemberRow, TeamRepo, UserNameRow};
 use crate::{
     postgres::DbConnection,
-    schema::{organization_members, users, workspace_members},
+    schema::{organization_members, users, workspace_members, workspaces},
     StorageError,
 };
 
@@ -20,7 +20,9 @@ impl TeamRepo {
     ) -> Result<Vec<WorkspaceMember>, StorageError> {
         let mut conn = self.connection().await?;
         let member_rows = workspace_members::table
+            .inner_join(workspaces::table.on(workspaces::id.eq(workspace_members::workspace_id)))
             .filter(workspace_members::workspace_id.eq(workspace_id))
+            .filter(workspaces::deleted_at.is_null())
             .order(workspace_members::created_at.asc())
             .select(MemberRow::as_select())
             .load::<MemberRow>(&mut conn)

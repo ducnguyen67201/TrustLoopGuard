@@ -3834,6 +3834,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/team/my-workspaces/{id}:
+    delete:
+      tags:
+      - team
+      summary: |-
+        DELETE /v1/team/my-workspaces/:id — soft-delete a workspace owned
+        by the signed-in caller and revoke its pending access paths.
+      operationId: delete_my_workspace
+      parameters:
+      - name: id
+        in: path
+        description: Workspace id
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Workspace deleted
+        '400':
+          description: Missing or invalid user id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller is not the workspace owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/tool-metadata:
     get:
       tags:

@@ -583,6 +583,10 @@ pub(super) fn team_routes(state: &AppState) -> Router {
             "/v1/team/my-workspaces",
             get(team::list_my_workspaces).post(team::create_my_workspace),
         )
+        .route(
+            "/v1/team/my-workspaces/:id",
+            axum::routing::delete(team::delete_my_workspace),
+        )
         .with_state(team::TeamState {
             store: state.team_store.clone(),
             workspace_self_service_enabled: state.workspace_self_service_enabled,

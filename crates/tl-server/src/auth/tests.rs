@@ -19,6 +19,7 @@ fn subtle_eq_rejects_byte_mismatch() {
 #[test]
 fn jwt_path_allows_exact_paths_and_subpaths_only() {
     assert!(token::jwt_path_allowed("/v1/team/my-workspaces"));
+    assert!(token::jwt_path_allowed("/v1/team/my-workspaces/ws_acme"));
     assert!(token::jwt_path_allowed("/v1/api-keys"));
     assert!(token::jwt_path_allowed("/v1/api-keys/batch/revoke"));
 

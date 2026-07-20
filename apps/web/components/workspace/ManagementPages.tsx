@@ -41,6 +41,7 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { InviteMemberDialog } from '@/components/workspace/InviteMemberDialog';
+import { DeleteWorkspaceDialog } from '@/components/workspace/DeleteWorkspaceDialog';
 import { KnowledgeSourceCreateDialog } from '@/components/workspace/KnowledgeSourceCreateDialog';
 import { PendingInvitesTable } from '@/components/workspace/PendingInvitesTable';
 import { QuickCreateAgentDialog } from '@/components/workspace/QuickCreateAgentDialog';
@@ -96,6 +97,8 @@ export function WorkspacesPageContent({ data }: { data: DashboardShellData }) {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {data.workspaces.map((workspace) => {
               const isActive = workspace.id === data.activeWorkspace.id;
+              const fallbackWorkspaceSlug =
+                data.workspaces.find((candidate) => candidate.id !== workspace.id)?.slug ?? null;
               return (
                 <Card
                   key={workspace.id}
@@ -153,12 +156,19 @@ export function WorkspacesPageContent({ data }: { data: DashboardShellData }) {
                       />
                     </div>
                   </CardContent>
-                  <CardFooter className="mt-4 border-t pt-4">
+                  <CardFooter className="mt-4 flex gap-2 border-t pt-4">
+                    <DeleteWorkspaceDialog
+                      workspaceId={workspace.id}
+                      workspaceName={workspace.name}
+                      workspaceRole={workspace.role}
+                      isActive={isActive}
+                      fallbackWorkspaceSlug={fallbackWorkspaceSlug}
+                    />
                     <Button
                       asChild
                       variant={isActive ? 'outline' : 'ghost'}
                       size="sm"
-                      className="w-full justify-between"
+                      className="flex-1 justify-between"
                     >
                       <Link href={`/?workspace=${workspace.slug}`}>
                         {isActive ? "You're here now" : 'Open this workspace'}
