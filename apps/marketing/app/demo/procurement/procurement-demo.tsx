@@ -164,6 +164,10 @@ export function ProcurementDemo({
         </div>
 
         <div className={styles['chatBody']} aria-live="polite" aria-busy={runState === 'running'}>
+          <div className={styles['dataNotice']} role="note">
+            {copy.dataNotice}
+          </div>
+
           <div className={styles['assistantMessage']}>
             <span>{copy.agentLabel}</span>
             <p>{copy.greeting}</p>

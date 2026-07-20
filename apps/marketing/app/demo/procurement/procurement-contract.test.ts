@@ -182,6 +182,29 @@ test('the page presents live OpenAI, Rust policies, all outcomes, and a read-onl
   assert.match(source, /effect === 'permit'/);
 });
 
+test('the procurement demo uses a viewport shell and a restrained personalized wash', () => {
+  const pageContent = readFileSync(
+    new URL('./procurement-page.tsx', import.meta.url),
+    'utf8',
+  );
+  const demo = readFileSync(new URL('./procurement-demo.tsx', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('./procurement.module.css', import.meta.url), 'utf8');
+
+  assert.match(
+    styles,
+    /\.shell\s*\{[\s\S]*?height: clamp\(35\.5rem, calc\(100svh - 8\.75rem\), 53rem\)/,
+  );
+  assert.match(styles, /\.chatPanel\s*\{[\s\S]*?min-height: 0/);
+  assert.match(styles, /\.controlPanel\s*\{[\s\S]*?overflow-y: auto/);
+  assert.match(demo, /className=\{styles\['dataNotice'\]\} role="note"/);
+  assert.doesNotMatch(pageContent, /className=\{styles\['dataNotice'\]\}/);
+  assert.match(pageContent, /color-mix\(in srgb, \$\{profile\.branding\.primary_color\}/);
+  assert.doesNotMatch(
+    pageContent,
+    /'--color-accent-wash': profile\.branding\.secondary_color/,
+  );
+});
+
 test('the Vietnamese procurement route localizes UI and search metadata without duplicating runtime logic', () => {
   const page = readFileSync(
     new URL('../../vi/demo/procurement/page.tsx', import.meta.url),
@@ -190,8 +213,7 @@ test('the Vietnamese procurement route localizes UI and search metadata without 
   const content = readFileSync(new URL('./content.ts', import.meta.url), 'utf8');
   const sitemap = readFileSync(new URL('../../sitemap.ts', import.meta.url), 'utf8');
 
-  assert.match(page, /<main lang="vi"/);
-  assert.match(page, /<ProcurementDemo locale="vi"/);
+  assert.match(page, /<ProcurementDemoPageContent locale="vi"/);
   assert.match(page, /canonical: '\/vi\/demo\/procurement'/);
   assert.match(page, /locale: 'vi_VN'/);
   assert.match(content, /Chính sách đã kiểm tra/);
