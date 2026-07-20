@@ -142,13 +142,16 @@ test('the company route reads only eligible profiles and fails closed', () => {
 
 test('the personalized healthcare route selects only the fixed scheduling scenario', () => {
   const page = readFileSync(new URL('./healthcare/[company]/page.tsx', import.meta.url), 'utf8');
-  const healthcarePage = readFileSync(new URL('./healthcare/page.tsx', import.meta.url), 'utf8');
+  const healthcarePage = readFileSync(
+    new URL('./healthcare/healthcare-page.tsx', import.meta.url),
+    'utf8',
+  );
 
   assert.match(page, /getActiveDemoProfile\('healthcare', company\)/);
   assert.match(page, /demoScenarioIdByCategory\.healthcare/);
   assert.match(page, /notFound\(\)/);
   assert.match(page, /index: false, follow: false/);
-  assert.match(healthcarePage, /HealthcareDemoPageView/);
+  assert.match(page, /HealthcareDemoPageContent locale="en" profile={profile}/);
   assert.match(healthcarePage, /profile\?\.risk_boundary/);
   assert.match(healthcarePage, /profile\.sources/);
 });

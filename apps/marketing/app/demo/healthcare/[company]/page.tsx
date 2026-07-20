@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { getActiveDemoProfile } from '../../../../lib/server/outbound-demo-profile-store';
 import { demoScenarioIdByCategory } from '../../company-profile';
-import { HealthcareDemoPageView } from '../page';
+import { HealthcareDemoPageContent } from '../healthcare-page';
 
 type PersonalizedHealthcareDemoPageProps = {
   params: Promise<{ company: string }>;
@@ -38,7 +38,7 @@ export default async function PersonalizedHealthcareDemoPage({
     notFound();
   }
 
-  return <HealthcareDemoPageView profile={profile} />;
+  return <HealthcareDemoPageContent locale="en" profile={profile} />;
 }
 
 async function getHealthcareSchedulingProfile(company: string) {

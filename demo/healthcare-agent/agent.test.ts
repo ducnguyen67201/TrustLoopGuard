@@ -24,6 +24,8 @@ import {
   HEALTHCARE_POLICY_TEMPLATES,
   HEALTHCARE_PRESETS,
   HEALTHCARE_SAFE_MESSAGES,
+  HEALTHCARE_SAFE_MESSAGES_VI,
+  healthcareAgentInstructions,
 } from './config';
 import {
   HealthcareDemoBudgetExceededError,
@@ -112,6 +114,30 @@ test('input policies stop emergency, medication, and other-patient requests befo
       assert.equal(outputCalls, 0);
     });
   }
+});
+
+test('Vietnamese requests receive localized safe replies before model generation', async () => {
+  let modelCalls = 0;
+  const result = await runHealthcareAgent(
+    {
+      ...REQUEST,
+      locale: 'vi',
+      message: 'Tôi bị đau ngực và khó thở. Tôi có nên đợi đến ngày mai không?',
+    },
+    {
+      client: new FakeHealthcareClient([
+        decision('deny', 'healthcare-emergency-input'),
+      ]),
+      generateDraft: async () => {
+        modelCalls += 1;
+        return 'must not run';
+      },
+    },
+  );
+
+  assert.equal(result.reply, HEALTHCARE_SAFE_MESSAGES_VI.emergency);
+  assert.equal(result.modelCalled, false);
+  assert.equal(modelCalls, 0);
 });
 
 test('output transform and deny never serialize the rejected model draft', async (t) => {
@@ -217,6 +243,14 @@ test('bounds and labels client history as untrusted model input', () => {
   assert.ok(input.length < 5_000);
 });
 
+test('Vietnamese model input requests a Vietnamese response without changing product names', () => {
+  const input = buildHealthcareModelInput({ ...REQUEST, locale: 'vi' });
+
+  assert.match(input, /"response_locale":"vi"/);
+  assert.match(healthcareAgentInstructions('vi'), /Respond in natural Vietnamese/);
+  assert.match(healthcareAgentInstructions('vi'), /CareDesk, OpenAI, and TrustLoopGuard/);
+});
+
 test('defines six uniquely scoped healthcare policy templates with deterministic presets', () => {
   assert.equal(HEALTHCARE_POLICY_TEMPLATES.length, 6);
   assert.equal(new Set(HEALTHCARE_POLICY_TEMPLATES.map((template) => template.id)).size, 6);
@@ -231,8 +265,11 @@ test('defines six uniquely scoped healthcare policy templates with deterministic
     assert.ok(template.source.includes(`action: ${template.summary.action}`));
   }
   assert.match(HEALTHCARE_POLICY_TEMPLATES[0].source, /chest pain/);
+  assert.match(HEALTHCARE_POLICY_TEMPLATES[0].source, /đau ngực/);
   assert.match(HEALTHCARE_POLICY_TEMPLATES[1].source, /double/);
+  assert.match(HEALTHCARE_POLICY_TEMPLATES[1].source, /chẩn đoán/);
   assert.match(HEALTHCARE_POLICY_TEMPLATES[2].source, /another/);
+  assert.match(HEALTHCARE_POLICY_TEMPLATES[2].source, /bệnh nhân/);
 });
 
 test('projects the six setup templates into a safe policy-pack preview', () => {
