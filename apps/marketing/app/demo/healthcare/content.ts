@@ -49,8 +49,6 @@ interface HealthcareUiCopy {
   policiesChecked: string;
   loadingRegistry: string;
   inventoryUnavailable: string;
-  previewTitle: string;
-  previewExplanation: string;
   noPolicies: string;
   checking: string;
   ready: string;
@@ -66,21 +64,18 @@ interface HealthcareUiCopy {
   skippedEarlier: string;
   guardUnavailable: string;
   waitingMessage: string;
-  awaitingRust: string;
   inputChecksRunning: (count: number) => string;
   inputChecksPassed: string;
   outputChecksRunning: (count: number) => string;
   loading: string;
   unavailable: string;
   activePolicies: (count: number) => string;
-  packPolicies: (count: number) => string;
   checkingNow: string;
   matchedThisTurn: string;
   checkedThisTurn: string;
   skippedThisTurn: string;
   checkUnavailable: string;
   activeInRust: string;
-  policyPackPreview: string;
   noViolation: string;
   policyBlocked: string;
   policyTransformed: string;
@@ -186,9 +181,6 @@ export const HEALTHCARE_UI_COPY: Record<HealthcareDemoLocale, HealthcareUiCopy> 
     policiesChecked: 'Policies checked',
     loadingRegistry: 'Loading the policy registry…',
     inventoryUnavailable: 'Policy inventory unavailable. Chat checks still fail closed.',
-    previewTitle: 'Policy pack preview.',
-    previewExplanation:
-      'The Rust registry is unavailable, so these are the policies the demo setup installs. Runtime checks still fail closed.',
     noPolicies: 'No enabled healthcare demo policies were found. Run the demo setup command.',
     checking: 'Checking',
     ready: 'Ready',
@@ -205,21 +197,18 @@ export const HEALTHCARE_UI_COPY: Record<HealthcareDemoLocale, HealthcareUiCopy> 
     skippedEarlier: 'Skipped because an earlier boundary stopped the turn.',
     guardUnavailable: 'Unavailable; the healthcare demo failed closed.',
     waitingMessage: 'Waiting for a synthetic message.',
-    awaitingRust: 'Awaiting Rust guard',
     inputChecksRunning: (count) => `${count} input checks running`,
     inputChecksPassed: 'Input checks passed',
     outputChecksRunning: (count) => `${count} output checks running`,
     loading: 'Loading',
     unavailable: 'Unavailable',
     activePolicies: (count) => `${count} active`,
-    packPolicies: (count) => `${count} in pack`,
     checkingNow: 'Checking now',
     matchedThisTurn: 'Matched this turn',
     checkedThisTurn: 'Checked this turn',
     skippedThisTurn: 'Skipped this turn',
     checkUnavailable: 'Check unavailable',
     activeInRust: 'Active in Rust',
-    policyPackPreview: 'Policy pack preview',
     noViolation: 'No policy violation was found.',
     policyBlocked: 'A policy blocked this turn.',
     policyTransformed: 'The reply was revised by policy.',
@@ -307,9 +296,6 @@ export const HEALTHCARE_UI_COPY: Record<HealthcareDemoLocale, HealthcareUiCopy> 
     loadingRegistry: 'Đang tải danh sách chính sách…',
     inventoryUnavailable:
       'Không thể tải danh sách chính sách. Kiểm tra trò chuyện vẫn đóng an toàn khi có lỗi.',
-    previewTitle: 'Bản xem trước gói chính sách.',
-    previewExplanation:
-      'Không thể truy cập registry Rust, nên đây là các chính sách mà bản demo sẽ cài đặt. Kiểm tra khi chạy vẫn đóng an toàn khi có lỗi.',
     noPolicies:
       'Không tìm thấy chính sách y tế nào đang bật. Hãy chạy lệnh thiết lập bản demo.',
     checking: 'Đang kiểm tra',
@@ -327,21 +313,18 @@ export const HEALTHCARE_UI_COPY: Record<HealthcareDemoLocale, HealthcareUiCopy> 
     skippedEarlier: 'Đã bỏ qua vì một biên trước đó dừng lượt này.',
     guardUnavailable: 'Không khả dụng; bản demo y tế đã đóng an toàn.',
     waitingMessage: 'Đang chờ tin nhắn giả lập.',
-    awaitingRust: 'Đang chờ bộ bảo vệ Rust',
     inputChecksRunning: (count) => `${count} kiểm tra đầu vào đang chạy`,
     inputChecksPassed: 'Kiểm tra đầu vào đã đạt',
     outputChecksRunning: (count) => `${count} kiểm tra đầu ra đang chạy`,
     loading: 'Đang tải',
     unavailable: 'Không khả dụng',
     activePolicies: (count) => `${count} chính sách đang hoạt động`,
-    packPolicies: (count) => `${count} chính sách trong gói`,
     checkingNow: 'Đang kiểm tra',
     matchedThisTurn: 'Đã khớp trong lượt này',
     checkedThisTurn: 'Đã kiểm tra trong lượt này',
     skippedThisTurn: 'Đã bỏ qua trong lượt này',
     checkUnavailable: 'Kiểm tra không khả dụng',
     activeInRust: 'Đang hoạt động trong Rust',
-    policyPackPreview: 'Bản xem trước gói chính sách',
     noViolation: 'Không phát hiện vi phạm chính sách.',
     policyBlocked: 'Một chính sách đã chặn lượt này.',
     policyTransformed: 'Phản hồi đã được điều chỉnh theo chính sách.',

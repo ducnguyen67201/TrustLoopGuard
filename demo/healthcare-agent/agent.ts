@@ -16,12 +16,11 @@ import {
   HEALTHCARE_AGENT_ID,
   HEALTHCARE_INPUT_DOMAIN,
   HEALTHCARE_OUTPUT_DOMAIN,
-  HEALTHCARE_POLICY_TEMPLATES,
   healthcareAgentInstructions,
   healthcareSafeMessages,
   type HealthcareDemoLocale,
-  type HealthcarePolicyPhase,
 } from './config';
+import type { HealthcarePolicyPhase } from './policy-templates';
 
 const MAX_MODEL_OUTPUT_TOKENS = 300;
 const MAX_HISTORY_ITEMS = 8;
@@ -78,11 +77,6 @@ interface HealthcarePolicyDetails {
 
 export interface HealthcarePolicySummary extends HealthcarePolicyDetails {
   enabled: true;
-}
-
-export interface HealthcarePolicyPreview extends HealthcarePolicyDetails {
-  phase: HealthcarePolicyPhase;
-  enabled: false;
 }
 
 export interface HealthcareAgentResult {
@@ -248,14 +242,6 @@ export async function readHealthcarePolicies(
   return projectPolicies(response.policies);
 }
 
-export function healthcarePolicyPreview(): HealthcarePolicyPreview[] {
-  return HEALTHCARE_POLICY_TEMPLATES.map((template) => ({
-    id: template.id,
-    ...template.summary,
-    enabled: false,
-  }));
-}
-
 async function guardHealthcareDraft(
   request: GuardHealthcareDraftRequest,
 ): Promise<GuardHealthcareDraftResult> {
@@ -400,7 +386,7 @@ function projectPolicies(policies: PolicySummary[]): HealthcarePolicySummary[] {
     )
     .slice(0, MAX_POLICIES)
     .map((policy) => {
-      const phase = policyTemplatePhase(policy.id);
+      const phase = policyPhaseFromId(policy.id);
       return {
         id: cap(policy.id, 200),
         ...(policy.description === undefined
@@ -414,8 +400,10 @@ function projectPolicies(policies: PolicySummary[]): HealthcarePolicySummary[] {
     });
 }
 
-function policyTemplatePhase(policyId: string): HealthcarePolicyPhase | undefined {
-  return HEALTHCARE_POLICY_TEMPLATES.find((template) => template.id === policyId)?.summary.phase;
+function policyPhaseFromId(policyId: string): HealthcarePolicyPhase | undefined {
+  if (policyId.endsWith('-input')) return 'input';
+  if (policyId.endsWith('-output')) return 'output';
+  return undefined;
 }
 
 async function readHealthcarePoliciesSafely(

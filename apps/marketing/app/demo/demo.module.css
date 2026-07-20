@@ -773,10 +773,6 @@
   box-shadow: 0 0 0 1px var(--color-accent);
 }
 
-.previewPolicy {
-  border-style: dashed;
-}
-
 .policyDot {
   width: 0.5rem;
   height: 0.5rem;
@@ -788,21 +784,6 @@
 .matchedPolicy .policyDot {
   background: var(--color-accent);
   box-shadow: 0 0 0 0.2rem var(--color-accent-wash);
-}
-
-.previewPolicy .policyDot {
-  background: var(--color-muted);
-  opacity: 0.55;
-}
-
-.previewPolicy.matchedPolicy {
-  border-style: solid;
-}
-
-.previewPolicy.matchedPolicy .policyDot {
-  background: var(--color-accent);
-  box-shadow: 0 0 0 0.2rem var(--color-accent-wash);
-  opacity: 1;
 }
 
 .scanningPolicy {

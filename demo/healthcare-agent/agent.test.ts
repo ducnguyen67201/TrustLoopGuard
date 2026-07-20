@@ -9,10 +9,10 @@ import type {
   PolicyListResponse,
   PolicySummary,
 } from '@trustloopguard/sdk';
+import { parseDocument } from 'yaml';
 
 import {
   buildHealthcareModelInput,
-  healthcarePolicyPreview,
   runHealthcareAgent,
   type GuardHealthcareDraft,
   type HealthcareAgentClient,
@@ -21,12 +21,12 @@ import {
 } from './agent';
 import {
   HEALTHCARE_AGENT_ID,
-  HEALTHCARE_POLICY_TEMPLATES,
   HEALTHCARE_PRESETS,
   HEALTHCARE_SAFE_MESSAGES,
   HEALTHCARE_SAFE_MESSAGES_VI,
   healthcareAgentInstructions,
 } from './config';
+import { HEALTHCARE_POLICY_TEMPLATES } from './policy-templates';
 import {
   HealthcareDemoBudgetExceededError,
   HealthcareDemoRequestBudget,
@@ -255,6 +255,7 @@ test('defines six uniquely scoped healthcare policy templates with deterministic
   assert.equal(HEALTHCARE_POLICY_TEMPLATES.length, 6);
   assert.equal(new Set(HEALTHCARE_POLICY_TEMPLATES.map((template) => template.id)).size, 6);
   for (const template of HEALTHCARE_POLICY_TEMPLATES) {
+    assert.equal(parseDocument(template.source).errors.length, 0);
     assert.match(template.source, new RegExp(`id: ${template.id}`));
     assert.match(template.source, /owner_agent_id: healthcare-demo-agent/);
     assert.match(template.source, /agents: \[healthcare-demo-agent\]/);
@@ -270,19 +271,6 @@ test('defines six uniquely scoped healthcare policy templates with deterministic
   assert.match(HEALTHCARE_POLICY_TEMPLATES[1].source, /chẩn đoán/);
   assert.match(HEALTHCARE_POLICY_TEMPLATES[2].source, /another/);
   assert.match(HEALTHCARE_POLICY_TEMPLATES[2].source, /bệnh nhân/);
-});
-
-test('projects the six setup templates into a safe policy-pack preview', () => {
-  const preview = healthcarePolicyPreview();
-
-  assert.equal(preview.length, 6);
-  assert.deepEqual(
-    preview.map((policy) => policy.id),
-    HEALTHCARE_POLICY_TEMPLATES.map((template) => template.id),
-  );
-  assert.ok(preview.every((policy) => !policy.enabled));
-  assert.deepEqual(new Set(preview.map((policy) => policy.phase)), new Set(['input', 'output']));
-  assert.doesNotMatch(JSON.stringify(preview), /source|yaml/i);
 });
 
 test('hosted budget is acquired before client creation or agent work', async () => {

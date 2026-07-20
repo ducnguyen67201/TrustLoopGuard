@@ -40,6 +40,7 @@ Optional environment:
 | `TL_AGENT_ID` | `demo-acme-support` | Demo agent profile id |
 | `TL_WORKSPACE_ID` | unset | Optional local workspace header override, e.g. `ws_test` |
 | `TL_ADMIN_USER_ID` | unset | Optional owner/admin identity header for policy setup operations |
+| `TL_HEALTHCARE_DEMO_API_KEY` | unset | Workspace-scoped runtime key created by `healthcare-agent:setup`; required by the hosted healthcare demo |
 | `OPENAI_API_KEY` | unset | Enables real OpenAI-backed replies |
 | `OPENAI_MODEL` | `gpt-4.1-mini` | OpenAI model for LLM-backed replies |
 | `TL_USER_ID` | unset | Workspace owner/admin UUID — lets `dispute:setup` arm `enforce` checker modes |
@@ -337,30 +338,43 @@ OpenAI integration protected at two boundaries:
 4. The policy monitor reads enabled policy summaries from the Rust registry;
    the templates in this directory are setup input, not a runtime policy store.
 
-Build the TypeScript SDK and start a configured Rust server first. Select the
-workspace/environment with the same server-side credentials used by other demo
-setup commands:
+Build the TypeScript SDK and start a configured Rust server first. Run setup
+with the internal management credential and an approved owner/admin user. Setup
+finds or creates one Rust-owned workspace named `Healthcare Demo`; no workspace
+id is configured or hard-coded:
 
 ```sh
 pnpm --filter @trustloopguard/sdk build
 
 export TL_SERVER_URL=http://127.0.0.1:8080
-export TL_API_KEY=<runtime-or-admin-key>
-export TL_WORKSPACE_ID=<workspace-id>
-export TL_ADMIN_USER_ID=<admin-user-id-if-required>
+export TL_API_KEY=<internal-management-key>
+export TL_ADMIN_USER_ID=<approved-owner-or-admin-user-id>
+
+pnpm --filter @trustloopguard/demo healthcare-agent:setup
+```
+
+On the first run, setup prints `TL_HEALTHCARE_DEMO_API_KEY` exactly once. Put
+that workspace runtime key in the Marketing server environment, remove the
+setup-only management credentials from that deployment, and start the app:
+
+```sh
+export TL_SERVER_URL=http://127.0.0.1:8080
+export TL_HEALTHCARE_DEMO_API_KEY=<tl_live_key_printed_by_setup>
 export OPENAI_API_KEY=<openai-key>
 export OPENAI_MODEL=gpt-4.1-mini
 
-pnpm --filter @trustloopguard/demo healthcare-agent:setup
 pnpm marketing:dev
 ```
 
 Run the setup command again safely whenever the templates change. It upserts
-the same `healthcare-demo-agent` profile and six policy IDs, validates their
-YAML through Rust, and explicitly re-enables them for the selected environment.
-If the Rust registry is unavailable, the monitor shows a clearly labeled
-preview derived from these same setup templates; it never labels preview
-policies as active.
+the same workspace, `healthcare-demo-agent` profile, and six policy IDs,
+validates their YAML through Rust, and explicitly re-enables them in the
+workspace's default environment. It reuses existing runtime-key metadata and
+never rotates a secret implicitly. Manage the agent, policies, environments,
+and API keys by switching to `Healthcare Demo` in the dashboard. The templates
+in this directory are bootstrap desired state only; the running demo reads the
+Rust registry exclusively. If that registry is unavailable, policy inventory
+is shown as unavailable rather than falling back to hard-coded policy cards.
 Store production values in the deployment secret manager and never expose them
 through `NEXT_PUBLIC_*` variables. Pin and evaluate the production model through
 the existing `OPENAI_MODEL` setting before a customer deployment.
