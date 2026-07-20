@@ -7,9 +7,9 @@ test('the marketing header tracks the live demo on desktop and compact layouts',
   const compactNav = readFileSync(new URL('./nav-actions.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
 
-  assert.match(desktopNav, /locale === 'vi' \? '\/vi\/demo\/procurement' : '\/demo'/);
+  assert.match(desktopNav, /locale === 'vi' \? '\/vi\/demo' : '\/demo'/);
   assert.match(desktopNav, /event="demo_click"/);
-  assert.match(compactNav, /locale === 'vi' \? '\/vi\/demo\/procurement' : '\/demo'/);
+  assert.match(compactNav, /locale === 'vi' \? '\/vi\/demo' : '\/demo'/);
   assert.match(compactNav, /event="demo_click"/);
   assert.match(compactNav, /nav-demo-compact/);
   assert.match(

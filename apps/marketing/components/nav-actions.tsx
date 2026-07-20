@@ -39,7 +39,7 @@ export function NavActions({ bookMeetingUrl, githubUrl, stars, locale }: NavActi
   return (
     <div className="flex items-center gap-2">
       <MarketingEventLink
-        href={locale === 'vi' ? '/vi/demo/procurement' : '/demo'}
+        href={locale === 'vi' ? '/vi/demo' : '/demo'}
         className="nav-demo-compact button-secondary h-10 px-3 text-sm"
         event="demo_click"
         eventParams={{ page, location: 'nav', label: copy.demoEventLabel }}

@@ -137,7 +137,7 @@ export function Hero({ locale = 'en' }: { locale?: MarketingLocale }) {
           </p>
           <div className="hero-actions">
             <MarketingEventLink
-              href="/demo"
+              href={locale === 'vi' ? '/vi/demo' : '/demo'}
               className="button-primary h-12 px-6"
               event="demo_click"
               eventParams={{

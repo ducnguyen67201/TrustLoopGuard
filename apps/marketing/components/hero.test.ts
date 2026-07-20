@@ -6,7 +6,7 @@ test('the homepage hero leads with a concrete outcome and the live demo', () => 
   const hero = readFileSync(new URL('./hero.tsx', import.meta.url), 'utf8');
 
   assert.match(hero, /send, spend, or execute/i);
-  assert.match(hero, /href="\/demo"/);
+  assert.match(hero, /href=\{locale === 'vi' \? '\/vi\/demo' : '\/demo'\}/);
   assert.match(hero, /event="demo_click"/);
   assert.match(hero, /Try the live refund demo/i);
   assert.match(hero, /href="#how"/);

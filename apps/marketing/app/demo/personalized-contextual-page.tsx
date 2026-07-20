@@ -34,7 +34,7 @@ export function PersonalizedContextualDemoPageContent({
           <i aria-hidden="true" />
           <span>{copy.personalizedConcept}</span>
         </div>
-        <Link href={locale === 'vi' ? '/vi/demo/healthcare' : '/demo'}>
+        <Link href={locale === 'vi' ? '/vi/demo' : '/demo'}>
           {copy.liveDemo} <span aria-hidden="true">↗</span>
         </Link>
       </header>

@@ -92,8 +92,10 @@ test('validates and redacts a public refund action status', () => {
 
 test('the Product Hunt route shows a live chat, the control boundary, and Stripe outcome', () => {
   const page = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+  const pageContent = readFileSync(new URL('./refund-page.tsx', import.meta.url), 'utf8');
   const demo = readFileSync(new URL('./refund-demo.tsx', import.meta.url), 'utf8');
-  const source = `${page}\n${demo}`;
+  const content = readFileSync(new URL('./refund-content.ts', import.meta.url), 'utf8');
+  const source = `${page}\n${pageContent}\n${demo}\n${content}`;
 
   assert.match(source, /Ask the refund agent/i);
   assert.match(source, /TrustLoopGuard/i);
@@ -101,6 +103,25 @@ test('the Product Hunt route shows a live chat, the control boundary, and Stripe
   assert.match(source, /not a scripted animation/i);
   assert.match(source, /api\/demo\/refund\?actionId=/i);
   assert.match(source, /Review this exact action/i);
+});
+
+test('the Vietnamese refund route localizes the page and reuses the live workflow', () => {
+  const page = readFileSync(new URL('../vi/demo/page.tsx', import.meta.url), 'utf8');
+  const pageContent = readFileSync(new URL('./refund-page.tsx', import.meta.url), 'utf8');
+  const demo = readFileSync(new URL('./refund-demo.tsx', import.meta.url), 'utf8');
+  const content = readFileSync(new URL('./refund-content.ts', import.meta.url), 'utf8');
+  const sitemap = readFileSync(new URL('../sitemap.ts', import.meta.url), 'utf8');
+  const source = `${page}\n${pageContent}\n${demo}\n${content}`;
+
+  assert.match(page, /<RefundDemoPageContent locale="vi"/);
+  assert.match(page, /canonical: '\/vi\/demo'/);
+  assert.match(page, /locale: 'vi_VN'/);
+  assert.match(source, /Yêu cầu tác nhân hoàn tiền/);
+  assert.match(source, /Không dùng tiền thật/i);
+  assert.match(source, /<RefundDemo locale=\{locale\}/);
+  assert.match(demo, /locale === 'vi'/);
+  assert.match(sitemap, /url: absoluteUrl\('\/vi\/demo'\)/);
+  assert.doesNotMatch(page, /runHostedRefundDemo|withAuthorizedAction/);
 });
 
 test('tracks demo activation without sending the customer prompt to analytics', () => {

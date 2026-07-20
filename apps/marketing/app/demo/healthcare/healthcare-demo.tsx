@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import { trackMarketingEvent } from '@/lib/gtm';
+import { DemoMeetingPrompt, useDemoMeetingPrompt } from '../demo-meeting-prompt';
 import styles from '../demo.module.css';
 import {
   HEALTHCARE_UI_COPY,
@@ -49,6 +50,8 @@ export function HealthcareDemo({
   locale?: HealthcareDemoLocale;
   presentation?: HealthcareDemoPresentation;
 }) {
+  const { isMeetingPromptOpen, recordCompletedInteraction, dismissMeetingPrompt } =
+    useDemoMeetingPrompt();
   const copy = HEALTHCARE_UI_COPY[locale];
   const [sessionId] = useState(() => crypto.randomUUID());
   const [message, setMessage] = useState<string>(copy.presets[0].message);
@@ -164,6 +167,7 @@ export function HealthcareDemo({
       }
       setMessages((current) => [...current, displayMessage('assistant', body.reply)].slice(-8));
       setRunState('success');
+      recordCompletedInteraction();
       trackMarketingEvent('healthcare_demo_decision_shown', {
         page: copy.pagePath,
         location: 'healthcare_policy_monitor',
@@ -366,6 +370,12 @@ export function HealthcareDemo({
           </section>
         </div>
       </section>
+      <DemoMeetingPrompt
+        open={isMeetingPromptOpen}
+        onClose={dismissMeetingPrompt}
+        page={copy.pagePath}
+        locale={locale}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { trackMarketingEvent } from '@/lib/gtm';
 import type { MarketingLocale } from '@/lib/marketing-locale';
 
+import { DemoMeetingPrompt, useDemoMeetingPrompt } from '../demo-meeting-prompt';
 import {
   PROCUREMENT_POLICY_IDS,
   sanitizeProcurementDemoResponse,
@@ -33,6 +34,8 @@ export function ProcurementDemo({
   locale?: MarketingLocale;
   presentation?: ProcurementDemoPresentation;
 }) {
+  const { isMeetingPromptOpen, recordCompletedInteraction, dismissMeetingPrompt } =
+    useDemoMeetingPrompt();
   const copy = PROCUREMENT_DEMO_COPY[locale];
   const analyticsPage = locale === 'vi' ? '/vi/demo/procurement' : '/demo/procurement';
   const [prompt, setPrompt] = useState<string>(copy.examples[1].prompt);
@@ -120,6 +123,7 @@ export function ProcurementDemo({
       const body = sanitizeProcurementDemoResponse(payload);
       setResponse(body);
       setRunState('success');
+      recordCompletedInteraction();
       trackMarketingEvent('demo_decision_shown', {
         page: analyticsPage,
         location: 'procurement_workflow',
@@ -402,6 +406,12 @@ export function ProcurementDemo({
           </article>
         </div>
       </section>
+      <DemoMeetingPrompt
+        open={isMeetingPromptOpen}
+        onClose={dismissMeetingPrompt}
+        page={analyticsPage}
+        locale={locale}
+      />
     </div>
   );
 }
