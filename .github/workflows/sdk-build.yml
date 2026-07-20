@@ -92,7 +92,7 @@ jobs:
           # Separate cache per Python version so matrix jobs don't stomp
           # each other's Rust artifact cache.
           key: python-${{ matrix.python }}
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6.3.0
         with:
           python-version: ${{ matrix.python }}
           cache: pip
