@@ -17,7 +17,8 @@ The profile does not define or execute a TrustLoopGuard policy. Runtime policies
 
 The trusted category-to-scenario mappings are:
 
-- `healthcare` → `healthcare-scheduling-v1`;
+- `healthcare` → `healthcare-scheduling-v1` for the fixed scheduling demo, or
+  `internal-agent-tool-action-v1` for a reviewed contextual workflow;
 - `procurement` → `procurement-submit-po-v1`.
 - `generic` → `internal-agent-tool-action-v1`.
 
@@ -34,7 +35,7 @@ The dynamic marketing routes read `outbound_demo_profiles` with the server-only 
 5. the company name is present for the text-only company treatment.
 6. `scenario_id` is the reviewed generic scenario `internal-agent-tool-action-v1`.
 
-Categorized healthcare and procurement pages additionally require their fixed category-to-scenario mapping and canonical `/demo/{category}/{company-slug}` URL.
+Categorized healthcare pages require either the fixed scheduling scenario or the reviewed contextual scenario. Procurement pages require their fixed category-to-scenario mapping. Both use the canonical `/demo/{category}/{company-slug}` URL.
 
 Missing configuration, database errors, unknown companies, or invalid profile JSON return the standard not-found response. Personalized pages are marked `noindex, nofollow` and canonicalize to their generic category page.
 

@@ -12,6 +12,7 @@ const historyItemSchema = z
 
 const contextualDemoRequestSchema = z
   .object({
+    locale: z.enum(['en', 'vi']).default('en'),
     sessionId: z.string().uuid('Session ID must be a UUID.'),
     message: z.string().trim().min(1, 'Message is required.').max(500),
     history: z.array(historyItemSchema).max(8),

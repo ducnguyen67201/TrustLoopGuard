@@ -60,11 +60,11 @@ export function HealthcareDemoPageContent({
       <section className={styles['intro']} aria-labelledby="healthcare-demo-title">
         <div>
           <p className={styles['eyebrow']}>
-            {profile ? `Prepared for ${profile.company_name}` : copy.eyebrow}
+            {profile ? copy.preparedFor(profile.company_name) : copy.eyebrow}
           </p>
           <h1 id="healthcare-demo-title">
             {profile
-              ? `${profile.company_name} healthcare scheduling concept.`
+              ? copy.personalizedHeading(profile.company_name)
               : copy.heading}
           </h1>
         </div>
@@ -86,7 +86,11 @@ export function HealthcareDemoPageContent({
       />
 
       <footer className={styles['demoFooter']}>
-        <p>{profile?.disclaimer ?? copy.disclaimer}</p>
+        <p>
+          {profile
+            ? copy.personalizedDisclaimer(profile.company_name)
+            : copy.disclaimer}
+        </p>
         {!profile ? (
           <Link href="/demo">
             {copy.refundDemo} <span aria-hidden="true">→</span>

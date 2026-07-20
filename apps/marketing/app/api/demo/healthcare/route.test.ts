@@ -280,6 +280,38 @@ test('the Vietnamese healthcare route reuses the guarded demo with localized met
   assert.match(sitemap, /url: absoluteUrl\('\/vi\/demo\/healthcare'\)/);
 });
 
+test('the personalized Vietnamese healthcare route localizes the full interface and conversation locale', () => {
+  const page = readFileSync(
+    new URL('../../../vi/demo/healthcare/[company]/page.tsx', import.meta.url),
+    'utf8',
+  );
+  const pageContent = readFileSync(
+    new URL('../../../demo/healthcare/healthcare-page.tsx', import.meta.url),
+    'utf8',
+  );
+  const demo = readFileSync(
+    new URL('../../../demo/healthcare/healthcare-demo.tsx', import.meta.url),
+    'utf8',
+  );
+  const content = readFileSync(
+    new URL('../../../demo/healthcare/content.ts', import.meta.url),
+    'utf8',
+  );
+  const source = `${page}\n${pageContent}\n${demo}\n${content}`;
+
+  assert.match(page, /getDemoProfile\('healthcare', company\)/);
+  assert.match(page, /HealthcareDemoPageContent locale="vi" profile={profile}/);
+  assert.match(page, /PersonalizedContextualDemoPageContent/);
+  assert.match(page, /locale="vi"/);
+  assert.match(page, /locale: 'vi_VN'/);
+  assert.match(source, /Dành riêng cho/);
+  assert.match(source, /Bản thử nghiệm đặt lịch y tế an toàn cho/);
+  assert.match(source, /Không có dữ liệu bệnh nhân thật/);
+  assert.match(source, /body: JSON\.stringify\(\{ locale,/);
+  assert.doesNotMatch(pageContent, /`Prepared for \$\{profile\.company_name\}`/);
+  assert.doesNotMatch(demo, /`Prepared for \$\{presentation\.companyName\}`/);
+});
+
 test('healthcare analytics omit message, session, trace, policy, and reason content', () => {
   const demo = readFileSync(
     new URL('../../../demo/healthcare/healthcare-demo.tsx', import.meta.url),

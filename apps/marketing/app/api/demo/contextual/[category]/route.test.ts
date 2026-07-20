@@ -15,10 +15,12 @@ import {
 test('loads profile context server-side and runs a bounded conversation', async () => {
   let receivedCompany = '';
   let receivedMessage = '';
+  let receivedLocale = '';
   const { POST } = handlers({
     runWorkflow: async (request) => {
       receivedCompany = request.profile.companyName;
       receivedMessage = request.message;
+      receivedLocale = request.locale ?? '';
       return workflowPayload();
     },
   });
@@ -30,7 +32,26 @@ test('loads profile context server-side and runs a bounded conversation', async 
   assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.equal(receivedCompany, 'Backblaze');
   assert.equal(receivedMessage, 'Inspect storage status.');
+  assert.equal(receivedLocale, 'en');
   assert.equal(body.reply, 'The synthetic read-only inspection is permitted.');
+});
+
+test('passes the Vietnamese locale into the protected contextual workflow', async () => {
+  let receivedLocale = '';
+  const { POST } = handlers({
+    runWorkflow: async (request) => {
+      receivedLocale = request.locale ?? '';
+      return workflowPayload();
+    },
+  });
+
+  const response = await POST(
+    requestFor({ ...validRequest(), locale: 'vi' }),
+    routeContext(),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(receivedLocale, 'vi');
 });
 
 test('rejects browser-supplied profile or policy context', async () => {

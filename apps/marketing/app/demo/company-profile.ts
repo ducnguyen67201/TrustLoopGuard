@@ -115,12 +115,16 @@ export const outboundDemoProfileSchema = z
     }
     if (
       profile.category !== 'generic' &&
-      profile.scenario_id !== demoScenarioIdByCategory[profile.category]
+      profile.scenario_id !== demoScenarioIdByCategory[profile.category] &&
+      !(
+        profile.category === 'healthcare' &&
+        profile.scenario_id === genericContextualScenarioId
+      )
     ) {
       context.addIssue({
         code: 'custom',
         path: ['scenario_id'],
-        message: 'Scenario must match the fixed category runtime',
+        message: 'Scenario must match a reviewed runtime for the category',
       });
     }
     if (profile.category === 'generic') {
