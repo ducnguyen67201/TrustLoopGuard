@@ -186,6 +186,10 @@ test('the workflow category route reads only a generic profile and hides researc
   );
   const page = readFileSync(new URL('./[category]/page.tsx', import.meta.url), 'utf8');
   const demo = readFileSync(new URL('./[category]/company-demo.tsx', import.meta.url), 'utf8');
+  const contextualContent = readFileSync(
+    new URL('./contextual-content.ts', import.meta.url),
+    'utf8',
+  );
   const contextualRoute = readFileSync(
     new URL('../api/demo/contextual/[category]/route.ts', import.meta.url),
     'utf8',
@@ -205,11 +209,11 @@ test('the workflow category route reads only a generic profile and hides researc
   assert.match(page, /getGenericDemoProfile\(category\)/);
   assert.match(page, /notFound\(\)/);
   assert.match(page, /index: false, follow: false/);
-  assert.match(demo, /Send through TrustLoopGuard/);
-  assert.match(demo, /TrustLoopGuard policy monitor/);
-  assert.match(demo, /Shared demo workspace/);
+  assert.match(contextualContent, /Send through TrustLoopGuard/);
+  assert.match(contextualContent, /TrustLoopGuard policy monitor/);
+  assert.match(contextualContent, /Shared demo workspace/);
   assert.match(demo, /fetch\(endpoint/);
-  assert.match(demo, /JSON\.stringify\(\{ sessionId, message: submittedMessage, history \}\)/);
+  assert.match(demo, /JSON\.stringify\(\{ locale, sessionId, message: submittedMessage, history \}\)/);
   assert.match(demo, /profile\.company_name/);
   assert.doesNotMatch(demo, /logo_url/);
   assert.match(demo, /profile\.disclaimer/);
@@ -224,11 +228,16 @@ test('the personalized healthcare route selects the fixed or reviewed contextual
     new URL('./healthcare/healthcare-page.tsx', import.meta.url),
     'utf8',
   );
+  const contextualPage = readFileSync(
+    new URL('./personalized-contextual-page.tsx', import.meta.url),
+    'utf8',
+  );
 
   assert.match(page, /getDemoProfile\('healthcare', company\)/);
   assert.match(page, /demoScenarioIdByCategory\.healthcare/);
   assert.match(page, /genericContextualScenarioId/);
-  assert.match(page, /CompanyDemo/);
+  assert.match(page, /PersonalizedContextualDemoPageContent/);
+  assert.match(contextualPage, /CompanyDemo/);
   assert.match(page, /notFound\(\)/);
   assert.match(page, /index: false, follow: false/);
   assert.match(page, /HealthcareDemoPageContent locale="en" profile={profile}/);

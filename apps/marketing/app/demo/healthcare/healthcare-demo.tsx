@@ -201,7 +201,7 @@ export function HealthcareDemo({
         <div className={styles['panelHeader']}>
           <div>
             <p>
-              {presentation ? `Prepared for ${presentation.companyName}` : copy.chatKicker}
+              {presentation ? copy.preparedFor(presentation.companyName) : copy.chatKicker}
             </p>
             <h2 id="healthcare-chat-title">
               {presentation?.workflow ?? copy.chatTitle}
@@ -226,7 +226,7 @@ export function HealthcareDemo({
                   : styles['customerMessage']
               }
             >
-              <span>{entry.role === 'assistant' ? 'CareDesk' : copy.visitor}</span>
+              <span>{entry.role === 'assistant' ? copy.assistantName : copy.visitor}</span>
               <p>{entry.content}</p>
             </div>
           ))}

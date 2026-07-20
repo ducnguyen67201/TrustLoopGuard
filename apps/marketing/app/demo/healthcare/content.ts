@@ -20,12 +20,17 @@ interface HealthcarePageCopy {
   safetyNote: string;
   disclaimer: string;
   refundDemo: string;
+  preparedFor: (companyName: string) => string;
+  personalizedHeading: (companyName: string) => string;
+  personalizedDisclaimer: (companyName: string) => string;
 }
 
 interface HealthcareUiCopy {
   pagePath: '/demo/healthcare' | '/vi/demo/healthcare';
   presets: readonly [HealthcarePresetCopy, ...HealthcarePresetCopy[]];
   greeting: string;
+  assistantName: string;
+  preparedFor: (companyName: string) => string;
   inventoryRequestFailed: string;
   workflowFailed: string;
   dailyLimit: string;
@@ -106,9 +111,14 @@ export const HEALTHCARE_PAGE_COPY: Record<HealthcareDemoLocale, HealthcarePageCo
     disclaimer:
       'This scheduling demo does not diagnose, access records, book appointments, or establish HIPAA compliance.',
     refundDemo: 'Try the refund agent',
+    preparedFor: (companyName) => `Prepared for ${companyName}`,
+    personalizedHeading: (companyName) =>
+      `${companyName} healthcare scheduling concept.`,
+    personalizedDisclaimer: (companyName) =>
+      `This is a concept based on public material and is not connected to ${companyName} or its systems.`,
   },
   vi: {
-    title: 'Bản demo tác nhân đặt lịch y tế an toàn',
+    title: 'Bản thử nghiệm tác nhân đặt lịch y tế an toàn',
     description:
       'Trò chuyện với tác nhân đặt lịch bệnh viện giả lập và xem TrustLoopGuard kiểm tra đầu vào cùng đầu ra OpenAI trước khi gửi phản hồi.',
     homeLabel: 'Trang chủ TrustLoopGuard',
@@ -118,11 +128,16 @@ export const HEALTHCARE_PAGE_COPY: Record<HealthcareDemoLocale, HealthcarePageCo
     heading: 'Trò chuyện với tác nhân bệnh viện được bảo vệ.',
     introduction:
       'OpenAI chỉ soạn thảo sau khi TrustLoopGuard cho phép tin nhắn. Phản hồi sau đó được kiểm tra lần nữa trước khi gửi.',
-    safetyLabel: 'Chỉ là bản demo giả lập — không nhập thông tin bệnh nhân thật.',
-    safetyNote: 'Chỉ dùng dữ liệu giả lập · Không có PHI thật',
+    safetyLabel: 'Chỉ là bản thử nghiệm giả lập — không nhập thông tin bệnh nhân thật.',
+    safetyNote: 'Chỉ dùng dữ liệu giả lập · Không có dữ liệu bệnh nhân thật',
     disclaimer:
-      'Bản demo này không chẩn đoán, truy cập hồ sơ, đặt lịch thật hoặc khẳng định tuân thủ HIPAA.',
+      'Bản thử nghiệm này không chẩn đoán, truy cập hồ sơ, đặt lịch thật hoặc khẳng định tuân thủ HIPAA.',
     refundDemo: 'Thử tác nhân hoàn tiền',
+    preparedFor: (companyName) => `Dành riêng cho ${companyName}`,
+    personalizedHeading: (companyName) =>
+      `Bản thử nghiệm đặt lịch y tế an toàn cho ${companyName}.`,
+    personalizedDisclaimer: (companyName) =>
+      `Đây là bản thử nghiệm dựa trên nguồn công khai, không liên kết với ${companyName} hoặc hệ thống của đơn vị này.`,
   },
 };
 
@@ -157,6 +172,8 @@ export const HEALTHCARE_UI_COPY: Record<HealthcareDemoLocale, HealthcareUiCopy> 
     ],
     greeting:
       "Hello — I'm CareDesk. I can explain how to request, change, or cancel a fictional appointment. I can't provide medical advice or access patient records.",
+    assistantName: 'CareDesk',
+    preparedFor: (companyName) => `Prepared for ${companyName}`,
     inventoryRequestFailed: 'Policy inventory request failed',
     workflowFailed: 'The protected healthcare workflow failed safely.',
     dailyLimit: 'Daily healthcare demo limit reached. Try again tomorrow.',
@@ -270,15 +287,17 @@ export const HEALTHCARE_UI_COPY: Record<HealthcareDemoLocale, HealthcareUiCopy> 
       },
     ],
     greeting:
-      'Xin chào — tôi là CareDesk. Tôi có thể hướng dẫn cách yêu cầu, thay đổi hoặc hủy một lịch hẹn giả lập. Tôi không thể tư vấn y tế hoặc truy cập hồ sơ bệnh nhân.',
+      'Xin chào — tôi là Trợ lý đặt lịch. Tôi có thể hướng dẫn cách yêu cầu, thay đổi hoặc hủy một lịch hẹn giả lập. Tôi không thể tư vấn y tế hoặc truy cập hồ sơ bệnh nhân.',
+    assistantName: 'Trợ lý đặt lịch',
+    preparedFor: (companyName) => `Dành riêng cho ${companyName}`,
     inventoryRequestFailed: 'Không thể tải danh sách chính sách',
     workflowFailed: 'Quy trình y tế được bảo vệ đã dừng an toàn.',
     dailyLimit: 'Đã đạt giới hạn dùng thử hôm nay. Vui lòng thử lại vào ngày mai.',
-    chatKicker: 'Trò chuyện với CareDesk',
-    chatTitle: 'Bản demo đặt lịch bệnh viện',
+    chatKicker: 'Trò chuyện với Trợ lý đặt lịch',
+    chatTitle: 'Bản thử nghiệm đặt lịch bệnh viện',
     protected: 'Được bảo vệ',
     syntheticBanner:
-      'Chỉ dùng cho bản demo giả lập. Không nhập tên, mã hồ sơ, triệu chứng hoặc thông tin bệnh nhân thật.',
+      'Chỉ dùng cho bản thử nghiệm giả lập. Không nhập tên, mã hồ sơ, triệu chứng hoặc thông tin bệnh nhân thật.',
     visitor: 'Khách',
     replyStopped: 'Phản hồi đã được dừng an toàn',
     scenariosLabel: 'Các tình huống y tế giả lập',
@@ -297,7 +316,7 @@ export const HEALTHCARE_UI_COPY: Record<HealthcareDemoLocale, HealthcareUiCopy> 
     inventoryUnavailable:
       'Không thể tải danh sách chính sách. Kiểm tra trò chuyện vẫn đóng an toàn khi có lỗi.',
     noPolicies:
-      'Không tìm thấy chính sách y tế nào đang bật. Hãy chạy lệnh thiết lập bản demo.',
+      'Không tìm thấy chính sách y tế nào đang bật. Hãy chạy lệnh thiết lập bản thử nghiệm.',
     checking: 'Đang kiểm tra',
     ready: 'Sẵn sàng',
     drafting: 'Đang soạn',
@@ -311,7 +330,7 @@ export const HEALTHCARE_UI_COPY: Record<HealthcareDemoLocale, HealthcareUiCopy> 
     progressOutput: 'TrustLoopGuard đang kiểm tra bản nháp trước khi gửi.',
     evaluatingPolicies: 'Đang đánh giá các chính sách được bật trong Rust.',
     skippedEarlier: 'Đã bỏ qua vì một biên trước đó dừng lượt này.',
-    guardUnavailable: 'Không khả dụng; bản demo y tế đã đóng an toàn.',
+    guardUnavailable: 'Không khả dụng; bản thử nghiệm y tế đã đóng an toàn.',
     waitingMessage: 'Đang chờ tin nhắn giả lập.',
     inputChecksRunning: (count) => `${count} kiểm tra đầu vào đang chạy`,
     inputChecksPassed: 'Kiểm tra đầu vào đã đạt',

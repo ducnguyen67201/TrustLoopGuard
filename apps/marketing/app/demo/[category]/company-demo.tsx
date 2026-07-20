@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from
 
 import { trackMarketingEvent } from '@/lib/gtm';
 import type { CompanyDemoViewModel } from '../company-profile';
+import { CONTEXTUAL_PAGE_COPY, CONTEXTUAL_UI_COPY } from '../contextual-content';
 import {
   sanitizeContextualDemoResponse,
   sanitizeContextualPolicyInventory,
@@ -12,9 +13,12 @@ import {
   type ContextualPolicy,
 } from '../contextual-contract';
 import styles from '../demo.module.css';
+import type { HealthcareDemoLocale } from '../healthcare/content';
 
 type CompanyDemoProps = {
   profile: CompanyDemoViewModel;
+  locale?: HealthcareDemoLocale;
+  pagePath?: string;
 };
 
 type CompanyBrandStyle = CSSProperties & {
@@ -30,6 +34,9 @@ type RunState =
   | 'success'
   | 'error';
 type InventoryState = 'loading' | 'ready' | 'error';
+type ContextualEffect = NonNullable<
+  ContextualDemoResponse['checks'][number]['effect']
+>;
 
 interface DisplayMessage {
   id: string;
@@ -37,7 +44,12 @@ interface DisplayMessage {
   content: string;
 }
 
-export function CompanyDemo({ profile }: CompanyDemoProps) {
+export function CompanyDemo({
+  profile,
+  locale = 'en',
+  pagePath = `/demo/${profile.slug}`,
+}: CompanyDemoProps) {
+  const copy = CONTEXTUAL_UI_COPY[locale];
   const endpoint = `/api/demo/contextual/${encodeURIComponent(profile.slug)}`;
   const [sessionId] = useState(() => crypto.randomUUID());
   const [message, setMessage] = useState(profile.paths[0].proposal);
@@ -48,7 +60,7 @@ export function CompanyDemo({ profile }: CompanyDemoProps) {
     {
       id: 'greeting',
       role: 'assistant',
-      content: `I’m a synthetic assistant for ${profile.workflow}. Ask a read-only question, request a shared change, or test the authorization boundary.`,
+      content: copy.greeting(profile.workflow),
     },
   ]);
   const [runState, setRunState] = useState<RunState>('idle');
@@ -66,7 +78,7 @@ export function CompanyDemo({ profile }: CompanyDemoProps) {
     async function loadPolicies(): Promise<void> {
       try {
         const result = await fetch(endpoint, { cache: 'no-store' });
-        if (!result.ok) throw new Error('Policy inventory request failed');
+        if (!result.ok) throw new Error(copy.inventoryRequestFailed);
         const inventory = sanitizeContextualPolicyInventory(await result.json());
         if (!active) return;
         setPolicies(inventory.policies);
@@ -79,7 +91,7 @@ export function CompanyDemo({ profile }: CompanyDemoProps) {
     return () => {
       active = false;
     };
-  }, [endpoint]);
+  }, [copy.inventoryRequestFailed, endpoint]);
 
   const matchedPolicyIds = useMemo(
     () =>
@@ -103,7 +115,7 @@ export function CompanyDemo({ profile }: CompanyDemoProps) {
     }));
 
     trackMarketingEvent('contextual_demo_started', {
-      page: `/demo/${profile.slug}`,
+      page: pagePath,
       location: 'contextual_composer',
       scenario: selectedPreset ?? 'custom',
     });
@@ -120,7 +132,7 @@ export function CompanyDemo({ profile }: CompanyDemoProps) {
       const result = await fetch(endpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ sessionId, message: submittedMessage, history }),
+        body: JSON.stringify({ locale, sessionId, message: submittedMessage, history }),
       });
       if (!result.ok) {
         const payload = await result.json().catch(() => null);
@@ -130,8 +142,14 @@ export function CompanyDemo({ profile }: CompanyDemoProps) {
           'error' in payload &&
           typeof payload.error === 'string'
             ? payload.error
-            : 'The protected contextual workflow failed safely.';
-        throw new Error(publicMessage);
+            : copy.workflowFailed;
+        const localizedMessage =
+          locale === 'vi'
+            ? result.status === 429
+              ? copy.dailyLimit
+              : copy.workflowFailed
+            : publicMessage;
+        throw new Error(localizedMessage);
       }
 
       const body = sanitizeContextualDemoResponse(await result.json());
@@ -147,7 +165,7 @@ export function CompanyDemo({ profile }: CompanyDemoProps) {
       setMessages((current) => [...current, displayMessage('assistant', body.reply)].slice(-8));
       setRunState('success');
       trackMarketingEvent('contextual_demo_decision_shown', {
-        page: `/demo/${profile.slug}`,
+        page: pagePath,
         location: 'contextual_policy_monitor',
         scenario: selectedPreset ?? 'custom',
         decision: strongestEffect(body),
@@ -157,7 +175,7 @@ export function CompanyDemo({ profile }: CompanyDemoProps) {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : 'The protected contextual workflow failed safely.',
+          : copy.workflowFailed,
       );
       setRunState('error');
     } finally {
@@ -184,7 +202,7 @@ export function CompanyDemo({ profile }: CompanyDemoProps) {
 
           <div className={styles['chatBody']} aria-live="polite">
             <div className={styles['syntheticBanner']} role="note">
-              Synthetic concept only. Do not enter credentials, secrets, or private company data.
+              {copy.syntheticBanner}
             </div>
             {messages.map((entry) => (
               <div
@@ -195,26 +213,28 @@ export function CompanyDemo({ profile }: CompanyDemoProps) {
                     : styles['customerMessage']
                 }
               >
-                <span>{entry.role === 'assistant' ? 'Contextual agent' : 'Visitor'}</span>
+                <span>
+                  {entry.role === 'assistant' ? copy.contextualAgent : copy.visitor}
+                </span>
                 <p>{entry.content}</p>
               </div>
             ))}
             {isRunning(runState) ? (
               <div className={styles['agentWorking']} role="status">
                 <span className={styles['spinner']} aria-hidden="true" />
-                {progressMessage(runState)}
+                {progressMessage(runState, locale)}
               </div>
             ) : null}
             {error !== '' ? (
               <div className={styles['errorMessage']} role="alert">
-                <strong>Reply stopped safely</strong>
+                <strong>{copy.replyStopped}</strong>
                 <p>{error}</p>
               </div>
             ) : null}
           </div>
 
           <form className={styles['composer']} onSubmit={runDemo}>
-            <div className={styles['exampleRow']} aria-label="Example contextual requests">
+            <div className={styles['exampleRow']} aria-label={copy.examplesLabel}>
               {profile.paths.map((path) => (
                 <button
                   key={path.effect}
@@ -227,7 +247,7 @@ export function CompanyDemo({ profile }: CompanyDemoProps) {
                 </button>
               ))}
             </div>
-            <label htmlFor="contextual-prompt">Message</label>
+            <label htmlFor="contextual-prompt">{copy.messageLabel}</label>
             <textarea
               id="contextual-prompt"
               value={message}
@@ -239,7 +259,7 @@ export function CompanyDemo({ profile }: CompanyDemoProps) {
               rows={2}
             />
             <button className={styles['runButton']} type="submit" disabled={isRunning(runState)}>
-              {isRunning(runState) ? 'Running protected workflow' : 'Send through TrustLoopGuard'}
+              {isRunning(runState) ? copy.runningWorkflow : copy.send}
               <span aria-hidden="true">→</span>
             </button>
           </form>
@@ -248,61 +268,64 @@ export function CompanyDemo({ profile }: CompanyDemoProps) {
         <section className={styles['controlPanel']} aria-labelledby="contextual-monitor-title">
           <header className={styles['panelHeader']}>
             <div>
-              <p>Shared demo workspace</p>
-              <h2 id="contextual-monitor-title">TrustLoopGuard policy monitor</h2>
+              <p>{copy.monitorKicker}</p>
+              <h2 id="contextual-monitor-title">{copy.monitorTitle}</h2>
             </div>
-            <DecisionBadge response={response} runState={runState} />
+            <DecisionBadge response={response} runState={runState} locale={locale} />
           </header>
 
           <div className={styles['healthcareMonitor']}>
             <section aria-labelledby="contextual-checks-title">
               <div className={styles['monitorSectionHeading']}>
-                <h3 id="contextual-checks-title">Protected conversation</h3>
-                <span>{monitorSummary(runState, response)}</span>
+                <h3 id="contextual-checks-title">{copy.protectedConversation}</h3>
+                <span>{monitorSummary(runState, response, locale)}</span>
               </div>
               <div className={styles['checkTimeline']}>
                 <CheckStep
                   number="01"
-                  title="Input boundary"
-                  detail="Checks the visitor message before OpenAI is called."
+                  title={copy.inputBoundary}
+                  detail={copy.inputDetail}
                   check={response?.checks[0]}
                   pending={runState === 'checking_input'}
+                  locale={locale}
                 />
                 <CheckStep
                   number="02"
-                  title="OpenAI response"
+                  title="OpenAI Responses"
                   detail={
                     response?.modelCalled === false
-                      ? 'Skipped because the input decision stopped the request.'
-                      : 'Uses bounded server-side workflow context and untrusted chat history.'
+                      ? copy.modelSkipped
+                      : copy.modelDetail
                   }
                   pending={runState === 'generating'}
                   skipped={response?.modelCalled === false}
                   completed={response?.modelCalled === true}
+                  locale={locale}
                 />
                 <CheckStep
                   number="03"
-                  title="Output boundary"
-                  detail="Checks the drafted response before it reaches the visitor."
+                  title={copy.outputBoundary}
+                  detail={copy.outputDetail}
                   check={response?.checks[1]}
                   pending={runState === 'checking_output'}
+                  locale={locale}
                 />
               </div>
             </section>
 
             <section aria-labelledby="contextual-policies-title">
               <div className={styles['monitorSectionHeading']}>
-                <h3 id="contextual-policies-title">Policies checked</h3>
-                <span>{policySummary(inventoryState, policies)}</span>
+                <h3 id="contextual-policies-title">{copy.policiesChecked}</h3>
+                <span>{policySummary(inventoryState, policies, locale)}</span>
               </div>
               {inventoryState === 'loading' ? (
                 <p className={styles['inventoryNotice']} role="status">
-                  Loading the Rust policy registry…
+                  {copy.loadingRegistry}
                 </p>
               ) : null}
               {inventoryState === 'error' ? (
                 <p className={styles['inventoryNotice']} role="status">
-                  Policy inventory unavailable. Chat checks still fail closed.
+                  {copy.inventoryUnavailable}
                 </p>
               ) : null}
               <div className={styles['policyList']}>
@@ -318,16 +341,20 @@ export function CompanyDemo({ profile }: CompanyDemoProps) {
                     >
                       <span className={styles['policyDot']} aria-hidden="true" />
                       <div>
-                        <strong>{policy.description ?? policy.id}</strong>
+                        <strong>{localizedPolicyDescription(policy, locale)}</strong>
                         <code>{policy.id}</code>
                         <span className={styles['policyStatus']}>
-                          {scanning ? 'Checking now' : matched ? 'Matched' : 'Ready'}
+                          {scanning
+                            ? copy.checkingNow
+                            : matched
+                              ? copy.matched
+                              : copy.ready}
                         </span>
                       </div>
                       <div className={styles['policyMeta']}>
-                        <span>{policy.phase}</span>
-                        <span>{policy.severity}</span>
-                        <span>{policy.action ?? 'check'}</span>
+                        <span>{copy.phase[policy.phase]}</span>
+                        <span>{copy.severity[policy.severity]}</span>
+                        <span>{copy.action[policy.action ?? 'check'] ?? policy.action ?? copy.action.check}</span>
                       </div>
                     </article>
                   );
@@ -336,13 +363,17 @@ export function CompanyDemo({ profile }: CompanyDemoProps) {
             </section>
 
             <div className={styles['companyPolicyRecord']}>
-              <strong>Decision record</strong>
+              <strong>{copy.decisionRecord}</strong>
               <p>{profile.record_shown}</p>
             </div>
           </div>
 
           <footer className={styles['conceptFooter']}>
-            <p>{profile.disclaimer}</p>
+            <p>
+              {locale === 'vi'
+                ? CONTEXTUAL_PAGE_COPY.vi.disclaimer(profile.company_name)
+                : profile.disclaimer}
+            </p>
           </footer>
         </section>
       </div>
@@ -358,6 +389,7 @@ function CheckStep({
   pending = false,
   skipped = false,
   completed = false,
+  locale,
 }: {
   number: string;
   title: string;
@@ -366,7 +398,9 @@ function CheckStep({
   pending?: boolean;
   skipped?: boolean;
   completed?: boolean;
+  locale: HealthcareDemoLocale;
 }) {
+  const copy = CONTEXTUAL_UI_COPY[locale];
   const state = pending
     ? 'running'
     : skipped || check?.status === 'skipped'
@@ -386,18 +420,20 @@ function CheckStep({
           <h4>{title}</h4>
           <strong>
             {pending
-              ? 'Checking'
+              ? copy.checking
               : check?.status === 'unavailable'
-                ? 'Unavailable'
+                ? copy.unavailable
                 : skipped || check?.status === 'skipped'
-                  ? 'Skipped'
+                  ? copy.skipped
                   : completed
-                    ? 'Called'
-                  : check?.effect ?? 'Ready'}
+                    ? copy.called
+                  : check?.effect === undefined
+                    ? copy.ready
+                    : copy.effect[check.effect]}
           </strong>
         </div>
-        <p>{check?.reason ?? detail}</p>
-        {check?.traceId !== undefined ? <small>Trace {check.traceId}</small> : null}
+        <p>{localizedCheckReason(check, detail, pending, locale)}</p>
+        {check?.traceId !== undefined ? <small>{copy.trace} {check.traceId}</small> : null}
       </div>
     </article>
   );
@@ -406,22 +442,25 @@ function CheckStep({
 function DecisionBadge({
   response,
   runState,
+  locale,
 }: {
   response: ContextualDemoResponse | null;
   runState: RunState;
+  locale: HealthcareDemoLocale;
 }) {
+  const copy = CONTEXTUAL_UI_COPY[locale];
   const effect = strongestEffect(response);
   const label = isRunning(runState)
-    ? 'Checking'
+    ? copy.checking
     : runState === 'error'
-      ? 'Unavailable'
+      ? copy.unavailable
       : response?.checks.some((check) => check.status === 'unavailable')
-        ? 'Unavailable'
+        ? copy.unavailable
       : response === null
-        ? 'Ready'
+        ? copy.ready
         : effect === 'defer' || effect === 'require_approval'
-          ? 'Human review'
-          : effect.replace('_', ' ');
+          ? copy.humanReview
+          : copy.effect[effect];
   const badgeState =
     runState === 'error' || response?.checks.some((check) => check.status === 'unavailable')
       ? 'unavailable'
@@ -431,7 +470,7 @@ function DecisionBadge({
   );
 }
 
-function strongestEffect(response: ContextualDemoResponse | null): string {
+function strongestEffect(response: ContextualDemoResponse | null): ContextualEffect {
   const rank = { permit: 0, transform: 1, require_approval: 2, defer: 3, deny: 4 } as const;
   return (
     response?.checks.reduce<keyof typeof rank>((strongest, check) => {
@@ -451,26 +490,61 @@ function isRunning(runState: RunState): boolean {
   );
 }
 
-function progressMessage(runState: RunState): string {
-  if (runState === 'checking_input') return 'TrustLoopGuard is checking the visitor message…';
-  if (runState === 'generating') return 'OpenAI is drafting with bounded workflow context…';
-  return 'TrustLoopGuard is checking the drafted reply…';
+function progressMessage(runState: RunState, locale: HealthcareDemoLocale): string {
+  const copy = CONTEXTUAL_UI_COPY[locale];
+  if (runState === 'checking_input') return copy.progressInput;
+  if (runState === 'generating') return copy.progressModel;
+  return copy.progressOutput;
 }
 
 function monitorSummary(
   runState: RunState,
   response: ContextualDemoResponse | null,
+  locale: HealthcareDemoLocale,
 ): string {
-  if (isRunning(runState)) return progressMessage(runState);
-  if (runState === 'error') return 'Failed closed';
-  if (response === null) return 'Waiting for a message';
-  return response.modelCalled ? 'Input and output checked' : 'Stopped before model';
+  const copy = CONTEXTUAL_UI_COPY[locale];
+  if (isRunning(runState)) return progressMessage(runState, locale);
+  if (runState === 'error') return copy.failedClosed;
+  if (response === null) return copy.waitingForMessage;
+  return response.modelCalled ? copy.inputAndOutputChecked : copy.stoppedBeforeModel;
 }
 
-function policySummary(inventoryState: InventoryState, policies: ContextualPolicy[]): string {
-  if (inventoryState === 'loading') return 'Loading';
-  if (inventoryState === 'error') return 'Unavailable';
-  return `${policies.length} from Rust`;
+function policySummary(
+  inventoryState: InventoryState,
+  policies: ContextualPolicy[],
+  locale: HealthcareDemoLocale,
+): string {
+  const copy = CONTEXTUAL_UI_COPY[locale];
+  if (inventoryState === 'loading') return copy.loading;
+  if (inventoryState === 'error') return copy.unavailable;
+  return copy.policiesFromRust(policies.length);
+}
+
+function localizedCheckReason(
+  check: ContextualDemoResponse['checks'][number] | undefined,
+  detail: string,
+  pending: boolean,
+  locale: HealthcareDemoLocale,
+): string {
+  const copy = CONTEXTUAL_UI_COPY[locale];
+  if (pending || check === undefined) return detail;
+  if (locale === 'en') return check.reason ?? detail;
+  if (check.status === 'unavailable') return copy.workflowFailed;
+  if (check.status === 'skipped') return copy.stoppedBeforeModel;
+  const policyId = check.findings.find((finding) => finding.policyId !== undefined)?.policyId;
+  if (policyId !== undefined) return copy.matchedPolicy(policyId);
+  if (check.effect === 'deny') return copy.policyBlocked;
+  if (check.effect === 'transform') return copy.policyTransformed;
+  if (check.effect === 'require_approval') return copy.policyNeedsReview;
+  if (check.effect === 'defer') return copy.policyDeferred;
+  return copy.noViolation;
+}
+
+function localizedPolicyDescription(
+  policy: ContextualPolicy,
+  locale: HealthcareDemoLocale,
+): string {
+  return CONTEXTUAL_UI_COPY[locale].policyDescriptions[policy.id] ?? policy.description ?? policy.id;
 }
 
 function isPolicyScanning(policy: ContextualPolicy, runState: RunState): boolean {
