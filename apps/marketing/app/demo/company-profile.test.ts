@@ -69,6 +69,18 @@ test('accepts a complete public demo profile with all three decision paths', () 
   );
 });
 
+test('accepts a generic one-level profile with a workflow-specific scenario', () => {
+  const profile = parseOutboundDemoProfile({
+    ...validProfile,
+    category: 'generic',
+    scenario_id: 'agent-authored-pull-request-v1',
+    demo_url: 'https://gettrustloop.app/demo/acme-cloud',
+  });
+
+  assert.equal(profile?.category, 'generic');
+  assert.equal(profile?.scenario_id, 'agent-authored-pull-request-v1');
+});
+
 test('rejects a profile with a mismatched route or private outreach data', () => {
   assert.equal(
     parseOutboundDemoProfile({

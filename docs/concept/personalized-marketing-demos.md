@@ -1,6 +1,6 @@
 # Personalized marketing demos
 
-Personalized marketing demos are private-link concept pages prepared for a named company from public material. They let an outbound recipient see a relevant TrustLoopGuard control boundary at `/demo/{category}/{company-slug}` without creating a new route or deployment for every company. The profile contract recognizes `healthcare` and `procurement`; a company route is eligible only when its corresponding category renderer is deployed.
+Personalized marketing demos are private-link concept pages prepared for a named company from public material. They let an outbound recipient see a relevant TrustLoopGuard control boundary without creating a new route or UI for every company. Generic outbound concepts use `/demo/{company-slug}`. Fixed runtime concepts use `/demo/{category}/{company-slug}` with the `healthcare` or `procurement` renderer.
 
 ## Ownership boundary
 
@@ -15,6 +15,7 @@ The profile does not define or execute a TrustLoopGuard policy. Runtime policies
 
 The trusted category-to-scenario mappings are:
 
+- `generic` → a lowercase kebab-case scenario identifier grounded in the saved workflow;
 - `healthcare` → `healthcare-scheduling-v1`;
 - `procurement` → `procurement-submit-po-v1`.
 
@@ -23,12 +24,12 @@ The trusted category-to-scenario mappings are:
 The dynamic marketing route reads `outbound_demo_profiles` with the server-only `OUTBOUND_DEMO_DATABASE_URL`. Saving a valid row makes its private-link page available immediately; `status`, `live_verified`, and `expires_at` remain workflow and audit metadata rather than visibility gates. A page is available only when all of these checks pass:
 
 1. the category is supported and the company path segment is a lowercase kebab-case slug;
-2. a row exists for that category and slug;
+2. a categorized lookup has one row for its category and slug, or a one-level lookup has exactly one row for the slug;
 3. the stored JSON passes the strict public demo profile schema;
-4. the canonical URL in the profile matches the requested category and company slug;
-5. the categorized page recognizes the profile's trusted `scenario_id`.
+4. the canonical URL in the profile matches either its generic one-level route or its categorized route;
+5. a categorized page recognizes the profile's fixed trusted `scenario_id`.
 
-Missing configuration, database errors, unknown companies, or invalid profile JSON return the standard not-found response. Personalized pages are marked `noindex, nofollow` and canonicalize to their generic category page.
+Missing configuration, database errors, unknown companies, duplicate one-level slugs, or invalid profile JSON return the standard not-found response. Personalized pages are marked `noindex, nofollow` and canonicalize to the URL stored in the validated profile.
 
 ## Write path
 
@@ -40,4 +41,4 @@ Only public-facing scenario content belongs in this table. Recipient email addre
 
 ## Page behavior
 
-Every page is explicitly labeled as a public-source concept that is not connected to the named company or its systems. Generic concept renderers change illustrative proposal, evidence, and decision data locally and must not be described as live policy results. Categorized live renderers may reuse an existing fixed runtime, such as the healthcare scheduling or procurement agent, but company presentation data never changes that runtime's policy set. `/demo/healthcare` and `/demo/procurement` remain the generic entry points, while their `/{company-slug}` routes apply a valid saved profile to the corresponding fixed runtime.
+Every page is explicitly labeled as a public-source concept that is not connected to the named company or its systems. Generic concept renderers change illustrative proposal, evidence, and decision data locally and must not be described as live policy results. Categorized live renderers may reuse an existing fixed runtime, such as the healthcare scheduling or procurement agent, but company presentation data never changes that runtime's policy set. `/demo/{company-slug}` renders a generic saved profile with the shared concept UI. `/demo/healthcare` and `/demo/procurement` remain the categorized entry points, while their `/{company-slug}` routes apply a valid saved profile to the corresponding fixed runtime.

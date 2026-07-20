@@ -23,12 +23,12 @@ const publicHttpsUrl = z
 
 export const demoSlugSchema = z.string().max(100).regex(slugPattern);
 
-export const demoCategorySchema = z.enum(['healthcare', 'procurement']);
+export const demoCategorySchema = z.enum(['generic', 'healthcare', 'procurement']);
 
 export const demoScenarioIdByCategory = {
   healthcare: 'healthcare-scheduling-v1',
   procurement: 'procurement-submit-po-v1',
-} as const satisfies Record<z.infer<typeof demoCategorySchema>, string>;
+} as const;
 
 export const demoEffectSchema = z.enum(['permit', 'require_approval', 'deny']);
 
@@ -93,17 +93,21 @@ export const outboundDemoProfileSchema = z
   .strict()
   .superRefine((profile, context) => {
     const url = new URL(profile.demo_url);
-    if (
-      url.origin !== 'https://gettrustloop.app' ||
-      url.pathname !== `/demo/${profile.category}/${profile.slug}`
-    ) {
+    const expectedPath =
+      profile.category === 'generic'
+        ? `/demo/${profile.slug}`
+        : `/demo/${profile.category}/${profile.slug}`;
+    if (url.origin !== 'https://gettrustloop.app' || url.pathname !== expectedPath) {
       context.addIssue({
         code: 'custom',
         path: ['demo_url'],
         message: 'Demo URL must match the canonical company route',
       });
     }
-    if (profile.scenario_id !== demoScenarioIdByCategory[profile.category]) {
+    if (
+      profile.category !== 'generic' &&
+      profile.scenario_id !== demoScenarioIdByCategory[profile.category]
+    ) {
       context.addIssue({
         code: 'custom',
         path: ['scenario_id'],
