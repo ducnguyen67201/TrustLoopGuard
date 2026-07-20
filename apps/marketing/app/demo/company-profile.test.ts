@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { isActiveDemoProfile, parseOutboundDemoProfile, type JsonValue } from './company-profile';
+import {
+  inferOutboundDemoProfileLocale,
+  isActiveDemoProfile,
+  parseOutboundDemoProfile,
+  type JsonValue,
+} from './company-profile';
 
 const validProfile = {
   slug: 'acme-cloud',
@@ -179,6 +184,29 @@ test('only activates live-verified, active, unexpired profiles', () => {
   assert.equal(isActiveDemoProfile(draft), false);
 });
 
+test('infers Vietnamese personalized demos from their public workflow copy', () => {
+  assert.equal(
+    inferOutboundDemoProfileLocale({
+      workflow: 'Trợ lý AI hỗ trợ tra cứu và đổi lịch tái khám cho khách hàng.',
+      risk_boundary: 'Trợ lý không được tự đổi lịch.',
+      rule: 'Thông tin công khai được phép đọc.',
+      approval_step: 'Nhân viên bệnh viện duyệt thay đổi.',
+      record_shown: 'Lưu quyết định cuối cùng.',
+    }),
+    'vi',
+  );
+  assert.equal(
+    inferOutboundDemoProfileLocale({
+      workflow: validProfile.workflow,
+      risk_boundary: validProfile.risk_boundary,
+      rule: validProfile.rule,
+      approval_step: validProfile.approval_step,
+      record_shown: validProfile.record_shown,
+    }),
+    'en',
+  );
+});
+
 test('the workflow category route reads only a generic profile and hides research links', () => {
   const store = readFileSync(
     new URL('../../lib/server/outbound-demo-profile-store.ts', import.meta.url),
@@ -239,6 +267,8 @@ test('the personalized healthcare route selects the fixed or reviewed contextual
   assert.match(page, /PersonalizedContextualDemoPageContent/);
   assert.match(contextualPage, /CompanyDemo/);
   assert.match(page, /notFound\(\)/);
+  assert.match(page, /inferOutboundDemoProfileLocale\(profile\) === 'vi'/);
+  assert.match(page, /permanentRedirect\(`\/vi\/demo\/healthcare\/\$\{profile\.slug\}`\)/);
   assert.match(page, /index: false, follow: false/);
   assert.match(page, /HealthcareDemoPageContent locale="en" profile={profile}/);
   assert.match(healthcarePage, /profile\?\.risk_boundary/);

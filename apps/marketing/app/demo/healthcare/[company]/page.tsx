@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 
 import { getDemoProfile } from '../../../../lib/server/outbound-demo-profile-store';
 import {
   demoScenarioIdByCategory,
   genericContextualScenarioId,
+  inferOutboundDemoProfileLocale,
 } from '../../company-profile';
 import { PersonalizedContextualDemoPageContent } from '../../personalized-contextual-page';
 import { HealthcareDemoPageContent } from '../healthcare-page';
@@ -45,6 +46,10 @@ export default async function PersonalizedHealthcareDemoPage({
   const profile = await getHealthcareProfile(company);
   if (!profile) {
     notFound();
+  }
+
+  if (inferOutboundDemoProfileLocale(profile) === 'vi') {
+    permanentRedirect(`/vi/demo/healthcare/${profile.slug}`);
   }
 
   if (profile.scenario_id === genericContextualScenarioId) {
