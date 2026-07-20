@@ -23,11 +23,12 @@ const publicHttpsUrl = z
 
 export const demoSlugSchema = z.string().max(100).regex(slugPattern);
 
-export const demoCategorySchema = z.enum(['healthcare', 'procurement']);
+export const demoCategorySchema = z.enum(['healthcare', 'procurement', 'research']);
 
 export const demoScenarioIdByCategory = {
   healthcare: 'healthcare-scheduling-v1',
   procurement: 'procurement-submit-po-v1',
+  research: 'research-entitlement-v1',
 } as const satisfies Record<z.infer<typeof demoCategorySchema>, string>;
 
 export const demoEffectSchema = z.enum(['permit', 'require_approval', 'deny']);

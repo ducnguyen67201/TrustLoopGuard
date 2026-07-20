@@ -69,6 +69,18 @@ test('accepts a complete public demo profile with all three decision paths', () 
   );
 });
 
+test('accepts the fixed research-output scenario on the categorized route', () => {
+  const profile = parseOutboundDemoProfile({
+    ...validProfile,
+    category: 'research',
+    scenario_id: 'research-entitlement-v1',
+    demo_url: 'https://gettrustloop.app/demo/research/acme-cloud',
+  });
+
+  assert.equal(profile?.category, 'research');
+  assert.equal(profile?.scenario_id, 'research-entitlement-v1');
+});
+
 test('rejects a profile with a mismatched route or private outreach data', () => {
   assert.equal(
     parseOutboundDemoProfile({
@@ -126,6 +138,7 @@ test('the company route reads only eligible profiles and fails closed', () => {
   );
   const page = readFileSync(new URL('./[company]/page.tsx', import.meta.url), 'utf8');
   const demo = readFileSync(new URL('./[company]/company-demo.tsx', import.meta.url), 'utf8');
+  const pageContent = readFileSync(new URL('./company-demo-page.tsx', import.meta.url), 'utf8');
 
   assert.match(store, /WHERE category = \$\{parsedCategory\.data\}/);
   assert.match(store, /AND slug = \$\{parsedSlug\.data\}/);
@@ -136,7 +149,7 @@ test('the company route reads only eligible profiles and fails closed', () => {
   assert.match(page, /notFound\(\)/);
   assert.match(page, /index: false, follow: false/);
   assert.match(demo, /Choose a decision path/);
-  assert.match(demo, /profile\.disclaimer/);
+  assert.match(pageContent, /profile\.disclaimer/);
   assert.doesNotMatch(demo, /fetch\(|\/v1\/events/);
 });
 
@@ -154,4 +167,14 @@ test('the personalized healthcare route selects only the fixed scheduling scenar
   assert.match(page, /HealthcareDemoPageContent locale="en" profile={profile}/);
   assert.match(healthcarePage, /profile\?\.risk_boundary/);
   assert.match(healthcarePage, /profile\.sources/);
+});
+
+test('the personalized research route selects only the fixed entitlement scenario', () => {
+  const page = readFileSync(new URL('./research/[company]/page.tsx', import.meta.url), 'utf8');
+
+  assert.match(page, /getActiveDemoProfile\('research', company\)/);
+  assert.match(page, /demoScenarioIdByCategory\.research/);
+  assert.match(page, /notFound\(\)/);
+  assert.match(page, /index: false, follow: false/);
+  assert.match(page, /CompanyDemoPageContent profile={profile}/);
 });
