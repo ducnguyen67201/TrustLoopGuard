@@ -119,7 +119,7 @@ test('only activates live-verified, active, unexpired profiles', () => {
   assert.equal(isActiveDemoProfile(draft), false);
 });
 
-test('the company route reads only eligible profiles and fails closed', () => {
+test('the company routes read any valid saved profile and fail closed for missing data', () => {
   const store = readFileSync(
     new URL('../../lib/server/outbound-demo-profile-store.ts', import.meta.url),
     'utf8',
@@ -129,10 +129,11 @@ test('the company route reads only eligible profiles and fails closed', () => {
 
   assert.match(store, /WHERE category = \$\{parsedCategory\.data\}/);
   assert.match(store, /AND slug = \$\{parsedSlug\.data\}/);
-  assert.match(store, /status = 'active'/);
-  assert.match(store, /live_verified = TRUE/);
-  assert.match(store, /expires_at > NOW\(\)/);
+  assert.doesNotMatch(store, /status = 'active'/);
+  assert.doesNotMatch(store, /live_verified = TRUE/);
+  assert.doesNotMatch(store, /expires_at > NOW\(\)/);
   assert.match(store, /rows\.length !== 1/);
+  assert.match(page, /getDemoProfileBySlug\(company\)/);
   assert.match(page, /notFound\(\)/);
   assert.match(page, /index: false, follow: false/);
   assert.match(demo, /Choose a decision path/);
@@ -147,11 +148,27 @@ test('the personalized healthcare route selects only the fixed scheduling scenar
     'utf8',
   );
 
-  assert.match(page, /getActiveDemoProfile\('healthcare', company\)/);
+  assert.match(page, /getDemoProfile\('healthcare', company\)/);
   assert.match(page, /demoScenarioIdByCategory\.healthcare/);
   assert.match(page, /notFound\(\)/);
   assert.match(page, /index: false, follow: false/);
   assert.match(page, /HealthcareDemoPageContent locale="en" profile={profile}/);
   assert.match(healthcarePage, /profile\?\.risk_boundary/);
   assert.match(healthcarePage, /profile\.sources/);
+});
+
+test('the personalized procurement route selects only the fixed purchase-order scenario', () => {
+  const page = readFileSync(new URL('./procurement/[company]/page.tsx', import.meta.url), 'utf8');
+  const procurementPage = readFileSync(
+    new URL('./procurement/procurement-page.tsx', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(page, /getDemoProfile\('procurement', company\)/);
+  assert.match(page, /demoScenarioIdByCategory\.procurement/);
+  assert.match(page, /notFound\(\)/);
+  assert.match(page, /index: false, follow: false/);
+  assert.match(page, /ProcurementDemoPageContent locale="en" profile={profile}/);
+  assert.match(procurementPage, /profile\?\.risk_boundary/);
+  assert.match(procurementPage, /profile\.sources/);
 });

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { getActiveDemoProfile } from '../../../../lib/server/outbound-demo-profile-store';
+import { getDemoProfile } from '../../../../lib/server/outbound-demo-profile-store';
 import { demoScenarioIdByCategory } from '../../company-profile';
 import { HealthcareDemoPageContent } from '../healthcare-page';
 
@@ -42,6 +42,6 @@ export default async function PersonalizedHealthcareDemoPage({
 }
 
 async function getHealthcareSchedulingProfile(company: string) {
-  const profile = await getActiveDemoProfile('healthcare', company);
+  const profile = await getDemoProfile('healthcare', company);
   return profile?.scenario_id === demoScenarioIdByCategory.healthcare ? profile : null;
 }
