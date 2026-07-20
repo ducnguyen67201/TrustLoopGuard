@@ -1,0 +1,2 @@
+ALTER TABLE users
+    ALTER COLUMN is_approved SET DEFAULT FALSE;
