@@ -377,7 +377,8 @@ function projectPolicies(policies: PolicySummary[]): HealthcarePolicySummary[] {
       (policy) =>
         policy.family === 'content' &&
         policy.enabled &&
-        policy.owner_agent_id === HEALTHCARE_AGENT_ID,
+        (policy.owner_agent_id === undefined ||
+          policy.owner_agent_id === HEALTHCARE_AGENT_ID),
     )
     .sort(
       (left, right) =>

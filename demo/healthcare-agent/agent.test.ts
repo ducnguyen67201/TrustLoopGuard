@@ -204,13 +204,14 @@ test('input and output guard failures both fail closed without inventing an effe
   assert.doesNotMatch(JSON.stringify(blockedAfterModel), /unguarded draft/);
 });
 
-test('filters enabled agent-owned content policies and sorts critical before high', async () => {
+test('includes enabled global and healthcare-owned content policies', async () => {
   const policies: PolicySummary[] = [
     policy('global-policy', 'high', true),
     policy('healthcare-disabled', 'critical', false, HEALTHCARE_AGENT_ID),
     policy('healthcare-high-b', 'high', true, HEALTHCARE_AGENT_ID),
     policy('healthcare-critical', 'critical', true, HEALTHCARE_AGENT_ID),
     policy('healthcare-high-a', 'high', true, HEALTHCARE_AGENT_ID),
+    policy('other-agent-policy', 'critical', true, 'other-agent'),
     { ...policy('healthcare-financial', 'critical', true, HEALTHCARE_AGENT_ID), family: 'financial' },
   ];
   const result = await runHealthcareAgent(REQUEST, {
@@ -221,7 +222,7 @@ test('filters enabled agent-owned content policies and sorts critical before hig
 
   assert.deepEqual(
     result.policies.map((item) => item.id),
-    ['healthcare-critical', 'healthcare-high-a', 'healthcare-high-b'],
+    ['healthcare-critical', 'global-policy', 'healthcare-high-a', 'healthcare-high-b'],
   );
   assert.ok(result.policies.every((item) => item.enabled));
 });
