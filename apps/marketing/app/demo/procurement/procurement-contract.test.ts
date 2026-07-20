@@ -160,9 +160,13 @@ test('accepts only bounded Rust or template policy inventory', () => {
 
 test('the page presents live OpenAI, Rust policies, all outcomes, and a read-only policy list', () => {
   const page = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+  const pageContent = readFileSync(
+    new URL('./procurement-page.tsx', import.meta.url),
+    'utf8',
+  );
   const demo = readFileSync(new URL('./procurement-demo.tsx', import.meta.url), 'utf8');
   const content = readFileSync(new URL('./content.ts', import.meta.url), 'utf8');
-  const source = `${page}\n${demo}\n${content}`;
+  const source = `${page}\n${pageContent}\n${demo}\n${content}`;
 
   assert.match(source, /OpenAI proposes/i);
   assert.match(source, /TrustLoopGuard decides/i);

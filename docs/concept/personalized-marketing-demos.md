@@ -20,16 +20,15 @@ The trusted category-to-scenario mappings are:
 
 ## Read path
 
-The dynamic marketing route reads `outbound_demo_profiles` with the server-only `OUTBOUND_DEMO_DATABASE_URL`. A page is available only when all of these checks pass:
+The dynamic marketing route reads `outbound_demo_profiles` with the server-only `OUTBOUND_DEMO_DATABASE_URL`. Saving a valid row makes its private-link page available immediately; `status`, `live_verified`, and `expires_at` remain workflow and audit metadata rather than visibility gates. A page is available only when all of these checks pass:
 
 1. the category is supported and the company path segment is a lowercase kebab-case slug;
-2. the row is `active` and `live_verified`;
-3. its optional expiry is still in the future;
-4. the stored JSON passes the strict public demo profile schema;
-5. the canonical URL in the profile matches the requested category and company slug;
-6. a live categorized page recognizes the profile's trusted `scenario_id`.
+2. a row exists for that category and slug;
+3. the stored JSON passes the strict public demo profile schema;
+4. the canonical URL in the profile matches the requested category and company slug;
+5. the categorized page recognizes the profile's trusted `scenario_id`.
 
-Missing configuration, database errors, unknown companies, drafts, expired rows, or invalid profile JSON all return the standard not-found response. Personalized pages are marked `noindex, nofollow` and canonicalize to their generic category page.
+Missing configuration, database errors, unknown companies, or invalid profile JSON return the standard not-found response. Personalized pages are marked `noindex, nofollow` and canonicalize to their generic category page.
 
 ## Write path
 
@@ -41,4 +40,4 @@ Only public-facing scenario content belongs in this table. Recipient email addre
 
 ## Page behavior
 
-Every page is explicitly labeled as a public-source concept that is not connected to the named company or its systems. Generic concept renderers change illustrative proposal, evidence, and decision data locally and must not be described as live policy results. Categorized live renderers may reuse an existing fixed runtime, such as the healthcare scheduling agent, but company presentation data never changes that runtime's policy set. `/demo/healthcare` remains the generic healthcare entry point, while `/demo/healthcare/{company-slug}` applies an eligible company profile to the same fixed healthcare scheduling runtime.
+Every page is explicitly labeled as a public-source concept that is not connected to the named company or its systems. Generic concept renderers change illustrative proposal, evidence, and decision data locally and must not be described as live policy results. Categorized live renderers may reuse an existing fixed runtime, such as the healthcare scheduling or procurement agent, but company presentation data never changes that runtime's policy set. `/demo/healthcare` and `/demo/procurement` remain the generic entry points, while their `/{company-slug}` routes apply a valid saved profile to the corresponding fixed runtime.

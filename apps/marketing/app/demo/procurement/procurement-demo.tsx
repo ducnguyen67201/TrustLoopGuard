@@ -21,7 +21,18 @@ type RunState = 'idle' | 'running' | 'success' | 'error';
 type StepState = 'idle' | 'running' | 'complete' | 'stopped';
 type InventoryState = 'loading' | 'ready' | 'error';
 
-export function ProcurementDemo({ locale = 'en' }: { locale?: MarketingLocale }) {
+type ProcurementDemoPresentation = {
+  companyName: string;
+  workflow: string;
+};
+
+export function ProcurementDemo({
+  locale = 'en',
+  presentation,
+}: {
+  locale?: MarketingLocale;
+  presentation?: ProcurementDemoPresentation;
+}) {
   const copy = PROCUREMENT_DEMO_COPY[locale];
   const analyticsPage = locale === 'vi' ? '/vi/demo/procurement' : '/demo/procurement';
   const [prompt, setPrompt] = useState<string>(copy.examples[1].prompt);
@@ -140,8 +151,12 @@ export function ProcurementDemo({ locale = 'en' }: { locale?: MarketingLocale })
       <section className={styles['chatPanel']} aria-labelledby="procurement-chat-title">
         <div className={styles['panelHeader']}>
           <div>
-            <p>{copy.buyerWorkspace}</p>
-            <h2 id="procurement-chat-title">{copy.agentTitle}</h2>
+            <p>
+              {presentation ? `Prepared for ${presentation.companyName}` : copy.buyerWorkspace}
+            </p>
+            <h2 id="procurement-chat-title">
+              {presentation?.workflow ?? copy.agentTitle}
+            </h2>
           </div>
           <span className={styles['liveBadge']}>
             <i aria-hidden="true" /> {copy.liveOpenAi}

@@ -6,7 +6,6 @@ import postgres from 'postgres';
 import {
   demoCategorySchema,
   demoSlugSchema,
-  isActiveDemoProfile,
   parseOutboundDemoProfile,
   type DemoCategory,
   type JsonValue,
@@ -39,7 +38,7 @@ function getDatabase(): ReturnType<typeof postgres> | null {
   return database;
 }
 
-async function readActiveDemoProfile(
+async function readDemoProfile(
   category: DemoCategory,
   slug: string,
 ): Promise<OutboundDemoProfile | null> {
@@ -56,16 +55,10 @@ async function readActiveDemoProfile(
       FROM outbound_demo_profiles
       WHERE category = ${parsedCategory.data}
         AND slug = ${parsedSlug.data}
-        AND status = 'active'
-        AND live_verified = TRUE
-        AND (expires_at IS NULL OR expires_at > NOW())
       LIMIT 1
     `;
     const profile = rows[0] ? parseOutboundDemoProfile(rows[0].profile) : null;
-    return profile &&
-      profile.category === parsedCategory.data &&
-      profile.slug === parsedSlug.data &&
-      isActiveDemoProfile(profile)
+    return profile && profile.category === parsedCategory.data && profile.slug === parsedSlug.data
       ? profile
       : null;
   } catch {
@@ -74,9 +67,9 @@ async function readActiveDemoProfile(
   }
 }
 
-export const getActiveDemoProfile = cache(readActiveDemoProfile);
+export const getDemoProfile = cache(readDemoProfile);
 
-async function readActiveDemoProfileBySlug(slug: string): Promise<OutboundDemoProfile | null> {
+async function readDemoProfileBySlug(slug: string): Promise<OutboundDemoProfile | null> {
   const parsedSlug = demoSlugSchema.safeParse(slug);
   const sql = getDatabase();
   if (!parsedSlug.success || !sql) {
@@ -88,22 +81,17 @@ async function readActiveDemoProfileBySlug(slug: string): Promise<OutboundDemoPr
       SELECT profile
       FROM outbound_demo_profiles
       WHERE slug = ${parsedSlug.data}
-        AND status = 'active'
-        AND live_verified = TRUE
-        AND (expires_at IS NULL OR expires_at > NOW())
       LIMIT 2
     `;
     if (rows.length !== 1) {
       return null;
     }
     const profile = rows[0] ? parseOutboundDemoProfile(rows[0].profile) : null;
-    return profile && profile.slug === parsedSlug.data && isActiveDemoProfile(profile)
-      ? profile
-      : null;
+    return profile?.slug === parsedSlug.data ? profile : null;
   } catch {
     console.error('Unable to read an outbound demo profile.');
     return null;
   }
 }
 
-export const getActiveDemoProfileBySlug = cache(readActiveDemoProfileBySlug);
+export const getDemoProfileBySlug = cache(readDemoProfileBySlug);
