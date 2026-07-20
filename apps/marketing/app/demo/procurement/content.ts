@@ -21,6 +21,10 @@ export const PROCUREMENT_DEMO_COPY = {
     buyerWorkspace: 'Buyer workspace',
     agentTitle: 'Procurement agent',
     liveOpenAi: 'Live OpenAI',
+    safetyLabel: 'Synthetic demo data notice',
+    safetyNote: 'Synthetic demo only · no real purchasing',
+    dataNotice:
+      'Demo catalog only. Do not enter confidential procurement, supplier, or commercial information.',
     agentLabel: 'Procurement agent',
     buyerLabel: 'Buyer',
     greeting:
@@ -135,6 +139,10 @@ export const PROCUREMENT_DEMO_COPY = {
     buyerWorkspace: 'Không gian người mua',
     agentTitle: 'Tác nhân mua sắm',
     liveOpenAi: 'OpenAI trực tiếp',
+    safetyLabel: 'Thông báo dữ liệu demo tổng hợp',
+    safetyNote: 'Chỉ demo tổng hợp · không mua hàng thật',
+    dataNotice:
+      'Chỉ sử dụng danh mục demo. Không nhập thông tin mua sắm, nhà cung cấp hoặc thương mại mật.',
     agentLabel: 'Tác nhân mua sắm',
     buyerLabel: 'Người mua',
     greeting:

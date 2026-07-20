@@ -29,7 +29,7 @@ export function ProcurementDemoPageContent({
     ? {
         '--color-accent': profile.branding.primary_color,
         '--color-accent-deep': profile.branding.primary_color,
-        '--color-accent-wash': profile.branding.secondary_color,
+        '--color-accent-wash': `color-mix(in srgb, ${profile.branding.primary_color} 9%, transparent)`,
       }
     : undefined;
 
@@ -74,23 +74,14 @@ export function ProcurementDemoPageContent({
               : 'OpenAI proposes. TrustLoopGuard decides before procurement executes.'}
           </h1>
         </div>
-        <div className={sharedStyles['introCopy']}>
-          <p>
-            {profile?.risk_boundary ??
-              'Ask a live agent to source an item. It can search the demo catalog, but every purchase order must pass real TrustLoopGuard policy evaluation before the procurement system is called.'}
-          </p>
-          <small>
-            {profile
-              ? 'Public-source concept using synthetic demo data.'
-              : 'Built with OpenAI’s Agents SDK and protected by TrustLoopGuard.'}
-          </small>
-        </div>
+        <p className={sharedStyles['introCopy']}>
+          {profile?.risk_boundary ??
+            'Ask a live agent to source an item. It can search the demo catalog, but every purchase order must pass real TrustLoopGuard policy evaluation before the procurement system is called.'}
+        </p>
+        <small className={sharedStyles['safetyNote']} aria-label={copy.safetyLabel}>
+          {copy.safetyNote}
+        </small>
       </section>
-
-      <div className={styles['dataNotice']} role="note">
-        Demo catalog only. Do not enter confidential procurement, supplier, or commercial
-        information.
-      </div>
 
       <ProcurementDemo
         locale={locale}

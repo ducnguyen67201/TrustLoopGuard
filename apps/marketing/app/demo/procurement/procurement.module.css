@@ -1,12 +1,10 @@
 .dataNotice {
-  width: min(100% - 2rem, 90rem);
-  margin: 0 auto 1rem;
   border: 1px solid color-mix(in srgb, var(--color-escalate) 28%, var(--color-line));
   border-radius: var(--radius-sm);
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 0.85rem;
   background: color-mix(in srgb, var(--color-escalate) 6%, var(--color-panel));
   color: var(--color-muted);
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   line-height: 1.5;
 }
 
@@ -17,6 +15,7 @@
 .shell {
   display: grid;
   width: min(100% - 2rem, 90rem);
+  height: clamp(35.5rem, calc(100svh - 8.75rem), 53rem);
   margin-inline: auto;
   grid-template-columns: minmax(22rem, 0.78fr) minmax(34rem, 1.22fr);
   overflow: hidden;
@@ -33,13 +32,15 @@
 
 .chatPanel {
   display: grid;
-  min-height: 50rem;
+  min-height: 0;
   grid-template-rows: auto 1fr auto;
   border-right: 1px solid var(--color-line);
   background: var(--color-panel);
 }
 
 .controlPanel {
+  min-height: 0;
+  overflow-y: auto;
   background: var(--color-panel-2);
 }
 
@@ -561,6 +562,8 @@
 
 @media (max-width: 68rem) {
   .shell {
+    height: auto;
+    min-height: 0;
     grid-template-columns: 1fr;
   }
 
@@ -568,6 +571,10 @@
     min-height: 42rem;
     border-right: 0;
     border-bottom: 1px solid var(--color-line);
+  }
+
+  .controlPanel {
+    overflow-y: visible;
   }
 }
 
