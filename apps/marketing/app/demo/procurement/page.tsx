@@ -9,7 +9,13 @@ export const metadata: Metadata = {
   title: 'Secure AI Procurement Agent Demo',
   description:
     'Chat with a live OpenAI procurement agent and watch TrustLoopGuard permit, hold, or block purchase orders before they execute.',
-  alternates: { canonical: '/demo/procurement' },
+  alternates: {
+    canonical: '/demo/procurement',
+    languages: {
+      en: '/demo/procurement',
+      vi: '/vi/demo/procurement',
+    },
+  },
 };
 
 export default function ProcurementDemoPage() {
@@ -57,7 +63,7 @@ export default function ProcurementDemoPage() {
         information.
       </div>
 
-      <ProcurementDemo />
+      <ProcurementDemo locale="en" />
 
       <footer className={sharedStyles['demoFooter']}>
         <p>Give AI procurement tools a deterministic control boundary.</p>

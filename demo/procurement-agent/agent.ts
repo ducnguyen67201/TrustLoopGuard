@@ -258,6 +258,7 @@ const PROCUREMENT_AGENT = new Agent<ProcurementRunContext>({
     'Never claim that a purchase order executed unless the tool result status is submitted.',
     'If TrustLoopGuard blocks or holds an action, explain that outcome faithfully and do not retry it.',
     'For general questions, answer briefly without proposing an action.',
+    "Reply in the same language as the buyer's request.",
   ].join(' '),
   model: OPENAI_MODEL,
   modelSettings: { parallelToolCalls: false },

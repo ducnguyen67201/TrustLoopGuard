@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import { trackMarketingEvent } from '@/lib/gtm';
+import type { MarketingLocale } from '@/lib/marketing-locale';
 
 import {
   PROCUREMENT_POLICY_IDS,
@@ -13,33 +14,17 @@ import {
   type ProcurementPolicy,
   type ProcurementPolicyInventory,
 } from './contract';
+import { PROCUREMENT_DEMO_COPY } from './content';
 import styles from './procurement.module.css';
-
-const EXAMPLES = [
-  {
-    label: 'Approved chairs · allow',
-    prompt: 'Order the approved office chairs for $2,400.',
-  },
-  {
-    label: 'Laptops · review',
-    prompt: 'Order the approved developer laptops for $42,000.',
-  },
-  {
-    label: 'Unapproved vendor · block',
-    prompt: 'Order the office supplies from the unapproved vendor.',
-  },
-  {
-    label: 'Gift cards · block',
-    prompt: 'Order the employee gift cards from the approved vendor.',
-  },
-] as const;
 
 type RunState = 'idle' | 'running' | 'success' | 'error';
 type StepState = 'idle' | 'running' | 'complete' | 'stopped';
 type InventoryState = 'loading' | 'ready' | 'error';
 
-export function ProcurementDemo() {
-  const [prompt, setPrompt] = useState<string>(EXAMPLES[1].prompt);
+export function ProcurementDemo({ locale = 'en' }: { locale?: MarketingLocale }) {
+  const copy = PROCUREMENT_DEMO_COPY[locale];
+  const analyticsPage = locale === 'vi' ? '/vi/demo/procurement' : '/demo/procurement';
+  const [prompt, setPrompt] = useState<string>(copy.examples[1].prompt);
   const [submittedPrompt, setSubmittedPrompt] = useState('');
   const [runState, setRunState] = useState<RunState>('idle');
   const [response, setResponse] = useState<ProcurementDemoResponse | null>(null);
@@ -87,10 +72,10 @@ export function ProcurementDemo() {
     event.preventDefault();
     const message = prompt.trim();
     if (message === '' || runState === 'running') return;
-    const scenario = demoScenario(message);
+    const scenario = demoScenario(message, copy.examples);
 
     trackMarketingEvent('demo_started', {
-      page: '/demo/procurement',
+      page: analyticsPage,
       location: 'procurement_composer',
       scenario,
       label: PROCUREMENT_POLICY_IDS.join(','),
@@ -109,13 +94,19 @@ export function ProcurementDemo() {
       });
       const payload: JsonValue = await result.json().catch(() => null);
       if (!result.ok) {
-        throw new Error(publicError(payload) ?? 'The live procurement workflow failed safely.');
+        throw new Error(
+          locale === 'vi'
+            ? result.status === 429
+              ? copy.limitError
+              : copy.fallbackError
+            : (publicError(payload) ?? copy.fallbackError),
+        );
       }
       const body = sanitizeProcurementDemoResponse(payload);
       setResponse(body);
       setRunState('success');
       trackMarketingEvent('demo_decision_shown', {
-        page: '/demo/procurement',
+        page: analyticsPage,
         location: 'procurement_workflow',
         scenario,
         decision: body.result.decision?.effect ?? 'no_action',
@@ -126,11 +117,11 @@ export function ProcurementDemo() {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : 'The live procurement workflow failed safely.',
+          : copy.fallbackError,
       );
       setRunState('error');
       trackMarketingEvent('demo_decision_shown', {
-        page: '/demo/procurement',
+        page: analyticsPage,
         location: 'procurement_workflow',
         scenario,
         decision: 'request_error',
@@ -145,26 +136,23 @@ export function ProcurementDemo() {
       <section className={styles['chatPanel']} aria-labelledby="procurement-chat-title">
         <div className={styles['panelHeader']}>
           <div>
-            <p>Buyer workspace</p>
-            <h2 id="procurement-chat-title">Procurement agent</h2>
+            <p>{copy.buyerWorkspace}</p>
+            <h2 id="procurement-chat-title">{copy.agentTitle}</h2>
           </div>
           <span className={styles['liveBadge']}>
-            <i aria-hidden="true" /> Live OpenAI
+            <i aria-hidden="true" /> {copy.liveOpenAi}
           </span>
         </div>
 
         <div className={styles['chatBody']} aria-live="polite" aria-busy={runState === 'running'}>
           <div className={styles['assistantMessage']}>
-            <span>Procurement agent</span>
-            <p>
-              I can search a fixed demo catalog and propose one purchase order. TrustLoopGuard
-              checks the exact supplier, category, and review tier before anything is submitted.
-            </p>
+            <span>{copy.agentLabel}</span>
+            <p>{copy.greeting}</p>
           </div>
 
           {submittedPrompt !== '' ? (
             <div className={styles['buyerMessage']}>
-              <span>Buyer</span>
+              <span>{copy.buyerLabel}</span>
               <p>{submittedPrompt}</p>
             </div>
           ) : null}
@@ -172,28 +160,28 @@ export function ProcurementDemo() {
           {runState === 'running' ? (
             <div className={styles['workingStatus']}>
               <i className={styles['spinner']} aria-hidden="true" />
-              OpenAI is checking the catalog and proposing tools…
+              {copy.working}
             </div>
           ) : null}
 
           {response !== null ? (
             <div className={styles['assistantMessage']}>
-              <span>Procurement agent</span>
+              <span>{copy.agentLabel}</span>
               <p>{response.result.finalMessage}</p>
             </div>
           ) : null}
 
           {error !== '' ? (
             <div className={styles['errorMessage']} role="alert">
-              <strong>Purchase order stopped safely</strong>
+              <strong>{copy.errorTitle}</strong>
               <p>{error}</p>
             </div>
           ) : null}
         </div>
 
         <form className={styles['composer']} onSubmit={runDemo}>
-          <div className={styles['exampleRow']} aria-label="Example procurement requests">
-            {EXAMPLES.map((example) => (
+          <div className={styles['exampleRow']} aria-label={copy.examplesLabel}>
+            {copy.examples.map((example) => (
               <button
                 key={example.label}
                 type="button"
@@ -204,7 +192,7 @@ export function ProcurementDemo() {
               </button>
             ))}
           </div>
-          <label htmlFor="procurement-prompt">Buyer request</label>
+          <label htmlFor="procurement-prompt">{copy.buyerRequest}</label>
           <textarea
             id="procurement-prompt"
             value={prompt}
@@ -214,7 +202,7 @@ export function ProcurementDemo() {
             disabled={runState === 'running'}
           />
           <button className={styles['runButton']} type="submit" disabled={runState === 'running'}>
-            {runState === 'running' ? 'Running live agent' : 'Run secure procurement agent'}
+            {runState === 'running' ? copy.runningButton : copy.runButton}
             <span aria-hidden="true">→</span>
           </button>
         </form>
@@ -223,72 +211,67 @@ export function ProcurementDemo() {
       <section className={styles['controlPanel']} aria-labelledby="procurement-controls-title">
         <div className={styles['panelHeader']}>
           <div>
-            <p>Rust-enforced controls</p>
-            <h2 id="procurement-controls-title">TrustLoopGuard policy stack</h2>
+            <p>{copy.controlsEyebrow}</p>
+            <h2 id="procurement-controls-title">{copy.controlsTitle}</h2>
           </div>
-          <DecisionBadge response={response} runState={runState} />
+          <DecisionBadge response={response} runState={runState} locale={locale} />
         </div>
 
         <div className={styles['workflow']} aria-live="polite">
           <WorkflowStep
             number="01"
-            title="OpenAI agent"
-            detail="Searches the catalog and chooses whether to propose submit_purchase_order."
+            title={copy.workflow[0].title}
+            detail={
+              response === null ? copy.workflow[0].idle : copy.workflow[0].complete
+            }
             state={runState === 'idle' ? 'idle' : runState === 'running' ? 'running' : 'complete'}
           />
           <WorkflowStep
             number="02"
-            title="Catalog evidence"
-            detail={
-              traceSummary(response, 'search_catalog') ??
-              'Resolves a quote to server-owned supplier and price facts.'
-            }
+            title={copy.workflow[1].title}
+            detail={catalogDetail(response, locale)}
             state={toolStepState(response, runState, 'search_catalog')}
           />
           <WorkflowStep
             number="03"
-            title="TrustLoopGuard"
-            detail={
-              decision?.reason ??
-              'Evaluates the exact action against the enabled Rust policy profile.'
-            }
+            title={copy.workflow[2].title}
+            detail={guardDetail(response, locale)}
             state={guardStepState(response, runState)}
             emphasized
           />
           <WorkflowStep
             number="04"
-            title="Procurement system"
-            detail={providerDetail(response)}
+            title={copy.workflow[3].title}
+            detail={providerDetail(response, locale)}
             state={providerStepState(response, runState)}
           />
         </div>
 
         <section className={styles['policyInventory']} aria-labelledby="policy-checks-title">
           <div className={styles['monitorSectionHeading']}>
-            <h3 id="policy-checks-title">Policies checked</h3>
+            <h3 id="policy-checks-title">{copy.policiesChecked}</h3>
             <span aria-live="polite">
-              {policyMonitorSummary(policies, inventoryState, inventorySource)}
+              {policyMonitorSummary(policies, inventoryState, inventorySource, locale)}
             </span>
           </div>
           {inventoryState === 'loading' ? (
             <p className={styles['inventoryNotice']} role="status">
-              Loading the policy registry…
+              {copy.loadingRegistry}
             </p>
           ) : null}
           {inventoryState === 'error' ? (
             <p className={styles['inventoryNotice']} role="status">
-              Policy inventory unavailable. Purchase actions still fail closed.
+              {copy.inventoryUnavailable}
             </p>
           ) : null}
           {inventoryState === 'ready' && inventorySource === 'demo_template' ? (
             <p className={styles['inventoryNotice']} role="status">
-              <strong>Policy pack preview.</strong> The Rust registry is unavailable, so these are
-              the action policies installed by the demo setup. Runtime checks still fail closed.
+              <strong>{copy.previewLead}</strong> {copy.previewDetail}
             </p>
           ) : null}
           {inventoryState === 'ready' && inventorySource === 'rust' && policies.length === 0 ? (
             <p className={styles['inventoryNotice']}>
-              No enabled procurement demo policies were found. Run the demo setup command.
+              {copy.noPolicies}
             </p>
           ) : null}
           <div className={styles['policyList']}>
@@ -303,20 +286,24 @@ export function ProcurementDemo() {
                 >
                   <span className={styles['policyDot']} aria-hidden="true" />
                   <div>
-                    <strong>{policy.description ?? policy.id}</strong>
+                    <strong>
+                      {locale === 'vi'
+                        ? copy.policyDescriptions[policy.id]
+                        : (policy.description ?? policy.id)}
+                    </strong>
                     <code>{policy.id}</code>
                     <span className={styles['policyStatus']}>
                       {matched
-                        ? 'Matched this action'
+                        ? copy.matchedThisAction
                         : policy.enabled
-                          ? 'Active in Rust'
-                          : 'Policy pack preview'}
+                          ? copy.activeInRust
+                          : copy.policyPackPreview}
                     </span>
                   </div>
                   <div className={styles['policyMeta']}>
-                    <span>Action</span>
-                    <span>{policy.severity}</span>
-                    <span>{policyActionLabel(policy.action)}</span>
+                    <span>{copy.action}</span>
+                    <span>{policySeverityLabel(policy.severity, locale)}</span>
+                    <span>{policyActionLabel(policy.action, locale)}</span>
                   </div>
                 </article>
               );
@@ -326,45 +313,53 @@ export function ProcurementDemo() {
 
         <div className={styles['proofGrid']}>
           <article>
-            <span>Authorization proof</span>
-            <strong>{decision?.traceId ?? 'Waiting for a proposed action'}</strong>
+            <span>{copy.authorizationProof}</span>
+            <strong>{decision?.traceId ?? copy.waitingForAction}</strong>
             <dl>
               <div>
-                <dt>Effect</dt>
+                <dt>{copy.effect}</dt>
                 <dd>
-                  {decision?.effect ?? (response === null ? 'Not checked' : 'No action proposed')}
+                  {decision === undefined
+                    ? response === null
+                      ? copy.notChecked
+                      : copy.noAction
+                    : decisionEffectLabel(decision.effect, locale)}
                 </dd>
               </div>
               <div>
-                <dt>Matched policy</dt>
-                <dd>{matchedPolicyIds(response)}</dd>
+                <dt>{copy.matchedPolicy}</dt>
+                <dd>{matchedPolicyIds(response, locale)}</dd>
               </div>
               <div>
-                <dt>Latency</dt>
+                <dt>{copy.latency}</dt>
                 <dd>{decision === undefined ? '—' : `${decision.latencyMs} ms`}</dd>
               </div>
               <div>
-                <dt>Approval</dt>
-                <dd>{decision?.approvalId ?? 'Not required'}</dd>
+                <dt>{copy.approval}</dt>
+                <dd>{decision?.approvalId ?? copy.notRequired}</dd>
               </div>
             </dl>
           </article>
 
           <article>
-            <span>Provider outcome</span>
-            <strong>{purchaseOrder?.id ?? 'No purchase order created'}</strong>
+            <span>{copy.providerOutcome}</span>
+            <strong>{purchaseOrder?.id ?? copy.noPurchaseOrder}</strong>
             <dl>
               <div>
-                <dt>Status</dt>
-                <dd>{purchaseOrder?.status ?? 'Not called'}</dd>
+                <dt>{copy.status}</dt>
+                <dd>{purchaseOrder === undefined ? copy.notCalled : copy.submitted}</dd>
               </div>
               <div>
-                <dt>Supplier</dt>
+                <dt>{copy.supplier}</dt>
                 <dd>{purchaseOrder?.supplierName ?? '—'}</dd>
               </div>
               <div>
-                <dt>Total</dt>
-                <dd>{purchaseOrder === undefined ? '—' : formatMoney(purchaseOrder.totalMinor)}</dd>
+                <dt>{copy.total}</dt>
+                <dd>
+                  {purchaseOrder === undefined
+                    ? '—'
+                    : formatMoney(purchaseOrder.totalMinor, locale)}
+                </dd>
               </div>
             </dl>
           </article>
@@ -406,23 +401,26 @@ function WorkflowStep({
 function DecisionBadge({
   response,
   runState,
+  locale,
 }: {
   response: ProcurementDemoResponse | null;
   runState: RunState;
+  locale: MarketingLocale;
 }) {
+  const copy = PROCUREMENT_DEMO_COPY[locale];
   const effect = response?.result.decision?.effect;
   const label =
     runState === 'running'
-      ? 'Checking'
+      ? copy.checking
       : effect === 'permit'
-        ? 'Permitted'
+        ? copy.permitted
         : effect === 'require_approval'
-          ? 'Held for review'
+          ? copy.heldForReview
           : effect === 'deny' || effect === 'defer'
-            ? 'Blocked'
+            ? copy.blocked
             : response === null
-              ? 'Ready'
-              : 'No action';
+              ? copy.ready
+              : copy.noAction;
   const state =
     effect === 'permit'
       ? 'permitted'
@@ -465,41 +463,112 @@ function providerStepState(
   return runState === 'running' ? 'running' : 'idle';
 }
 
-function providerDetail(response: ProcurementDemoResponse | null): string {
-  const purchaseOrder = response?.state.purchaseOrders[0];
-  if (purchaseOrder !== undefined) return `Submitted ${purchaseOrder.id} after a permit decision.`;
+function guardDetail(
+  response: ProcurementDemoResponse | null,
+  locale: MarketingLocale,
+): string {
+  const copy = PROCUREMENT_DEMO_COPY[locale].workflow[2];
+  if (locale === 'en' && response?.result.decision !== undefined) {
+    return response.result.decision.reason;
+  }
   const effect = response?.result.decision?.effect;
-  if (effect === 'require_approval')
-    return 'Not called. The purchase order is waiting for human approval.';
-  if (effect === 'deny' || effect === 'defer')
-    return 'Not called. TrustLoopGuard stopped the proposed action.';
-  if (response !== null) return 'Not called. The agent did not propose a purchase order.';
-  return 'Receives one simulated purchase order only after TrustLoopGuard permits it.';
+  if (effect === 'permit' || effect === 'transform') return copy.permit;
+  if (effect === 'require_approval') return copy.review;
+  if (effect === 'deny' || effect === 'defer') return copy.deny;
+  if (response !== null) return copy.noAction;
+  return copy.idle;
 }
 
-function matchedPolicyIds(response: ProcurementDemoResponse | null): string {
+function providerDetail(
+  response: ProcurementDemoResponse | null,
+  locale: MarketingLocale,
+): string {
+  const copy = PROCUREMENT_DEMO_COPY[locale].workflow[3];
+  const purchaseOrder = response?.state.purchaseOrders[0];
+  if (purchaseOrder !== undefined) {
+    return locale === 'en'
+      ? `Submitted ${purchaseOrder.id} after a permit decision.`
+      : copy.submitted;
+  }
+  const effect = response?.result.decision?.effect;
+  if (effect === 'require_approval') return copy.review;
+  if (effect === 'deny' || effect === 'defer') return copy.blocked;
+  if (response !== null) return copy.noAction;
+  return copy.idle;
+}
+
+function catalogDetail(
+  response: ProcurementDemoResponse | null,
+  locale: MarketingLocale,
+): string {
+  const copy = PROCUREMENT_DEMO_COPY[locale].workflow[1];
+  const summary = traceSummary(response, 'search_catalog');
+  if (summary === undefined) return copy.idle;
+  return locale === 'en' ? summary : copy.complete;
+}
+
+function matchedPolicyIds(
+  response: ProcurementDemoResponse | null,
+  locale: MarketingLocale,
+): string {
   const policyIds = response?.result.decision?.findings
     .map((finding) => finding.policyId)
     .filter((policyId): policyId is string => policyId !== undefined);
-  return policyIds === undefined || policyIds.length === 0 ? 'None' : policyIds.join(', ');
+  return policyIds === undefined || policyIds.length === 0
+    ? PROCUREMENT_DEMO_COPY[locale].none
+    : policyIds.join(', ');
 }
 
 function policyMonitorSummary(
   policies: ProcurementPolicy[],
   inventoryState: InventoryState,
   inventorySource: ProcurementPolicyInventory['source'] | null,
+  locale: MarketingLocale,
 ): string {
-  if (inventoryState === 'loading') return 'Loading';
-  if (inventoryState === 'error') return 'Unavailable';
-  return `${policies.length} ${inventorySource === 'rust' ? 'active' : 'in pack'}`;
+  const copy = PROCUREMENT_DEMO_COPY[locale];
+  if (inventoryState === 'loading') return copy.loading;
+  if (inventoryState === 'error') return copy.unavailable;
+  return `${policies.length} ${inventorySource === 'rust' ? copy.active : copy.inPack}`;
 }
 
-function policyActionLabel(action?: string): string {
-  return action?.replaceAll('_', ' ') ?? 'check';
+function policyActionLabel(action: string | undefined, locale: MarketingLocale): string {
+  if (locale === 'vi') {
+    if (action === 'deny') return 'từ chối';
+    if (action === 'require_approval') return 'cần phê duyệt';
+    if (action === 'permit') return 'cho phép';
+    if (action === 'transform') return 'chuyển đổi';
+  }
+  return action?.replaceAll('_', ' ') ?? PROCUREMENT_DEMO_COPY[locale].check;
 }
 
-function demoScenario(message: string): string {
-  return EXAMPLES.find((example) => example.prompt === message)?.label ?? 'custom';
+function policySeverityLabel(
+  severity: ProcurementPolicy['severity'],
+  locale: MarketingLocale,
+): string {
+  if (locale === 'en') return severity;
+  if (severity === 'critical') return 'nghiêm trọng';
+  if (severity === 'high') return 'cao';
+  if (severity === 'medium') return 'trung bình';
+  return 'thấp';
+}
+
+function decisionEffectLabel(
+  effect: NonNullable<ProcurementDemoResponse['result']['decision']>['effect'],
+  locale: MarketingLocale,
+): string {
+  if (locale === 'en') return effect;
+  if (effect === 'permit') return 'cho phép';
+  if (effect === 'require_approval') return 'cần phê duyệt';
+  if (effect === 'deny') return 'từ chối';
+  if (effect === 'transform') return 'chuyển đổi';
+  return 'tạm hoãn';
+}
+
+function demoScenario(
+  message: string,
+  examples: readonly { label: string; prompt: string }[],
+): string {
+  return examples.find((example) => example.prompt === message)?.label ?? 'custom';
 }
 
 function publicError(payload: JsonValue): string | undefined {
@@ -507,8 +576,11 @@ function publicError(payload: JsonValue): string | undefined {
   return typeof payload['error'] === 'string' ? payload['error'] : undefined;
 }
 
-function formatMoney(amountMinor: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+function formatMoney(amountMinor: number, locale: MarketingLocale): string {
+  return new Intl.NumberFormat(locale === 'vi' ? 'vi-VN' : 'en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(
     amountMinor / 100,
   );
 }

@@ -152,7 +152,8 @@ test('accepts only bounded Rust or template policy inventory', () => {
 test('the page presents live OpenAI, Rust policies, all outcomes, and a read-only policy list', () => {
   const page = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
   const demo = readFileSync(new URL('./procurement-demo.tsx', import.meta.url), 'utf8');
-  const source = `${page}\n${demo}`;
+  const content = readFileSync(new URL('./content.ts', import.meta.url), 'utf8');
+  const source = `${page}\n${demo}\n${content}`;
 
   assert.match(source, /OpenAI proposes/i);
   assert.match(source, /TrustLoopGuard decides/i);
@@ -165,6 +166,24 @@ test('the page presents live OpenAI, Rust policies, all outcomes, and a read-onl
   assert.match(source, /require_approval/);
   assert.match(source, /effect === 'deny'/);
   assert.match(source, /effect === 'permit'/);
+});
+
+test('the Vietnamese procurement route localizes UI and search metadata without duplicating runtime logic', () => {
+  const page = readFileSync(
+    new URL('../../vi/demo/procurement/page.tsx', import.meta.url),
+    'utf8',
+  );
+  const content = readFileSync(new URL('./content.ts', import.meta.url), 'utf8');
+  const sitemap = readFileSync(new URL('../../sitemap.ts', import.meta.url), 'utf8');
+
+  assert.match(page, /<main lang="vi"/);
+  assert.match(page, /<ProcurementDemo locale="vi"/);
+  assert.match(page, /canonical: '\/vi\/demo\/procurement'/);
+  assert.match(page, /locale: 'vi_VN'/);
+  assert.match(content, /Chính sách đã kiểm tra/);
+  assert.match(content, /Đang bật trong Rust/);
+  assert.match(sitemap, /url: absoluteUrl\('\/vi\/demo\/procurement'\)/);
+  assert.doesNotMatch(page, /runHostedProcurementDemo|withAuthorizedAction|listPolicies/);
 });
 
 test('analytics events omit prompts and runtime identifiers', () => {
