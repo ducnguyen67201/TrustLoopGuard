@@ -63,7 +63,16 @@ interface DisplayMessage {
   content: string;
 }
 
-export function HealthcareDemo() {
+type HealthcareDemoPresentation = {
+  companyName: string;
+  workflow: string;
+};
+
+export function HealthcareDemo({
+  presentation,
+}: {
+  presentation?: HealthcareDemoPresentation;
+}) {
   const [sessionId] = useState(() => crypto.randomUUID());
   const [message, setMessage] = useState<string>(PRESETS[0].message);
   const [selectedPreset, setSelectedPreset] = useState<string>(PRESETS[0].id);
@@ -215,8 +224,10 @@ export function HealthcareDemo() {
       <section className={styles['chatPanel']} aria-labelledby="healthcare-chat-title">
         <div className={styles['panelHeader']}>
           <div>
-            <p>CareDesk chat</p>
-            <h2 id="healthcare-chat-title">Hospital scheduling demo</h2>
+            <p>{presentation ? `Prepared for ${presentation.companyName}` : 'CareDesk chat'}</p>
+            <h2 id="healthcare-chat-title">
+              {presentation?.workflow ?? 'Hospital scheduling demo'}
+            </h2>
           </div>
           <span className={styles['liveBadge']}>
             <i aria-hidden="true" /> Protected

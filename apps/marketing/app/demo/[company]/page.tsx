@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import { getActiveDemoProfile } from '../../../lib/server/outbound-demo-profile-store';
+import { getActiveDemoProfileBySlug } from '../../../lib/server/outbound-demo-profile-store';
 import type { CompanyDemoViewModel } from '../company-profile';
 import styles from '../demo.module.css';
 import { CompanyDemo } from './company-demo';
@@ -15,21 +15,21 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: CompanyDemoPageProps): Promise<Metadata> {
   const { company } = await params;
-  const profile = await getActiveDemoProfile(company);
+  const profile = await getActiveDemoProfileBySlug(company);
 
   return {
     title: profile ? `${profile.company_name} AI Guardrail Concept` : 'Personalized AI Guardrail Demo',
     description: profile
       ? `A private, public-source TrustLoopGuard concept for ${profile.company_name}.`
       : 'A private TrustLoopGuard concept demo.',
-    alternates: { canonical: '/demo' },
+    alternates: { canonical: profile?.demo_url ?? '/demo' },
     robots: { index: false, follow: false },
   };
 }
 
 export default async function CompanyDemoPage({ params }: CompanyDemoPageProps) {
   const { company } = await params;
-  const profile = await getActiveDemoProfile(company);
+  const profile = await getActiveDemoProfileBySlug(company);
   if (!profile) {
     notFound();
   }

@@ -555,6 +555,13 @@
   font-weight: 700;
 }
 
+.demoFooterSources {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
 .healthcareShell {
   grid-template-columns: minmax(22rem, 0.9fr) minmax(30rem, 1.1fr);
 }

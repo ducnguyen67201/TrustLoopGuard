@@ -10,16 +10,17 @@ import {
 
 const validProfile = {
   slug: 'acme-cloud',
+  category: 'healthcare',
   company_name: 'Acme Cloud',
   company_domain: 'acme.example',
-  scenario_id: 'production-data-export',
-  demo_url: 'https://gettrustloop.app/demo/acme-cloud',
-  user_profile: 'Operations lead',
-  workflow: 'Customer data export',
-  risk_boundary: 'An agent is preparing to export production customer records.',
-  rule: 'Exports require a documented purpose and approval before execution.',
-  approval_step: 'The data owner reviews the request before the export tool runs.',
-  record_shown: 'Proposal, evidence, policy result, approval state, and final execution state.',
+  scenario_id: 'healthcare-scheduling-v1',
+  demo_url: 'https://gettrustloop.app/demo/healthcare/acme-cloud',
+  user_profile: 'Hospital scheduling lead',
+  workflow: 'Synthetic appointment scheduling',
+  risk_boundary: 'A scheduling assistant must stop unsafe requests before drafting a reply.',
+  rule: 'Only synthetic, non-clinical scheduling requests may proceed.',
+  approval_step: 'Hospital staff review requests that require human judgment.',
+  record_shown: 'Input decision, output decision, policy findings, and trace identifiers.',
   branding: {
     primary_color: '#175CD3',
     secondary_color: '#84ADFF',
@@ -29,26 +30,26 @@ const validProfile = {
     {
       effect: 'permit',
       label: 'Allow',
-      proposal: 'Export an approved aggregate report.',
-      evidence: ['The request is aggregate-only.', 'A current approval is attached.'],
-      decision: 'The export can proceed and the authorization is recorded.',
+      proposal: 'Explain how to request a fictional primary-care appointment.',
+      evidence: ['The request contains no real patient data.', 'The request is non-clinical.'],
+      decision: 'The scheduling guidance can be drafted and checked before delivery.',
     },
     {
       effect: 'require_approval',
       label: 'Require approval',
-      proposal: 'Export customer-level records for a support investigation.',
-      evidence: ['The purpose is documented.', 'The data owner has not approved the request.'],
-      decision: 'The action is held until the data owner approves it.',
+      proposal: 'Change a fictional appointment without confirming the requested details.',
+      evidence: ['The request is administrative.', 'Required scheduling details are missing.'],
+      decision: 'The request is held for hospital staff review.',
     },
     {
       effect: 'deny',
       label: 'Block',
-      proposal: 'Export all customer records to an unapproved destination.',
-      evidence: ['The destination is outside the approved list.'],
-      decision: 'The export is blocked before the data tool is called.',
+      proposal: "Reveal another fictional patient's appointment details.",
+      evidence: ['The request asks for information about another patient.'],
+      decision: 'The request is blocked before model generation.',
     },
   ],
-  sources: [{ title: 'Acme security overview', url: 'https://acme.example/security' }],
+  sources: [{ title: 'Acme scheduling overview', url: 'https://acme.example/scheduling' }],
   disclaimer:
     'This is a concept based on public material and is not connected to Acme Cloud or its systems.',
   truth_check: 'The concept is limited to the workflow described by the linked public source.',
@@ -72,8 +73,13 @@ test('rejects a profile with a mismatched route or private outreach data', () =>
   assert.equal(
     parseOutboundDemoProfile({
       ...validProfile,
-      demo_url: 'https://gettrustloop.app/demo/another-company',
+      demo_url: 'https://gettrustloop.app/demo/healthcare/another-company',
     }),
+    null,
+  );
+  assert.equal(parseOutboundDemoProfile({ ...validProfile, category: 'finance' }), null);
+  assert.equal(
+    parseOutboundDemoProfile({ ...validProfile, scenario_id: 'procurement-submit-po-v1' }),
     null,
   );
   assert.equal(
@@ -121,13 +127,28 @@ test('the company route reads only eligible profiles and fails closed', () => {
   const page = readFileSync(new URL('./[company]/page.tsx', import.meta.url), 'utf8');
   const demo = readFileSync(new URL('./[company]/company-demo.tsx', import.meta.url), 'utf8');
 
-  assert.match(store, /WHERE slug = \$\{parsedSlug\.data\}/);
+  assert.match(store, /WHERE category = \$\{parsedCategory\.data\}/);
+  assert.match(store, /AND slug = \$\{parsedSlug\.data\}/);
   assert.match(store, /status = 'active'/);
   assert.match(store, /live_verified = TRUE/);
   assert.match(store, /expires_at > NOW\(\)/);
+  assert.match(store, /rows\.length !== 1/);
   assert.match(page, /notFound\(\)/);
   assert.match(page, /index: false, follow: false/);
   assert.match(demo, /Choose a decision path/);
   assert.match(demo, /profile\.disclaimer/);
   assert.doesNotMatch(demo, /fetch\(|\/v1\/events/);
+});
+
+test('the personalized healthcare route selects only the fixed scheduling scenario', () => {
+  const page = readFileSync(new URL('./healthcare/[company]/page.tsx', import.meta.url), 'utf8');
+  const healthcarePage = readFileSync(new URL('./healthcare/page.tsx', import.meta.url), 'utf8');
+
+  assert.match(page, /getActiveDemoProfile\('healthcare', company\)/);
+  assert.match(page, /demoScenarioIdByCategory\.healthcare/);
+  assert.match(page, /notFound\(\)/);
+  assert.match(page, /index: false, follow: false/);
+  assert.match(healthcarePage, /HealthcareDemoPageView/);
+  assert.match(healthcarePage, /profile\?\.risk_boundary/);
+  assert.match(healthcarePage, /profile\.sources/);
 });

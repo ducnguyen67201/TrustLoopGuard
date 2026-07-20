@@ -23,6 +23,13 @@ const publicHttpsUrl = z
 
 export const demoSlugSchema = z.string().max(100).regex(slugPattern);
 
+export const demoCategorySchema = z.enum(['healthcare', 'procurement']);
+
+export const demoScenarioIdByCategory = {
+  healthcare: 'healthcare-scheduling-v1',
+  procurement: 'procurement-submit-po-v1',
+} as const satisfies Record<z.infer<typeof demoCategorySchema>, string>;
+
 export const demoEffectSchema = z.enum(['permit', 'require_approval', 'deny']);
 
 const demoPathSchema = z
@@ -38,6 +45,7 @@ const demoPathSchema = z
 export const outboundDemoProfileSchema = z
   .object({
     slug: demoSlugSchema,
+    category: demoCategorySchema,
     company_name: publicText(200),
     company_domain: z.string().max(253).regex(domainPattern).nullable().optional(),
     scenario_id: z.string().max(100).regex(slugPattern),
@@ -85,16 +93,27 @@ export const outboundDemoProfileSchema = z
   .strict()
   .superRefine((profile, context) => {
     const url = new URL(profile.demo_url);
-    if (url.origin !== 'https://gettrustloop.app' || url.pathname !== `/demo/${profile.slug}`) {
+    if (
+      url.origin !== 'https://gettrustloop.app' ||
+      url.pathname !== `/demo/${profile.category}/${profile.slug}`
+    ) {
       context.addIssue({
         code: 'custom',
         path: ['demo_url'],
         message: 'Demo URL must match the canonical company route',
       });
     }
+    if (profile.scenario_id !== demoScenarioIdByCategory[profile.category]) {
+      context.addIssue({
+        code: 'custom',
+        path: ['scenario_id'],
+        message: 'Scenario must match the fixed category runtime',
+      });
+    }
   });
 
 export type DemoEffect = z.infer<typeof demoEffectSchema>;
+export type DemoCategory = z.infer<typeof demoCategorySchema>;
 export type OutboundDemoProfile = z.infer<typeof outboundDemoProfileSchema>;
 export type CompanyDemoViewModel = Pick<
   OutboundDemoProfile,
