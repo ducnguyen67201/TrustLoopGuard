@@ -295,6 +295,33 @@
   line-height: 1.45;
 }
 
+.workspaceContext {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.8rem;
+  background: var(--color-panel);
+}
+
+.workspaceContext span {
+  color: var(--color-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.workspaceContext code {
+  min-width: 0;
+  color: var(--color-accent-deep);
+  font-size: 0.7rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
 .policyList {
   display: grid;
   gap: 0.55rem;
@@ -553,6 +580,15 @@
 
   .policyCard {
     grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .workspaceContext {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .workspaceContext code {
+    text-align: left;
   }
 
   .policyMeta {

@@ -140,10 +140,19 @@ test('accepts only bounded Rust or template policy inventory', () => {
       guard: 'trustloopguard-rust-api',
       provider: 'simulated-procurement-api',
     },
+    workspace: {
+      id: 'ws-procurement-test',
+      source: 'configured',
+      adminUserId: 'private',
+    },
     apiKey: 'private',
   });
 
   assert.equal(inventory.source, 'rust');
+  assert.deepEqual(inventory.workspace, {
+    id: 'ws-procurement-test',
+    source: 'configured',
+  });
   assert.equal(inventory.policies[0]?.enabled, true);
   assert.equal('privateMatcher' in inventory.policies[0]!, false);
   assert.equal('apiKey' in inventory, false);
@@ -159,6 +168,7 @@ test('the page presents live OpenAI, Rust policies, all outcomes, and a read-onl
   assert.match(source, /TrustLoopGuard decides/i);
   assert.match(source, /Demo catalog only/i);
   assert.match(source, /Policies checked/i);
+  assert.match(source, /Workspace holding these policies/i);
   assert.match(source, /Active in Rust/i);
   assert.match(source, /fetch\('\/api\/demo\/procurement'/);
   assert.doesNotMatch(source, /role="switch"/);
@@ -181,6 +191,7 @@ test('the Vietnamese procurement route localizes UI and search metadata without 
   assert.match(page, /canonical: '\/vi\/demo\/procurement'/);
   assert.match(page, /locale: 'vi_VN'/);
   assert.match(content, /Chính sách đã kiểm tra/);
+  assert.match(content, /Không gian làm việc chứa các chính sách này/);
   assert.match(content, /Đang bật trong Rust/);
   assert.match(sitemap, /url: absoluteUrl\('\/vi\/demo\/procurement'\)/);
   assert.doesNotMatch(page, /runHostedProcurementDemo|withAuthorizedAction|listPolicies/);

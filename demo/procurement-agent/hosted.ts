@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { Client, PolicySummary, Severity } from '@trustloopguard/sdk';
 
-import { createClient } from '../shared/env';
+import { createClient, WORKSPACE_ID } from '../shared/env';
 import {
   runProcurementAgent,
   type ProcurementAgentResult,
@@ -37,16 +37,27 @@ export interface HostedProcurementPolicyInventoryItem {
   enabled: boolean;
 }
 
+export type HostedProcurementWorkspaceContext =
+  | {
+      id: string;
+      source: 'configured';
+    }
+  | {
+      source: 'server_default';
+    };
+
 export type HostedProcurementPolicyInventoryResponse =
   | {
       policies: Array<HostedProcurementPolicyInventoryItem & { enabled: true }>;
       source: 'rust';
       runtime: HostedProcurementDemoResponse['runtime'];
+      workspace: HostedProcurementWorkspaceContext;
     }
   | {
       policies: Array<HostedProcurementPolicyInventoryItem & { enabled: false }>;
       source: 'demo_template';
       runtime: HostedProcurementDemoResponse['runtime'];
+      workspace: HostedProcurementWorkspaceContext;
     };
 
 export interface ProcurementPolicyInventoryClient {
@@ -166,7 +177,10 @@ export async function runHostedProcurementDemo(
 }
 
 export async function readHostedProcurementDemoPolicies(
-  dependencies: { createClient?: () => ProcurementPolicyInventoryClient } = {},
+  dependencies: {
+    createClient?: () => ProcurementPolicyInventoryClient;
+    workspaceId?: string;
+  } = {},
 ): Promise<HostedProcurementPolicyInventoryResponse> {
   const client = (dependencies.createClient ?? createClient)();
   const response = await client.listPolicies({ family: 'tool' });
@@ -174,10 +188,13 @@ export async function readHostedProcurementDemoPolicies(
     policies: projectProcurementPolicies(response.policies),
     source: 'rust',
     runtime: procurementRuntime(),
+    workspace: procurementWorkspaceContext(dependencies.workspaceId ?? WORKSPACE_ID),
   };
 }
 
-export function readHostedProcurementDemoPolicyPreview(): HostedProcurementPolicyInventoryResponse {
+export function readHostedProcurementDemoPolicyPreview(
+  workspaceId: string | undefined = WORKSPACE_ID,
+): HostedProcurementPolicyInventoryResponse {
   return {
     policies: PROCUREMENT_POLICIES.map((policy) => ({
       id: policy.id,
@@ -188,6 +205,7 @@ export function readHostedProcurementDemoPolicyPreview(): HostedProcurementPolic
     })),
     source: 'demo_template',
     runtime: procurementRuntime(),
+    workspace: procurementWorkspaceContext(workspaceId),
   };
 }
 
@@ -223,4 +241,13 @@ function procurementRuntime(): HostedProcurementDemoResponse['runtime'] {
     guard: 'trustloopguard-rust-api',
     provider: 'simulated-procurement-api',
   };
+}
+
+function procurementWorkspaceContext(
+  workspaceId: string | undefined,
+): HostedProcurementWorkspaceContext {
+  const normalizedWorkspaceId = workspaceId?.trim();
+  return normalizedWorkspaceId === undefined || normalizedWorkspaceId === ''
+    ? { source: 'server_default' }
+    : { id: normalizedWorkspaceId, source: 'configured' };
 }

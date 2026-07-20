@@ -33,6 +33,9 @@ export function ProcurementDemo({ locale = 'en' }: { locale?: MarketingLocale })
   const [inventorySource, setInventorySource] = useState<
     ProcurementPolicyInventory['source'] | null
   >(null);
+  const [workspace, setWorkspace] = useState<
+    ProcurementPolicyInventory['workspace'] | null
+  >(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -45,6 +48,7 @@ export function ProcurementDemo({ locale = 'en' }: { locale?: MarketingLocale })
         if (!active) return;
         setPolicies(inventory.policies);
         setInventorySource(inventory.source);
+        setWorkspace(inventory.workspace);
         setInventoryState('ready');
       } catch {
         if (active) setInventoryState('error');
@@ -273,6 +277,20 @@ export function ProcurementDemo({ locale = 'en' }: { locale?: MarketingLocale })
             <p className={styles['inventoryNotice']}>
               {copy.noPolicies}
             </p>
+          ) : null}
+          {inventoryState === 'ready' && workspace !== null ? (
+            <div className={styles['workspaceContext']}>
+              <span>
+                {inventorySource === 'rust'
+                  ? copy.policyWorkspace
+                  : copy.previewWorkspace}
+              </span>
+              <code>
+                {workspace.source === 'configured'
+                  ? workspace.id
+                  : copy.serverDefaultWorkspace}
+              </code>
+            </div>
           ) : null}
           <div className={styles['policyList']}>
             {policies.map((policy) => {

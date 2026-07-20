@@ -99,6 +99,16 @@ const runtimeSchema = z.object({
   provider: z.literal('simulated-procurement-api'),
 });
 
+const workspaceSchema = z.discriminatedUnion('source', [
+  z.object({
+    id: z.string().trim().min(1).max(200),
+    source: z.literal('configured'),
+  }),
+  z.object({
+    source: z.literal('server_default'),
+  }),
+]);
+
 const responseSchema = z.object({
   result: z.object({
     finalMessage: z.string().max(2_000),
@@ -117,11 +127,13 @@ const policyInventorySchema = z.discriminatedUnion('source', [
     policies: z.array(activePolicyInventorySchema).max(3),
     source: z.literal('rust'),
     runtime: runtimeSchema,
+    workspace: workspaceSchema,
   }),
   z.object({
     policies: z.array(previewPolicyInventorySchema).length(3),
     source: z.literal('demo_template'),
     runtime: runtimeSchema,
+    workspace: workspaceSchema,
   }),
 ]);
 

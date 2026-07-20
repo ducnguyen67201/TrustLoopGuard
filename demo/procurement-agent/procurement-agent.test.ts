@@ -156,6 +156,7 @@ test('enforces the central process-local request budget', () => {
 
 test('projects the enabled procurement policy inventory from the Rust registry', async () => {
   const inventory = await readHostedProcurementDemoPolicies({
+    workspaceId: '  ws-procurement-test  ',
     createClient: () => ({
       async listPolicies(): Promise<PolicyListResponse> {
         return {
@@ -188,6 +189,10 @@ test('projects the enabled procurement policy inventory from the Rust registry',
   });
 
   assert.equal(inventory.source, 'rust');
+  assert.deepEqual(inventory.workspace, {
+    id: 'ws-procurement-test',
+    source: 'configured',
+  });
   assert.deepEqual(inventory.policies, [
     {
       id: 'procurement-restricted-categories',
@@ -200,8 +205,9 @@ test('projects the enabled procurement policy inventory from the Rust registry',
 });
 
 test('builds a disabled preview of the policies installed by demo setup', () => {
-  const preview = readHostedProcurementDemoPolicyPreview();
+  const preview = readHostedProcurementDemoPolicyPreview('');
   assert.equal(preview.source, 'demo_template');
+  assert.deepEqual(preview.workspace, { source: 'server_default' });
   assert.deepEqual(
     preview.policies.map((policy) => policy.id),
     [...PROCUREMENT_POLICY_IDS],

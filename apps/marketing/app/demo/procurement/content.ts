@@ -74,6 +74,9 @@ export const PROCUREMENT_DEMO_COPY = {
     previewDetail:
       'The Rust registry is unavailable, so these are the action policies installed by the demo setup. Runtime checks still fail closed.',
     noPolicies: 'No enabled procurement demo policies were found. Run the demo setup command.',
+    policyWorkspace: 'Workspace holding these policies',
+    previewWorkspace: 'Configured demo workspace',
+    serverDefaultWorkspace: 'Rust server default',
     matchedThisAction: 'Matched this action',
     activeInRust: 'Active in Rust',
     policyPackPreview: 'Policy pack preview',
@@ -187,6 +190,9 @@ export const PROCUREMENT_DEMO_COPY = {
       'Sổ đăng ký Rust không khả dụng, nên đây là các chính sách hành động mà thiết lập demo sẽ cài đặt. Kiểm tra lúc chạy vẫn dừng an toàn khi có lỗi.',
     noPolicies:
       'Không tìm thấy chính sách demo mua sắm nào đang bật. Hãy chạy lệnh thiết lập demo.',
+    policyWorkspace: 'Không gian làm việc chứa các chính sách này',
+    previewWorkspace: 'Không gian làm việc được cấu hình cho demo',
+    serverDefaultWorkspace: 'Không gian mặc định của máy chủ Rust',
     matchedThisAction: 'Khớp với hành động này',
     activeInRust: 'Đang bật trong Rust',
     policyPackPreview: 'Xem trước bộ chính sách',

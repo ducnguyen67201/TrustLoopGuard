@@ -23,6 +23,10 @@ test('returns the Rust procurement policy inventory without caching it', async (
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.equal(body.source, 'rust');
+  assert.deepEqual(body.workspace, {
+    id: 'ws-route-test',
+    source: 'configured',
+  });
   assert.equal(body.policies[0].id, 'procurement-approved-suppliers');
   assert.equal(body.policies[0].privateMatcher, undefined);
 });
@@ -299,6 +303,10 @@ function inventoryPayload(): Extract<
       agent: 'openai-agents-js',
       guard: 'trustloopguard-rust-api',
       provider: 'simulated-procurement-api',
+    },
+    workspace: {
+      id: 'ws-route-test',
+      source: 'configured',
     },
   };
 }
