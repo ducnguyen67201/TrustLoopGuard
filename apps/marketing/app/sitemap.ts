@@ -51,6 +51,24 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: HEALTHCARE_DEMO_LAST_MODIFIED,
       changeFrequency: 'monthly',
       priority: 0.85,
+      alternates: {
+        languages: {
+          en: absoluteUrl('/demo/healthcare'),
+          vi: absoluteUrl('/vi/demo/healthcare'),
+        },
+      },
+    },
+    {
+      url: absoluteUrl('/vi/demo/healthcare'),
+      lastModified: HEALTHCARE_DEMO_LAST_MODIFIED,
+      changeFrequency: 'monthly',
+      priority: 0.85,
+      alternates: {
+        languages: {
+          en: absoluteUrl('/demo/healthcare'),
+          vi: absoluteUrl('/vi/demo/healthcare'),
+        },
+      },
     },
     {
       url: absoluteUrl('/demo/procurement'),
