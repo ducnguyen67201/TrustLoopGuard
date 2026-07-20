@@ -2,11 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import {
-  isActiveDemoProfile,
-  parseOutboundDemoProfile,
-  type JsonValue,
-} from './company-profile';
+import { isActiveDemoProfile, parseOutboundDemoProfile, type JsonValue } from './company-profile';
 
 const validProfile = {
   slug: 'acme-cloud',
@@ -69,6 +65,32 @@ test('accepts a complete public demo profile with all three decision paths', () 
   );
 });
 
+test('accepts a company-neutral workflow category route for a generic concept', () => {
+  const profile = parseOutboundDemoProfile({
+    ...validProfile,
+    slug: 'cloud-storage-security',
+    category: 'generic',
+    scenario_id: 'internal-agent-tool-action-v1',
+    demo_url: 'https://gettrustloop.app/demo/cloud-storage-security',
+  });
+
+  assert.equal(profile?.slug, 'cloud-storage-security');
+  assert.equal(profile?.category, 'generic');
+});
+
+test('rejects an unreviewed contextual policy pack for a generic concept', () => {
+  assert.equal(
+    parseOutboundDemoProfile({
+      ...validProfile,
+      slug: 'cloud-storage-security',
+      category: 'generic',
+      scenario_id: 'invented-customer-policy-v1',
+      demo_url: 'https://gettrustloop.app/demo/cloud-storage-security',
+    }),
+    null,
+  );
+});
+
 test('rejects a profile with a mismatched route or private outreach data', () => {
   assert.equal(
     parseOutboundDemoProfile({
@@ -89,6 +111,25 @@ test('rejects a profile with a mismatched route or private outreach data', () =>
     }),
     null,
   );
+  assert.equal(
+    parseOutboundDemoProfile({
+      ...validProfile,
+      category: 'generic',
+      scenario_id: 'internal-agent-tool-action-v1',
+      demo_url: 'https://gettrustloop.app/demo/acme-cloud',
+    }),
+    null,
+  );
+  assert.equal(
+    parseOutboundDemoProfile({
+      ...validProfile,
+      slug: 'acme-cloud-security',
+      category: 'generic',
+      scenario_id: 'internal-agent-tool-action-v1',
+      demo_url: 'https://gettrustloop.app/demo/acme-cloud-security',
+    }),
+    null,
+  );
 });
 
 test('rejects incomplete decision paths and unsafe branding values', () => {
@@ -106,6 +147,13 @@ test('rejects incomplete decision paths and unsafe branding values', () => {
     }),
     null,
   );
+  assert.equal(
+    parseOutboundDemoProfile({
+      ...validProfile,
+      branding: { ...validProfile.branding, logo_url: 'https://acme.example/logo.svg' },
+    }),
+    null,
+  );
 });
 
 test('only activates live-verified, active, unexpired profiles', () => {
@@ -119,13 +167,13 @@ test('only activates live-verified, active, unexpired profiles', () => {
   assert.equal(isActiveDemoProfile(draft), false);
 });
 
-test('the company routes read any valid saved profile and fail closed for missing data', () => {
+test('the workflow category route reads only a generic profile and hides research links', () => {
   const store = readFileSync(
     new URL('../../lib/server/outbound-demo-profile-store.ts', import.meta.url),
     'utf8',
   );
-  const page = readFileSync(new URL('./[company]/page.tsx', import.meta.url), 'utf8');
-  const demo = readFileSync(new URL('./[company]/company-demo.tsx', import.meta.url), 'utf8');
+  const page = readFileSync(new URL('./[category]/page.tsx', import.meta.url), 'utf8');
+  const demo = readFileSync(new URL('./[category]/company-demo.tsx', import.meta.url), 'utf8');
 
   assert.match(store, /WHERE category = \$\{parsedCategory\.data\}/);
   assert.match(store, /AND slug = \$\{parsedSlug\.data\}/);
@@ -133,12 +181,21 @@ test('the company routes read any valid saved profile and fail closed for missin
   assert.doesNotMatch(store, /live_verified = TRUE/);
   assert.doesNotMatch(store, /expires_at > NOW\(\)/);
   assert.match(store, /rows\.length !== 1/);
-  assert.match(page, /getDemoProfileBySlug\(company\)/);
+  assert.match(store, /WHERE category = 'generic'/);
+  assert.match(page, /getGenericDemoProfile\(category\)/);
   assert.match(page, /notFound\(\)/);
   assert.match(page, /index: false, follow: false/);
-  assert.match(demo, /Choose a decision path/);
+  assert.match(demo, /Send through TrustLoopGuard/);
+  assert.match(demo, /TrustLoopGuard policy monitor/);
+  assert.match(demo, /Shared demo workspace/);
+  assert.match(demo, /fetch\(endpoint/);
+  assert.match(demo, /JSON\.stringify\(\{ sessionId, message: submittedMessage, history \}\)/);
+  assert.match(demo, /profile\.company_name/);
+  assert.doesNotMatch(demo, /logo_url/);
   assert.match(demo, /profile\.disclaimer/);
-  assert.doesNotMatch(demo, /fetch\(|\/v1\/events/);
+  assert.doesNotMatch(demo, /profile\.sources\.map/);
+  assert.doesNotMatch(demo, /\/v1\/events/);
+  assert.doesNotMatch(demo, /JSON\.stringify\([^\n]*(profile|policyIds|scenarioId)/);
 });
 
 test('the personalized healthcare route selects only the fixed scheduling scenario', () => {
@@ -154,7 +211,8 @@ test('the personalized healthcare route selects only the fixed scheduling scenar
   assert.match(page, /index: false, follow: false/);
   assert.match(page, /HealthcareDemoPageContent locale="en" profile={profile}/);
   assert.match(healthcarePage, /profile\?\.risk_boundary/);
-  assert.match(healthcarePage, /profile\.sources/);
+  assert.doesNotMatch(healthcarePage, /logo_url/);
+  assert.doesNotMatch(healthcarePage, /profile\.sources\.map/);
 });
 
 test('the personalized procurement route selects only the fixed purchase-order scenario', () => {
@@ -170,5 +228,6 @@ test('the personalized procurement route selects only the fixed purchase-order s
   assert.match(page, /index: false, follow: false/);
   assert.match(page, /ProcurementDemoPageContent locale="en" profile={profile}/);
   assert.match(procurementPage, /profile\?\.risk_boundary/);
-  assert.match(procurementPage, /profile\.sources/);
+  assert.doesNotMatch(procurementPage, /logo_url/);
+  assert.doesNotMatch(procurementPage, /profile\.sources\.map/);
 });

@@ -23,14 +23,18 @@ const publicHttpsUrl = z
 
 export const demoSlugSchema = z.string().max(100).regex(slugPattern);
 
-export const demoCategorySchema = z.enum(['healthcare', 'procurement']);
+export const demoCategorySchema = z.enum(['generic', 'healthcare', 'procurement']);
+
+const fixedDemoCategorySchema = z.enum(['healthcare', 'procurement']);
 
 export const demoScenarioIdByCategory = {
   healthcare: 'healthcare-scheduling-v1',
   procurement: 'procurement-submit-po-v1',
-} as const satisfies Record<z.infer<typeof demoCategorySchema>, string>;
+} as const satisfies Record<z.infer<typeof fixedDemoCategorySchema>, string>;
 
 export const demoEffectSchema = z.enum(['permit', 'require_approval', 'deny']);
+
+export const genericContextualScenarioId = 'internal-agent-tool-action-v1' as const;
 
 const demoPathSchema = z
   .object({
@@ -93,22 +97,50 @@ export const outboundDemoProfileSchema = z
   .strict()
   .superRefine((profile, context) => {
     const url = new URL(profile.demo_url);
+    const expectedPath =
+      profile.category === 'generic'
+        ? `/demo/${profile.slug}`
+        : `/demo/${profile.category}/${profile.slug}`;
     if (
       url.origin !== 'https://gettrustloop.app' ||
-      url.pathname !== `/demo/${profile.category}/${profile.slug}`
+      url.pathname !== expectedPath ||
+      url.search !== '' ||
+      url.hash !== ''
     ) {
       context.addIssue({
         code: 'custom',
         path: ['demo_url'],
-        message: 'Demo URL must match the canonical company route',
+        message: 'Demo URL must match the canonical workflow category route',
       });
     }
-    if (profile.scenario_id !== demoScenarioIdByCategory[profile.category]) {
+    if (
+      profile.category !== 'generic' &&
+      profile.scenario_id !== demoScenarioIdByCategory[profile.category]
+    ) {
       context.addIssue({
         code: 'custom',
         path: ['scenario_id'],
         message: 'Scenario must match the fixed category runtime',
       });
+    }
+    if (profile.category === 'generic') {
+      if (profile.scenario_id !== genericContextualScenarioId) {
+        context.addIssue({
+          code: 'custom',
+          path: ['scenario_id'],
+          message: 'Generic demo scenario must select the reviewed contextual policy pack',
+        });
+      }
+      const companySlugs = [toSlug(profile.company_name), profile.company_domain?.split('.')[0]].filter(
+        (value): value is string => Boolean(value),
+      );
+      if (companySlugs.some((companySlug) => includesSlug(profile.slug, companySlug))) {
+        context.addIssue({
+          code: 'custom',
+          path: ['slug'],
+          message: 'Generic demo slug must describe the workflow category, not the company',
+        });
+      }
     }
   });
 
@@ -117,6 +149,7 @@ export type DemoCategory = z.infer<typeof demoCategorySchema>;
 export type OutboundDemoProfile = z.infer<typeof outboundDemoProfileSchema>;
 export type CompanyDemoViewModel = Pick<
   OutboundDemoProfile,
+  | 'slug'
   | 'company_name'
   | 'scenario_id'
   | 'user_profile'
@@ -126,7 +159,6 @@ export type CompanyDemoViewModel = Pick<
   | 'approval_step'
   | 'record_shown'
   | 'paths'
-  | 'sources'
   | 'disclaimer'
 > & {
   branding: Pick<OutboundDemoProfile['branding'], 'primary_color' | 'secondary_color'>;
@@ -143,6 +175,24 @@ export type JsonValue =
 export function parseOutboundDemoProfile(value: JsonValue): OutboundDemoProfile | null {
   const result = outboundDemoProfileSchema.safeParse(value);
   return result.success ? result.data : null;
+}
+
+function toSlug(value: string): string {
+  return value
+    .normalize('NFKD')
+    .toLowerCase()
+    .replace(/\p{M}+/gu, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function includesSlug(slug: string, companySlug: string): boolean {
+  return (
+    slug === companySlug ||
+    slug.startsWith(`${companySlug}-`) ||
+    slug.endsWith(`-${companySlug}`) ||
+    slug.split('-').includes(companySlug)
+  );
 }
 
 export function isActiveDemoProfile(

@@ -153,6 +153,10 @@
   border-bottom: 1px solid var(--color-line);
 }
 
+.panelHeader > div {
+  min-width: 0;
+}
+
 .panelHeader p {
   margin-bottom: 0.3rem;
 }
@@ -162,6 +166,7 @@
   font-family: var(--font-display), var(--font-inter), sans-serif;
   font-size: 1.1rem;
   letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
 }
 
 .liveBadge,
@@ -257,6 +262,7 @@
   margin: 0;
   font-size: 0.82rem;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .assistantMessage code {
@@ -555,13 +561,6 @@
   font-weight: 700;
 }
 
-.demoFooterSources {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.75rem;
-}
-
 .healthcareShell {
   grid-template-columns: minmax(22rem, 0.9fr) minmax(30rem, 1.1fr);
 }
@@ -603,6 +602,12 @@
 }
 
 .decisionBadge.deny {
+  border-color: color-mix(in srgb, var(--color-block) 40%, transparent);
+  background: color-mix(in srgb, var(--color-block) 8%, var(--color-panel));
+  color: var(--color-block);
+}
+
+.decisionBadge.unavailable {
   border-color: color-mix(in srgb, var(--color-block) 40%, transparent);
   background: color-mix(in srgb, var(--color-block) 8%, var(--color-panel));
   color: var(--color-block);
@@ -869,17 +874,23 @@
   --company-accent-soft: var(--color-accent);
 }
 
-.companyMark {
-  display: grid;
-  width: 2.25rem;
-  height: 2.25rem;
+.companyName {
+  display: inline-flex;
+  max-width: 10rem;
   flex: 0 0 auto;
-  place-items: center;
-  border-radius: var(--radius-sm);
-  background: var(--company-accent);
-  color: var(--color-panel);
-  font-family: var(--font-display), var(--font-inter), sans-serif;
-  font-weight: 750;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  padding: 0.45rem 0.65rem;
+  background: var(--color-panel);
+  color: var(--company-accent);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .evidenceCard {
@@ -945,12 +956,35 @@
   color: var(--color-ink);
 }
 
-.companyProofGrid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.companyPolicySection {
+  padding: 0 1.25rem 1rem;
 }
 
-.companyProofGrid article > p {
-  margin: 0;
+.companyPolicyDescription {
+  margin: 0.3rem 0 0;
+  color: var(--color-muted);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.companyPolicyRecord {
+  margin-top: 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.8rem;
+  background: var(--color-panel);
+}
+
+.companyPolicyRecord strong {
+  color: var(--color-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.companyPolicyRecord p {
+  margin: 0.35rem 0 0;
   color: var(--color-muted);
   font-size: 0.68rem;
   line-height: 1.45;
@@ -958,7 +992,6 @@
 
 .conceptFooter {
   display: grid;
-  gap: 0.5rem;
   margin: 0 1.25rem 1rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--color-line);
@@ -966,21 +999,9 @@
 
 .conceptFooter p {
   margin: 0;
-  color: var(--color-faint);
+  color: var(--color-muted);
   font-size: 0.68rem;
   line-height: 1.45;
-}
-
-.conceptFooter div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.conceptFooter a {
-  color: var(--company-accent);
-  font-size: 0.68rem;
-  font-weight: 650;
 }
 
 @keyframes spin {
@@ -1075,6 +1096,10 @@
   .healthcareMonitor,
   .chatBody,
   .composer {
+    padding-inline: 1rem;
+  }
+
+  .companyPolicySection {
     padding-inline: 1rem;
   }
 

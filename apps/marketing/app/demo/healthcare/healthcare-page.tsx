@@ -87,19 +87,11 @@ export function HealthcareDemoPageContent({
 
       <footer className={styles['demoFooter']}>
         <p>{profile?.disclaimer ?? copy.disclaimer}</p>
-        {profile ? (
-          <div className={styles['demoFooterSources']}>
-            {profile.sources.map((source) => (
-              <a key={source.url} href={source.url} target="_blank" rel="noreferrer">
-                {source.title} <span aria-hidden="true">↗</span>
-              </a>
-            ))}
-          </div>
-        ) : (
+        {!profile ? (
           <Link href="/demo">
             {copy.refundDemo} <span aria-hidden="true">→</span>
           </Link>
-        )}
+        ) : null}
       </footer>
     </main>
   );

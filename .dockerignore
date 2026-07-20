@@ -40,6 +40,8 @@ demo/*
 !demo/healthcare-agent/**
 !demo/stripe-refund-agent/
 !demo/stripe-refund-agent/**
+!demo/contextual-agent/
+!demo/contextual-agent/**
 demo/stripe-refund-agent/.data/
 *.md
 !README.md

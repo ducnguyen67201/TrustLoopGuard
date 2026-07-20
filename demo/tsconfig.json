@@ -21,6 +21,7 @@
     "financial-refund/**/*.ts",
     "procurement-agent/**/*.ts",
     "healthcare-agent/**/*.ts",
+    "contextual-agent/**/*.ts",
     "stripe-refund-agent/**/*.ts",
     "shared/**/*.ts"
   ]

@@ -6,6 +6,8 @@
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
+    "./contextual-agent/config": "./contextual-agent/config.ts",
+    "./contextual-agent/hosted": "./contextual-agent/hosted.ts",
     "./procurement-agent/hosted": "./procurement-agent/hosted.ts",
     "./healthcare-agent/hosted": "./healthcare-agent/hosted.ts",
     "./stripe-refund-agent/hosted": "./stripe-refund-agent/hosted.ts",
@@ -29,6 +31,7 @@
     "procurement-agent:setup": "tsx procurement-agent/setup.ts",
     "agent-visibility": "tsx agent-visibility/guarded-agent.ts",
     "healthcare-agent:setup": "NODE_NO_WARNINGS=1 tsx healthcare-agent/setup.ts",
+    "contextual-agent:setup": "NODE_NO_WARNINGS=1 tsx contextual-agent/setup.ts",
     "stripe-refund-agent": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/chat.ts",
     "stripe-refund-agent:db": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/db.ts",
     "stripe-refund-agent:setup": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/setup.ts",

@@ -69,7 +69,7 @@ async function readDemoProfile(
 
 export const getDemoProfile = cache(readDemoProfile);
 
-async function readDemoProfileBySlug(slug: string): Promise<OutboundDemoProfile | null> {
+async function readGenericDemoProfile(slug: string): Promise<OutboundDemoProfile | null> {
   const parsedSlug = demoSlugSchema.safeParse(slug);
   const sql = getDatabase();
   if (!parsedSlug.success || !sql) {
@@ -80,18 +80,19 @@ async function readDemoProfileBySlug(slug: string): Promise<OutboundDemoProfile 
     const rows = await sql<DemoProfileRow[]>`
       SELECT profile
       FROM outbound_demo_profiles
-      WHERE slug = ${parsedSlug.data}
-      LIMIT 2
+      WHERE category = 'generic'
+        AND slug = ${parsedSlug.data}
+      LIMIT 1
     `;
     if (rows.length !== 1) {
       return null;
     }
     const profile = rows[0] ? parseOutboundDemoProfile(rows[0].profile) : null;
-    return profile?.slug === parsedSlug.data ? profile : null;
+    return profile?.category === 'generic' && profile.slug === parsedSlug.data ? profile : null;
   } catch {
     console.error('Unable to read an outbound demo profile.');
     return null;
   }
 }
 
-export const getDemoProfileBySlug = cache(readDemoProfileBySlug);
+export const getGenericDemoProfile = cache(readGenericDemoProfile);

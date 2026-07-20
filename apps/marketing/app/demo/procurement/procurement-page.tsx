@@ -96,19 +96,11 @@ export function ProcurementDemoPageContent({
         <p>
           {profile?.disclaimer ?? 'Give AI procurement tools a deterministic control boundary.'}
         </p>
-        {profile ? (
-          <div className={sharedStyles['demoFooterSources']}>
-            {profile.sources.map((source) => (
-              <a key={source.url} href={source.url} target="_blank" rel="noreferrer">
-                {source.title} <span aria-hidden="true">↗</span>
-              </a>
-            ))}
-          </div>
-        ) : (
+        {!profile ? (
           <Link href="/">
             Explore TrustLoopGuard <span aria-hidden="true">→</span>
           </Link>
-        )}
+        ) : null}
       </footer>
     </main>
   );
