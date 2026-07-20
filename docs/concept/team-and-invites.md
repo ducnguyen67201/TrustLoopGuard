@@ -8,12 +8,12 @@ How users join a workspace.
 
 Rust owns the durable state. Tables, repository, and HTTP endpoints all live in the Rust stack:
 
-- Tables: `workspaces`, `workspace_members`, and `workspace_invites` (created by migration `00000000000006_workspace_admin`; workspace feature flags added by `00000000000044_workspace_feature_flags`).
+- Tables: `workspaces`, `workspace_members`, `workspace_invites`, and `workspace_api_keys` (created by migration `00000000000006_workspace_admin`; workspace feature flags added by `00000000000044_workspace_feature_flags`).
 - Repository: `crates/tl-storage/src/team_repo.rs`.
 - HTTP handlers: `crates/tl-server/src/team.rs`.
 - Wire types: `crates/tl-core/src/team.rs`.
 
-The dashboard is a same-origin proxy. `apps/web/app/api/team/*` forwards to the Rust endpoints with the active workspace's id in `X-TLG-Workspace-Id`. The dashboard never writes to either table directly.
+The dashboard is a same-origin proxy. `apps/web/app/api/team/*` forwards active-workspace operations with `X-TLG-Workspace-Id`; `apps/web/app/api/me/workspaces/*` forwards signed-in user workspace operations. The dashboard never writes durable team or workspace lifecycle state directly.
 
 ## Roles
 
@@ -52,21 +52,32 @@ All team endpoints sit behind the existing shared-bearer middleware.
 | `DELETE` | `/v1/team/invites/:id`     | — | 204 |
 | `GET`    | `/v1/team/my-workspaces`   | — | `MyWorkspacesResponse` *(user-scoped, auto-binds pending invites)* |
 | `POST`   | `/v1/team/my-workspaces`   | `{ name }` | `MyWorkspace` *(self-service bootstrap for approved users)* |
+| `DELETE` | `/v1/team/my-workspaces/{id}` | — | 204 *(owner-only soft delete)* |
 
-Workspace context is always read from `X-TLG-Workspace-Id`. The optional `X-TLG-User-Id` header (UUID) is captured on `POST /v1/team/invites` and persisted to `invited_by_user_id` so the audit trail survives.
+Active-workspace team operations read context from `X-TLG-Workspace-Id`. The optional `X-TLG-User-Id` header (UUID) is captured on `POST /v1/team/invites` and persisted to `invited_by_user_id` so the audit trail survives.
 
-`GET /v1/team/my-workspaces` is user-scoped instead: it reads `X-TLG-User-Id` (required, UUID) plus `X-TLG-User-Email`. When the email is present, the server bulk-accepts any pending invite addressed to it *before* querying memberships. This is the auto-bind mechanism: a user invited before or after signup sees the workspace on their next page load without clicking an accept link.
+The `GET`, `POST`, and `DELETE` operations under `/v1/team/my-workspaces` are user-scoped instead. They derive the signed-in user from the Rust JWT context or the trusted dashboard-forwarded user id; they do not authorize from the currently selected workspace. `GET` also reads `X-TLG-User-Email` when present and bulk-accepts pending invites addressed to it *before* querying memberships. This is the auto-bind mechanism: a user invited before or after signup sees the workspace on their next page load without clicking an accept link.
 
 Each returned `MyWorkspace` also includes `is_knowledge_base_enabled` and `is_attacks_enabled`. Both columns are `NOT NULL DEFAULT false` on `workspaces`, so those dashboard features remain unavailable until a workspace is explicitly enrolled. The dashboard maps them to camel-case shell fields, omits the corresponding navigation items, and returns not found for direct page requests when disabled. These are product-availability flags; they do not replace authorization on any Rust endpoint.
+
+## Workspace deletion lifecycle
+
+Only an active workspace owner may call `DELETE /v1/team/my-workspaces/{id}`. The dashboard hides the action from other roles and requires the owner to type the exact, case-sensitive workspace name, but Rust membership is the authorization boundary.
+
+Deletion is one PostgreSQL transaction. Rust locks the active workspace and caller membership, changes pending invites to `revoked`, changes active runtime API keys to `revoked` with `revoked_at` set, and timestamps `workspaces.deleted_at`. It does not delete the workspace, organization, memberships, environments, policies, traces, decisions, or other historical records. Active workspace and member queries exclude deleted workspaces, so retained membership rows cannot continue to authorize access.
+
+The first serialized deletion returns 204. A repeated or concurrent request that reaches the row after deletion returns 404. In memory mode the same team contract is represented by a workspace tombstone and revoked pending invites; memory mode has no runtime API-key store.
+
+After success, deleting an inactive workspace retains the current selection. Deleting the active workspace selects another accessible workspace, or sends the owner to `/onboarding/workspace` when none remain.
 
 ## Enforcement
 
 The dashboard refuses to render when the signed-in user has zero memberships.
 
-- **Server-side**: `getDashboardShell` (in `apps/web/lib/server/dashboard-data.ts`) calls `/v1/team/my-workspaces` first, and `redirect('/welcome')` if the list is empty.
+- **Server-side**: `getDashboardShell` (in `apps/web/lib/server/dashboard-data.ts`) calls `/v1/team/my-workspaces` first, and redirects to `/onboarding/workspace` if the list is empty.
 - **`/welcome`**: re-queries `getMyWorkspaces` on every render. If a workspace has appeared since the last visit (via auto-bind), the page redirects to it immediately; otherwise it shows the user's email and a Refresh button.
 
-The combined effect: a new user who self-signs up lands on `/welcome` → an admin invites them → next time `/welcome` (or any dashboard page) is loaded, the auto-bind picks up the pending invite and the user is in.
+The combined effect: a new user without memberships enters workspace onboarding. If an admin invites them, their next workspace lookup auto-binds the pending invite and the dashboard can open that workspace.
 
 Unapproved users remain on `/welcome` until an operator approves their user row — approval is the
 only gate. Once approved, users self-serve through first-run onboarding: the
@@ -116,13 +127,15 @@ user's Rust JWT or `TL_API_KEY` plus `X-TLG-User-Id` and `X-TLG-User-Email` head
 
 ## Memory mode
 
-The non-postgres build wires a `MemoryTeamStore` so the no-DB boot path and integration tests keep running. Memory mode cannot check the `users` table during `POST /v1/team/invites`, so it always records a pending invite; the same email-based auto-bind path consumes it later.
+The non-postgres build wires a `MemoryTeamStore` so the no-DB boot path and integration tests keep running. Memory mode cannot check the `users` table during `POST /v1/team/invites`, so it always records a pending invite; the same email-based auto-bind path consumes it later. Workspace deletion tombstones the workspace and revokes pending invites in memory, but runtime API-key revocation is a PostgreSQL-only durable concern.
 
 ## What this PR does *not* do
 
 - **Email delivery.** No SMTP/Resend integration. The dashboard records pending invites but does not send emails.
 - **Bulk invite / CSV upload.** Out of scope.
 - **Member role edits / remove member.** The members table is read-only in the UI today; mutations land in a follow-up.
+- **Restore or permanent deletion.** Deleted workspace history is retained; there is no restore or hard-delete flow.
+- **Organization deletion, ownership transfer, or export.** Workspace deletion does not add these lifecycle operations.
 
 ## See also
 

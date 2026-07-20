@@ -8,16 +8,23 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
+use tl_core::{WorkspaceRole, DEFAULT_ENVIRONMENT_ID};
 use tl_storage::{
     connect_postgres, migrate_postgres,
-    schema::{policies, policy_environment_deployments, users},
-    PolicyRepo, TeamRepo,
+    schema::{
+        organization_members, organizations, policies, policy_environment_deployments, users,
+        workspace_api_keys, workspace_environments, workspace_invites, workspace_members,
+        workspaces,
+    },
+    AddMemberOutcome, DashboardAdminRepo, PolicyRepo, StorageError, TeamRepo,
+    WorkspaceDeletionOutcome,
 };
 use uuid::Uuid;
 
 async fn fresh_repos() -> (
     TeamRepo,
     PolicyRepo,
+    DashboardAdminRepo,
     testcontainers::ContainerAsync<PostgresImage>,
 ) {
     let container = PostgresImage::default()
@@ -34,14 +41,15 @@ async fn fresh_repos() -> (
     let pool = connect_postgres(&url, 4).await.expect("connect");
     (
         TeamRepo::new(pool.clone()),
-        PolicyRepo::new(pool),
+        PolicyRepo::new(pool.clone()),
+        DashboardAdminRepo::new(pool),
         container,
     )
 }
 
 #[tokio::test]
 async fn create_workspace_seeds_enabled_starter_policies() {
-    let (team_repo, policy_repo, _container) = fresh_repos().await;
+    let (team_repo, policy_repo, _dashboard_admin_repo, _container) = fresh_repos().await;
     let user_id = Uuid::new_v4();
     {
         let mut conn = policy_repo.pool().get().await.expect("connection");
@@ -118,4 +126,225 @@ async fn create_workspace_seeds_enabled_starter_policies() {
         .expect("policy rows");
     assert_eq!(workspace_policy_enabled.len(), 6);
     assert!(workspace_policy_enabled.iter().all(|enabled| *enabled));
+}
+
+#[tokio::test]
+async fn delete_workspace_revokes_access_and_retains_history() {
+    let (team_repo, policy_repo, dashboard_admin_repo, _container) = fresh_repos().await;
+    let owner_id = Uuid::new_v4();
+    let member_id = Uuid::new_v4();
+    let outsider_id = Uuid::new_v4();
+    {
+        let mut conn = policy_repo.pool().get().await.expect("connection");
+        diesel::insert_into(users::table)
+            .values(vec![
+                (
+                    users::id.eq(owner_id),
+                    users::username.eq("owner@example.com"),
+                    users::password_hash.eq("hash"),
+                ),
+                (
+                    users::id.eq(member_id),
+                    users::username.eq("admin@example.com"),
+                    users::password_hash.eq("hash"),
+                ),
+                (
+                    users::id.eq(outsider_id),
+                    users::username.eq("outsider@example.com"),
+                    users::password_hash.eq("hash"),
+                ),
+            ])
+            .execute(&mut conn)
+            .await
+            .expect("insert users");
+    }
+
+    let workspace = team_repo
+        .create_workspace(owner_id, "Delete Me")
+        .await
+        .expect("create workspace");
+    let add_member = team_repo
+        .add_member_or_invite(
+            &workspace.id,
+            "admin@example.com",
+            WorkspaceRole::Admin,
+            Some(owner_id),
+        )
+        .await
+        .expect("add member");
+    assert!(matches!(add_member, AddMemberOutcome::Added(_)));
+
+    let invite = team_repo
+        .create_invite(
+            &workspace.id,
+            "pending@example.com",
+            WorkspaceRole::Viewer,
+            Some(owner_id),
+        )
+        .await
+        .expect("create pending invite");
+    dashboard_admin_repo
+        .create_api_key(
+            "key_delete_workspace",
+            &workspace.id,
+            DEFAULT_ENVIRONMENT_ID,
+            "Delete workspace key",
+            "tlg_delete",
+            "delete-workspace-key-hash",
+            Some(owner_id),
+            None,
+        )
+        .await
+        .expect("create api key");
+
+    assert_eq!(
+        team_repo
+            .delete_workspace(member_id, &workspace.id)
+            .await
+            .expect("admin delete outcome"),
+        WorkspaceDeletionOutcome::Forbidden
+    );
+    assert_eq!(
+        team_repo
+            .delete_workspace(outsider_id, &workspace.id)
+            .await
+            .expect("outsider delete outcome"),
+        WorkspaceDeletionOutcome::Forbidden
+    );
+    assert_eq!(
+        team_repo
+            .list_pending_invites(&workspace.id)
+            .await
+            .expect("pending invites before owner delete")
+            .len(),
+        1
+    );
+    assert!(dashboard_admin_repo
+        .verify_api_key_hash("delete-workspace-key-hash")
+        .await
+        .expect("verify key before owner delete")
+        .is_some());
+    assert_eq!(
+        team_repo
+            .list_workspaces_for_user(owner_id)
+            .await
+            .expect("owner workspaces before delete")
+            .len(),
+        1
+    );
+
+    assert_eq!(
+        team_repo
+            .delete_workspace(owner_id, &workspace.id)
+            .await
+            .expect("owner delete outcome"),
+        WorkspaceDeletionOutcome::Deleted
+    );
+
+    assert!(team_repo
+        .list_workspaces_for_user(owner_id)
+        .await
+        .expect("owner workspaces after delete")
+        .is_empty());
+    assert!(team_repo
+        .list_workspaces_for_user(member_id)
+        .await
+        .expect("member workspaces after delete")
+        .is_empty());
+    assert!(team_repo
+        .list_members(&workspace.id)
+        .await
+        .expect("members after delete")
+        .is_empty());
+    assert!(team_repo
+        .list_pending_invites(&workspace.id)
+        .await
+        .expect("pending invites after delete")
+        .is_empty());
+    assert!(dashboard_admin_repo
+        .verify_api_key_hash("delete-workspace-key-hash")
+        .await
+        .expect("verify key after delete")
+        .is_none());
+
+    let retained_policies = policy_repo
+        .list_records_in_environment(&workspace.id, DEFAULT_ENVIRONMENT_ID)
+        .await
+        .expect("retained starter policies");
+    assert_eq!(retained_policies.len(), 6);
+
+    let mut conn = policy_repo.pool().get().await.expect("connection");
+    let deleted_at = workspaces::table
+        .filter(workspaces::id.eq(&workspace.id))
+        .select(workspaces::deleted_at)
+        .first::<Option<chrono::DateTime<chrono::Utc>>>(&mut conn)
+        .await
+        .expect("workspace retained");
+    assert!(deleted_at.is_some());
+
+    let invite_status = workspace_invites::table
+        .filter(workspace_invites::id.eq(&invite.id))
+        .select(workspace_invites::status)
+        .first::<String>(&mut conn)
+        .await
+        .expect("invite retained");
+    assert_eq!(invite_status, "revoked");
+
+    let (key_status, revoked_at) = workspace_api_keys::table
+        .filter(workspace_api_keys::id.eq("key_delete_workspace"))
+        .select((workspace_api_keys::status, workspace_api_keys::revoked_at))
+        .first::<(String, Option<chrono::DateTime<chrono::Utc>>)>(&mut conn)
+        .await
+        .expect("api key retained");
+    assert_eq!(key_status, "revoked");
+    assert!(revoked_at.is_some());
+
+    let organization_count = organizations::table
+        .filter(organizations::id.eq(&workspace.organization_id))
+        .count()
+        .get_result::<i64>(&mut conn)
+        .await
+        .expect("organization count");
+    let organization_member_count = organization_members::table
+        .filter(organization_members::organization_id.eq(&workspace.organization_id))
+        .count()
+        .get_result::<i64>(&mut conn)
+        .await
+        .expect("organization member count");
+    let workspace_member_count = workspace_members::table
+        .filter(workspace_members::workspace_id.eq(&workspace.id))
+        .count()
+        .get_result::<i64>(&mut conn)
+        .await
+        .expect("workspace member count");
+    let environment_count = workspace_environments::table
+        .filter(workspace_environments::workspace_id.eq(&workspace.id))
+        .count()
+        .get_result::<i64>(&mut conn)
+        .await
+        .expect("environment count");
+    let policy_count = policies::table
+        .filter(policies::workspace_id.eq(&workspace.id))
+        .count()
+        .get_result::<i64>(&mut conn)
+        .await
+        .expect("policy count");
+    let deployment_count = policy_environment_deployments::table
+        .filter(policy_environment_deployments::workspace_id.eq(&workspace.id))
+        .count()
+        .get_result::<i64>(&mut conn)
+        .await
+        .expect("deployment count");
+
+    assert_eq!(organization_count, 1);
+    assert_eq!(organization_member_count, 2);
+    assert_eq!(workspace_member_count, 2);
+    assert_eq!(environment_count, 1);
+    assert_eq!(policy_count, 6);
+    assert_eq!(deployment_count, 6);
+
+    assert!(matches!(
+        team_repo.delete_workspace(owner_id, &workspace.id).await,
+        Err(StorageError::NotFound)
+    ));
 }

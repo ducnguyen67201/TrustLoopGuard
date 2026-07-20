@@ -45,6 +45,13 @@ pub enum AddMemberOutcome {
     Invited(WorkspaceInvite),
 }
 
+/// Outcome of an owner-authorized workspace deletion attempt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkspaceDeletionOutcome {
+    Deleted,
+    Forbidden,
+}
+
 #[derive(Clone)]
 pub struct TeamRepo {
     pool: DbPool,

@@ -1,15 +1,17 @@
+use chrono::Utc;
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
-use tl_core::{MyWorkspace, WorkspaceRole, DEFAULT_ENVIRONMENT_ID};
+use tl_core::{InviteStatus, MyWorkspace, WorkspaceRole, DEFAULT_ENVIRONMENT_ID};
 use uuid::Uuid;
 
 use super::{
     helpers::{ensure_user_exists, slugify, unique_workspace_slug},
-    seed_starter_policies, TeamRepo,
+    seed_starter_policies, TeamRepo, WorkspaceDeletionOutcome,
 };
 use crate::{
     schema::{
-        organization_members, organizations, workspace_environments, workspace_members, workspaces,
+        organization_members, organizations, workspace_api_keys, workspace_environments,
+        workspace_invites, workspace_members, workspaces,
     },
     StorageError,
 };
@@ -165,5 +167,85 @@ impl TeamRepo {
                 },
             )
             .collect())
+    }
+
+    /// Soft-delete an active workspace owned by `user_id` and revoke
+    /// pending invite and runtime-key access in the same transaction.
+    pub async fn delete_workspace(
+        &self,
+        user_id: Uuid,
+        workspace_id: &str,
+    ) -> Result<WorkspaceDeletionOutcome, StorageError> {
+        let mut conn = self.connection().await?;
+        let now = Utc::now();
+
+        conn.transaction::<WorkspaceDeletionOutcome, StorageError, _>(async |conn| {
+            workspaces::table
+                .filter(workspaces::id.eq(workspace_id))
+                .filter(workspaces::deleted_at.is_null())
+                .select(workspaces::id)
+                .for_update()
+                .first::<String>(conn)
+                .await
+                .optional()?
+                .ok_or(StorageError::NotFound)?;
+
+            let role = workspace_members::table
+                .filter(workspace_members::workspace_id.eq(workspace_id))
+                .filter(workspace_members::user_id.eq(user_id))
+                .select(workspace_members::role)
+                .for_update()
+                .first::<String>(conn)
+                .await
+                .optional()?;
+            if role.as_deref().and_then(WorkspaceRole::parse) != Some(WorkspaceRole::Owner) {
+                return Ok(WorkspaceDeletionOutcome::Forbidden);
+            }
+
+            diesel::update(
+                workspace_invites::table
+                    .filter(workspace_invites::workspace_id.eq(workspace_id))
+                    .filter(
+                        workspace_invites::status
+                            .eq(pg_enum!(InviteStatus::Pending.as_str(), "invite_status")),
+                    ),
+            )
+            .set(
+                workspace_invites::status
+                    .eq(pg_enum!(InviteStatus::Revoked.as_str(), "invite_status")),
+            )
+            .execute(conn)
+            .await?;
+
+            diesel::update(
+                workspace_api_keys::table
+                    .filter(workspace_api_keys::workspace_id.eq(workspace_id))
+                    .filter(workspace_api_keys::status.eq(pg_enum!("active", "api_key_status"))),
+            )
+            .set((
+                workspace_api_keys::status.eq(pg_enum!("revoked", "api_key_status")),
+                workspace_api_keys::revoked_at.eq(Some(now)),
+            ))
+            .execute(conn)
+            .await?;
+
+            let deleted_rows = diesel::update(
+                workspaces::table
+                    .filter(workspaces::id.eq(workspace_id))
+                    .filter(workspaces::deleted_at.is_null()),
+            )
+            .set((
+                workspaces::deleted_at.eq(Some(now)),
+                workspaces::updated_at.eq(now),
+            ))
+            .execute(conn)
+            .await?;
+            if deleted_rows != 1 {
+                return Err(StorageError::NotFound);
+            }
+
+            Ok(WorkspaceDeletionOutcome::Deleted)
+        })
+        .await
     }
 }

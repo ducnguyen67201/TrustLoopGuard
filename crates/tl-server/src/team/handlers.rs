@@ -227,3 +227,49 @@ pub async fn create_my_workspace(
         Err(e) => internal_error(e),
     }
 }
+
+/// DELETE /v1/team/my-workspaces/:id — soft-delete a workspace owned
+/// by the signed-in caller and revoke its pending access paths.
+#[utoipa::path(
+    delete,
+    path = "/v1/team/my-workspaces/{id}",
+    tag = "team",
+    params(("id" = String, Path, description = "Workspace id")),
+    responses(
+        (status = 204, description = "Workspace deleted"),
+        (status = 400, description = "Missing or invalid user id", body = ApiError),
+        (status = 401, description = "Missing or invalid bearer token", body = ApiError),
+        (status = 403, description = "Caller is not the workspace owner", body = ApiError),
+        (status = 404, description = "Workspace not found", body = ApiError),
+        (status = 500, description = "Internal error", body = ApiError),
+    ),
+)]
+pub async fn delete_my_workspace(
+    State(state): State<TeamState>,
+    headers: HeaderMap,
+    user: Option<Extension<UserContext>>,
+    Path(workspace_id): Path<String>,
+) -> Response {
+    let Some(user_id) = request_user_id(&headers, user) else {
+        return api_error(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            "X-TLG-User-Id header is required and must be a UUID".into(),
+        );
+    };
+
+    match state.store.delete_workspace(user_id, &workspace_id).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(TeamStoreError::Forbidden) => api_error(
+            StatusCode::FORBIDDEN,
+            ApiErrorCode::Forbidden,
+            "only the workspace owner can delete this workspace".into(),
+        ),
+        Err(TeamStoreError::NotFound) => api_error(
+            StatusCode::NOT_FOUND,
+            ApiErrorCode::NotFound,
+            "workspace not found".into(),
+        ),
+        Err(error) => internal_error(error),
+    }
+}

@@ -7,6 +7,7 @@
 //! - `GET    /v1/team/invites`         — list pending invites
 //! - `POST   /v1/team/invites`         — add an existing user or create a pending invite
 //! - `DELETE /v1/team/invites/:id`     — revoke a pending invite
+//! - `DELETE /v1/team/my-workspaces/:id` — owner soft-deletes a workspace
 //!
 //! These routes are bearer-protected via the existing shared-key
 //! middleware. Pending invites are consumed by `GET /v1/team/my-workspaces`
@@ -27,8 +28,9 @@ mod request_context;
 mod response;
 
 pub use handlers::{
-    __path_create_my_workspace, __path_list_my_workspaces, create_invite, create_my_workspace,
-    list_invites, list_members, list_my_workspaces, revoke_invite,
+    __path_create_my_workspace, __path_delete_my_workspace, __path_list_my_workspaces,
+    create_invite, create_my_workspace, delete_my_workspace, list_invites, list_members,
+    list_my_workspaces, revoke_invite,
 };
 pub use memory_store::MemoryTeamStore;
 #[cfg(feature = "postgres")]
@@ -38,6 +40,8 @@ pub use postgres_adapter::TeamRepoAdapter;
 pub enum TeamStoreError {
     #[error("not found")]
     NotFound,
+    #[error("forbidden")]
+    Forbidden,
     #[error("conflict")]
     Conflict,
     #[error("internal: {0}")]
@@ -106,6 +110,14 @@ pub trait TeamStore: Send + Sync {
         user_id: Uuid,
         name: &str,
     ) -> Result<MyWorkspace, TeamStoreError>;
+
+    /// Soft-delete a workspace owned by `user_id` and revoke its
+    /// pending invite and runtime-key access atomically.
+    async fn delete_workspace(
+        &self,
+        user_id: Uuid,
+        workspace_id: &str,
+    ) -> Result<(), TeamStoreError>;
 }
 
 #[derive(Clone)]

@@ -137,6 +137,7 @@ use crate::{
         auth_user::oauth::oauth_session,
         team::list_my_workspaces,
         team::create_my_workspace,
+        team::delete_my_workspace,
         mcp_gateway::connect_info,
         mcp_gateway::list_connections,
         mcp_gateway::create_connection,

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use tl_core::{MyWorkspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole};
-use tl_storage::{StorageError, TeamRepo};
+use tl_storage::{StorageError, TeamRepo, WorkspaceDeletionOutcome};
 use uuid::Uuid;
 
 use super::{AddMemberOutcome, TeamStore, TeamStoreError};
@@ -101,5 +101,21 @@ impl TeamStore for TeamRepoAdapter {
             .create_workspace(user_id, name)
             .await
             .map_err(map_err)
+    }
+
+    async fn delete_workspace(
+        &self,
+        user_id: Uuid,
+        workspace_id: &str,
+    ) -> Result<(), TeamStoreError> {
+        match self
+            .repo
+            .delete_workspace(user_id, workspace_id)
+            .await
+            .map_err(map_err)?
+        {
+            WorkspaceDeletionOutcome::Deleted => Ok(()),
+            WorkspaceDeletionOutcome::Forbidden => Err(TeamStoreError::Forbidden),
+        }
     }
 }
