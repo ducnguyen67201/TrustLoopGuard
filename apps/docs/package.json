@@ -13,7 +13,7 @@
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
-    "fumadocs-core": "16.11.2",
+    "fumadocs-core": "16.11.5",
     "fumadocs-mdx": "15.1.0",
     "fumadocs-openapi": "11.1.1",
     "fumadocs-ui": "16.10.7",
