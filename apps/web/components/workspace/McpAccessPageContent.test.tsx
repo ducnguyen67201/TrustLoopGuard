@@ -47,6 +47,11 @@ describe('McpAccessPageContent', () => {
     render(<McpAccessPageContent data={{ ...base, isAdmin: true, activeWorkspace: { ...base.activeWorkspace, role: 'owner' } }} />);
 
     await user.click(screen.getByRole('tab', { name: 'Servers' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Display name')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Connect server' }));
+    expect(screen.getByRole('dialog', { name: 'Connect an MCP server' })).toBeInTheDocument();
     await user.type(screen.getByLabelText('Display name'), 'Company tools');
     await user.type(screen.getByLabelText('Stable slug'), 'company');
     await user.type(screen.getByLabelText('HTTPS endpoint'), 'https://tools.example/mcp');
@@ -55,6 +60,50 @@ describe('McpAccessPageContent', () => {
     await user.click(screen.getByRole('button', { name: 'Connect and sync' }));
 
     await waitFor(() => expect(credential).toHaveValue(''));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('presents connected servers as a compact fleet with all server actions', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const admin = {
+      ...base,
+      isAdmin: true,
+      activeWorkspace: { ...base.activeWorkspace, role: 'owner' as const },
+      connections: [{
+        id: 'connection',
+        display_name: 'Company tools',
+        server_slug: 'company',
+        endpoint_url: 'https://tools.example/mcp',
+        auth_kind: 'static_bearer' as const,
+        credential_status: 'configured' as const,
+        enabled: true,
+        last_sync_status: 'succeeded' as const,
+        last_synced_at: '2026-07-19T16:30:00Z',
+        tool_count: 12,
+        created_at: '2026-07-19T00:00:00Z',
+        updated_at: '2026-07-19T16:30:00Z',
+      }],
+    };
+    render(<McpAccessPageContent data={admin} />);
+
+    await user.click(screen.getByRole('tab', { name: 'Servers' }));
+
+    expect(screen.getByText('Server fleet')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Connected MCP servers' })).toBeInTheDocument();
+    expect(screen.getByText('Company tools')).toBeInTheDocument();
+    expect(screen.getByText('Bearer secured')).toBeInTheDocument();
+    expect(screen.getByText('Succeeded')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sync Company tools' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Disable Company tools' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete Company tools' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Sync Company tools' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/mcp-gateway/connections/connection/sync'),
+      expect.objectContaining({ method: 'POST' }),
+    ));
   });
 
   it('labels member selection and lets admins classify a tool side effect', async () => {
