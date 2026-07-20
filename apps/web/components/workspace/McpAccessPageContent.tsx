@@ -1,28 +1,90 @@
 'use client';
 
-import { IconCopy, IconRefresh, IconTrash } from '@tabler/icons-react';
+import {
+  IconCopy,
+  IconPlugConnected,
+  IconPlus,
+  IconRefresh,
+  IconShieldLock,
+  IconTrash,
+} from '@tabler/icons-react';
 import type { McpGatewayConnection, McpGatewayTool, SideEffectClass } from '@trustloopguard/sdk';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/ui/page-header';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { McpAccessPageData } from '@/lib/server/dashboard-data';
+import { cn } from '@/lib/utils';
 
 import { SetupRunway } from './mcp-access/SetupRunway';
 import { SwitchyardMap } from './mcp-access/SwitchyardMap';
 
 export function McpAccessPageContent({ data }: { data: McpAccessPageData }) {
   const defaultTab = data.isAdmin ? 'overview' : 'connect';
-  return <div className="space-y-6"><PageHeader eyebrow={data.activeWorkspace.name} title="MCP Access" description="One managed endpoint for employee AI agents, with workspace assignments and runtime policy enforcement." descriptionClassName="max-w-4xl" /><Tabs defaultValue={defaultTab}><TabsList>{data.isAdmin ? <><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="servers">Servers</TabsTrigger><TabsTrigger value="tools">Tool access</TabsTrigger></> : null}<TabsTrigger value="connect">Connect</TabsTrigger></TabsList>{data.isAdmin ? <><TabsContent value="overview" className="space-y-4"><SwitchyardMap connections={data.connections} />{data.connections.length === 0 ? <SetupRunway hasServer={false} hasAssignments={false} /> : <SetupRunway hasServer hasAssignments={data.tools.some((tool) => tool.assigned_user_ids.length > 0)} />}<Exceptions data={data} /></TabsContent><TabsContent value="servers"><Servers data={data} /></TabsContent><TabsContent value="tools"><ToolAccess data={data} /></TabsContent></> : null}<TabsContent value="connect"><Connect data={data} /></TabsContent></Tabs></div>;
+  return (
+    <div className="mx-auto w-full max-w-6xl space-y-6">
+      <PageHeader
+        eyebrow={data.activeWorkspace.name}
+        title="MCP Access"
+        description="One managed endpoint for employee AI agents, with workspace assignments and runtime policy enforcement."
+        descriptionClassName="max-w-2xl"
+      />
+      <Tabs defaultValue={defaultTab} className="gap-4">
+        <TabsList>
+          {data.isAdmin ? (
+            <>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="servers">Servers</TabsTrigger>
+              <TabsTrigger value="tools">Tool access</TabsTrigger>
+            </>
+          ) : null}
+          <TabsTrigger value="connect">Connect</TabsTrigger>
+        </TabsList>
+        {data.isAdmin ? (
+          <>
+            <TabsContent value="overview" className="space-y-4">
+              <SwitchyardMap connections={data.connections} />
+              {data.connections.length === 0 ? (
+                <SetupRunway hasServer={false} hasAssignments={false} />
+              ) : (
+                <SetupRunway
+                  hasServer
+                  hasAssignments={data.tools.some((tool) => tool.assigned_user_ids.length > 0)}
+                />
+              )}
+              <Exceptions data={data} />
+            </TabsContent>
+            <TabsContent value="servers">
+              <Servers data={data} />
+            </TabsContent>
+            <TabsContent value="tools">
+              <ToolAccess data={data} />
+            </TabsContent>
+          </>
+        ) : null}
+        <TabsContent value="connect">
+          <Connect data={data} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
 }
 
 function Exceptions({ data }: { data: McpAccessPageData }) {
@@ -33,16 +95,299 @@ function Exceptions({ data }: { data: McpAccessPageData }) {
 function Servers({ data }: { data: McpAccessPageData }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const columns: DataTableColumn<McpGatewayConnection>[] = [
-    { id: 'name', header: 'Server', cell: (row) => <div><p className="font-medium">{row.display_name}</p><p className="text-xs text-muted-foreground">{new URL(row.endpoint_url).hostname}</p></div> },
-    { id: 'enabled', header: 'State', cell: (row) => <Badge variant="outline">{row.enabled ? 'Enabled' : 'Disabled'}</Badge> },
-    { id: 'credential', header: 'Credential', cell: (row) => row.credential_status },
-    { id: 'tools', header: 'Tools', cell: (row) => row.tool_count, align: 'right' },
-    { id: 'sync', header: 'Sync', cell: (row) => row.last_sync_status },
-    { id: 'actions', header: '', cell: (row) => <div className="flex justify-end gap-1"><Button variant="ghost" size="icon-sm" aria-label={`Sync ${row.display_name}`} onClick={() => void act(scoped(`/api/mcp-gateway/connections/${row.id}/sync`, data), 'POST', router)}><IconRefresh /></Button><Button variant="ghost" size="sm" onClick={() => void act(scoped(`/api/mcp-gateway/connections/${row.id}`, data), 'PATCH', router, { enabled: !row.enabled })}>{row.enabled ? 'Disable' : 'Enable'}</Button><Button variant="ghost" size="icon-sm" aria-label={`Delete ${row.display_name}`} onClick={() => void act(scoped(`/api/mcp-gateway/connections/${row.id}`, data), 'DELETE', router)}><IconTrash /></Button></div>, align: 'right' },
-  ];
-  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const form = event.currentTarget; setSaving(true); const values = new FormData(form); try { const response = await fetch(scoped('/api/mcp-gateway/connections', data), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ display_name: values.get('name'), server_slug: values.get('slug'), endpoint_url: values.get('endpoint'), auth_kind: values.get('credential') ? 'static_bearer' : 'none', credential: values.get('credential') || undefined }) }); const connection = await response.json() as { id?: string; error?: string }; if (!response.ok || !connection.id) throw new Error(connection.error ?? 'Could not add server'); const sync = await fetch(scoped(`/api/mcp-gateway/connections/${connection.id}/sync`, data), { method: 'POST' }); if (!sync.ok) toast.error('Server saved, but synchronization failed. The row remains available to retry.'); else toast.success('Server connected and synchronized.'); form.reset(); router.refresh(); } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not add server'); } finally { setSaving(false); } }
-  return <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]"><Card><CardHeader><CardTitle>Servers</CardTitle><CardDescription>Only remote Streamable HTTP servers are supported.</CardDescription></CardHeader><CardContent><DataTable columns={columns} rows={data.connections} getRowKey={(row) => row.id} empty="No MCP servers connected." /></CardContent></Card><Card><CardHeader><CardTitle>Connect a server</CardTitle><CardDescription>Credentials are write-only and are never shown again.</CardDescription></CardHeader><CardContent><form className="space-y-3" onSubmit={submit}><Field label="Display name" name="name" /><Field label="Stable slug" name="slug" /><Field label="HTTPS endpoint" name="endpoint" type="url" /><Field label="Bearer token (optional)" name="credential" type="password" required={false} /><Button type="submit" disabled={saving}>{saving ? 'Connecting…' : 'Connect and sync'}</Button></form></CardContent></Card></div>;
+  const [connectOpen, setConnectOpen] = useState(false);
+  const enabledCount = data.connections.filter((connection) => connection.enabled).length;
+  const toolCount = data.connections.reduce((total, connection) => total + connection.tool_count, 0);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    setSaving(true);
+    const values = new FormData(form);
+    try {
+      const response = await fetch(scoped('/api/mcp-gateway/connections', data), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          display_name: values.get('name'),
+          server_slug: values.get('slug'),
+          endpoint_url: values.get('endpoint'),
+          auth_kind: values.get('credential') ? 'static_bearer' : 'none',
+          credential: values.get('credential') || undefined,
+        }),
+      });
+      const connection = await response.json() as { id?: string; error?: string };
+      if (!response.ok || !connection.id) {
+        throw new Error(connection.error ?? 'Could not add server');
+      }
+      const sync = await fetch(
+        scoped(`/api/mcp-gateway/connections/${connection.id}/sync`, data),
+        { method: 'POST' },
+      );
+      if (!sync.ok) {
+        toast.error('Server saved, but synchronization failed. The row remains available to retry.');
+      } else {
+        toast.success('Server connected and synchronized.');
+      }
+      form.reset();
+      setConnectOpen(false);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not add server');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <Card className="gap-0 overflow-hidden py-0">
+        <CardHeader className="gap-5 border-b bg-muted/30 px-5 py-5 sm:px-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1.5">
+              <CardTitle>Server fleet</CardTitle>
+              <CardDescription>
+                Remote Streamable HTTP servers available to this workspace.
+              </CardDescription>
+            </div>
+            <Button type="button" onClick={() => setConnectOpen(true)}>
+              <IconPlus aria-hidden />
+              Connect server
+            </Button>
+          </div>
+          <dl className="grid grid-cols-3 divide-x overflow-hidden rounded-lg border bg-background">
+            <FleetMetric label="Connected" value={data.connections.length} />
+            <FleetMetric label="Enabled" value={enabledCount} />
+            <FleetMetric label="Tools found" value={toolCount} />
+          </dl>
+        </CardHeader>
+        <CardContent className="p-0">
+          {data.connections.length === 0 ? (
+            <div className="grid justify-items-center gap-3 px-6 py-12 text-center">
+              <div className="grid size-11 place-items-center rounded-lg border bg-muted/40 text-muted-foreground">
+                <IconPlugConnected aria-hidden />
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium">No servers connected</p>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  Connect a remote MCP server to discover its tools and control workspace access.
+                </p>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setConnectOpen(true)}>
+                <IconPlus aria-hidden />
+                Connect your first server
+              </Button>
+            </div>
+          ) : (
+            <ul aria-label="Connected MCP servers" className="divide-y">
+              {data.connections.map((connection) => (
+                <ServerRow key={connection.id} connection={connection} data={data} router={router} />
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={connectOpen}
+        onOpenChange={(open) => {
+          if (!saving) setConnectOpen(open);
+        }}
+      >
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg">
+          <form className="grid gap-5" onSubmit={submit}>
+            <DialogHeader>
+              <DialogTitle>Connect an MCP server</DialogTitle>
+              <DialogDescription>
+                Add a remote Streamable HTTP endpoint, then synchronize its available tools.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4">
+              <Field label="Display name" name="name" />
+              <Field label="Stable slug" name="slug" />
+              <Field label="HTTPS endpoint" name="endpoint" type="url" />
+              <Field
+                label="Bearer token (optional)"
+                name="credential"
+                type="password"
+                required={false}
+              />
+            </div>
+            <div className="flex gap-3 rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
+              <IconShieldLock className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <p>Credentials are encrypted, write-only, and never shown again.</p>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving}
+                onClick={() => setConnectOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? 'Connecting…' : 'Connect and sync'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function FleetMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="grid gap-1 px-3 py-3 sm:px-4">
+      <dt className="text-2xs font-medium uppercase tracking-label text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="font-data text-lg font-semibold tabular-nums leading-none">{value}</dd>
+    </div>
+  );
+}
+
+function ServerRow({
+  connection,
+  data,
+  router,
+}: {
+  connection: McpGatewayConnection;
+  data: McpAccessPageData;
+  router: ReturnType<typeof useRouter>;
+}) {
+  return (
+    <li className="grid gap-5 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(15rem,1.2fr)_minmax(24rem,1fr)_auto] lg:items-center">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="grid size-10 shrink-0 place-items-center rounded-lg border bg-muted/30 text-muted-foreground">
+          <IconPlugConnected className="size-5" aria-hidden />
+        </div>
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate font-medium">{connection.display_name}</p>
+            <Badge variant={connection.enabled ? 'secondary' : 'outline'} className="gap-1.5">
+              <span
+                className={cn(
+                  'size-1.5 rounded-full',
+                  connection.enabled ? 'bg-primary' : 'bg-muted-foreground',
+                )}
+                aria-hidden
+              />
+              {connection.enabled ? 'Enabled' : 'Disabled'}
+            </Badge>
+          </div>
+          <p className="truncate font-data text-xs text-muted-foreground" title={connection.endpoint_url}>
+            {new URL(connection.endpoint_url).hostname}
+          </p>
+        </div>
+      </div>
+
+      <dl className="grid grid-cols-3 gap-3">
+        <ServerMetric label="Tools">
+          <span className="font-data tabular-nums">{connection.tool_count}</span>
+        </ServerMetric>
+        <ServerMetric label="Credential">
+          <span className={connection.credential_status === 'missing' ? 'text-destructive' : undefined}>
+            {credentialLabel(connection)}
+          </span>
+        </ServerMetric>
+        <ServerMetric label="Last sync">
+          <span className={connection.last_sync_status === 'failed' ? 'text-destructive' : undefined}>
+            {syncLabel(connection.last_sync_status)}
+          </span>
+          {connection.last_synced_at ? (
+            <time
+              dateTime={connection.last_synced_at}
+              className="block text-2xs font-normal text-muted-foreground"
+            >
+              {formatSyncDate(connection.last_synced_at)}
+            </time>
+          ) : null}
+        </ServerMetric>
+      </dl>
+
+      <div className="flex flex-wrap items-center gap-1 lg:justify-end">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-label={`Sync ${connection.display_name}`}
+          onClick={() => void act(
+            scoped(`/api/mcp-gateway/connections/${connection.id}/sync`, data),
+            'POST',
+            router,
+          )}
+        >
+          <IconRefresh aria-hidden />
+          Sync
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-label={`${connection.enabled ? 'Disable' : 'Enable'} ${connection.display_name}`}
+          onClick={() => void act(
+            scoped(`/api/mcp-gateway/connections/${connection.id}`, data),
+            'PATCH',
+            router,
+            { enabled: !connection.enabled },
+          )}
+        >
+          {connection.enabled ? 'Disable' : 'Enable'}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground hover:text-destructive"
+          aria-label={`Delete ${connection.display_name}`}
+          onClick={() => void act(
+            scoped(`/api/mcp-gateway/connections/${connection.id}`, data),
+            'DELETE',
+            router,
+          )}
+        >
+          <IconTrash aria-hidden />
+          Delete
+        </Button>
+      </div>
+    </li>
+  );
+}
+
+function ServerMetric({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0 space-y-1">
+      <dt className="text-2xs font-medium uppercase tracking-label text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="text-xs font-medium leading-snug">{children}</dd>
+    </div>
+  );
+}
+
+function credentialLabel(connection: McpGatewayConnection) {
+  if (connection.credential_status === 'not_required') return 'Not required';
+  if (connection.credential_status === 'missing') return 'Missing';
+  return connection.auth_kind === 'static_bearer' ? 'Bearer secured' : 'Configured';
+}
+
+function syncLabel(status: McpGatewayConnection['last_sync_status']) {
+  if (status === 'succeeded') return 'Succeeded';
+  if (status === 'failed') return 'Failed';
+  return 'Not synced';
+}
+
+function formatSyncDate(value: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'UTC',
+    timeZoneName: 'short',
+  }).format(new Date(value));
 }
 
 function ToolAccess({ data }: { data: McpAccessPageData }) {
