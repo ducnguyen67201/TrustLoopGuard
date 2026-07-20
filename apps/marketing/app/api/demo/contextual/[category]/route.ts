@@ -16,7 +16,7 @@ import {
   type ContextualDemoRequest,
 } from '@/app/demo/contextual-contract';
 import type { OutboundDemoProfile } from '@/app/demo/company-profile';
-import { getGenericDemoProfile } from '@/lib/server/outbound-demo-profile-store';
+import { getContextualDemoProfile } from '@/lib/server/outbound-demo-profile-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,7 +35,7 @@ export interface ContextualDemoHandlersDependencies {
 
 export function createContextualDemoHandlers(
   dependencies: ContextualDemoHandlersDependencies = {
-    getProfile: getGenericDemoProfile,
+    getProfile: getContextualDemoProfile,
     runWorkflow: runHostedContextualDemo,
     readPolicies: readHostedContextualDemoPolicies,
   },

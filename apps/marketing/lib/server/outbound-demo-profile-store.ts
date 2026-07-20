@@ -6,6 +6,7 @@ import postgres from 'postgres';
 import {
   demoCategorySchema,
   demoSlugSchema,
+  genericContextualScenarioId,
   parseOutboundDemoProfile,
   type DemoCategory,
   type JsonValue,
@@ -96,3 +97,33 @@ async function readGenericDemoProfile(slug: string): Promise<OutboundDemoProfile
 }
 
 export const getGenericDemoProfile = cache(readGenericDemoProfile);
+
+async function readContextualDemoProfile(slug: string): Promise<OutboundDemoProfile | null> {
+  const parsedSlug = demoSlugSchema.safeParse(slug);
+  const sql = getDatabase();
+  if (!parsedSlug.success || !sql) {
+    return null;
+  }
+
+  try {
+    const rows = await sql<DemoProfileRow[]>`
+      SELECT profile
+      FROM outbound_demo_profiles
+      WHERE slug = ${parsedSlug.data}
+        AND scenario_id = ${genericContextualScenarioId}
+      LIMIT 2
+    `;
+    if (rows.length !== 1) {
+      return null;
+    }
+    const profile = rows[0] ? parseOutboundDemoProfile(rows[0].profile) : null;
+    return profile?.slug === parsedSlug.data && profile.scenario_id === genericContextualScenarioId
+      ? profile
+      : null;
+  } catch {
+    console.error('Unable to read a contextual outbound demo profile.');
+    return null;
+  }
+}
+
+export const getContextualDemoProfile = cache(readContextualDemoProfile);
