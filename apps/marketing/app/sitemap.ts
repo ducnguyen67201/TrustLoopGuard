@@ -6,6 +6,7 @@ const HOME_LAST_MODIFIED = new Date('2026-07-19');
 const USE_CASES_LAST_MODIFIED = new Date('2026-07-16');
 const REFUND_DEMO_LAST_MODIFIED = new Date('2026-07-19');
 const HEALTHCARE_DEMO_LAST_MODIFIED = new Date('2026-07-19');
+const PROCUREMENT_DEMO_LAST_MODIFIED = new Date('2026-07-19');
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
@@ -66,6 +67,30 @@ export default function sitemap(): MetadataRoute.Sitemap {
         languages: {
           en: absoluteUrl('/demo/healthcare'),
           vi: absoluteUrl('/vi/demo/healthcare'),
+        },
+      },
+    },
+    {
+      url: absoluteUrl('/demo/procurement'),
+      lastModified: PROCUREMENT_DEMO_LAST_MODIFIED,
+      changeFrequency: 'monthly',
+      priority: 0.85,
+      alternates: {
+        languages: {
+          en: absoluteUrl('/demo/procurement'),
+          vi: absoluteUrl('/vi/demo/procurement'),
+        },
+      },
+    },
+    {
+      url: absoluteUrl('/vi/demo/procurement'),
+      lastModified: PROCUREMENT_DEMO_LAST_MODIFIED,
+      changeFrequency: 'monthly',
+      priority: 0.85,
+      alternates: {
+        languages: {
+          en: absoluteUrl('/demo/procurement'),
+          vi: absoluteUrl('/vi/demo/procurement'),
         },
       },
     },

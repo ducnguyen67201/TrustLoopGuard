@@ -39,6 +39,7 @@ Optional environment:
 | `TL_API_KEY` | unset | Bearer token when the server requires auth |
 | `TL_AGENT_ID` | `demo-acme-support` | Demo agent profile id |
 | `TL_WORKSPACE_ID` | unset | Optional local workspace header override, e.g. `ws_test` |
+| `TL_ADMIN_USER_ID` | unset | Optional owner/admin identity header for policy setup operations |
 | `OPENAI_API_KEY` | unset | Enables real OpenAI-backed replies |
 | `OPENAI_MODEL` | `gpt-4.1-mini` | OpenAI model for LLM-backed replies |
 | `TL_USER_ID` | unset | Workspace owner/admin UUID — lets `dispute:setup` arm `enforce` checker modes |
@@ -47,6 +48,87 @@ Optional environment:
 | `STRIPE_PAYMENT_INTENT_ID` | seeded demo id | Optional Stripe test PaymentIntent id for the refund-agent order |
 | `STRIPE_REFUND_PROVIDER_PORT` | `9303` | Local provider sidecar port for Stripe refund execution |
 | `STRIPE_REFUND_PROVIDER_API_KEY` | local demo token | Bearer token TrustLoopGuard uses when calling the provider sidecar |
+
+## Procurement agent
+
+The Marketing demo at `http://localhost:3002/demo/procurement` is a live
+OpenAI Agents SDK workflow protected by TrustLoopGuard. The agent can search a
+fixed catalog, but its simulated procurement system receives a purchase order
+only after the TypeScript SDK submits the exact canonical action to Rust and
+receives `permit`.
+
+Tools exposed to the agent:
+
+| Tool                    | What it does                                                                                                                 |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `search_catalog`        | Reads public fields from four immutable demo quotes                                                                          |
+| `submit_purchase_order` | Accepts only a quote id, resolves server-owned facts, and wraps the simulated side effect in `Client.withAuthorizedAction()` |
+
+Three Rust `family: tool` policies protect `submit_purchase_order`:
+
+| Policy                              | Match                            | Effect             |
+| ----------------------------------- | -------------------------------- | ------------------ |
+| `procurement-approved-suppliers`    | `/supplier_status == unapproved` | `deny`             |
+| `procurement-high-value-review`     | `/review_tier == high_value`     | `require_approval` |
+| `procurement-restricted-categories` | `/category` is restricted        | `deny`             |
+
+The public policy switches never edit shared policies. The validated selection
+maps to one of eight pre-provisioned principals, from `procurement-demo-000` to
+`procurement-demo-111`. Each policy is scoped to the four principals where its
+bit is active, plus the purchase operation, side-effect class, and tool
+identity. Use a dedicated Marketing demo workspace/environment and keep every
+policy in it explicitly scoped to demo principals so curated outcomes remain
+deterministic.
+
+Start Rust, configure the internal Marketing-to-Rust lane, and provision the
+three policies once:
+
+```sh
+cargo run -p tl-server
+
+TL_SERVER_URL=http://127.0.0.1:8080 \
+TL_API_KEY=<internal-api-key> \
+TL_WORKSPACE_ID=procurement-demo-local \
+TL_ADMIN_USER_ID=<owner-or-admin-id> \
+pnpm --filter @trustloopguard/demo procurement-agent:setup
+```
+
+`TL_ADMIN_USER_ID` is needed when the local server requires an owner/admin
+identity for policy writes. The Marketing service must use the internal
+`TL_API_KEY` lane: a runtime key bound to one principal cannot select among the
+eight fixed profiles. Never expose that key to the browser.
+
+Then start the live Marketing demo:
+
+```sh
+OPENAI_API_KEY=<test-key> \
+OPENAI_MODEL=gpt-4.1-mini \
+pnpm marketing:dev
+```
+
+Try the four curated paths: approved chairs permit, high-value laptops require
+approval, an unapproved supplier is denied, and gift cards are denied. Turning
+off the matching policy selects another fixed principal and lets the remaining
+Rust policies determine the result.
+
+The purchase-order provider and its state are simulated and request-local.
+Approval is displayed but cannot be resumed from the public page. OpenAI Agents
+SDK tracing is disabled for public prompts; the Rust `/v1/events` trace remains
+the product proof. The central model budget and per-visitor limit are
+process-local and assume the existing single Marketing replica.
+
+Code map:
+
+| File                            | Start here for                                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------- |
+| `procurement-agent/fixtures.ts` | Catalog facts, public policy metadata, fixed principals, and generated policy YAML |
+| `procurement-agent/agent.ts`    | OpenAI tools and the guarded purchase-order callback                               |
+| `procurement-agent/hosted.ts`   | Request isolation, model budget, safe logs, and public workflow result             |
+| `procurement-agent/setup.ts`    | Admin-only policy provisioning                                                     |
+
+Concept impact: none. This demo uses the existing `/v1/events`, tool-policy,
+SDK guarded-execution, policy-registry, and Rust trace contracts without
+changing their behavior or ownership.
 
 ## Stripe refund agent
 

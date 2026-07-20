@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-test('packages the refund demo and SDK inside the Marketing image', () => {
+test('packages the public demos and SDK inside the Marketing image', () => {
   const packageJson = JSON.parse(
     readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
   ) as {
@@ -22,6 +22,7 @@ test('packages the refund demo and SDK inside the Marketing image', () => {
     /RUN pnpm --filter @trustloopguard\/sdk build \\\n && pnpm --filter marketing build/,
   );
   assert.match(dockerignore, /!demo\/shared\/\*\*/);
+  assert.match(dockerignore, /!demo\/procurement-agent\/\*\*/);
   assert.match(dockerignore, /!demo\/healthcare-agent\/\*\*/);
   assert.match(dockerignore, /!demo\/stripe-refund-agent\/\*\*/);
 });
