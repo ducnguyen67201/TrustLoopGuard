@@ -10,7 +10,7 @@ import {
 } from '@tabler/icons-react';
 import type { McpGatewayConnection, McpGatewayTool, SideEffectClass } from '@trustloopguard/sdk';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +36,13 @@ import { cn } from '@/lib/utils';
 import { SetupRunway } from './mcp-access/SetupRunway';
 import { SwitchyardMap } from './mcp-access/SwitchyardMap';
 
-export function McpAccessPageContent({ data }: { data: McpAccessPageData }) {
+export function McpAccessPageContent({
+  data,
+  initialMemberId,
+}: {
+  data: McpAccessPageData;
+  initialMemberId?: string | undefined;
+}) {
   const defaultTab = data.isAdmin ? 'overview' : 'connect';
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 sm:px-6 lg:px-8">
@@ -75,7 +81,7 @@ export function McpAccessPageContent({ data }: { data: McpAccessPageData }) {
               <Servers data={data} />
             </TabsContent>
             <TabsContent value="tools">
-              <ToolAccess data={data} />
+              <ToolAccess data={data} initialMemberId={initialMemberId} />
             </TabsContent>
           </>
         ) : null}
@@ -390,9 +396,44 @@ function formatSyncDate(value: string) {
   }).format(new Date(value));
 }
 
-function ToolAccess({ data }: { data: McpAccessPageData }) {
+function ToolAccess({
+  data,
+  initialMemberId,
+}: {
+  data: McpAccessPageData;
+  initialMemberId?: string | undefined;
+}) {
   const router = useRouter();
-  const [memberId, setMemberId] = useState(data.members[0]?.user_id ?? '');
+  const [memberId, setMemberId] = useState(() => selectedMemberId(data, initialMemberId));
+  const [tools, setTools] = useState(data.tools);
+  const [updatingToolId, setUpdatingToolId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTools(data.tools);
+  }, [data.tools]);
+
+  function selectMember(nextMemberId: string) {
+    setMemberId(nextMemberId);
+    const url = new URL(window.location.href);
+    url.searchParams.set('member', nextMemberId);
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  async function updateAssignment(tool: McpGatewayTool, grant: boolean) {
+    setUpdatingToolId(tool.id);
+    try {
+      const assignedUserIds = await replaceToolAssignment(tool, memberId, grant, router, data);
+      if (assignedUserIds === null) return;
+      setTools((current) => current.map((currentTool) => (
+        currentTool.id === tool.id
+          ? { ...currentTool, assigned_user_ids: assignedUserIds }
+          : currentTool
+      )));
+    } finally {
+      setUpdatingToolId(null);
+    }
+  }
+
   const columns = useMemo<DataTableColumn<McpGatewayTool>[]>(() => [
     {
       id: 'tool',
@@ -428,10 +469,10 @@ function ToolAccess({ data }: { data: McpAccessPageData }) {
       header: <span className="sr-only">Access</span>,
       headerClassName: 'w-28 px-6',
       cellClassName: 'px-6 py-4',
-      cell: (row) => { const assigned = row.assigned_user_ids.includes(memberId); return <Button size="sm" variant={assigned ? 'outline' : 'default'} disabled={!memberId || row.catalog_status !== 'active'} onClick={() => void replaceToolAssignment(row, memberId, !assigned, router, data)}>{assigned ? 'Revoke' : 'Grant'}</Button>; },
+      cell: (row) => { const assigned = row.assigned_user_ids.includes(memberId); return <Button size="sm" variant={assigned ? 'outline' : 'default'} disabled={!memberId || row.catalog_status !== 'active' || updatingToolId === row.id} onClick={() => void updateAssignment(row, !assigned)}>{assigned ? 'Revoke' : 'Grant'}</Button>; },
       align: 'right',
     },
-  ], [data, memberId, router]);
+  ], [data, memberId, router, updatingToolId]);
   return (
     <Card className="gap-0 overflow-hidden py-0">
       <CardHeader className="border-b bg-muted/30 px-6 py-5">
@@ -446,7 +487,7 @@ function ToolAccess({ data }: { data: McpAccessPageData }) {
             <Label htmlFor="mcp-member" className="text-xs font-medium text-muted-foreground">
               Member
             </Label>
-            <Select value={memberId} onValueChange={setMemberId}>
+            <Select value={memberId} onValueChange={selectMember}>
               <SelectTrigger id="mcp-member" className="w-full bg-background">
                 <SelectValue placeholder="Choose a member" />
               </SelectTrigger>
@@ -460,7 +501,7 @@ function ToolAccess({ data }: { data: McpAccessPageData }) {
       <CardContent className="p-0">
         <DataTable
           columns={columns}
-          rows={data.tools}
+          rows={tools}
           getRowKey={(row) => row.id}
           caption="MCP tools and access assignments for the selected member."
           empty="Synchronize a server to review its tools."
@@ -493,6 +534,7 @@ function Connect({ data }: { data: McpAccessPageData }) {
 }
 
 function Field({ label, name, type = 'text', required = true }: { label: string; name: string; type?: string; required?: boolean }) { return <div className="space-y-1"><Label htmlFor={name}>{label}</Label><Input id={name} name={name} type={type} required={required} /></div>; }
-async function act(url: string, method: 'POST' | 'PATCH' | 'PUT' | 'DELETE', router: ReturnType<typeof useRouter>, body?: Record<string, unknown>) { const init: RequestInit = { method }; if (body) { init.headers = { 'Content-Type': 'application/json' }; init.body = JSON.stringify(body); } const response = await fetch(url, init); if (!response.ok) { const value = await response.json().catch(() => ({})) as { error?: string; message?: string }; toast.error(value.message ?? value.error ?? 'MCP gateway operation failed'); return; } toast.success('MCP gateway updated.'); router.refresh(); }
-async function replaceToolAssignment(tool: McpGatewayTool, memberId: string, grant: boolean, router: ReturnType<typeof useRouter>, data: McpAccessPageData) { const next = new Set(tool.assigned_user_ids); if (grant) next.add(memberId); else next.delete(memberId); await act(scoped(`/api/mcp-gateway/tools/${tool.id}/assignments`, data), 'PUT', router, { user_ids: Array.from(next) }); }
+async function act(url: string, method: 'POST' | 'PATCH' | 'PUT' | 'DELETE', router: ReturnType<typeof useRouter>, body?: Record<string, unknown>) { const init: RequestInit = { method }; if (body) { init.headers = { 'Content-Type': 'application/json' }; init.body = JSON.stringify(body); } const response = await fetch(url, init); if (!response.ok) { const value = await response.json().catch(() => ({})) as { error?: string; message?: string }; toast.error(value.message ?? value.error ?? 'MCP gateway operation failed'); return false; } toast.success('MCP gateway updated.'); router.refresh(); return true; }
+async function replaceToolAssignment(tool: McpGatewayTool, memberId: string, grant: boolean, router: ReturnType<typeof useRouter>, data: McpAccessPageData) { const next = new Set(tool.assigned_user_ids); if (grant) next.add(memberId); else next.delete(memberId); const assignedUserIds = Array.from(next); return await act(scoped(`/api/mcp-gateway/tools/${tool.id}/assignments`, data), 'PUT', router, { user_ids: assignedUserIds }) ? assignedUserIds : null; }
 function scoped(path: string, data: McpAccessPageData) { const params = new URLSearchParams({ workspace: data.activeWorkspace.slug, environment: data.activeEnvironment.id }); return `${path}?${params}`; }
+function selectedMemberId(data: McpAccessPageData, requestedMemberId?: string) { return requestedMemberId && data.members.some((member) => member.user_id === requestedMemberId) ? requestedMemberId : (data.members[0]?.user_id ?? ''); }

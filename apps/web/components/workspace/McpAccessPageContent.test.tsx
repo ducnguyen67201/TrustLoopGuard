@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -135,5 +135,58 @@ describe('McpAccessPageContent', () => {
       expect.stringContaining('/api/mcp-gateway/tools/tool'),
       expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ side_effect: 'api_mutation' }) }),
     ));
+  });
+
+  it('rerenders assignments for the selected member and preserves that member in the URL', async () => {
+    const user = userEvent.setup();
+    Element.prototype.scrollIntoView = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    window.history.replaceState({}, '', '/mcp-access?workspace=workspace&environment=production');
+    const admin = {
+      ...base,
+      isAdmin: true,
+      activeWorkspace: { ...base.activeWorkspace, role: 'owner' as const },
+      members: [
+        { user_id: 'user', username: 'owner', role: 'owner' as const },
+        { user_id: 'intern', username: 'leo_intern', role: 'viewer' as const },
+      ],
+      tools: [{
+        id: 'tool', connection_id: 'connection', connection_name: 'Company tools',
+        upstream_name: 'charge', public_name: 'company__charge', input_schema: {},
+        annotations: {}, schema_hash: 'hash', side_effect: 'api_mutation' as const,
+        catalog_status: 'active' as const, assigned_user_ids: ['user'],
+        created_at: '2026-07-19T00:00:00Z', updated_at: '2026-07-19T00:00:00Z',
+      }],
+    };
+    render(<McpAccessPageContent data={admin} />);
+
+    await user.click(screen.getByRole('tab', { name: 'Tool access' }));
+    const toolRow = screen.getByText('company__charge').closest('tr');
+    if (toolRow === null) throw new Error('Expected the MCP tool row to render');
+    expect(within(toolRow).getByRole('button', { name: 'Revoke' })).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Member' }), { key: 'ArrowDown' });
+    await user.click(screen.getByRole('option', { name: 'leo_intern · viewer' }));
+
+    expect(within(toolRow).getByRole('button', { name: 'Grant' })).toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get('member')).toBe('intern');
+
+    await user.click(within(toolRow).getByRole('button', { name: 'Grant' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/mcp-gateway/tools/tool/assignments'),
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({ user_ids: ['user', 'intern'] }),
+      }),
+    ));
+    expect(within(toolRow).getByRole('button', { name: 'Revoke' })).toBeInTheDocument();
+
+    cleanup();
+    render(<McpAccessPageContent data={admin} initialMemberId="intern" />);
+    await user.click(screen.getByRole('tab', { name: 'Tool access' }));
+    expect(screen.getByRole('combobox', { name: 'Member' })).toHaveTextContent('leo_intern');
+    expect(screen.getByRole('button', { name: 'Grant' })).toBeInTheDocument();
   });
 });
