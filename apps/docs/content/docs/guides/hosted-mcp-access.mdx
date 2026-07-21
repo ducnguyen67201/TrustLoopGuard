@@ -3,6 +3,8 @@ title: Hosted MCP Access
 description: Connect employee AI clients to assigned remote MCP tools through OAuth and live TrustLoopGuard policy enforcement.
 ---
 
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
 Hosted MCP Access gives a workspace one managed MCP endpoint. Employees connect an OAuth-capable
 AI client to that endpoint instead of connecting directly to every remote MCP server.
 TrustLoopGuard uses the signed-in member to personalize tool discovery, then evaluates every tool
@@ -18,7 +20,7 @@ You need:
 - Owner or Admin access to configure servers and assignments.
 - A publicly reachable HTTPS Streamable HTTP MCP server. TrustLoopGuard does not launch stdio
   commands or connect to legacy HTTP+SSE servers.
-- An OAuth-capable Streamable HTTP client such as Codex CLI.
+- An OAuth-capable Streamable HTTP client such as Codex CLI, Claude Code, Cursor, or OpenCode.
 
 TrustLoop Cloud uses this managed endpoint:
 
@@ -54,31 +56,103 @@ Open **MCP Access → Tool access**, then:
 Assignments control discovery, but they are not the only authorization boundary. Runtime policy
 still evaluates every assigned `tools/call`.
 
-## Connect Codex CLI
+## Connect an AI client
 
-Add the managed endpoint once:
+Choose your client. Each option connects to the same managed endpoint and opens the
+TrustLoopGuard authorization page in your browser.
 
-```sh
-codex mcp add trustloopguard \
-  --url https://api.gettrustloop.app/mcp \
-  --oauth-resource https://api.gettrustloop.app/mcp
-```
+<Tabs items={['Codex CLI', 'Claude Code', 'Cursor', 'OpenCode']}>
+  <Tab value="Codex CLI">
+    Add the managed endpoint once:
 
-Complete OAuth:
+    ```sh
+    codex mcp add trustloopguard \
+      --url https://api.gettrustloop.app/mcp \
+      --oauth-resource https://api.gettrustloop.app/mcp
+    ```
 
-```sh
-codex mcp login trustloopguard --scopes mcp:tools
-```
+    Complete OAuth:
 
-Codex opens the TrustLoopGuard authorization page. Sign in, select the prepared workspace, and
-approve access. Confirm the registration afterward:
+    ```sh
+    codex mcp login trustloopguard --scopes mcp:tools
+    ```
 
-```sh
-codex mcp list
-```
+    Confirm that the server is connected:
 
-Start a fresh Codex session so it discovers the current assigned catalog. An explicit first prompt
-is useful when demonstrating a particular tool:
+    ```sh
+    codex mcp list
+    ```
+  </Tab>
+
+  <Tab value="Claude Code">
+    Add the managed endpoint to your user configuration:
+
+    ```sh
+    claude mcp add --scope user --transport http \
+      trustloopguard https://api.gettrustloop.app/mcp
+    ```
+
+    Start Claude Code, run `/mcp`, select `trustloopguard`, and choose **Authenticate** to complete
+    OAuth in your browser.
+
+    Confirm that the server is connected:
+
+    ```sh
+    claude mcp list
+    ```
+  </Tab>
+
+  <Tab value="Cursor">
+    Open the global MCP configuration from **Cursor Settings → Tools & Integrations → MCP Tools**,
+    or create `.cursor/mcp.json` for one project:
+
+    ```json
+    {
+      "mcpServers": {
+        "trustloopguard": {
+          "url": "https://api.gettrustloop.app/mcp"
+        }
+      }
+    }
+    ```
+
+    Enable `trustloopguard` in MCP Tools and complete the browser sign-in. Cursor Agent users can
+    trigger OAuth and inspect the connected catalog from the terminal:
+
+    ```sh
+    cursor-agent mcp login trustloopguard
+    cursor-agent mcp list-tools trustloopguard
+    ```
+  </Tab>
+
+  <Tab value="OpenCode">
+    Add the remote server to `opencode.json`:
+
+    ```json
+    {
+      "$schema": "https://opencode.ai/config.json",
+      "mcp": {
+        "trustloopguard": {
+          "type": "remote",
+          "url": "https://api.gettrustloop.app/mcp",
+          "enabled": true
+        }
+      }
+    }
+    ```
+
+    Complete OAuth and confirm the connection:
+
+    ```sh
+    opencode mcp auth trustloopguard
+    opencode mcp list
+    ```
+  </Tab>
+</Tabs>
+
+Sign in, select the prepared workspace, and approve access when the authorization page opens.
+Then start a fresh client session so it discovers the current assigned catalog. An explicit first
+prompt is useful when demonstrating a particular tool:
 
 ```text
 Use the `trustloopguard` MCP server. Call `company__read_engineering_docs`
@@ -116,9 +190,9 @@ result.
 | Change runtime policy          | The visible catalog does not change.                | The current policy is evaluated immediately.     |
 | Remove workspace membership    | The stale catalog may remain visible in the client. | Every MCP request is rejected.                   |
 
-After granting a new tool to a Codex user, exit and restart Codex to refresh discovery. The OAuth
-login remains stored; you do not need to authorize again. Clearing the terminal display or starting
-a new prompt in the same session does not refresh the catalog.
+After granting a new tool, exit and restart the AI client to refresh discovery. The OAuth login
+remains stored; you do not need to authorize again. Clearing the terminal display or starting a new
+prompt in the same session does not refresh the catalog.
 
 A stale client catalog is not an authorization grant. TrustLoopGuard resolves the current tool
 assignment when `tools/call` arrives and rechecks authority immediately before upstream execution.
