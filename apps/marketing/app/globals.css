@@ -334,6 +334,10 @@ input {
   color: var(--color-ink);
 }
 
+.site-nav .nav-talk {
+  display: none;
+}
+
 @media (min-width: 1100px) {
   .site-nav-links {
     display: flex;
@@ -341,6 +345,12 @@ input {
 
   .button-secondary.nav-demo-compact {
     display: none;
+  }
+}
+
+@media (min-width: 1280px) {
+  .site-nav .nav-talk {
+    display: inline-flex;
   }
 }
 
@@ -691,8 +701,32 @@ input {
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 2rem;
+}
+
+.hero-action-button {
+  padding-inline: 1.5rem;
+}
+
+.hero-app-link {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  color: var(--color-accent-deep);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.hero-app-link svg {
+  transition: transform 150ms ease;
+}
+
+.hero-app-link:hover svg {
+  transform: translateX(0.2rem);
 }
 
 .hero-source-row {
@@ -1117,6 +1151,11 @@ input {
   .hero-actions {
     flex-direction: row;
     align-items: center;
+    gap: 0.625rem;
+  }
+
+  .hero-action-button {
+    padding-inline: 0.875rem;
   }
 
   .control-proposal {

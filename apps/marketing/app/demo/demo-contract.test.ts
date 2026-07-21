@@ -148,3 +148,20 @@ test('links a held refund to the exact dashboard financial action', () => {
     'http://localhost:3000/financial?workspace=default&environment=production&actionId=019f5d6a-f57d-7c23-ada2-acc821b332ea',
   );
 });
+
+test('keeps a tracked app entry action visible across every demo top bar', () => {
+  const appLink = readFileSync(new URL('./demo-app-link.tsx', import.meta.url), 'utf8');
+  const demoPages = [
+    './refund-page.tsx',
+    './healthcare/healthcare-page.tsx',
+    './procurement/procurement-page.tsx',
+    './personalized-contextual-page.tsx',
+  ].map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'));
+
+  assert.match(appLink, /href=\{APP_URL\}/);
+  assert.match(appLink, /event="app_click"/);
+  assert.match(appLink, /Go to the app/);
+  for (const demoPage of demoPages) {
+    assert.match(demoPage, /<DemoAppLink locale=\{locale\} \/>/);
+  }
+});

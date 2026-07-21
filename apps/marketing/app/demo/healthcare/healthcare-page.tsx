@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { CSSProperties } from 'react';
 
 import type { OutboundDemoProfile } from '../company-profile';
+import { DemoAppLink } from '../demo-app-link';
 import styles from '../demo.module.css';
 import { HEALTHCARE_PAGE_COPY, type HealthcareDemoLocale } from './content';
 import { HealthcareDemo } from './healthcare-demo';
@@ -48,13 +49,17 @@ export function HealthcareDemoPageContent({
           <i aria-hidden="true" />
           <span>{copy.deliveredReply}</span>
         </div>
-        <a
-          href="https://github.com/ducnguyen67201/TrustLoopGuard"
-          target="_blank"
-          rel="noreferrer"
-        >
-          {copy.viewSource} <span aria-hidden="true">↗</span>
-        </a>
+        <div className={styles['topbarActions']}>
+          <a
+            href="https://github.com/ducnguyen67201/TrustLoopGuard"
+            target="_blank"
+            rel="noreferrer"
+            className={styles['topbarSecondaryLink']}
+          >
+            {copy.viewSource} <span aria-hidden="true">↗</span>
+          </a>
+          <DemoAppLink locale={locale} />
+        </div>
       </header>
 
       <section className={styles['intro']} aria-labelledby="healthcare-demo-title">

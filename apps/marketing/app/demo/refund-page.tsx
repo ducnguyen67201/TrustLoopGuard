@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { MarketingLocale } from '@/lib/marketing-locale';
 
 import styles from './demo.module.css';
+import { DemoAppLink } from './demo-app-link';
 import { REFUND_PAGE_COPY } from './refund-content';
 import { RefundDemo } from './refund-demo';
 
@@ -27,9 +28,17 @@ export function RefundDemoPageContent({ locale }: { locale: MarketingLocale }) {
           <i aria-hidden="true" />
           <span>{copy.stripeTestMode}</span>
         </div>
-        <a href="https://github.com/ducnguyen67201/TrustLoopGuard" target="_blank" rel="noreferrer">
-          {copy.viewSource} <span aria-hidden="true">↗</span>
-        </a>
+        <div className={styles['topbarActions']}>
+          <a
+            href="https://github.com/ducnguyen67201/TrustLoopGuard"
+            target="_blank"
+            rel="noreferrer"
+            className={styles['topbarSecondaryLink']}
+          >
+            {copy.viewSource} <span aria-hidden="true">↗</span>
+          </a>
+          <DemoAppLink locale={locale} />
+        </div>
       </header>
 
       <section className={styles['intro']} aria-labelledby="demo-title">

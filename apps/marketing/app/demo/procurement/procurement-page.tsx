@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react';
 import type { MarketingLocale } from '@/lib/marketing-locale';
 
 import type { OutboundDemoProfile } from '../company-profile';
+import { DemoAppLink } from '../demo-app-link';
 import sharedStyles from '../demo.module.css';
 import { PROCUREMENT_DEMO_COPY } from './content';
 import { ProcurementDemo } from './procurement-demo';
@@ -51,13 +52,17 @@ export function ProcurementDemoPageContent({
           <i aria-hidden="true" />
           <span>Demo procurement</span>
         </div>
-        <a
-          href="https://github.com/ducnguyen67201/TrustLoopGuard"
-          target="_blank"
-          rel="noreferrer"
-        >
-          View source <span aria-hidden="true">↗</span>
-        </a>
+        <div className={sharedStyles['topbarActions']}>
+          <a
+            href="https://github.com/ducnguyen67201/TrustLoopGuard"
+            target="_blank"
+            rel="noreferrer"
+            className={sharedStyles['topbarSecondaryLink']}
+          >
+            View source <span aria-hidden="true">↗</span>
+          </a>
+          <DemoAppLink locale={locale} />
+        </div>
       </header>
 
       <section
