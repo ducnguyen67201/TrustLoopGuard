@@ -1,79 +1,70 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "RedteamRunnerContract",
-  "description": "Codegen-only aggregator so a single JSON Schema document carries every runner type in its `definitions`. Never constructed at runtime.",
+  "description": "Codegen-only aggregator so a single JSON Schema document carries every runner\ntype in its `definitions`. Never constructed at runtime.",
   "type": "object",
-  "required": [
-    "dispatch",
-    "handle",
-    "plan",
-    "plan_result",
-    "report"
-  ],
   "properties": {
     "dispatch": {
-      "$ref": "#/definitions/RunnerDispatch"
+      "$ref": "#/$defs/RunnerDispatch"
     },
     "handle": {
-      "$ref": "#/definitions/RunnerHandle"
+      "$ref": "#/$defs/RunnerHandle"
     },
     "plan": {
-      "$ref": "#/definitions/RunnerPlanRequest"
+      "$ref": "#/$defs/RunnerPlanRequest"
     },
     "plan_result": {
-      "$ref": "#/definitions/RunnerPlanResponse"
+      "$ref": "#/$defs/RunnerPlanResponse"
     },
     "report": {
-      "$ref": "#/definitions/RunnerReport"
+      "$ref": "#/$defs/RunnerReport"
     }
   },
-  "definitions": {
+  "required": [
+    "plan",
+    "plan_result",
+    "dispatch",
+    "handle",
+    "report"
+  ],
+  "$defs": {
     "RunnerAttackSession": {
-      "description": "One independent attack session from the runner. The runner owns scoring; Rust copies the verdict verbatim and never re-scores.",
+      "description": "One independent attack session from the runner. The runner owns scoring;\nRust copies the verdict verbatim and never re-scores.",
       "type": "object",
-      "required": [
-        "attack",
-        "goal",
-        "landed",
-        "outcome",
-        "seq",
-        "sessionId",
-        "status"
-      ],
       "properties": {
         "attack": {
           "type": "string"
         },
         "caseId": {
-          "default": null,
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "default": null
         },
         "error": {
-          "default": null,
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "default": null
         },
         "events": {
-          "default": [],
           "type": "array",
+          "default": [],
           "items": {
-            "$ref": "#/definitions/RunnerSessionEvent"
+            "$ref": "#/$defs/RunnerSessionEvent"
           }
         },
         "goal": {
           "type": "string"
         },
         "kind": {
-          "default": null,
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "default": null
         },
         "landed": {
           "type": "boolean"
@@ -82,11 +73,11 @@
           "type": "string"
         },
         "runnerSessionId": {
-          "default": null,
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "default": null
         },
         "seq": {
           "type": "integer",
@@ -96,32 +87,41 @@
           "type": "string"
         },
         "status": {
-          "$ref": "#/definitions/RunnerStatus"
+          "$ref": "#/$defs/RunnerStatus"
         },
         "traceId": {
-          "default": null,
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "default": null
         },
         "track": {
-          "default": null,
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "default": null
         },
         "trialIndex": {
-          "default": null,
           "type": [
             "integer",
             "null"
           ],
-          "format": "int32"
+          "format": "int32",
+          "default": null
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "sessionId",
+        "seq",
+        "attack",
+        "goal",
+        "status",
+        "outcome",
+        "landed"
+      ]
     },
     "RunnerAttackSurface": {
       "description": "Target surface the private runner should attack.",
@@ -134,12 +134,6 @@
     "RunnerAttackVector": {
       "description": "One tailored attack vector generated or consumed by the private runner.",
       "type": "object",
-      "required": [
-        "goal",
-        "injectionPayload",
-        "targetOperation",
-        "technique"
-      ],
       "properties": {
         "goal": {
           "description": "What a successful attack makes the agent do (the runner's scoring goal).",
@@ -153,7 +147,7 @@
           "description": "Optional product-side source-to-sink provenance for this seed.",
           "anyOf": [
             {
-              "$ref": "#/definitions/RunnerWorkflowPath"
+              "$ref": "#/$defs/RunnerWorkflowPath"
             },
             {
               "type": "null"
@@ -169,18 +163,20 @@
           "type": "string"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "goal",
+        "technique",
+        "targetOperation",
+        "injectionPayload"
+      ]
     },
     "RunnerDispatch": {
       "description": "Body of `POST /redteam/jobs`.",
       "type": "object",
-      "required": [
-        "profile",
-        "targetUrl"
-      ],
       "properties": {
         "attackSurface": {
-          "$ref": "#/definitions/RunnerAttackSurface"
+          "$ref": "#/$defs/RunnerAttackSurface"
         },
         "attackVectors": {
           "description": "Tailored seeds from the agent's `redteam/plan`.",
@@ -189,13 +185,13 @@
             "null"
           ],
           "items": {
-            "$ref": "#/definitions/RunnerAttackVector"
+            "$ref": "#/$defs/RunnerAttackVector"
           }
         },
         "documentTemplate": {
           "anyOf": [
             {
-              "$ref": "#/definitions/RunnerDocumentTemplate"
+              "$ref": "#/$defs/RunnerDocumentTemplate"
             },
             {
               "type": "null"
@@ -203,7 +199,7 @@
           ]
         },
         "mode": {
-          "$ref": "#/definitions/RunnerRunMode"
+          "$ref": "#/$defs/RunnerRunMode"
         },
         "profile": {
           "type": "string"
@@ -212,16 +208,15 @@
           "type": "string"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "targetUrl",
+        "profile"
+      ]
     },
     "RunnerDocumentTemplate": {
       "description": "Uploaded PDF form template for document workflow attacks.",
       "type": "object",
-      "required": [
-        "dataBase64",
-        "fileName",
-        "mediaType"
-      ],
       "properties": {
         "dataBase64": {
           "type": "string"
@@ -239,43 +234,45 @@
           "type": "string"
         },
         "flatten": {
-          "default": false,
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "mediaType": {
           "type": "string"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "fileName",
+        "mediaType",
+        "dataBase64"
+      ]
     },
     "RunnerHandle": {
       "description": "Response from `POST /redteam/jobs`.",
       "type": "object",
-      "required": [
-        "jobId"
-      ],
       "properties": {
         "jobId": {
           "type": "string"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "jobId"
+      ]
     },
     "RunnerPlanRequest": {
-      "description": "Body of `POST /redteam/plan`. TrustLoopGuard sends only the target agent's structured context; the private runner owns attack-planner instructions and vector generation.",
+      "description": "Body of `POST /redteam/plan`. TrustLoopGuard sends only the target agent's\nstructured context; the private runner owns attack-planner instructions and\nvector generation.",
       "type": "object",
-      "required": [
-        "agentDisplayName"
-      ],
       "properties": {
         "agentDisplayName": {
           "type": "string"
         },
         "paths": {
-          "default": [],
           "type": "array",
+          "default": [],
           "items": {
-            "$ref": "#/definitions/RunnerWorkflowPath"
+            "$ref": "#/$defs/RunnerWorkflowPath"
           }
         },
         "systemPrompt": {
@@ -285,54 +282,57 @@
           ]
         },
         "workflowPresent": {
-          "default": false,
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "agentDisplayName"
+      ]
     },
     "RunnerPlanResponse": {
       "description": "Response from `POST /redteam/plan`.",
       "type": "object",
-      "required": [
-        "vectors"
-      ],
       "properties": {
         "vectors": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/RunnerAttackVector"
+            "$ref": "#/$defs/RunnerAttackVector"
           }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "vectors"
+      ]
     },
     "RunnerReport": {
       "description": "Response from `GET /redteam/jobs/{id}`.",
       "type": "object",
-      "required": [
-        "status"
-      ],
       "properties": {
         "error": {
-          "default": null,
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "default": null
         },
         "sessions": {
-          "default": [],
           "type": "array",
+          "default": [],
           "items": {
-            "$ref": "#/definitions/RunnerAttackSession"
+            "$ref": "#/$defs/RunnerAttackSession"
           }
         },
         "status": {
-          "$ref": "#/definitions/RunnerStatus"
+          "$ref": "#/$defs/RunnerStatus"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ]
     },
     "RunnerRunMode": {
       "description": "Execution mode for the private runner.",
@@ -345,22 +345,16 @@
     "RunnerSessionEvent": {
       "description": "One ordered event emitted while executing an attack session.",
       "type": "object",
-      "required": [
-        "actor",
-        "eventId",
-        "kind",
-        "seq"
-      ],
       "properties": {
         "actor": {
           "type": "string"
         },
         "contentText": {
-          "default": null,
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "default": null
         },
         "eventId": {
           "type": "string"
@@ -369,11 +363,11 @@
           "type": "string"
         },
         "label": {
-          "default": null,
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "default": null
         },
         "payload": {
           "default": {}
@@ -383,14 +377,20 @@
           "format": "int32"
         },
         "traceId": {
-          "default": null,
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "default": null
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "eventId",
+        "seq",
+        "kind",
+        "actor"
+      ]
     },
     "RunnerStatus": {
       "description": "Lifecycle the runner reports for one of its jobs.",
@@ -404,14 +404,6 @@
     "RunnerWorkflowPath": {
       "description": "Runner-side provenance for a planned source-to-sink attack path.",
       "type": "object",
-      "required": [
-        "sinkCategory",
-        "sinkNode",
-        "sinkType",
-        "sourceCategory",
-        "sourceNode",
-        "sourceType"
-      ],
       "properties": {
         "sinkCategory": {
           "type": "string"
@@ -432,7 +424,15 @@
           "type": "string"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "sourceNode",
+        "sourceType",
+        "sourceCategory",
+        "sinkNode",
+        "sinkType",
+        "sinkCategory"
+      ]
     }
   }
 }

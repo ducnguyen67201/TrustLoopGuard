@@ -1,34 +1,29 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "GuardEvent",
   "type": "object",
-  "required": [
-    "action",
-    "kind",
-    "principal"
-  ],
   "properties": {
     "action": {
-      "$ref": "#/definitions/Action"
+      "$ref": "#/$defs/Action"
     },
     "checks": {
-      "description": "Checker evaluation evidence attached by the event pipeline. Server-populated: the pipeline resets this before evaluating, so collector-submitted values never survive.",
+      "description": "Checker evaluation evidence attached by the event pipeline.\nServer-populated: the pipeline resets this before evaluating, so\ncollector-submitted values never survive.",
       "type": "array",
       "items": {
-        "$ref": "#/definitions/CheckerRun"
+        "$ref": "#/$defs/CheckerRun"
       }
     },
     "context": {
       "default": null
     },
     "kind": {
-      "$ref": "#/definitions/EventKind"
+      "$ref": "#/$defs/EventKind"
     },
     "label_resolution": {
-      "description": "Label resolution evidence attached by the event pipeline. `None` until the pipeline has run.",
+      "description": "Label resolution evidence attached by the event pipeline.\n`None` until the pipeline has run.",
       "anyOf": [
         {
-          "$ref": "#/definitions/LabelResolution"
+          "$ref": "#/$defs/LabelResolution"
         },
         {
           "type": "null"
@@ -36,7 +31,7 @@
       ]
     },
     "principal": {
-      "$ref": "#/definitions/Principal"
+      "$ref": "#/$defs/Principal"
     },
     "provenance": {
       "type": "object",
@@ -48,10 +43,10 @@
       }
     },
     "resolution": {
-      "description": "Registry resolution evidence attached by the event pipeline. `None` until the pipeline has run.",
+      "description": "Registry resolution evidence attached by the event pipeline.\n`None` until the pipeline has run.",
       "anyOf": [
         {
-          "$ref": "#/definitions/ToolResolution"
+          "$ref": "#/$defs/ToolResolution"
         },
         {
           "type": "null"
@@ -59,31 +54,33 @@
       ]
     },
     "signals": {
-      "description": "Advisory signal evidence attached by the event pipeline. Server-populated: the pipeline resets this before evaluating, so collector-submitted values never survive. Signals never change the decision.",
+      "description": "Advisory signal evidence attached by the event pipeline.\nServer-populated: the pipeline resets this before evaluating, so\ncollector-submitted values never survive. Signals never change\nthe decision.",
       "type": "array",
       "items": {
-        "$ref": "#/definitions/SignalEvidence"
+        "$ref": "#/$defs/SignalEvidence"
       }
     },
     "sources": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/Source"
+        "$ref": "#/$defs/Source"
       }
     }
   },
-  "definitions": {
+  "required": [
+    "kind",
+    "principal",
+    "action"
+  ],
+  "$defs": {
     "Action": {
       "type": "object",
-      "required": [
-        "operation"
-      ],
       "properties": {
         "authorization": {
-          "description": "Opaque grant claim submitted only on a resumed attempt. The server extracts and clears it before trace persistence.",
+          "description": "Opaque grant claim submitted only on a resumed attempt. The\nserver extracts and clears it before trace persistence.",
           "anyOf": [
             {
-              "$ref": "#/definitions/AuthorizationClaim"
+              "$ref": "#/$defs/AuthorizationClaim"
             },
             {
               "type": "null"
@@ -105,7 +102,7 @@
         "side_effect": {
           "anyOf": [
             {
-              "$ref": "#/definitions/SideEffectClass"
+              "$ref": "#/$defs/SideEffectClass"
             },
             {
               "type": "null"
@@ -115,20 +112,20 @@
         "tool_identity": {
           "anyOf": [
             {
-              "$ref": "#/definitions/ToolIdentity"
+              "$ref": "#/$defs/ToolIdentity"
             },
             {
               "type": "null"
             }
           ]
         }
-      }
+      },
+      "required": [
+        "operation"
+      ]
     },
     "AllowedSource": {
       "type": "object",
-      "required": [
-        "origin"
-      ],
       "properties": {
         "kind": {
           "type": [
@@ -137,7 +134,7 @@
           ]
         },
         "origin": {
-          "$ref": "#/definitions/Origin"
+          "$ref": "#/$defs/Origin"
         },
         "source_id": {
           "type": [
@@ -145,13 +142,13 @@
             "null"
           ]
         }
-      }
+      },
+      "required": [
+        "origin"
+      ]
     },
     "ApprovalRule": {
       "type": "object",
-      "required": [
-        "required"
-      ],
       "properties": {
         "approver_roles": {
           "type": "array",
@@ -168,14 +165,13 @@
         "required": {
           "type": "boolean"
         }
-      }
+      },
+      "required": [
+        "required"
+      ]
     },
     "AuthorizationClaim": {
       "type": "object",
-      "required": [
-        "attempt_id",
-        "grant_id"
-      ],
       "properties": {
         "attempt_id": {
           "type": "string"
@@ -183,7 +179,11 @@
         "grant_id": {
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "grant_id",
+        "attempt_id"
+      ]
     },
     "AuthorizationEffect": {
       "description": "The only runtime decision vocabulary.",
@@ -197,12 +197,8 @@
       ]
     },
     "CheckerFindingEvidence": {
-      "description": "One rule violation observed by a checker.\n\n`recommended_effect` is what enforce mode applies; in shadow mode it is the hypothetical outcome and the decision is left untouched. It is absent for effect-free evidence findings (e.g. \"tool not registered, parameters unverifiable\") that never affect the decision in any mode.",
+      "description": "One rule violation observed by a checker.\n\n`recommended_effect` is what enforce mode applies; in shadow mode it is\nthe hypothetical outcome and the decision is left untouched. It is\nabsent for effect-free evidence findings (e.g. \"tool not registered,\nparameters unverifiable\") that never affect the decision in any mode.",
       "type": "object",
-      "required": [
-        "reason",
-        "rule"
-      ],
       "properties": {
         "harm_class": {
           "type": [
@@ -216,7 +212,7 @@
         "recommended_effect": {
           "anyOf": [
             {
-              "$ref": "#/definitions/AuthorizationEffect"
+              "$ref": "#/$defs/AuthorizationEffect"
             },
             {
               "type": "null"
@@ -244,15 +240,15 @@
             "type": "string"
           }
         }
-      }
+      },
+      "required": [
+        "rule",
+        "reason"
+      ]
     },
     "CheckerRun": {
-      "description": "Evidence for one checker evaluation, attached by the event pipeline.\n\nRecorded whenever a checker runs (shadow or enforce). A checker in `off` mode records nothing.",
+      "description": "Evidence for one checker evaluation, attached by the event pipeline.\n\nRecorded whenever a checker runs (shadow or enforce). A checker in\n`off` mode records nothing.",
       "type": "object",
-      "required": [
-        "checker_id",
-        "mode"
-      ],
       "properties": {
         "checker_id": {
           "type": "string"
@@ -260,18 +256,18 @@
         "findings": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/CheckerFindingEvidence"
+            "$ref": "#/$defs/CheckerFindingEvidence"
           }
         },
         "mode": {
           "description": "Mode the checker ran under at evaluation time.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/EnforcementMode"
-            }
-          ]
+          "$ref": "#/$defs/EnforcementMode"
         }
-      }
+      },
+      "required": [
+        "checker_id",
+        "mode"
+      ]
     },
     "Confidentiality": {
       "type": "string",
@@ -284,7 +280,7 @@
       ]
     },
     "EnforcementMode": {
-      "description": "Rollout mode for one checker in one workspace.\n\n- `Off`: the checker is not evaluated; no evidence is recorded. - `Shadow`: the checker is evaluated and full hypothetical evidence is recorded, but the decision is never changed. - `Enforce`: the checker is evaluated and its findings can change the decision (the strongest authorization effect wins).",
+      "description": "Rollout mode for one checker in one workspace.\n\n- `Off`: the checker is not evaluated; no evidence is recorded.\n- `Shadow`: the checker is evaluated and full hypothetical evidence is\n  recorded, but the decision is never changed.\n- `Enforce`: the checker is evaluated and its findings can change the\n  decision (the strongest authorization effect wins).",
       "type": "string",
       "enum": [
         "off",
@@ -323,45 +319,39 @@
         {
           "description": "Built-in default derived from the source origin.",
           "type": "string",
-          "enum": [
-            "origin_default"
-          ]
+          "const": "origin_default"
         },
         {
           "description": "An enabled workspace `SourceLabelPolicy` override applied.",
           "type": "string",
-          "enum": [
-            "workspace_override"
-          ]
+          "const": "workspace_override"
         },
         {
           "description": "The producer declared the value and it was accepted.",
           "type": "string",
-          "enum": [
-            "declared"
-          ]
+          "const": "declared"
         }
       ]
     },
     "LabelBasisSet": {
       "description": "Per-family basis for one source's resolved labels.",
       "type": "object",
-      "required": [
-        "confidentiality",
-        "integrity",
-        "trust"
-      ],
       "properties": {
         "confidentiality": {
-          "$ref": "#/definitions/LabelBasis"
+          "$ref": "#/$defs/LabelBasis"
         },
         "integrity": {
-          "$ref": "#/definitions/LabelBasis"
+          "$ref": "#/$defs/LabelBasis"
         },
         "trust": {
-          "$ref": "#/definitions/LabelBasis"
+          "$ref": "#/$defs/LabelBasis"
         }
-      }
+      },
+      "required": [
+        "trust",
+        "confidentiality",
+        "integrity"
+      ]
     },
     "LabelPolicyStatus": {
       "description": "How the workspace label policy read went during resolution.",
@@ -369,82 +359,64 @@
         {
           "description": "No enabled policy rows configured for the workspace.",
           "type": "string",
-          "enum": [
-            "not_configured"
-          ]
+          "const": "not_configured"
         },
         {
           "description": "Enabled policy rows were loaded and consulted.",
           "type": "string",
-          "enum": [
-            "applied"
-          ]
+          "const": "applied"
         },
         {
           "description": "The policy store could not be consulted; built-in defaults used.",
           "type": "string",
-          "enum": [
-            "unavailable"
-          ]
+          "const": "unavailable"
         }
       ]
     },
     "LabelResolution": {
-      "description": "Label resolution + propagation evidence attached by the event pipeline. `None` until the pipeline has run. Observe-only: no checker changes an authorization effect because of this value.",
+      "description": "Label resolution + propagation evidence attached by the event\npipeline. `None` until the pipeline has run. Observe-only: no\nchecker changes an authorization effect because of this value.",
       "type": "object",
-      "required": [
-        "policy_status"
-      ],
       "properties": {
         "derived": {
-          "description": "Parameter path -> labels derived over provenance. A path absent from this map has unknown derivation — absence is never \"clean\".",
+          "description": "Parameter path -> labels derived over provenance. A path absent\nfrom this map has unknown derivation — absence is never \"clean\".",
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/Labels"
+            "$ref": "#/$defs/Labels"
           }
         },
         "policy_status": {
-          "$ref": "#/definitions/LabelPolicyStatus"
+          "$ref": "#/$defs/LabelPolicyStatus"
         },
         "sources": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/SourceLabelEvidence"
+            "$ref": "#/$defs/SourceLabelEvidence"
           }
         }
-      }
+      },
+      "required": [
+        "policy_status"
+      ]
     },
     "Labels": {
       "type": "object",
       "properties": {
         "confidentiality": {
-          "default": "unknown",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Confidentiality"
-            }
-          ]
+          "$ref": "#/$defs/Confidentiality",
+          "default": "unknown"
         },
         "integrity": {
-          "default": "unknown",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Integrity"
-            }
-          ]
+          "$ref": "#/$defs/Integrity",
+          "default": "unknown"
         },
         "trust": {
-          "default": "unknown",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Trust"
-            }
-          ]
+          "$ref": "#/$defs/Trust",
+          "default": "unknown"
         }
       }
     },
     "LimitAction": {
-      "description": "The authorization effect a [`ParamLimit`] breach maps to. `Deny` is the safe default for money movement; `RequireApproval` routes a breach to review.",
+      "description": "The authorization effect a [`ParamLimit`] breach maps to. `Deny` is the safe\ndefault for money movement; `RequireApproval` routes a breach to review.",
       "type": "string",
       "enum": [
         "deny",
@@ -466,7 +438,7 @@
       ]
     },
     "ParamLimit": {
-      "description": "Inclusive numeric bounds for a parameter, expressed in the tool's own minor units (e.g. cents for a money amount). The value-limit checker reads the parameter at [`ParamSpec::path`], coerces it to an integer, and emits [`on_breach`](ParamLimit::on_breach) when it falls outside `[min, max]`. Integer units keep the type `Eq` and sidestep float comparison ambiguity; the checker is currency-agnostic, so the registry author is responsible for declaring `max`/`min` in the same unit the agent passes.",
+      "description": "Inclusive numeric bounds for a parameter, expressed in the tool's own\nminor units (e.g. cents for a money amount). The value-limit checker\nreads the parameter at [`ParamSpec::path`], coerces it to an integer,\nand emits [`on_breach`](ParamLimit::on_breach) when it falls outside\n`[min, max]`. Integer units keep the type `Eq` and sidestep float\ncomparison ambiguity; the checker is currency-agnostic, so the registry\nauthor is responsible for declaring `max`/`min` in the same unit the\nagent passes.",
       "type": "object",
       "properties": {
         "max": {
@@ -487,12 +459,8 @@
         },
         "on_breach": {
           "description": "Authorization effect to recommend when a bound is breached. Defaults to `Deny`.",
-          "default": "deny",
-          "allOf": [
-            {
-              "$ref": "#/definitions/LimitAction"
-            }
-          ]
+          "$ref": "#/$defs/LimitAction",
+          "default": "deny"
         }
       }
     },
@@ -505,22 +473,18 @@
     },
     "ParamSpec": {
       "type": "object",
-      "required": [
-        "path",
-        "role"
-      ],
       "properties": {
         "allowed_sources": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/AllowedSource"
+            "$ref": "#/$defs/AllowedSource"
           }
         },
         "limit": {
-          "description": "Optional inclusive numeric bounds on this parameter's value, checked by the value-limit checker. `None` means the value is unconstrained.",
+          "description": "Optional inclusive numeric bounds on this parameter's value, checked\nby the value-limit checker. `None` means the value is unconstrained.",
           "anyOf": [
             {
-              "$ref": "#/definitions/ParamLimit"
+              "$ref": "#/$defs/ParamLimit"
             },
             {
               "type": "null"
@@ -531,17 +495,16 @@
           "type": "string"
         },
         "role": {
-          "$ref": "#/definitions/ParamRole"
+          "$ref": "#/$defs/ParamRole"
         }
-      }
+      },
+      "required": [
+        "path",
+        "role"
+      ]
     },
     "Principal": {
       "type": "object",
-      "required": [
-        "agent_id",
-        "environment_id",
-        "workspace_id"
-      ],
       "properties": {
         "agent_id": {
           "type": "string"
@@ -582,7 +545,12 @@
         "workspace_id": {
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "workspace_id",
+        "environment_id",
+        "agent_id"
+      ]
     },
     "Severity": {
       "type": "string",
@@ -609,12 +577,8 @@
       ]
     },
     "SignalEvidence": {
-      "description": "Advisory evidence from one LLM/classifier signal provider, attached by the event pipeline.\n\nSignals never decide authorization effects: the composer ignores them for effect composition, and this evidence exists so traces and review show what advisory layers observed.",
+      "description": "Advisory evidence from one LLM/classifier signal provider, attached\nby the event pipeline.\n\nSignals never decide authorization effects: the composer ignores them for\neffect composition, and this evidence exists so traces and review\nshow what advisory layers observed.",
       "type": "object",
-      "required": [
-        "message",
-        "provider_id"
-      ],
       "properties": {
         "message": {
           "type": "string"
@@ -625,21 +589,21 @@
         "severity": {
           "anyOf": [
             {
-              "$ref": "#/definitions/Severity"
+              "$ref": "#/$defs/Severity"
             },
             {
               "type": "null"
             }
           ]
         }
-      }
+      },
+      "required": [
+        "provider_id",
+        "message"
+      ]
     },
     "Source": {
       "type": "object",
-      "required": [
-        "id",
-        "origin"
-      ],
       "properties": {
         "id": {
           "type": "string"
@@ -651,49 +615,44 @@
           ]
         },
         "labels": {
+          "$ref": "#/$defs/Labels",
           "default": {
             "confidentiality": "unknown",
             "integrity": "unknown",
             "trust": "unknown"
-          },
-          "allOf": [
-            {
-              "$ref": "#/definitions/Labels"
-            }
-          ]
+          }
         },
         "origin": {
-          "$ref": "#/definitions/Origin"
+          "$ref": "#/$defs/Origin"
         }
-      }
+      },
+      "required": [
+        "id",
+        "origin"
+      ]
     },
     "SourceLabelEvidence": {
       "description": "Evidence of how one source's labels were resolved.",
       "type": "object",
-      "required": [
-        "basis",
-        "labels",
-        "source_id"
-      ],
       "properties": {
         "basis": {
-          "$ref": "#/definitions/LabelBasisSet"
+          "$ref": "#/$defs/LabelBasisSet"
         },
         "labels": {
-          "$ref": "#/definitions/Labels"
+          "$ref": "#/$defs/Labels"
         },
         "source_id": {
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "source_id",
+        "labels",
+        "basis"
+      ]
     },
     "ToolIdentity": {
       "type": "object",
-      "required": [
-        "schema_hash",
-        "server_id",
-        "tool_name"
-      ],
       "properties": {
         "schema_hash": {
           "type": "string"
@@ -704,20 +663,20 @@
         "tool_name": {
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "server_id",
+        "tool_name",
+        "schema_hash"
+      ]
     },
     "ToolMetadata": {
       "type": "object",
-      "required": [
-        "reversible",
-        "side_effect",
-        "tool"
-      ],
       "properties": {
         "approval": {
           "anyOf": [
             {
-              "$ref": "#/definitions/ApprovalRule"
+              "$ref": "#/$defs/ApprovalRule"
             },
             {
               "type": "null"
@@ -725,10 +684,10 @@
           ]
         },
         "params": {
-          "default": [],
           "type": "array",
+          "default": [],
           "items": {
-            "$ref": "#/definitions/ParamSpec"
+            "$ref": "#/$defs/ParamSpec"
           }
         },
         "reversible": {
@@ -736,64 +695,63 @@
         },
         "sandbox_hint": true,
         "side_effect": {
-          "$ref": "#/definitions/SideEffectClass"
+          "$ref": "#/$defs/SideEffectClass"
         },
         "tool": {
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "tool",
+        "side_effect",
+        "reversible"
+      ]
     },
     "ToolResolution": {
-      "description": "Outcome of resolving an event's `action.operation` against the workspace tool-metadata registry. Resolution is evidence; checkers and policies decide whether that evidence changes the decision.",
+      "description": "Outcome of resolving an event's `action.operation` against the\nworkspace tool-metadata registry. Resolution is evidence; checkers and\npolicies decide whether that evidence changes the decision.",
       "oneOf": [
         {
-          "description": "The tool is registered and enabled; the registry's side-effect class is authoritative for the event.",
+          "description": "The tool is registered and enabled; the registry's side-effect\nclass is authoritative for the event.",
           "type": "object",
-          "required": [
-            "metadata",
-            "status"
-          ],
           "properties": {
             "metadata": {
-              "$ref": "#/definitions/ToolMetadata"
+              "$ref": "#/$defs/ToolMetadata"
             },
             "status": {
               "type": "string",
-              "enum": [
-                "resolved"
-              ]
+              "const": "resolved"
             }
-          }
+          },
+          "required": [
+            "status",
+            "metadata"
+          ]
         },
         {
-          "description": "No enabled registry entry exists for the tool — the conservative default for unknown or disabled tools.",
+          "description": "No enabled registry entry exists for the tool — the conservative\ndefault for unknown or disabled tools.",
           "type": "object",
-          "required": [
-            "status"
-          ],
           "properties": {
             "status": {
               "type": "string",
-              "enum": [
-                "unregistered"
-              ]
+              "const": "unregistered"
             }
-          }
-        },
-        {
-          "description": "The registry could not be consulted (e.g. storage failure). Distinguishes degraded resolution from genuine absence so traces stay accurate forensic evidence; the collector-claimed side effect is left untouched and the decision is unaffected.",
-          "type": "object",
+          },
           "required": [
             "status"
-          ],
+          ]
+        },
+        {
+          "description": "The registry could not be consulted (e.g. storage failure).\nDistinguishes degraded resolution from genuine absence so traces\nstay accurate forensic evidence; the collector-claimed side\neffect is left untouched and the decision is unaffected.",
+          "type": "object",
           "properties": {
             "status": {
               "type": "string",
-              "enum": [
-                "resolution_failed"
-              ]
+              "const": "resolution_failed"
             }
-          }
+          },
+          "required": [
+            "status"
+          ]
         }
       ]
     },

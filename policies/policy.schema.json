@@ -1,65 +1,57 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Policy",
   "type": "object",
-  "required": [
-    "action",
-    "id",
-    "match"
-  ],
   "properties": {
     "action": {
-      "$ref": "#/definitions/AuthorizationEffect"
+      "$ref": "#/$defs/AuthorizationEffect"
     },
     "description": {
-      "default": null,
       "type": [
         "string",
         "null"
-      ]
+      ],
+      "default": null
     },
     "id": {
       "type": "string"
     },
     "match": {
-      "$ref": "#/definitions/MatchClause"
+      "$ref": "#/$defs/MatchClause"
     },
     "owner_agent_id": {
-      "description": "Agent that owns this policy. Set by `POST /v1/agents/{id}/guardrails:generate` so deleting the agent can cascade-delete its generated policies. `None` for global policies authored directly via `POST /v1/policies`.",
+      "description": "Agent that owns this policy. Set by\n`POST /v1/agents/{id}/guardrails:generate` so deleting the agent\ncan cascade-delete its generated policies. `None` for global\npolicies authored directly via `POST /v1/policies`.",
       "type": [
         "string",
         "null"
       ]
     },
     "rewrite": {
-      "default": null,
       "type": [
         "string",
         "null"
-      ]
+      ],
+      "default": null
     },
     "severity": {
-      "default": "medium",
-      "allOf": [
-        {
-          "$ref": "#/definitions/Severity"
-        }
-      ]
+      "$ref": "#/$defs/Severity",
+      "default": "medium"
     },
     "when": {
+      "$ref": "#/$defs/WhenClause",
       "default": {
         "agents": [],
         "channels": [],
         "domains": []
-      },
-      "allOf": [
-        {
-          "$ref": "#/definitions/WhenClause"
-        }
-      ]
+      }
     }
   },
-  "definitions": {
+  "required": [
+    "id",
+    "match",
+    "action"
+  ],
+  "$defs": {
     "AuthorizationEffect": {
       "description": "The only runtime decision vocabulary.",
       "type": "string",
@@ -72,7 +64,7 @@
       ]
     },
     "Channel": {
-      "description": "Channel an agent is operating on. Drives latency budget and matcher selection.\n\nFlat enum on the wire so SDK type generation stays clean across languages. New channels are added as variants here; we don't carry a free-form `Other(String)` because it pollutes the Pydantic / TS surface.",
+      "description": "Channel an agent is operating on. Drives latency budget and matcher selection.\n\nFlat enum on the wire so SDK type generation stays clean across languages.\nNew channels are added as variants here; we don't carry a free-form\n`Other(String)` because it pollutes the Pydantic / TS surface.",
       "type": "string",
       "enum": [
         "voice",
@@ -84,34 +76,34 @@
       "anyOf": [
         {
           "type": "object",
-          "required": [
-            "any"
-          ],
           "properties": {
             "any": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/Matcher"
+                "$ref": "#/$defs/Matcher"
               }
             }
-          }
+          },
+          "required": [
+            "any"
+          ]
         },
         {
           "type": "object",
-          "required": [
-            "all"
-          ],
           "properties": {
             "all": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/Matcher"
+                "$ref": "#/$defs/Matcher"
               }
             }
-          }
+          },
+          "required": [
+            "all"
+          ]
         },
         {
-          "$ref": "#/definitions/Matcher"
+          "$ref": "#/$defs/Matcher"
         }
       ]
     },
@@ -119,39 +111,39 @@
       "oneOf": [
         {
           "type": "object",
-          "required": [
-            "regex"
-          ],
           "properties": {
             "regex": {
               "type": "string"
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "required": [
+            "regex"
+          ]
         },
         {
           "type": "object",
-          "required": [
-            "literal"
-          ],
           "properties": {
             "literal": {
               "type": "string"
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "required": [
+            "literal"
+          ]
         },
         {
           "type": "object",
-          "required": [
-            "semantic"
-          ],
           "properties": {
             "semantic": {
               "type": "string"
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "required": [
+            "semantic"
+          ]
         }
       ]
     },
@@ -168,22 +160,22 @@
       "type": "object",
       "properties": {
         "agents": {
-          "default": [],
           "type": "array",
+          "default": [],
           "items": {
             "type": "string"
           }
         },
         "channels": {
-          "default": [],
           "type": "array",
+          "default": [],
           "items": {
-            "$ref": "#/definitions/Channel"
+            "$ref": "#/$defs/Channel"
           }
         },
         "domains": {
-          "default": [],
           "type": "array",
+          "default": [],
           "items": {
             "type": "string"
           }

@@ -1,17 +1,12 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ToolMetadata",
   "type": "object",
-  "required": [
-    "reversible",
-    "side_effect",
-    "tool"
-  ],
   "properties": {
     "approval": {
       "anyOf": [
         {
-          "$ref": "#/definitions/ApprovalRule"
+          "$ref": "#/$defs/ApprovalRule"
         },
         {
           "type": "null"
@@ -19,10 +14,10 @@
       ]
     },
     "params": {
-      "default": [],
       "type": "array",
+      "default": [],
       "items": {
-        "$ref": "#/definitions/ParamSpec"
+        "$ref": "#/$defs/ParamSpec"
       }
     },
     "reversible": {
@@ -30,18 +25,20 @@
     },
     "sandbox_hint": true,
     "side_effect": {
-      "$ref": "#/definitions/SideEffectClass"
+      "$ref": "#/$defs/SideEffectClass"
     },
     "tool": {
       "type": "string"
     }
   },
-  "definitions": {
+  "required": [
+    "tool",
+    "side_effect",
+    "reversible"
+  ],
+  "$defs": {
     "AllowedSource": {
       "type": "object",
-      "required": [
-        "origin"
-      ],
       "properties": {
         "kind": {
           "type": [
@@ -50,7 +47,7 @@
           ]
         },
         "origin": {
-          "$ref": "#/definitions/Origin"
+          "$ref": "#/$defs/Origin"
         },
         "source_id": {
           "type": [
@@ -58,13 +55,13 @@
             "null"
           ]
         }
-      }
+      },
+      "required": [
+        "origin"
+      ]
     },
     "ApprovalRule": {
       "type": "object",
-      "required": [
-        "required"
-      ],
       "properties": {
         "approver_roles": {
           "type": "array",
@@ -81,10 +78,13 @@
         "required": {
           "type": "boolean"
         }
-      }
+      },
+      "required": [
+        "required"
+      ]
     },
     "LimitAction": {
-      "description": "The authorization effect a [`ParamLimit`] breach maps to. `Deny` is the safe default for money movement; `RequireApproval` routes a breach to review.",
+      "description": "The authorization effect a [`ParamLimit`] breach maps to. `Deny` is the safe\ndefault for money movement; `RequireApproval` routes a breach to review.",
       "type": "string",
       "enum": [
         "deny",
@@ -106,7 +106,7 @@
       ]
     },
     "ParamLimit": {
-      "description": "Inclusive numeric bounds for a parameter, expressed in the tool's own minor units (e.g. cents for a money amount). The value-limit checker reads the parameter at [`ParamSpec::path`], coerces it to an integer, and emits [`on_breach`](ParamLimit::on_breach) when it falls outside `[min, max]`. Integer units keep the type `Eq` and sidestep float comparison ambiguity; the checker is currency-agnostic, so the registry author is responsible for declaring `max`/`min` in the same unit the agent passes.",
+      "description": "Inclusive numeric bounds for a parameter, expressed in the tool's own\nminor units (e.g. cents for a money amount). The value-limit checker\nreads the parameter at [`ParamSpec::path`], coerces it to an integer,\nand emits [`on_breach`](ParamLimit::on_breach) when it falls outside\n`[min, max]`. Integer units keep the type `Eq` and sidestep float\ncomparison ambiguity; the checker is currency-agnostic, so the registry\nauthor is responsible for declaring `max`/`min` in the same unit the\nagent passes.",
       "type": "object",
       "properties": {
         "max": {
@@ -127,12 +127,8 @@
         },
         "on_breach": {
           "description": "Authorization effect to recommend when a bound is breached. Defaults to `Deny`.",
-          "default": "deny",
-          "allOf": [
-            {
-              "$ref": "#/definitions/LimitAction"
-            }
-          ]
+          "$ref": "#/$defs/LimitAction",
+          "default": "deny"
         }
       }
     },
@@ -145,22 +141,18 @@
     },
     "ParamSpec": {
       "type": "object",
-      "required": [
-        "path",
-        "role"
-      ],
       "properties": {
         "allowed_sources": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/AllowedSource"
+            "$ref": "#/$defs/AllowedSource"
           }
         },
         "limit": {
-          "description": "Optional inclusive numeric bounds on this parameter's value, checked by the value-limit checker. `None` means the value is unconstrained.",
+          "description": "Optional inclusive numeric bounds on this parameter's value, checked\nby the value-limit checker. `None` means the value is unconstrained.",
           "anyOf": [
             {
-              "$ref": "#/definitions/ParamLimit"
+              "$ref": "#/$defs/ParamLimit"
             },
             {
               "type": "null"
@@ -171,9 +163,13 @@
           "type": "string"
         },
         "role": {
-          "$ref": "#/definitions/ParamRole"
+          "$ref": "#/$defs/ParamRole"
         }
-      }
+      },
+      "required": [
+        "path",
+        "role"
+      ]
     },
     "SideEffectClass": {
       "type": "string",
