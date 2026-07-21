@@ -27,7 +27,6 @@ pub(super) enum GovernancePurpose {
 pub(super) struct GovernanceContext {
     pub user_intent: String,
     pub purpose: GovernancePurpose,
-    #[serde(default)]
     pub destination: Option<String>,
 }
 
@@ -118,7 +117,6 @@ pub(super) fn split_governance_arguments(
         .ok_or_else(|| "Managed policy context is required".to_string())?;
     let context: GovernanceContext = serde_json::from_value(raw_context)
         .map_err(|_| "Managed policy context is invalid".to_string())?;
-    validate_governance_context(&context)?;
     validate(
         original_schema,
         &Value::Object(upstream.clone()),
@@ -269,6 +267,7 @@ fn governance_schema() -> Value {
                 "type": "string",
                 "minLength": 1,
                 "maxLength": MAX_INTENT_CHARS,
+                "pattern": "\\S",
                 "description": "Verbatim latest user instruction that caused this tool call."
             },
             "purpose": {
@@ -278,7 +277,8 @@ fn governance_schema() -> Value {
             "destination": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": MAX_DESTINATION_CHARS
+                "maxLength": MAX_DESTINATION_CHARS,
+                "pattern": "\\S"
             }
         }
     })
@@ -292,20 +292,6 @@ fn validate(schema: &Value, value: &Value, message: &str) -> Result<(), String> 
     } else {
         Err(message.to_string())
     }
-}
-
-fn validate_governance_context(context: &GovernanceContext) -> Result<(), String> {
-    let intent_chars = context.user_intent.chars().count();
-    if context.user_intent.trim().is_empty() || intent_chars > MAX_INTENT_CHARS {
-        return Err("Managed user_intent must be between 1 and 8192 characters".into());
-    }
-    if let Some(destination) = &context.destination {
-        let chars = destination.chars().count();
-        if destination.trim().is_empty() || chars > MAX_DESTINATION_CHARS {
-            return Err("Managed destination must be between 1 and 2048 characters".into());
-        }
-    }
-    Ok(())
 }
 
 fn push_segment(segments: &mut Vec<String>, seen: &mut BTreeSet<String>, value: String) {

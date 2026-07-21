@@ -346,7 +346,6 @@ struct AuthorizeRequest {
     resource: Option<String>,
     #[serde(default)]
     scope: Option<String>,
-    #[serde(default)]
     agent_id: Option<String>,
 }
 

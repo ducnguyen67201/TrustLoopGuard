@@ -553,13 +553,12 @@ function buildSummary(rows: AuthorizationApproval[]) {
         if (new Date(row.expires_at).getTime() - now <= 30 * 60 * 1000) {
           summary.expiringSoon += 1;
         }
-        if (row.envelope.proposed_scope) summary.scoped += 1;
       } else {
         summary.history += 1;
       }
       return summary;
     },
-    { pending: 0, expiringSoon: 0, scoped: 0, history: 0 },
+    { pending: 0, expiringSoon: 0, history: 0 },
   );
 }
 

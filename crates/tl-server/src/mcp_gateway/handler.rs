@@ -371,6 +371,13 @@ impl HostedMcpHandler {
                 return Err(error.failure);
             }
         };
+        let withheld_outcome = serde_json::json!({
+            "upstream_success": upstream_result.is_error != Some(true),
+            "upstream_returned": true,
+            "result_released": false,
+            "transformed": false,
+            "ambiguous": false,
+        });
 
         let governed_result = match extract_result_policy_text(
             &upstream_result,
@@ -401,13 +408,7 @@ impl HostedMcpHandler {
                     environment_id,
                     preflight_lease.as_deref(),
                     LeaseStatus::Consumed,
-                    serde_json::json!({
-                        "upstream_success": upstream_result.is_error != Some(true),
-                        "upstream_returned": true,
-                        "result_released": false,
-                        "transformed": false,
-                        "ambiguous": false,
-                    }),
+                    withheld_outcome.clone(),
                 )
                 .await;
                 if audit.is_err() || reconciliation.is_err() {
@@ -442,13 +443,7 @@ impl HostedMcpHandler {
                     environment_id,
                     preflight_lease.as_deref(),
                     LeaseStatus::Consumed,
-                    serde_json::json!({
-                        "upstream_success": upstream_result.is_error != Some(true),
-                        "upstream_returned": true,
-                        "result_released": false,
-                        "transformed": false,
-                        "ambiguous": false,
-                    }),
+                    withheld_outcome,
                 )
                 .await;
                 return Err(CallFailure {
