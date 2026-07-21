@@ -193,6 +193,15 @@ fn normalize_tool(
     }
     let input_schema = serde_json::Value::Object((*tool.input_schema).clone());
     validate_schema(&input_schema, true)?;
+    if input_schema
+        .get("properties")
+        .and_then(serde_json::Value::as_object)
+        .is_some_and(|properties| properties.contains_key(super::governance::RESERVED_FIELD))
+    {
+        return Err(McpGatewayStoreError::Conflict(
+            "upstream tool uses the reserved __trustloop argument".into(),
+        ));
+    }
     let output_schema = tool
         .output_schema
         .map(|schema| serde_json::Value::Object((*schema).clone()));

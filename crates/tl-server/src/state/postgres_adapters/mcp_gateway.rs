@@ -182,10 +182,11 @@ impl McpGatewayStore for PostgresMcpGatewayAdapter {
         &self,
         workspace_id: &str,
         user_id: Uuid,
+        agent_id: &str,
         public_name: &str,
     ) -> Result<EntitledMcpTool, McpGatewayStoreError> {
         self.repo
-            .resolve_entitled_tool(workspace_id, user_id, public_name)
+            .resolve_entitled_tool(workspace_id, user_id, agent_id, public_name)
             .await
             .map(|value| EntitledMcpTool {
                 tool: value.tool,
@@ -200,11 +201,12 @@ impl McpGatewayStore for PostgresMcpGatewayAdapter {
         &self,
         workspace_id: &str,
         user_id: Uuid,
+        agent_id: &str,
         cursor: Option<&str>,
         limit: u32,
     ) -> Result<Vec<EntitledMcpTool>, McpGatewayStoreError> {
         self.repo
-            .list_entitled_tools(workspace_id, user_id, cursor, limit)
+            .list_entitled_tools(workspace_id, user_id, agent_id, cursor, limit)
             .await
             .map(|rows| {
                 rows.into_iter()
@@ -219,15 +221,16 @@ impl McpGatewayStore for PostgresMcpGatewayAdapter {
             })
             .map_err(error)
     }
-    async fn replace_assignments(
+    async fn replace_agent_assignments(
         &self,
         workspace_id: &str,
         tool_id: Uuid,
+        agent_id: &str,
         user_ids: Vec<Uuid>,
         created_by: Option<Uuid>,
     ) -> Result<Vec<Uuid>, McpGatewayStoreError> {
         self.repo
-            .replace_assignments(workspace_id, tool_id, user_ids, created_by)
+            .replace_agent_assignments(workspace_id, tool_id, agent_id, user_ids, created_by)
             .await
             .map_err(error)
     }

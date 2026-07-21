@@ -9,8 +9,8 @@ use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_storage::{
     connect_postgres, migrate_postgres,
-    schema::{organizations, users, workspaces},
-    DbPool, NewOAuthAuthorizationCode, OAuthRepo, StorageError,
+    schema::{agents, organizations, users, workspace_members, workspaces},
+    DbPool, NewOAuthAuthorizationCode, NewOAuthRefreshToken, OAuthRepo, StorageError,
 };
 use uuid::Uuid;
 
@@ -51,6 +51,24 @@ async fn fresh() -> (DbPool, Uuid, testcontainers::ContainerAsync<PostgresImage>
         .execute(&mut conn)
         .await
         .unwrap();
+    diesel::insert_into(workspace_members::table)
+        .values((
+            workspace_members::workspace_id.eq("ws"),
+            workspace_members::user_id.eq(user),
+        ))
+        .execute(&mut conn)
+        .await
+        .unwrap();
+    diesel::insert_into(agents::table)
+        .values((
+            agents::workspace_id.eq("ws"),
+            agents::id.eq("customer-agent"),
+            agents::profile_yaml.eq("id: customer-agent"),
+            agents::parsed_profile.eq(serde_json::json!({"agent_id":"customer-agent"})),
+        ))
+        .execute(&mut conn)
+        .await
+        .unwrap();
     drop(conn);
     (pool, user, container)
 }
@@ -86,6 +104,7 @@ async fn authorization_code_is_hash_only_and_atomically_single_use() {
         user_id: user,
         username: "member@example.com".into(),
         workspace_id: "ws".into(),
+        agent_id: Some("customer-agent".into()),
         resource: "https://guard.example/mcp".into(),
         scope: "mcp:tools".into(),
         code_challenge: "challenge".into(),
@@ -103,6 +122,8 @@ async fn authorization_code_is_hash_only_and_atomically_single_use() {
     assert_ne!(stored, raw);
     drop(conn);
     let (one, two) = tokio::join!(repo.take_code_by_hash(&hash), repo.take_code_by_hash(&hash));
+    let consumed = one.as_ref().ok().or_else(|| two.as_ref().ok()).unwrap();
+    assert_eq!(consumed.agent_id.as_deref(), Some("customer-agent"));
     assert!(one.is_ok() ^ two.is_ok());
     assert!(matches!(
         one.err().or(two.err()),
@@ -129,6 +150,42 @@ async fn authorization_code_is_hash_only_and_atomically_single_use() {
         repo.get_client("client").await,
         Err(StorageError::NotFound)
     ));
+}
+
+#[tokio::test]
+async fn refresh_rotation_preserves_agent_binding() {
+    let (pool, user, _container) = fresh().await;
+    let repo = Arc::new(OAuthRepo::new(pool));
+    repo.create_client_bounded(
+        "client",
+        Some("AI client"),
+        &["https://client.example/callback".into()],
+        10_000,
+    )
+    .await
+    .unwrap();
+    let hash = tl_server_hash_for_test("refresh-secret");
+    repo.put_refresh(NewOAuthRefreshToken {
+        token_hash: hash.clone(),
+        client_id: "client".into(),
+        user_id: user,
+        username: "member@example.com".into(),
+        workspace_id: "ws".into(),
+        agent_id: Some("customer-agent".into()),
+        resource: "https://guard.example/mcp".into(),
+        scope: "mcp:tools".into(),
+        expires_at: Utc::now() + Duration::days(1),
+    })
+    .await
+    .unwrap();
+
+    let (one, two) = tokio::join!(
+        repo.take_refresh_by_hash(&hash),
+        repo.take_refresh_by_hash(&hash)
+    );
+    let consumed = one.as_ref().ok().or_else(|| two.as_ref().ok()).unwrap();
+    assert_eq!(consumed.agent_id.as_deref(), Some("customer-agent"));
+    assert!(one.is_ok() ^ two.is_ok());
 }
 
 fn tl_server_hash_for_test(value: &str) -> String {

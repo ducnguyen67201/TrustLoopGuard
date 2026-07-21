@@ -39,12 +39,15 @@ Required web environment variables:
 - `AUTH_URL`
 - `NEXT_PUBLIC_TL_SERVER_URL`
 
-The hosted MCP endpoint uses a separate OAuth resource-server lane. Access
-tokens are minted for the exact `$TL_PUBLIC_URL/mcp` audience and `mcp:tools`
-scope. The `/mcp` middleware rejects dashboard sessions, internal proxy keys,
-and workspace runtime keys; generic `/v1` authentication rejects hosted MCP
-tokens. Authorization codes and rotating refresh tokens are hashed in durable
-Rust-owned storage. See [hosted MCP access gateway](hosted-mcp-access-gateway.md).
+The hosted MCP endpoint uses a separate OAuth resource-server lane. Consent
+requires the member to choose a workspace and an existing registered agent.
+Access and rotating refresh tokens retain that binding; deleting the agent or
+using a legacy unbound token requires reauthorization. Access tokens are minted
+for the exact `$TL_PUBLIC_URL/mcp` audience and `mcp:tools` scope. The `/mcp`
+middleware rejects dashboard sessions, internal proxy keys, and workspace
+runtime keys; generic `/v1` authentication rejects hosted MCP tokens.
+Authorization codes and refresh tokens are hashed in durable Rust-owned
+storage. See [hosted MCP access gateway](hosted-mcp-access-gateway.md).
 
 `TL_DASHBOARD_URL` is the Rust server's public reference to this same dashboard
 origin. OAuth discovery uses it for the employee consent endpoint; in production

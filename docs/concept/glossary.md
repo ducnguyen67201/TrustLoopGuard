@@ -257,7 +257,7 @@ The current recovery state for a financial action outcome: not needed, unavailab
 
 ### MCP OAuth
 
-OAuth 2.1 authentication machinery for workspace-scoped API access. tl-server is the **authorization server** backend (`crates/tl-server/src/oauth.rs`): discovery metadata (`/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`), dynamic client registration (`/oauth/register`), PKCE-bound single-use authorization codes, and `/oauth/token` (PKCE S256 exchange + refresh rotation) minting a **workspace-scoped access token** (a JWT with `workspace_id` + `token_type=access`). The browser **login + consent + workspace picker** lives in `apps/web` (`/oauth/authorize`), reusing Auth.js; on approve it calls `POST /v1/oauth/authorize` (internal key + forwarded user/workspace) which verifies workspace membership and mints the code. The **resource-server lane** in `auth.rs` validates the access token and stamps `x-tlg-workspace-id` from its signed claim, so protected API routes act on the token's workspace and callers cannot steer it. A `401` advertises the resource metadata via `WWW-Authenticate` (RFC 9728) so clients self-discover the flow.
+OAuth 2.1 authentication for the hosted MCP resource. `tl-server` owns discovery, dynamic client registration, PKCE-bound single-use codes, token exchange, and refresh rotation. Dashboard consent binds one current workspace member and registered agent; access, code, and refresh records retain that binding. The audience-bound access JWT carries signed `workspace_id`, `agent_id`, OAuth client, and `mcp:tools` scope. The `/mcp` resource-server lane revalidates membership and agent existence and stamps trusted workspace identity from the token. A `401` advertises resource metadata through `WWW-Authenticate` so clients can discover the flow.
 
 ### Approval rule
 
@@ -281,7 +281,11 @@ The one-attempt execution right claimed after current authorization returns `per
 
 ### Authorization receipt
 
-The common audit record written for an authorization evaluation. It preserves the final effect, intent status, reason, findings, policy versions, subject fingerprint, domain evidence, and any approval, grant, or lease references. A receipt explains a decision but grants no authority and does not replace domain evidence such as a financial execution receipt.
+The common audit record written for an authorization evaluation. It preserves the final effect, intent status, reason, findings, policy versions, subject fingerprint, domain evidence, optional principal/operation/run linkage, and any approval, grant, or lease references. A receipt explains a decision but grants no authority and does not replace domain evidence such as a financial execution receipt.
+
+### Authorization activity
+
+The environment-scoped, newest-first view of authorization receipts shown on the Authorization screen. It includes permits, transforms, denials, approval requirements, and deferrals. Activity is audit evidence; it is not an approval queue and a permit row does not mean a human approved the action.
 
 ### MCP proxy
 
@@ -289,10 +293,11 @@ The separate `apps/mcp-proxy` process that mirrors one downstream stdio MCP serv
 
 ### Hosted MCP access gateway
 
-The Rust-owned, OAuth-authenticated `/mcp` endpoint that presents each employee
-only the active tools assigned to them and applies the common runtime policy
-and authorization kernel before contacting an administrator-approved remote
-MCP server. It is distinct from both `apps/mcp-server` and `apps/mcp-proxy`.
+The Rust-owned, OAuth-authenticated `/mcp` endpoint that presents each signed
+member-and-agent pair only its active assigned tools. It applies the common
+runtime policy and authorization kernel before contacting an
+administrator-approved remote server and again before disclosing the result.
+It is distinct from both `apps/mcp-server` and `apps/mcp-proxy`.
 
 ### MCP catalog
 
@@ -302,9 +307,18 @@ executable only while its catalog status is `active`.
 
 ### MCP tool assignment
 
-A workspace-scoped grant that makes one active catalog tool discoverable and
-callable by one current workspace member. Assignment does not bypass runtime
-policy evaluation.
+A workspace-scoped entitlement binding one active catalog tool to one current
+member and one registered agent. The exact signed tuple is required for
+discovery and execution. A legacy member-only row is unbound and inactive until
+an administrator selects an agent. Assignment does not bypass runtime policy.
+
+### Governance context
+
+The required `__trustloop` object added to each hosted MCP tool schema. It
+declares the latest user intent, a purpose, and an optional destination. Rust
+validates and removes it before the upstream call, then uses a normalized copy
+for policy. Standard MCP does not transport the surrounding chat prompt, so the
+context is client-declared rather than cryptographic proof of that prompt.
 
 ### Signal evidence
 

@@ -1,17 +1,20 @@
 direction: right
 
-client: "Employee AI client"
-oauth: "TrustLoopGuard OAuth\nidentity + workspace"
-gateway: "Hosted /mcp\nassigned catalog"
-policy: "Runtime policy\napprovals + lease"
+client: "Employee AI client\n__trustloop context"
+oauth: "TrustLoopGuard OAuth\nmember + registered agent"
+gateway: "Hosted /mcp\nexact pair entitlement"
+preflight: "Preflight policy\napproval + lease"
 upstream: "Admin-approved\nremote MCP server"
-storage: "Postgres\nOAuth + catalog + assignments"
+disclosure: "Disclosure policy\nrelease or withhold"
+storage: "Postgres\nassignments + receipts + runs"
 
 client -> oauth: "resource-bound token"
-oauth -> gateway: "signed member"
-gateway -> policy: "server-authored GuardEvent"
-policy -> gateway: "permit only"
-gateway -> upstream: "at most once"
+oauth -> gateway: "signed member + agent"
+gateway -> preflight: "normalized GuardEvent"
+preflight -> upstream: "permit, at most once"
+upstream -> disclosure: "bounded result"
+disclosure -> client: "permitted result or safe error"
 oauth -> storage
-gateway -> storage
-policy -> storage: "trace + authority"
+gateway -> storage: "run + audited failures"
+preflight -> storage: "trace + receipt"
+disclosure -> storage: "trace + receipt"

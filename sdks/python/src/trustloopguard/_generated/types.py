@@ -890,7 +890,13 @@ class McpGatewaySyncStatus(Enum):
     failed = 'failed'
 
 
+class McpGatewayToolAssignment(BaseModel):
+    agent_id: str
+    user_id: str
+
+
 class McpGatewayToolAssignmentsResponse(BaseModel):
+    agent_id: str
     tool_id: str
     user_ids: list[str]
 
@@ -1128,6 +1134,7 @@ class RedteamSessionEvent(BaseModel):
 
 
 class ReplaceMcpGatewayToolAssignmentsRequest(BaseModel):
+    agent_id: str
     user_ids: list[str]
 
 
@@ -1770,10 +1777,17 @@ class AuthorizationReceipt(BaseModel):
     intent_id: str | None = None
     intent_status: AuthorizationIntentStatus | None = None
     lease_id: str | None = None
+    operation: str | None = None
     policy_versions: list[str] | None = None
+    principal_id: str | None = None
     reason: str
+    run_id: str | None = None
     subject_hash: str
     trace_id: str | None = None
+
+
+class AuthorizationReceiptListResponse(BaseModel):
+    receipts: list[AuthorizationReceipt]
 
 
 class AuthorizationSubject1(BaseModel):
@@ -2182,8 +2196,11 @@ class McpGatewaySyncResponse(BaseModel):
 
 
 class McpGatewayTool(BaseModel):
+    agent_assignments: list[McpGatewayToolAssignment] | None = None
     annotations: Any
-    assigned_user_ids: list[str]
+    assigned_user_ids: list[str] = Field(
+        ..., description='Compatibility union of legacy and agent-bound assignments.'
+    )
     catalog_status: McpGatewayCatalogStatus
     connection_id: str
     connection_name: str
@@ -2196,6 +2213,10 @@ class McpGatewayTool(BaseModel):
     schema_hash: str
     side_effect: SideEffectClass
     title: str | None = None
+    unbound_user_ids: list[str] | None = Field(
+        None,
+        description='Legacy user-only rows that do not authorize hosted MCP runtime calls.',
+    )
     updated_at: str
     upstream_name: str
 

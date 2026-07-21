@@ -51,6 +51,7 @@ pub struct AuthorizationEvaluationRequest {
     /// caller grant. A claim's attempt id takes precedence when present.
     pub attempt_id: Option<String>,
     pub trace_id: String,
+    pub run_id: Option<String>,
     pub transformed_value: Option<serde_json::Value>,
     pub intent_expires_at: Option<DateTime<Utc>>,
 }
@@ -361,6 +362,9 @@ impl AuthorizationCoordinator {
             id: receipt_id.clone(),
             intent_id: intent_id.clone(),
             trace_id: Some(request.trace_id.clone()),
+            principal_id: Some(request.principal_id.clone()),
+            operation: Some(operation(&subject)),
+            run_id: request.run_id.clone(),
             domain: subject.domain(),
             effect: composition.effect,
             intent_status: status,

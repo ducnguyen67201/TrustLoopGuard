@@ -21,7 +21,8 @@ async function registeredClient(
     );
     if (!res.ok) return null;
     const body = (await res.json()) as { redirect_uris?: string[]; client_name?: string | null };
-    if (!Array.isArray(body.redirect_uris) || !body.redirect_uris.includes(redirectUri)) return null;
+    if (!Array.isArray(body.redirect_uris) || !body.redirect_uris.includes(redirectUri))
+      return null;
     return { clientName: typeof body.client_name === 'string' ? body.client_name : null };
   } catch {
     return null;
@@ -45,7 +46,9 @@ export default async function OAuthAuthorizePage({
   };
 
   const session = await auth();
-  const user = session?.user as { id?: string; email?: string | null; name?: string | null; username?: string | null } | undefined;
+  const user = session?.user as
+    | { id?: string; email?: string | null; name?: string | null; username?: string | null }
+    | undefined;
   const userId = user?.id;
 
   if (!userId) {
@@ -115,10 +118,15 @@ export default async function OAuthAuthorizePage({
           <h1 className="text-xl font-semibold text-foreground">Authorize access</h1>
           <p className="text-sm text-muted-foreground">
             {client.clientName ?? 'An MCP client'} wants to use managed tools from your
-            TrustLoopGuard workspace. Choose which workspace identity to connect.
+            TrustLoopGuard workspace. Choose the workspace and registered agent identity that
+            policy, assignments, runs, and authorization activity should use.
           </p>
-          {get('resource') ? <p className="text-xs text-muted-foreground">Resource: {get('resource')}</p> : null}
-          {get('scope') ? <p className="text-xs text-muted-foreground">Scope: {get('scope')}</p> : null}
+          {get('resource') ? (
+            <p className="text-xs text-muted-foreground">Resource: {get('resource')}</p>
+          ) : null}
+          {get('scope') ? (
+            <p className="text-xs text-muted-foreground">Scope: {get('scope')}</p>
+          ) : null}
         </div>
         <ConsentForm
           clientId={clientId}

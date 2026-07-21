@@ -127,19 +127,22 @@ pub trait McpGatewayStore: Send + Sync {
         &self,
         workspace_id: &str,
         user_id: Uuid,
+        agent_id: &str,
         public_name: &str,
     ) -> Result<EntitledMcpTool, McpGatewayStoreError>;
     async fn list_entitled_tools(
         &self,
         workspace_id: &str,
         user_id: Uuid,
+        agent_id: &str,
         after_public_name: Option<&str>,
         limit: u32,
     ) -> Result<Vec<EntitledMcpTool>, McpGatewayStoreError>;
-    async fn replace_assignments(
+    async fn replace_agent_assignments(
         &self,
         workspace_id: &str,
         tool_id: Uuid,
+        agent_id: &str,
         user_ids: Vec<Uuid>,
         created_by: Option<Uuid>,
     ) -> Result<Vec<Uuid>, McpGatewayStoreError>;

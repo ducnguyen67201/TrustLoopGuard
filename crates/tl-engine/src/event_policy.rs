@@ -231,7 +231,7 @@ pub async fn evaluate_event_policies<'a, I>(
 where
     I: IntoIterator<Item = &'a Policy>,
 {
-    let Some(text) = output_text(event) else {
+    let Some(text) = policy_text(event) else {
         return EventPolicyOutcome::empty();
     };
 
@@ -438,11 +438,17 @@ fn effect_rank(effect: AuthorizationEffect) -> u8 {
     }
 }
 
-fn output_text(event: &GuardEvent) -> Option<&str> {
-    if event.kind != tl_core::EventKind::OutputProposed {
-        return None;
+fn policy_text(event: &GuardEvent) -> Option<&str> {
+    match event.kind {
+        tl_core::EventKind::OutputProposed => event.action.parameters.get("text")?.as_str(),
+        tl_core::EventKind::ToolCallProposed => event
+            .action
+            .parameters
+            .get("__trustloop")?
+            .get("policy_text")?
+            .as_str(),
+        _ => None,
     }
-    event.action.parameters.get("text")?.as_str()
 }
 
 fn policy_scope_matches(policy: &Policy, event: &GuardEvent) -> bool {
@@ -1246,5 +1252,34 @@ severity: high
         assert!(outcome.triggered.is_empty());
         assert_eq!(outcome.effect, None);
         assert_eq!(judge.calls(), 0);
+    }
+
+    #[tokio::test]
+    async fn managed_tool_policy_text_uses_existing_agent_scoped_content_policies() {
+        let policy = load_str(
+            r#"
+id: no-customer-training
+when:
+  agents: [agent-1]
+match:
+  literal: train a model
+action: deny
+severity: critical
+"#,
+        )
+        .unwrap();
+        let mut event = tool_event();
+        event.action.parameters = serde_json::json!({
+            "query": "customers",
+            "__trustloop": {
+                "policy_text": "Use the customer database to train a model",
+                "purpose": "model_training"
+            }
+        });
+
+        let outcome = evaluate_event_policies(&event, &[policy], eval_ctx(None)).await;
+
+        assert_eq!(outcome.effect, Some(AuthorizationEffect::Deny));
+        assert_eq!(outcome.triggered[0].id, "no-customer-training");
     }
 }

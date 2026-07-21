@@ -37,7 +37,11 @@ export default async function AuthorizationReceiptPage({
       environmentId={environmentId}
       shell={shell}
     >
-      <AuthorizationReceiptContent receipt={receipt} />
+      <AuthorizationReceiptContent
+        receipt={receipt}
+        workspaceSlug={shell.activeWorkspace.slug}
+        environmentId={shell.activeEnvironment.id}
+      />
     </AppLayout>
   );
 }

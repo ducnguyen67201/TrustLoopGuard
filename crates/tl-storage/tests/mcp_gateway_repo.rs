@@ -7,7 +7,7 @@ use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::McpGatewayAuthKind;
 use tl_storage::{
     connect_postgres, migrate_postgres,
-    schema::{organizations, users, workspace_members, workspaces},
+    schema::{agents, organizations, users, workspace_members, workspaces},
     CatalogToolInput, McpGatewayRepo, NewMcpConnection, StorageError,
 };
 use uuid::Uuid;
@@ -60,6 +60,16 @@ async fn catalog_and_assignments_are_workspace_scoped() {
         .execute(&mut conn)
         .await
         .unwrap();
+    diesel::insert_into(agents::table)
+        .values((
+            agents::workspace_id.eq("one"),
+            agents::id.eq("customer-agent"),
+            agents::profile_yaml.eq("id: customer-agent"),
+            agents::parsed_profile.eq(serde_json::json!({"agent_id":"customer-agent"})),
+        ))
+        .execute(&mut conn)
+        .await
+        .unwrap();
     drop(conn);
     let repo = McpGatewayRepo::new(pool);
     let connection_id = Uuid::new_v4();
@@ -93,19 +103,33 @@ async fn catalog_and_assignments_are_workspace_scoped() {
     .unwrap();
     let tool = repo.list_tools("one").await.unwrap().remove(0);
     let tool_id = Uuid::parse_str(&tool.id).unwrap();
-    repo.replace_assignments("one", tool_id, vec![user, user], None)
+    repo.replace_agent_assignments("one", tool_id, "customer-agent", vec![user, user], None)
         .await
         .unwrap();
     assert_eq!(
-        repo.list_entitled_tools("one", user, None, 101)
+        repo.list_entitled_tools("one", user, "customer-agent", None, 101)
             .await
             .unwrap()
             .len(),
         1
     );
+    assert!(repo
+        .list_entitled_tools("one", user, "other-agent", None, 101)
+        .await
+        .unwrap()
+        .is_empty());
+    let listed = repo.list_tools("one").await.unwrap().remove(0);
+    assert_eq!(listed.agent_assignments.len(), 1);
+    assert!(listed.unbound_user_ids.is_empty());
     assert!(matches!(
-        repo.resolve_entitled_tool("two", user, "example__search")
+        repo.resolve_entitled_tool("two", user, "customer-agent", "example__search")
             .await,
         Err(StorageError::NotFound)
     ));
+
+    repo.replace_agent_assignments("one", tool_id, "customer-agent", vec![], None)
+        .await
+        .unwrap();
+    let revoked = repo.list_tools("one").await.unwrap().remove(0);
+    assert!(revoked.assigned_user_ids.is_empty());
 }

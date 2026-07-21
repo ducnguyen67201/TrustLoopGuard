@@ -1,6 +1,10 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { AuthorizationApproval, AuthorizationGrantScope } from '@trustloopguard/sdk';
+import type {
+  AuthorizationApproval,
+  AuthorizationGrantScope,
+  AuthorizationReceipt,
+} from '@trustloopguard/sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthorizationApprovalsContent } from './AuthorizationApprovalsContent';
@@ -15,6 +19,34 @@ describe('AuthorizationApprovalsContent', () => {
     vi.unstubAllGlobals();
   });
 
+  it('shows receipt outcomes as activity without calling permits approvals', async () => {
+    render(
+      <AuthorizationApprovalsContent
+        workspaceSlug="acme"
+        environmentId="production"
+        approvals={[]}
+        receipts={[receipt()]}
+      />,
+    );
+
+    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('data-state', 'active');
+    expect(
+      within(screen.getByRole('table', { name: 'Authorization receipt activity' })).getByText(
+        'Permit',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('agent-1')).toBeInTheDocument();
+    expect(screen.getByText('mcp:company:customer_database_query')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /view receipt/i })).toHaveAttribute(
+      'href',
+      '/authorization/receipts/receipt-1?workspace=acme&environment=production',
+    );
+    expect(screen.getByText(/not a human approval/i)).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /outcome/i }), 'deny');
+    expect(screen.getByText('No authorization activity')).toBeInTheDocument();
+  });
+
   it('shows only pending approvals and filters the one queue by domain', async () => {
     render(
       <AuthorizationApprovalsContent
@@ -27,8 +59,9 @@ describe('AuthorizationApprovalsContent', () => {
       />,
     );
 
+    await userEvent.click(screen.getByRole('tab', { name: /needs approval/i }));
     expect(screen.getByText('tool:mail/send')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /pending/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /needs approval/i })).toBeInTheDocument();
 
     await userEvent.selectOptions(screen.getByRole('combobox', { name: /domain/i }), 'financial');
     expect(screen.getByText('No pending approvals')).toBeInTheDocument();
@@ -46,7 +79,7 @@ describe('AuthorizationApprovalsContent', () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole('tab', { name: /history/i }));
+    await userEvent.click(screen.getByRole('tab', { name: /approval history/i }));
 
     expect(screen.getByText('financial:refund')).toBeInTheDocument();
     expect(screen.getByText('approved')).toBeInTheDocument();
@@ -72,6 +105,7 @@ describe('AuthorizationApprovalsContent', () => {
       />,
     );
 
+    await userEvent.click(screen.getByRole('tab', { name: /needs approval/i }));
     await userEvent.click(screen.getByRole('button', { name: /review/i }));
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText('sha256:v1:reviewed')).toBeInTheDocument();
@@ -100,6 +134,7 @@ describe('AuthorizationApprovalsContent', () => {
       />,
     );
 
+    await userEvent.click(screen.getByRole('tab', { name: /needs approval/i }));
     await userEvent.click(screen.getByRole('button', { name: /review/i }));
     expect(
       screen.queryByRole('button', { name: /approve matching actions/i }),
@@ -131,11 +166,12 @@ describe('AuthorizationApprovalsContent', () => {
       />,
     );
 
+    await userEvent.click(screen.getByRole('tab', { name: /needs approval/i }));
     await userEvent.click(screen.getByRole('button', { name: /deny/i }));
 
     expect(screen.getByText('No pending approvals')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('tab', { name: /history/i }));
+    await userEvent.click(screen.getByRole('tab', { name: /approval history/i }));
 
     expect(screen.getByText('tool:mail/send')).toBeInTheDocument();
     expect(screen.getByText('denied')).toBeInTheDocument();
@@ -186,5 +222,35 @@ function approval(
     expires_at: '2026-07-14T13:00:00Z',
     created_at: now,
     updated_at: now,
+  };
+}
+
+function receipt(): AuthorizationReceipt {
+  return {
+    id: 'receipt-1',
+    trace_id: 'trace-1',
+    principal_id: 'agent-1',
+    operation: 'mcp:company:customer_database_query',
+    run_id: 'run-1',
+    domain: 'tool',
+    effect: 'permit',
+    intent_status: 'authorized',
+    subject_hash: 'sha256:v1:subject',
+    reason: 'current policy and authority permit the subject',
+    findings: [],
+    policy_versions: ['customer-data:v1'],
+    domain_evidence: {
+      domain: 'tool',
+      evidence: {
+        operation: 'mcp:company:customer_database_query',
+        tool_identity: {
+          server_id: 'company',
+          tool_name: 'customer_database_query',
+          schema_hash: 'sha256:v1:schema',
+        },
+        side_effect: 'read',
+      },
+    },
+    created_at: '2026-07-14T12:00:00Z',
   };
 }

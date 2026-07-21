@@ -5,7 +5,7 @@ mod tools;
 use chrono::{DateTime, Utc};
 use tl_core::{
     McpGatewayAuthKind, McpGatewayConnection, McpGatewayCredentialStatus, McpGatewaySyncStatus,
-    McpGatewayTool, SideEffectClass,
+    McpGatewayTool, McpGatewayToolAssignment, SideEffectClass,
 };
 use uuid::Uuid;
 
@@ -130,6 +130,8 @@ fn tool_record_to_wire(
     row: McpToolRecord,
     connection_name: String,
     assigned_user_ids: Vec<String>,
+    agent_assignments: Vec<McpGatewayToolAssignment>,
+    unbound_user_ids: Vec<String>,
 ) -> Result<McpGatewayTool, StorageError> {
     let side_effect: SideEffectClass =
         serde_json::from_value(serde_json::Value::String(row.side_effect.clone()))
@@ -159,6 +161,8 @@ fn tool_record_to_wire(
         side_effect,
         catalog_status,
         assigned_user_ids,
+        agent_assignments,
+        unbound_user_ids,
         created_at: row.created_at.to_rfc3339(),
         updated_at: row.updated_at.to_rfc3339(),
     })

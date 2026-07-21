@@ -144,3 +144,17 @@ describe('withAuthorizedAction', () => {
     expect(submitted[1]?.action.authorization?.grant_id).toBe(grantId);
   });
 });
+
+describe('authorization activity', () => {
+  it('lists common receipts from the environment-scoped control-plane endpoint', async () => {
+    const fetchImpl = mockFetch(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      expect(url).toContain('/v1/authorization/receipts');
+      expect(init?.method).toBe('GET');
+      return Response.json({ receipts: [] });
+    });
+    const client = new Client({ baseUrl: 'http://x', fetchImpl });
+
+    await expect(client.listAuthorizationReceipts()).resolves.toEqual({ receipts: [] });
+  });
+});

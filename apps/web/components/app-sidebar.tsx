@@ -71,10 +71,10 @@ const data = {
           description: 'Provider usage, model pricing, spending caps, and alerts',
         },
         {
-          title: 'Approvals',
+          title: 'Authorization',
           url: '/approvals',
           icon: IconShieldCheck,
-          description: 'The single queue for every human authorization decision',
+          description: 'Policy activity, pending approvals, and approval history',
         },
         {
           title: 'Grants',

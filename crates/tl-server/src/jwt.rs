@@ -41,6 +41,9 @@ pub struct Claims {
     /// which are bound to exactly one workspace at consent time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace_id: Option<String>,
+    /// Hosted MCP OAuth: registered agent selected at consent time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
     /// OAuth: token type — `"access"` for MCP access tokens. Absent on
     /// user-session JWTs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -121,6 +124,7 @@ impl JwtSigner {
             iat: now.timestamp(),
             exp: (now + Duration::days(JWT_TTL_DAYS)).timestamp(),
             workspace_id: None,
+            agent_id: None,
             token_type: None,
             iss: None,
             aud: None,
@@ -145,6 +149,7 @@ impl JwtSigner {
             iat: now.timestamp(),
             exp: (now + Duration::minutes(ACCESS_TOKEN_TTL_MINUTES)).timestamp(),
             workspace_id: Some(workspace_id.to_string()),
+            agent_id: None,
             token_type: Some("access".to_string()),
             iss: None,
             aud: None,
@@ -160,6 +165,7 @@ impl JwtSigner {
         user_id: Uuid,
         username: &str,
         workspace_id: &str,
+        agent_id: &str,
         issuer: &str,
         resource: &str,
         client_id: &str,
@@ -172,6 +178,7 @@ impl JwtSigner {
             iat: now.timestamp(),
             exp: (now + Duration::minutes(ACCESS_TOKEN_TTL_MINUTES)).timestamp(),
             workspace_id: Some(workspace_id.to_string()),
+            agent_id: Some(agent_id.to_string()),
             token_type: Some("access".to_string()),
             iss: Some(issuer.to_string()),
             aud: Some(resource.to_string()),
@@ -221,6 +228,7 @@ impl JwtSigner {
             .claims;
         Uuid::parse_str(&claims.sub).map_err(|_| JwtError::BadSubject)?;
         if matches!(claims.workspace_id.as_deref(), None | Some(""))
+            || matches!(claims.agent_id.as_deref(), None | Some(""))
             || claims.token_type.as_deref() != Some("access")
             || claims.iss.as_deref() != Some(expected_issuer)
             || claims.aud.as_deref() != Some(expected_resource)
@@ -290,6 +298,7 @@ mod tests {
                 id,
                 "alice",
                 "ws_test",
+                "agent_test",
                 "https://guard.example",
                 "https://guard.example/mcp",
                 "client",
@@ -301,6 +310,7 @@ mod tests {
             .verify_mcp_access_token(&token, "https://guard.example", "https://guard.example/mcp")
             .unwrap();
         assert_eq!(claims.oauth_client_id.as_deref(), Some("client"));
+        assert_eq!(claims.agent_id.as_deref(), Some("agent_test"));
         assert!(signer
             .verify_mcp_access_token(
                 &token,

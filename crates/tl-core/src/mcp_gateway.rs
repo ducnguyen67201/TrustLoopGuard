@@ -172,9 +172,25 @@ pub struct McpGatewayTool {
     pub schema_hash: String,
     pub side_effect: SideEffectClass,
     pub catalog_status: McpGatewayCatalogStatus,
+    /// Compatibility union of legacy and agent-bound assignments.
     pub assigned_user_ids: Vec<String>,
+    #[serde(default)]
+    pub agent_assignments: Vec<McpGatewayToolAssignment>,
+    /// Legacy user-only rows that do not authorize hosted MCP runtime calls.
+    #[serde(default)]
+    pub unbound_user_ids: Vec<String>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct McpGatewayToolAssignment {
+    pub user_id: String,
+    pub agent_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -201,6 +217,7 @@ pub struct UpdateMcpGatewayToolRequest {
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct ReplaceMcpGatewayToolAssignmentsRequest {
+    pub agent_id: String,
     pub user_ids: Vec<String>,
 }
 
@@ -211,6 +228,7 @@ pub struct ReplaceMcpGatewayToolAssignmentsRequest {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct McpGatewayToolAssignmentsResponse {
     pub tool_id: String,
+    pub agent_id: String,
     pub user_ids: Vec<String>,
 }
 

@@ -1,4 +1,7 @@
-import type { AuthorizationApprovalListResponse } from '@trustloopguard/sdk';
+import type {
+  AuthorizationApprovalListResponse,
+  AuthorizationReceiptListResponse,
+} from '@trustloopguard/sdk';
 
 import { AppLayout } from '@/components/AppLayout';
 import { AuthorizationApprovalsContent } from '@/components/workspace/AuthorizationApprovalsContent';
@@ -15,22 +18,36 @@ export default async function ApprovalsPage({
   const workspaceSlug = readWorkspaceSlug(params);
   const environmentId = readParam(params.environment);
   const shell = await getDashboardShell(workspaceSlug, environmentId);
-  let response: AuthorizationApprovalListResponse = { approvals: [] };
-  try {
-    response = await rustApiForUserWorkspace<AuthorizationApprovalListResponse>(
-      shell.user,
-      shell.activeWorkspace.id,
-      '/v1/authorization/approvals',
-      { method: 'GET' },
-      shell.activeEnvironment.id,
-    );
-  } catch (error) {
-    console.error('[approvals] failed to load authorization queue', error);
+  const approvalsRequest = rustApiForUserWorkspace<AuthorizationApprovalListResponse>(
+    shell.user,
+    shell.activeWorkspace.id,
+    '/v1/authorization/approvals',
+    { method: 'GET' },
+    shell.activeEnvironment.id,
+  );
+  const receiptsRequest = rustApiForUserWorkspace<AuthorizationReceiptListResponse>(
+    shell.user,
+    shell.activeWorkspace.id,
+    '/v1/authorization/receipts',
+    { method: 'GET' },
+    shell.activeEnvironment.id,
+  );
+  const [approvalsResult, receiptsResult] = await Promise.allSettled([
+    approvalsRequest,
+    receiptsRequest,
+  ]);
+  if (approvalsResult.status === 'rejected') {
+    console.error('[authorization] failed to load approval queue', approvalsResult.reason);
   }
+  if (receiptsResult.status === 'rejected') {
+    console.error('[authorization] failed to load receipt activity', receiptsResult.reason);
+  }
+  const approvals = approvalsResult.status === 'fulfilled' ? approvalsResult.value.approvals : [];
+  const receipts = receiptsResult.status === 'fulfilled' ? receiptsResult.value.receipts : [];
 
   return (
     <AppLayout
-      title="Approvals"
+      title="Authorization"
       workspaceSlug={workspaceSlug}
       environmentId={environmentId}
       shell={shell}
@@ -38,7 +55,8 @@ export default async function ApprovalsPage({
       <AuthorizationApprovalsContent
         workspaceSlug={shell.activeWorkspace.slug}
         environmentId={shell.activeEnvironment.id}
-        approvals={response.approvals}
+        approvals={approvals}
+        receipts={receipts}
       />
     </AppLayout>
   );
