@@ -10,7 +10,7 @@ import {
 } from '@tabler/icons-react';
 import type { McpGatewayConnection, McpGatewayTool, SideEffectClass } from '@trustloopguard/sdk';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -42,7 +42,13 @@ import { cn } from '@/lib/utils';
 import { SetupRunway } from './mcp-access/SetupRunway';
 import { SwitchyardMap } from './mcp-access/SwitchyardMap';
 
-export function McpAccessPageContent({ data }: { data: McpAccessPageData }) {
+export function McpAccessPageContent({
+  data,
+  initialMemberId,
+}: {
+  data: McpAccessPageData;
+  initialMemberId?: string | undefined;
+}) {
   const defaultTab = data.isAdmin ? 'overview' : 'connect';
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 sm:px-6 lg:px-8">
@@ -81,7 +87,7 @@ export function McpAccessPageContent({ data }: { data: McpAccessPageData }) {
               <Servers data={data} />
             </TabsContent>
             <TabsContent value="tools">
-              <ToolAccess data={data} />
+              <ToolAccess data={data} initialMemberId={initialMemberId} />
             </TabsContent>
           </>
         ) : null}
@@ -442,10 +448,43 @@ function formatSyncDate(value: string) {
   }).format(new Date(value));
 }
 
-function ToolAccess({ data }: { data: McpAccessPageData }) {
+function ToolAccess({
+  data,
+  initialMemberId,
+}: {
+  data: McpAccessPageData;
+  initialMemberId?: string | undefined;
+}) {
   const router = useRouter();
-  const [memberId, setMemberId] = useState(data.members[0]?.user_id ?? '');
+  const [memberId, setMemberId] = useState(() => selectedMemberId(data, initialMemberId));
   const [agentId, setAgentId] = useState(data.agents[0]?.id ?? '');
+  const [tools, setTools] = useState(data.tools);
+  const [updatingToolId, setUpdatingToolId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTools(data.tools);
+  }, [data.tools]);
+
+  function selectMember(nextMemberId: string) {
+    setMemberId(nextMemberId);
+    const url = new URL(window.location.href);
+    url.searchParams.set('member', nextMemberId);
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  async function updateAssignment(tool: McpGatewayTool, grant: boolean) {
+    setUpdatingToolId(tool.id);
+    try {
+      const updatedTool = await replaceToolAssignment(tool, memberId, agentId, grant, router, data);
+      if (updatedTool === null) return;
+      setTools((current) =>
+        current.map((currentTool) => (currentTool.id === tool.id ? updatedTool : currentTool)),
+      );
+    } finally {
+      setUpdatingToolId(null);
+    }
+  }
+
   const columns = useMemo<DataTableColumn<McpGatewayTool>[]>(
     () => [
       {
@@ -510,10 +549,13 @@ function ToolAccess({ data }: { data: McpAccessPageData }) {
             <Button
               size="sm"
               variant={assigned ? 'outline' : 'default'}
-              disabled={!memberId || !agentId || row.catalog_status !== 'active'}
-              onClick={() =>
-                void replaceToolAssignment(row, memberId, agentId, !assigned, router, data)
+              disabled={
+                !memberId ||
+                !agentId ||
+                row.catalog_status !== 'active' ||
+                updatingToolId === row.id
               }
+              onClick={() => void updateAssignment(row, !assigned)}
             >
               {assigned ? 'Revoke' : 'Grant'}
             </Button>
@@ -522,7 +564,7 @@ function ToolAccess({ data }: { data: McpAccessPageData }) {
         align: 'right',
       },
     ],
-    [agentId, data, memberId, router],
+    [agentId, data, memberId, router, updatingToolId],
   );
   return (
     <Card className="gap-0 overflow-hidden py-0">
@@ -538,7 +580,7 @@ function ToolAccess({ data }: { data: McpAccessPageData }) {
             <Label htmlFor="mcp-member" className="text-xs font-medium text-muted-foreground">
               Member
             </Label>
-            <Select value={memberId} onValueChange={setMemberId}>
+            <Select value={memberId} onValueChange={selectMember}>
               <SelectTrigger id="mcp-member" className="w-full bg-background">
                 <SelectValue placeholder="Choose a member" />
               </SelectTrigger>
@@ -573,7 +615,7 @@ function ToolAccess({ data }: { data: McpAccessPageData }) {
       <CardContent className="p-0">
         <DataTable
           columns={columns}
-          rows={data.tools}
+          rows={tools}
           getRowKey={(row) => row.id}
           caption="MCP tools and exact member-and-agent access assignments."
           empty="Synchronize a server to review its tools."
@@ -709,10 +751,11 @@ async function act(
   if (!response.ok) {
     const value = (await response.json().catch(() => ({}))) as { error?: string; message?: string };
     toast.error(value.message ?? value.error ?? 'MCP gateway operation failed');
-    return;
+    return false;
   }
   toast.success('MCP gateway updated.');
   router.refresh();
+  return true;
 }
 async function replaceToolAssignment(
   tool: McpGatewayTool,
@@ -729,10 +772,30 @@ async function replaceToolAssignment(
   );
   if (grant) next.add(memberId);
   else next.delete(memberId);
-  await act(scoped(`/api/mcp-gateway/tools/${tool.id}/assignments`, data), 'PUT', router, {
-    agent_id: agentId,
-    user_ids: Array.from(next),
-  });
+  const agentAssignments = [
+    ...tool.agent_assignments.filter((assignment) => assignment.agent_id !== agentId),
+    ...Array.from(next, (userId) => ({ user_id: userId, agent_id: agentId })),
+  ];
+  const updatedTool = {
+    ...tool,
+    assigned_user_ids: Array.from(
+      new Set([
+        ...tool.unbound_user_ids,
+        ...agentAssignments.map((assignment) => assignment.user_id),
+      ]),
+    ),
+    agent_assignments: agentAssignments,
+  };
+  const updated = await act(
+    scoped(`/api/mcp-gateway/tools/${tool.id}/assignments`, data),
+    'PUT',
+    router,
+    {
+      agent_id: agentId,
+      user_ids: Array.from(next),
+    },
+  );
+  return updated ? updatedTool : null;
 }
 function scoped(path: string, data: McpAccessPageData) {
   const params = new URLSearchParams({
@@ -740,4 +803,9 @@ function scoped(path: string, data: McpAccessPageData) {
     environment: data.activeEnvironment.id,
   });
   return `${path}?${params}`;
+}
+function selectedMemberId(data: McpAccessPageData, requestedMemberId?: string) {
+  return requestedMemberId && data.members.some((member) => member.user_id === requestedMemberId)
+    ? requestedMemberId
+    : (data.members[0]?.user_id ?? '');
 }
