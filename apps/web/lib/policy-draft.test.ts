@@ -28,6 +28,7 @@ owner_agent_id: demo-proxy-agent-0968f70b
       matchType: 'regex',
       matchValue: '(?i)\\b(stupid question|figure it out yourself)\\b',
       action: 'deny',
+      agentIds: ['demo-proxy-agent-0968f70b'],
       ownerAgentId: 'demo-proxy-agent-0968f70b',
     });
   });
@@ -42,12 +43,51 @@ owner_agent_id: demo-proxy-agent-0968f70b
       matchType: 'regex',
       matchValue: '\\b\\d{3}-\\d{2}-\\d{4}\\b',
       action: 'deny',
+      agentIds: ['agent-1'],
       ownerAgentId: 'agent-1',
     });
 
-    expect(yaml).toContain('when:\n  channels: [chat]\n  domains: [gateway_output_check]');
+    expect(yaml).toContain(
+      'when:\n  channels: [chat]\n  domains: [gateway_output_check]\n  agents: [agent-1]',
+    );
     expect(yaml).toContain('match:\n  regex: "\\\\b\\\\d{3}-\\\\d{2}-\\\\d{4}\\\\b"');
     expect(yaml).toContain('owner_agent_id: agent-1');
+  });
+
+  it('preserves an explicit runtime assistant scope', () => {
+    const result = yamlToDraft(`
+id: deny-northwind-disclosure
+description: Prevent disclosure of Northwind Labs records.
+when:
+  agents: [policy-test-agent]
+match:
+  regex: Northwind Labs
+action: deny
+severity: medium
+owner_agent_id: policy-test-agent
+`);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.draft.agentIds).toEqual(['policy-test-agent']);
+    expect(draftToYaml(result.draft)).toContain('when:\n  agents: [policy-test-agent]');
+  });
+
+  it('keeps multi-assistant scopes in the advanced editor', () => {
+    const result = yamlToDraft(`
+id: multi-agent-rule
+description: Shared protection.
+when:
+  agents: [agent-1, agent-2]
+match:
+  literal: protected text
+action: deny
+`);
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining('one assistant'),
+    });
   });
 
   it('marks unsupported match shapes as advanced YAML only', () => {

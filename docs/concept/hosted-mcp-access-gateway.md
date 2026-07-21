@@ -100,6 +100,13 @@ prompt. Rust validates the managed schema, derives `policy_text` from
 original upstream arguments. The full public arguments are limited to 64 KiB;
 intent and destination are limited to 8,192 and 2,048 characters.
 
+Hosted MCP checkpoints do not infer a chat, voice, or email channel. A content
+policy with `when.channels` therefore does not apply to hosted MCP. In the
+guided policy editor, **Include hosted MCP tool calls** removes the channel
+restriction while `Applies to one assistant` writes the runtime
+`when.agents` scope. Channel-neutral policies may still be narrowed to one
+registered agent.
+
 ## Audited execution
 
 Each `tools/call` creates one best-effort `workflow` Run and ToolCall run event

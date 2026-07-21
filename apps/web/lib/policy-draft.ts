@@ -18,6 +18,10 @@ export const policyDraftSchema = z.object({
   rewrite: z.string().trim().optional(),
   channels: z.array(z.string().trim().min(1)).optional(),
   domains: z.array(z.string().trim().min(1)).optional(),
+  agentIds: z
+    .array(z.string().trim().min(1))
+    .max(1, 'The guided editor supports one assistant. Use Advanced YAML for multiple assistants.')
+    .optional(),
   ownerAgentId: z.string().trim().optional(),
 });
 
@@ -37,10 +41,11 @@ export function draftToYaml(draft: PolicyDraft): string {
   const lines: string[] = [];
   lines.push(`id: ${draft.id || 'new-policy'}`);
   if (draft.description) lines.push(`description: ${yamlQuote(draft.description)}`);
-  if (draft.channels?.length || draft.domains?.length) {
+  if (draft.channels?.length || draft.domains?.length || draft.agentIds?.length) {
     lines.push('when:');
     if (draft.channels?.length) lines.push(`  channels: ${yamlArray(draft.channels)}`);
     if (draft.domains?.length) lines.push(`  domains: ${yamlArray(draft.domains)}`);
+    if (draft.agentIds?.length) lines.push(`  agents: ${yamlArray(draft.agentIds)}`);
   }
   lines.push('match:');
   lines.push(`  ${draft.matchType}: ${yamlQuote(draft.matchValue)}`);
@@ -102,6 +107,8 @@ export function yamlToDraft(sourceYaml: string): PolicyDraftParseResult {
     return { ok: false, reason: 'Builder supports low, medium, high, and critical severity.' };
   }
 
+  const ownerAgentId = optionalScalar(top.get('owner_agent_id'));
+  const explicitAgentIds = parseYamlArray(when.get('agents'));
   const draft = policyDraftSchema.safeParse({
     id: unquoteYamlScalar(top.get('id') ?? ''),
     description: unquoteYamlScalar(top.get('description') ?? ''),
@@ -112,7 +119,11 @@ export function yamlToDraft(sourceYaml: string): PolicyDraftParseResult {
     rewrite: optionalScalar(top.get('transform')),
     channels: parseYamlArray(when.get('channels')),
     domains: parseYamlArray(when.get('domains')),
-    ownerAgentId: optionalScalar(top.get('owner_agent_id')),
+    // Older guided policies stored only owner_agent_id even though the UI
+    // described it as runtime applicability. Seed the real when.agents scope
+    // from that legacy value so the next guided save repairs the policy.
+    agentIds: explicitAgentIds ?? (ownerAgentId ? [ownerAgentId] : undefined),
+    ownerAgentId,
   });
 
   if (!draft.success) {
