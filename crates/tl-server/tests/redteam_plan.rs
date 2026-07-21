@@ -109,7 +109,7 @@ fn build_app() -> Router {
 
     let guardrail_routes = Router::new()
         .route(
-            "/v1/agents/:id/redteam/static-policies",
+            "/v1/agents/{id}/redteam/static-policies",
             axum::routing::post(redteam::generate_static_policies),
         )
         .with_state(GuardrailState {
@@ -122,15 +122,15 @@ fn build_app() -> Router {
 
     let plan_routes = Router::new()
         .route(
-            "/v1/agents/:id/redteam/plan",
+            "/v1/agents/{id}/redteam/plan",
             axum::routing::post(redteam::plan_attack_vectors),
         )
         .route(
-            "/v1/agents/:id/redteam/plans",
+            "/v1/agents/{id}/redteam/plans",
             axum::routing::get(redteam::list_plans),
         )
         .route(
-            "/v1/redteam/plans/:id",
+            "/v1/redteam/plans/{id}",
             axum::routing::delete(redteam::delete_plan),
         )
         .with_state(redteam::PlanState {

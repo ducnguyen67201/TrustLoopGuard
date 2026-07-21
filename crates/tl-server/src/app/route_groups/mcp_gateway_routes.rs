@@ -23,17 +23,17 @@ pub(crate) fn mcp_gateway_routes(state: &AppState, seal_key: [u8; 32]) -> Router
             get(mcp_gateway::list_connections).post(mcp_gateway::create_connection),
         )
         .route(
-            "/v1/mcp-gateway/connections/:id",
+            "/v1/mcp-gateway/connections/{id}",
             patch(mcp_gateway::patch_connection).delete(mcp_gateway::delete_connection),
         )
         .route(
-            "/v1/mcp-gateway/connections/:id/sync",
+            "/v1/mcp-gateway/connections/{id}/sync",
             post(mcp_gateway::sync_connection),
         )
         .route("/v1/mcp-gateway/tools", get(mcp_gateway::list_tools))
-        .route("/v1/mcp-gateway/tools/:id", patch(mcp_gateway::patch_tool))
+        .route("/v1/mcp-gateway/tools/{id}", patch(mcp_gateway::patch_tool))
         .route(
-            "/v1/mcp-gateway/tools/:id/assignments",
+            "/v1/mcp-gateway/tools/{id}/assignments",
             put(mcp_gateway::replace_assignments),
         )
         .with_state(mcp_gateway::McpGatewayState {

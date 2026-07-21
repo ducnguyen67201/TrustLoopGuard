@@ -756,7 +756,7 @@ pub fn oauth_public_routes(app: AppState) -> Router {
             post(token).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)),
         )
         .route(
-            "/oauth/clients/:client_id/redirect-uris",
+            "/oauth/clients/{client_id}/redirect-uris",
             get(client_redirect_uris),
         )
         .with_state(state)
