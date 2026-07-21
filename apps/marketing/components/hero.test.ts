@@ -21,6 +21,19 @@ test('the hero keeps source inspection as tertiary proof', () => {
   assert.match(hero, /hero-source-link/);
 });
 
+test('the hero puts the tracked app entry between the demo and control-flow actions', () => {
+  const hero = readFileSync(new URL('./hero.tsx', import.meta.url), 'utf8');
+  const demoIndex = hero.indexOf('event="demo_click"');
+  const appIndex = hero.indexOf('event="app_click"');
+  const controlFlowIndex = hero.indexOf('label: copy.controlFlow');
+
+  assert.match(hero, /href=\{APP_URL\}/);
+  assert.match(hero, /hero-app-link/);
+  assert.match(hero, /Go to the app/);
+  assert.ok(demoIndex >= 0 && demoIndex < appIndex);
+  assert.ok(appIndex < controlFlowIndex);
+});
+
 test('the hero states the founder credibility precisely', () => {
   const hero = readFileSync(new URL('./hero.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');

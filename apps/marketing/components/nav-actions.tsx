@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { APP_URL } from '@/lib/app-url';
 import type { MarketingLocale } from '@/lib/marketing-locale';
 import { MarketingEventLink } from './marketing-event-link';
 
@@ -15,18 +16,18 @@ const COPY = {
   en: {
     demo: 'Demo',
     demoEventLabel: 'Live demo',
-    compactTalk: 'Talk',
     talk: 'Talk to us',
     talkEventLabel: 'Book a meeting',
+    app: 'Go to the app',
     github: 'View TrustLoopGuard on GitHub',
     stars: 'stars',
   },
   vi: {
     demo: 'Dùng thử',
     demoEventLabel: 'Bản demo trực tiếp',
-    compactTalk: 'Trao đổi',
     talk: 'Trao đổi với chúng tôi',
     talkEventLabel: 'Đặt lịch trao đổi',
+    app: 'Vào ứng dụng',
     github: 'Xem TrustLoopGuard trên GitHub',
     stars: 'sao',
   },
@@ -50,12 +51,19 @@ export function NavActions({ bookMeetingUrl, githubUrl, stars, locale }: NavActi
       <MarketingEventLink
         href={bookMeetingUrl}
         target="_blank"
-        className="button-primary h-10 px-4 text-sm"
+        className="nav-talk button-secondary h-10 px-4 text-sm"
         event="book_meeting_click"
         eventParams={{ page, location: 'nav', label: copy.talkEventLabel }}
       >
-        <span className="min-[420px]:hidden">{copy.compactTalk}</span>
-        <span className="hidden min-[420px]:inline">{copy.talk}</span>
+        {copy.talk}
+      </MarketingEventLink>
+      <MarketingEventLink
+        href={APP_URL}
+        className="button-primary h-10 px-4 text-sm"
+        event="app_click"
+        eventParams={{ page, location: 'nav', label: copy.app }}
+      >
+        {copy.app}
       </MarketingEventLink>
     </div>
   );

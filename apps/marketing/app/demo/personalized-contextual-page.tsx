@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import type { CompanyDemoViewModel, OutboundDemoProfile } from './company-profile';
 import { CONTEXTUAL_PAGE_COPY } from './contextual-content';
+import { DemoAppLink } from './demo-app-link';
 import styles from './demo.module.css';
 import { CompanyDemo } from './[category]/company-demo';
 import type { HealthcareDemoLocale } from './healthcare/content';
@@ -34,9 +35,15 @@ export function PersonalizedContextualDemoPageContent({
           <i aria-hidden="true" />
           <span>{copy.personalizedConcept}</span>
         </div>
-        <Link href={locale === 'vi' ? '/vi/demo' : '/demo'}>
-          {copy.liveDemo} <span aria-hidden="true">↗</span>
-        </Link>
+        <div className={styles['topbarActions']}>
+          <Link
+            href={locale === 'vi' ? '/vi/demo' : '/demo'}
+            className={styles['topbarSecondaryLink']}
+          >
+            {copy.liveDemo} <span aria-hidden="true">↗</span>
+          </Link>
+          <DemoAppLink locale={locale} />
+        </div>
       </header>
 
       <section className={styles['intro']} aria-labelledby="demo-title">

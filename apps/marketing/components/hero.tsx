@@ -1,3 +1,4 @@
+import { APP_URL } from '@/lib/app-url';
 import { GITHUB_URL } from '@/lib/github';
 import type { MarketingLocale } from '@/lib/marketing-locale';
 import { MarketingEventLink } from './marketing-event-link';
@@ -18,6 +19,7 @@ const COPY = {
     introAfter: '—plus a receipt showing why.',
     founderProof: 'Built by a former engineer at a company backed by',
     demo: 'Try the live refund demo',
+    app: 'Go to the app',
     controlFlow: 'See the control flow',
     demoProof: 'No card. No signup. Runs against the real authorization path.',
     inspectSource: 'Inspect the source ↗',
@@ -60,6 +62,7 @@ const COPY = {
     introAfter: '—kèm biên nhận giải thích lý do.',
     founderProof: 'Được xây dựng bởi cựu kỹ sư tại một công ty được hậu thuẫn bởi',
     demo: 'Thử bản demo hoàn tiền trực tiếp',
+    app: 'Vào ứng dụng',
     controlFlow: 'Xem luồng kiểm soát',
     demoProof: 'Không cần thẻ. Không cần đăng ký. Chạy trên luồng cấp quyền thực tế.',
     inspectSource: 'Xem mã nguồn ↗',
@@ -138,7 +141,7 @@ export function Hero({ locale = 'en' }: { locale?: MarketingLocale }) {
           <div className="hero-actions">
             <MarketingEventLink
               href={locale === 'vi' ? '/vi/demo' : '/demo'}
-              className="button-primary h-12 px-6"
+              className="button-primary hero-action-button h-12"
               event="demo_click"
               eventParams={{
                 page: locale === 'vi' ? '/vi' : '/',
@@ -150,8 +153,21 @@ export function Hero({ locale = 'en' }: { locale?: MarketingLocale }) {
               {copy.demo}
             </MarketingEventLink>
             <MarketingEventLink
+              href={APP_URL}
+              className="hero-app-link h-12"
+              event="app_click"
+              eventParams={{
+                page: locale === 'vi' ? '/vi' : '/',
+                location: 'hero',
+                label: copy.app,
+              }}
+            >
+              {copy.app}
+              <ArrowIcon />
+            </MarketingEventLink>
+            <MarketingEventLink
               href="#how"
-              className="button-secondary h-12 px-6"
+              className="button-secondary hero-action-button h-12"
               event="landing_cta_click"
               eventParams={{
                 page: locale === 'vi' ? '/vi' : '/',

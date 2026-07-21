@@ -3,6 +3,7 @@ import { capturePostHogMarketingEvent, type PostHogBrowserClient } from './posth
 
 export type MarketingEventName =
   | 'install_sdk_click'
+  | 'app_click'
   | 'book_meeting_click'
   | 'docs_click'
   | 'github_click'

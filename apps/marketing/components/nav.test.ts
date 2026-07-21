@@ -18,6 +18,17 @@ test('the marketing header tracks the live demo on desktop and compact layouts',
   );
 });
 
+test('the marketing header exposes a tracked app entry action', () => {
+  const actions = readFileSync(new URL('./nav-actions.tsx', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
+
+  assert.match(actions, /href=\{APP_URL\}/);
+  assert.match(actions, /event="app_click"/);
+  assert.match(actions, /Go to the app/);
+  assert.match(actions, /nav-talk/);
+  assert.match(styles, /\.site-nav \.nav-talk\s*{[^}]*display:\s*none/);
+});
+
 test('the marketing header does not expose a manual language switch', () => {
   const compactNav = readFileSync(new URL('./nav-actions.tsx', import.meta.url), 'utf8');
 

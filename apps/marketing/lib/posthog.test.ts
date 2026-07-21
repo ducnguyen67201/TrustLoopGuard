@@ -120,6 +120,27 @@ test('captures the demo activation funnel with normalized properties', () => {
   ]);
 });
 
+test('captures app entry clicks as a distinct funnel step', () => {
+  const { client, captureCalls } = fakeClient();
+
+  capturePostHogMarketingEvent(client, 'app_click', {
+    page: '/demo',
+    location: 'demo_nav',
+    label: 'Go to the app',
+  });
+
+  assert.deepEqual(captureCalls, [
+    {
+      event: 'app_click',
+      properties: {
+        page: '/demo',
+        location: 'demo_nav',
+        label: 'Go to the app',
+      },
+    },
+  ]);
+});
+
 test('sends one marketing interaction to both GTM and PostHog', () => {
   const { client, captureCalls } = fakeClient();
   const browser = { dataLayer: [] as Array<Record<string, string>> };
