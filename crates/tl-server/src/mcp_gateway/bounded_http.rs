@@ -81,7 +81,7 @@ impl BoundedHttpClient {
             }
             Err(error) => Err(BoundedHttpError::Reqwest(error)),
         });
-        SseStream::from_byte_stream(bytes).boxed()
+        SseStream::from_bytes_stream(bytes).boxed()
     }
 
     async fn bounded_bytes(
