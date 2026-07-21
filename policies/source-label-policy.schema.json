@@ -1,16 +1,13 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "SourceLabelPolicy",
-  "description": "One workspace override row: per-origin label defaults. A family left `None` inherits the built-in origin default.",
+  "description": "One workspace override row: per-origin label defaults. A family left\n`None` inherits the built-in origin default.",
   "type": "object",
-  "required": [
-    "origin"
-  ],
   "properties": {
     "confidentiality": {
       "anyOf": [
         {
-          "$ref": "#/definitions/Confidentiality"
+          "$ref": "#/$defs/Confidentiality"
         },
         {
           "type": "null"
@@ -20,7 +17,7 @@
     "integrity": {
       "anyOf": [
         {
-          "$ref": "#/definitions/Integrity"
+          "$ref": "#/$defs/Integrity"
         },
         {
           "type": "null"
@@ -28,12 +25,12 @@
       ]
     },
     "origin": {
-      "$ref": "#/definitions/Origin"
+      "$ref": "#/$defs/Origin"
     },
     "trust": {
       "anyOf": [
         {
-          "$ref": "#/definitions/Trust"
+          "$ref": "#/$defs/Trust"
         },
         {
           "type": "null"
@@ -41,7 +38,10 @@
       ]
     }
   },
-  "definitions": {
+  "required": [
+    "origin"
+  ],
+  "$defs": {
     "Confidentiality": {
       "type": "string",
       "enum": [

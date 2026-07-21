@@ -1,19 +1,12 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorizationDecision",
   "type": "object",
-  "required": [
-    "domain",
-    "effect",
-    "latency_ms",
-    "reason",
-    "trace_id"
-  ],
   "properties": {
     "applied_grant": {
       "anyOf": [
         {
-          "$ref": "#/definitions/AuthorizationGrantRef"
+          "$ref": "#/$defs/AuthorizationGrantRef"
         },
         {
           "type": "null"
@@ -23,7 +16,7 @@
     "approval": {
       "anyOf": [
         {
-          "$ref": "#/definitions/AuthorizationApprovalSummary"
+          "$ref": "#/$defs/AuthorizationApprovalSummary"
         },
         {
           "type": "null"
@@ -31,16 +24,16 @@
       ]
     },
     "domain": {
-      "$ref": "#/definitions/AuthorizationDomain"
+      "$ref": "#/$defs/AuthorizationDomain"
     },
     "effect": {
-      "$ref": "#/definitions/AuthorizationEffect"
+      "$ref": "#/$defs/AuthorizationEffect"
     },
     "findings": {
-      "default": [],
       "type": "array",
+      "default": [],
       "items": {
-        "$ref": "#/definitions/AuthorizationFinding"
+        "$ref": "#/$defs/AuthorizationFinding"
       }
     },
     "intent_id": {
@@ -52,12 +45,12 @@
     "latency_ms": {
       "type": "integer",
       "format": "uint64",
-      "minimum": 0.0
+      "minimum": 0
     },
     "lease": {
       "anyOf": [
         {
-          "$ref": "#/definitions/AuthorizationLease"
+          "$ref": "#/$defs/AuthorizationLease"
         },
         {
           "type": "null"
@@ -76,7 +69,7 @@
     "status": {
       "anyOf": [
         {
-          "$ref": "#/definitions/AuthorizationIntentStatus"
+          "$ref": "#/$defs/AuthorizationIntentStatus"
         },
         {
           "type": "null"
@@ -88,7 +81,14 @@
     },
     "transformed_value": true
   },
-  "definitions": {
+  "required": [
+    "trace_id",
+    "domain",
+    "effect",
+    "reason",
+    "latency_ms"
+  ],
+  "$defs": {
     "ApprovalStatus": {
       "type": "string",
       "enum": [
@@ -101,13 +101,6 @@
     },
     "AuthorizationApprovalSummary": {
       "type": "object",
-      "required": [
-        "envelope_hash",
-        "expires_at",
-        "id",
-        "poll_after_ms",
-        "status"
-      ],
       "properties": {
         "envelope_hash": {
           "type": "string"
@@ -121,12 +114,19 @@
         "poll_after_ms": {
           "type": "integer",
           "format": "uint64",
-          "minimum": 0.0
+          "minimum": 0
         },
         "status": {
-          "$ref": "#/definitions/ApprovalStatus"
+          "$ref": "#/$defs/ApprovalStatus"
         }
-      }
+      },
+      "required": [
+        "id",
+        "status",
+        "envelope_hash",
+        "expires_at",
+        "poll_after_ms"
+      ]
     },
     "AuthorizationCapabilityId": {
       "type": "string"
@@ -152,16 +152,9 @@
     },
     "AuthorizationFinding": {
       "type": "object",
-      "required": [
-        "effect",
-        "id",
-        "reason",
-        "severity",
-        "source"
-      ],
       "properties": {
         "effect": {
-          "$ref": "#/definitions/AuthorizationEffect"
+          "$ref": "#/$defs/AuthorizationEffect"
         },
         "evidence": {
           "default": null
@@ -191,35 +184,42 @@
           ]
         },
         "severity": {
-          "$ref": "#/definitions/Severity"
+          "$ref": "#/$defs/Severity"
         },
         "source": {
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "id",
+        "source",
+        "effect",
+        "reason",
+        "severity"
+      ]
     },
     "AuthorizationGrantRef": {
       "type": "object",
-      "required": [
-        "capability",
-        "id",
-        "mode",
-        "source"
-      ],
       "properties": {
         "capability": {
-          "$ref": "#/definitions/AuthorizationCapabilityId"
+          "$ref": "#/$defs/AuthorizationCapabilityId"
         },
         "id": {
           "type": "string"
         },
         "mode": {
-          "$ref": "#/definitions/GrantMode"
+          "$ref": "#/$defs/GrantMode"
         },
         "source": {
-          "$ref": "#/definitions/AuthorizationGrantSource"
+          "$ref": "#/$defs/AuthorizationGrantSource"
         }
-      }
+      },
+      "required": [
+        "id",
+        "capability",
+        "mode",
+        "source"
+      ]
     },
     "AuthorizationGrantSource": {
       "type": "string",
@@ -243,15 +243,6 @@
     },
     "AuthorizationLease": {
       "type": "object",
-      "required": [
-        "attempt_id",
-        "claimed_at",
-        "expires_at",
-        "fingerprint",
-        "id",
-        "intent_id",
-        "status"
-      ],
       "properties": {
         "attempt_id": {
           "type": "string"
@@ -284,9 +275,18 @@
           "type": "string"
         },
         "status": {
-          "$ref": "#/definitions/LeaseStatus"
+          "$ref": "#/$defs/LeaseStatus"
         }
-      }
+      },
+      "required": [
+        "id",
+        "intent_id",
+        "attempt_id",
+        "fingerprint",
+        "status",
+        "claimed_at",
+        "expires_at"
+      ]
     },
     "GrantMode": {
       "type": "string",

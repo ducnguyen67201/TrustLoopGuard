@@ -1,64 +1,57 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AgentProfile",
-  "description": "What an agent is, what it may claim, and how it should sound.\n\nAuthored as YAML by the customer (see `policies/agents/*.yaml`), parsed by `tl-policy::load_agent_str`, persisted in Postgres, cached in process, and consulted by Tier 2 (out-of-scope embedding lookup) and Tier 3 (LLM judge ground truth).",
+  "description": "What an agent is, what it may claim, and how it should sound.\n\nAuthored as YAML by the customer (see `policies/agents/*.yaml`), parsed\nby `tl-policy::load_agent_str`, persisted in Postgres, cached in process,\nand consulted by Tier 2 (out-of-scope embedding lookup) and Tier 3\n(LLM judge ground truth).",
   "type": "object",
-  "required": [
-    "agent_id",
-    "authority",
-    "display_name",
-    "scope",
-    "tone"
-  ],
   "properties": {
     "agent_id": {
       "type": "string"
     },
     "authority": {
-      "$ref": "#/definitions/AgentAuthority"
+      "$ref": "#/$defs/AgentAuthority"
     },
     "display_name": {
       "type": "string"
     },
     "escalation_triggers": {
-      "default": [],
       "type": "array",
+      "default": [],
       "items": {
         "type": "string"
       }
     },
     "knowledge_sources": {
-      "default": [],
       "type": "array",
+      "default": [],
       "items": {
-        "$ref": "#/definitions/KnowledgeSource"
+        "$ref": "#/$defs/KnowledgeSource"
       }
     },
     "scope": {
-      "$ref": "#/definitions/AgentScope"
+      "$ref": "#/$defs/AgentScope"
     },
     "system_prompt": {
-      "description": "Raw system prompt the customer ships to their LLM. Source of truth for auto-generating guardrails: `POST /v1/agents/{id}/guardrails:generate` reads this and asks an LLM to derive a policy set tailored to it. Optional at the type level so existing profiles keep deserializing; the generate endpoint enforces presence at call time.",
+      "description": "Raw system prompt the customer ships to their LLM. Source of truth\nfor auto-generating guardrails: `POST /v1/agents/{id}/guardrails:generate`\nreads this and asks an LLM to derive a policy set tailored to it.\nOptional at the type level so existing profiles keep deserializing;\nthe generate endpoint enforces presence at call time.",
       "type": [
         "string",
         "null"
       ]
     },
     "target_url": {
-      "description": "Loopback endpoint this agent is reachable at (the arena adapter contract), captured at import so the Attacks page can target it without re-typing. Loopback-only; validated at the web edge and by the dispatch SSRF guard.",
+      "description": "Loopback endpoint this agent is reachable at (the arena adapter contract),\ncaptured at import so the Attacks page can target it without re-typing.\nLoopback-only; validated at the web edge and by the dispatch SSRF guard.",
       "type": [
         "string",
         "null"
       ]
     },
     "tone": {
-      "$ref": "#/definitions/AgentTone"
+      "$ref": "#/$defs/AgentTone"
     },
     "workflow_definition": {
-      "description": "Optional machine-readable agent definition (e.g. an n8n workflow export) imported alongside or instead of the chat `system_prompt`. The hardening loop's attack-vector planner analyses this to find injectable source→sink paths and tailor attacks to the agent. Absent ⇒ a plain chat agent.",
+      "description": "Optional machine-readable agent definition (e.g. an n8n workflow export)\nimported alongside or instead of the chat `system_prompt`. The\nhardening loop's attack-vector planner analyses this to find injectable\nsource→sink paths and tailor attacks to the agent. Absent ⇒ a plain\nchat agent.",
       "anyOf": [
         {
-          "$ref": "#/definitions/WorkflowDefinition"
+          "$ref": "#/$defs/WorkflowDefinition"
         },
         {
           "type": "null"
@@ -66,28 +59,35 @@
       ]
     },
     "workflow_requirements": {
-      "description": "Domain workflows that require checks before sensitive steps are advanced. Hardening uses these as synthesis context after a red-team attack lands.",
-      "default": [],
+      "description": "Domain workflows that require checks before sensitive steps are advanced.\nHardening uses these as synthesis context after a red-team attack lands.",
       "type": "array",
+      "default": [],
       "items": {
-        "$ref": "#/definitions/WorkflowRequirement"
+        "$ref": "#/$defs/WorkflowRequirement"
       }
     }
   },
-  "definitions": {
+  "required": [
+    "agent_id",
+    "display_name",
+    "scope",
+    "authority",
+    "tone"
+  ],
+  "$defs": {
     "AgentAuthority": {
       "type": "object",
       "properties": {
         "can_promise": {
-          "default": [],
           "type": "array",
+          "default": [],
           "items": {
             "type": "string"
           }
         },
         "cannot_promise": {
-          "default": [],
           "type": "array",
+          "default": [],
           "items": {
             "type": "string"
           }
@@ -98,15 +98,15 @@
       "type": "object",
       "properties": {
         "in_scope": {
-          "default": [],
           "type": "array",
+          "default": [],
           "items": {
             "type": "string"
           }
         },
         "out_of_scope": {
-          "default": [],
           "type": "array",
+          "default": [],
           "items": {
             "type": "string"
           }
@@ -115,13 +115,10 @@
     },
     "AgentTone": {
       "type": "object",
-      "required": [
-        "target"
-      ],
       "properties": {
         "forbidden": {
-          "default": [],
           "type": "array",
+          "default": [],
           "items": {
             "type": "string"
           }
@@ -129,13 +126,13 @@
         "target": {
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "target"
+      ]
     },
     "KnowledgeSource": {
       "type": "object",
-      "required": [
-        "kb_id"
-      ],
       "properties": {
         "description": {
           "type": [
@@ -147,12 +144,8 @@
           "type": "string"
         },
         "kind": {
-          "default": "local",
-          "allOf": [
-            {
-              "$ref": "#/definitions/KnowledgeSourceKind"
-            }
-          ]
+          "$ref": "#/$defs/KnowledgeSourceKind",
+          "default": "local"
         },
         "url": {
           "type": [
@@ -160,7 +153,10 @@
             "null"
           ]
         }
-      }
+      },
+      "required": [
+        "kb_id"
+      ]
     },
     "KnowledgeSourceKind": {
       "type": "string",
@@ -170,12 +166,8 @@
       ]
     },
     "WorkflowDefinition": {
-      "description": "A machine-readable agent definition imported for hardening. `source` names the format (`n8n` today; the analyser keys off it), `definition` is the raw exported JSON kept verbatim so we never lose fidelity round-tripping.\n\nponytail: a struct, not a tagged `Chat | WorkflowJson | ToolSchema` enum — \"chat\" is just the absence of this field, and tool-schema import has no caller yet. Add a `source` value (and an analyser arm) when a second format actually arrives.",
+      "description": "A machine-readable agent definition imported for hardening. `source` names\nthe format (`n8n` today; the analyser keys off it), `definition` is the raw\nexported JSON kept verbatim so we never lose fidelity round-tripping.\n\nponytail: a struct, not a tagged `Chat | WorkflowJson | ToolSchema` enum —\n\"chat\" is just the absence of this field, and tool-schema import has no\ncaller yet. Add a `source` value (and an analyser arm) when a second format\nactually arrives.",
       "type": "object",
-      "required": [
-        "definition",
-        "source"
-      ],
       "properties": {
         "definition": {
           "description": "Raw exported workflow JSON, kept verbatim."
@@ -184,32 +176,36 @@
           "description": "Format discriminator, e.g. `n8n`.",
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "source",
+        "definition"
+      ]
     },
     "WorkflowRequirement": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "properties": {
         "name": {
           "type": "string"
         },
         "required_before": {
-          "default": [],
           "type": "array",
+          "default": [],
           "items": {
             "type": "string"
           }
         },
         "sensitive_steps": {
-          "default": [],
           "type": "array",
+          "default": [],
           "items": {
             "type": "string"
           }
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     }
   }
 }

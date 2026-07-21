@@ -17,7 +17,7 @@ serde_yaml = { workspace = true }
 thiserror = { workspace = true }
 regex = { workspace = true }
 url = { workspace = true }
-schemars = { version = "0.8", optional = true }
+schemars = { version = "1.2", optional = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

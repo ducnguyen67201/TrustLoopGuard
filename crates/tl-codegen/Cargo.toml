@@ -19,7 +19,7 @@ tl-policy = { workspace = true, features = ["schema"] }
 # tl-server is the single source of truth for the OpenAPI doc — handlers
 # carry their own #[utoipa::path] annotations there.
 tl-server = { path = "../tl-server" }
-schemars = "0.8"
+schemars = "1.2"
 utoipa = "5"
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
