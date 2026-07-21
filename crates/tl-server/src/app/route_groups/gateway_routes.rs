@@ -15,7 +15,7 @@ pub(super) fn gateway_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> Ro
                 .post(gateway::create_gateway_provider_connection),
         )
         .route(
-            "/v1/gateway/provider-connections/:id",
+            "/v1/gateway/provider-connections/{id}",
             patch(gateway::patch_gateway_provider_connection)
                 .delete(gateway::delete_gateway_provider_connection),
         )
@@ -24,15 +24,15 @@ pub(super) fn gateway_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> Ro
             get(gateway::list_gateway_routes).post(gateway::create_gateway_route),
         )
         .route(
-            "/v1/gateway/routes/:id",
+            "/v1/gateway/routes/{id}",
             patch(gateway::patch_gateway_route),
         )
         .route(
-            "/v1/gateway/:route_id/openai/chat/completions",
+            "/v1/gateway/{route_id}/openai/chat/completions",
             post(gateway::proxy_openai_chat_completions),
         )
         .route(
-            "/v1/gateway/:route_id/anthropic/v1/messages",
+            "/v1/gateway/{route_id}/anthropic/v1/messages",
             post(gateway::proxy_anthropic_messages),
         )
         .with_state(gateway::GatewayState {

@@ -41,7 +41,7 @@ pub(super) fn public_routes(
         Arc::new(redteam::ReportRateLimiter::new(Duration::from_secs(60), 60));
     let public_report_routes = Router::new()
         .route(
-            "/v1/redteam/reports/:token",
+            "/v1/redteam/reports/{token}",
             get(redteam::get_public_report),
         )
         .with_state(redteam::PublicReportState {
@@ -84,7 +84,7 @@ pub(super) fn agent_routes(state: &AppState) -> Router {
             post(agents::upsert_agent).get(agents::list_agents),
         )
         .route(
-            "/v1/agents/:id",
+            "/v1/agents/{id}",
             get(agents::get_agent).delete(agents::delete_agent),
         )
         .with_state(AgentState {
@@ -100,7 +100,7 @@ pub(super) fn tool_metadata_routes(state: &AppState) -> Router {
             post(tool_metadata::upsert_tool_metadata).get(tool_metadata::list_tool_metadata),
         )
         .route(
-            "/v1/tool-metadata/:tool",
+            "/v1/tool-metadata/{tool}",
             get(tool_metadata::get_tool_metadata).delete(tool_metadata::delete_tool_metadata),
         )
         .with_state(ToolMetadataState {
@@ -116,11 +116,11 @@ pub(super) fn authorization_routes(state: &AppState) -> Router {
             get(authorization::list_approvals),
         )
         .route(
-            "/v1/authorization/approvals/:id",
+            "/v1/authorization/approvals/{id}",
             get(authorization::get_approval),
         )
         .route(
-            "/v1/authorization/approvals/:id/decide",
+            "/v1/authorization/approvals/{id}/decide",
             post(authorization::decide_approval),
         )
         .route(
@@ -128,11 +128,11 @@ pub(super) fn authorization_routes(state: &AppState) -> Router {
             get(authorization::list_grants).post(authorization::create_grant),
         )
         .route(
-            "/v1/authorization/grants/:id/revoke",
+            "/v1/authorization/grants/{id}/revoke",
             post(authorization::revoke_grant),
         )
         .route(
-            "/v1/authorization/leases/:id/complete",
+            "/v1/authorization/leases/{id}/complete",
             post(authorization::complete_lease),
         )
         .route(
@@ -140,7 +140,7 @@ pub(super) fn authorization_routes(state: &AppState) -> Router {
             get(authorization::list_receipts),
         )
         .route(
-            "/v1/authorization/receipts/:id",
+            "/v1/authorization/receipts/{id}",
             get(authorization::get_receipt),
         )
         .with_state(authorization::AuthorizationState {
@@ -157,7 +157,7 @@ pub(super) fn label_policy_routes(state: &AppState) -> Router {
             post(label_policy::upsert_label_policy).get(label_policy::list_label_policies),
         )
         .route(
-            "/v1/label-policies/:origin",
+            "/v1/label-policies/{origin}",
             get(label_policy::get_label_policy).delete(label_policy::delete_label_policy),
         )
         .with_state(LabelPolicyState {
@@ -180,21 +180,21 @@ pub(super) fn policy_routes(
             patch(policies::batch_set_policy_enabled),
         )
         .route(
-            "/v1/policies/:id",
+            "/v1/policies/{id}",
             get(policies::get_policy).delete(policies::delete_policy),
         )
         .route(
-            "/v1/policies/:id/enabled",
+            "/v1/policies/{id}/enabled",
             patch(policies::set_policy_enabled),
         )
         .route("/v1/policies/draft", post(policies::draft_policy))
         .route("/v1/policies/ai-edit", post(policies::ai_edit_policy))
         .route(
-            "/v1/policies/:id/versions",
+            "/v1/policies/{id}/versions",
             get(policies::list_policy_versions),
         )
         .route(
-            "/v1/policies/:id/versions/:version",
+            "/v1/policies/{id}/versions/{version}",
             get(policies::get_policy_version),
         )
         .with_state(PolicyState {
@@ -212,14 +212,14 @@ pub(super) fn guardrail_routes(
 ) -> Router {
     let guardrails = Router::new()
         .route(
-            "/v1/agents/:id/guardrails/generate",
+            "/v1/agents/{id}/guardrails/generate",
             post(policies::generate_guardrails),
         )
-        .route("/v1/agents/:id/guardrails", get(policies::list_guardrails))
+        .route("/v1/agents/{id}/guardrails", get(policies::list_guardrails))
         // Static (preventive) policies from the workflow analyzer — the
         // no-runnable-target twin of harden.
         .route(
-            "/v1/agents/:id/redteam/static-policies",
+            "/v1/agents/{id}/redteam/static-policies",
             post(redteam::generate_static_policies),
         )
         .with_state(policies::GuardrailState {
@@ -236,12 +236,12 @@ pub(super) fn guardrail_routes(
         .map(|client| Arc::new(client) as Arc<dyn redteam::RedteamPlanner>);
     let plans = Router::new()
         .route(
-            "/v1/agents/:id/redteam/plan",
+            "/v1/agents/{id}/redteam/plan",
             post(redteam::plan_attack_vectors),
         )
-        .route("/v1/agents/:id/redteam/plans", get(redteam::list_plans))
+        .route("/v1/agents/{id}/redteam/plans", get(redteam::list_plans))
         .route(
-            "/v1/redteam/plans/:id",
+            "/v1/redteam/plans/{id}",
             axum::routing::delete(redteam::delete_plan),
         )
         .with_state(redteam::PlanState {
@@ -266,7 +266,7 @@ pub(super) fn trace_routes(state: &AppState) -> Router {
 pub(super) fn human_review_routes(state: &AppState) -> Router {
     Router::new()
         .route(
-            "/v1/traces/:trace_id/review-events",
+            "/v1/traces/{trace_id}/review-events",
             get(human_review::list_review_events).post(human_review::create_review_event),
         )
         .route(
@@ -313,33 +313,33 @@ pub(super) fn financial_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> 
             post(financial::authorize_agentic_payment),
         )
         .route(
-            "/v1/financial/agentic-payments/:id",
+            "/v1/financial/agentic-payments/{id}",
             get(financial::get_agentic_payment),
         )
         .route(
-            "/v1/financial/agentic-payments/:id/commit",
+            "/v1/financial/agentic-payments/{id}/commit",
             post(financial::commit_agentic_payment),
         )
         .route(
-            "/v1/financial/agentic-payments/:id/rollback",
+            "/v1/financial/agentic-payments/{id}/rollback",
             post(financial::rollback_agentic_payment),
         )
         .route(
-            "/v1/financial/agentic-payments/:id/receipt",
+            "/v1/financial/agentic-payments/{id}/receipt",
             get(financial::get_agentic_payment_receipt),
         )
         .route(
             "/v1/financial/policies",
             post(financial::create_policy).get(financial::list_policies),
         )
-        .route("/v1/financial/receipts/:id", get(financial::get_receipt))
-        .route("/v1/financial/actions/:id", get(financial::get_action))
+        .route("/v1/financial/receipts/{id}", get(financial::get_receipt))
+        .route("/v1/financial/actions/{id}", get(financial::get_action))
         .route(
-            "/v1/financial/actions/:id/outcomes",
+            "/v1/financial/actions/{id}/outcomes",
             post(financial::record_action_outcome).get(financial::list_action_outcomes),
         )
         .route(
-            "/v1/financial/actions/:id/execute",
+            "/v1/financial/actions/{id}/execute",
             post(financial::execute_action),
         )
         .with_state(financial::FinancialState { service })
@@ -352,11 +352,11 @@ pub(super) fn budget_alert_routes(state: &AppState) -> Router {
             post(budget_alerts::create_budget_alert).get(budget_alerts::list_budget_alerts),
         )
         .route(
-            "/v1/financial/budget-alerts/:id",
+            "/v1/financial/budget-alerts/{id}",
             patch(budget_alerts::update_budget_alert).delete(budget_alerts::delete_budget_alert),
         )
         .route(
-            "/v1/financial/budget-alerts/:id/firings",
+            "/v1/financial/budget-alerts/{id}/firings",
             get(budget_alerts::list_budget_alert_firings),
         )
         .with_state(budget_alerts::BudgetAlertApiState {
@@ -379,7 +379,7 @@ pub(super) fn llm_pricing_routes(state: &AppState) -> Router {
     Router::new()
         .route("/v1/llm-pricing", get(llm_pricing::list_llm_pricing))
         .route(
-            "/v1/llm-pricing/:model",
+            "/v1/llm-pricing/{model}",
             put(llm_pricing::put_llm_price).delete(llm_pricing::delete_llm_price),
         )
         .with_state(llm_pricing::LlmPricingState {
@@ -397,7 +397,7 @@ pub(super) fn analytics_routes(state: &AppState) -> Router {
             get(analytics::list_views).post(analytics::create_view),
         )
         .route(
-            "/v1/analytics/views/:id",
+            "/v1/analytics/views/{id}",
             patch(analytics::update_view).delete(analytics::delete_view),
         )
         .with_state(analytics::AnalyticsState {
@@ -410,12 +410,12 @@ pub(super) fn analytics_routes(state: &AppState) -> Router {
 pub(super) fn run_routes(state: &AppState) -> Router {
     Router::new()
         .route("/v1/runs", get(runs::list_runs).post(runs::create_run))
-        .route("/v1/runs/:id", get(runs::get_run).patch(runs::update_run))
+        .route("/v1/runs/{id}", get(runs::get_run).patch(runs::update_run))
         .route(
-            "/v1/runs/:id/events",
+            "/v1/runs/{id}/events",
             get(runs::list_run_events).post(runs::create_run_event),
         )
-        .route("/v1/runs/:id/traces", get(runs::list_run_traces))
+        .route("/v1/runs/{id}/traces", get(runs::list_run_traces))
         .with_state(runs::RunState {
             store: state.run_store.clone(),
             environment_store: state.environment_store.clone(),
@@ -427,13 +427,13 @@ pub(super) fn redteam_routes(state: &AppState) -> Router {
         .route("/v1/redteam/dispatch", post(redteam::dispatch_job))
         .route("/v1/redteam/jobs", get(redteam::list_jobs))
         .route("/v1/redteam/attacks", get(redteam::list_attack_records))
-        .route("/v1/redteam/jobs/:id", get(redteam::get_job))
-        .route("/v1/redteam/jobs/:id/report", get(redteam::get_report))
-        .route("/v1/redteam/jobs/:id/harden", post(redteam::harden_job))
-        .route("/v1/redteam/jobs/:id/cancel", post(redteam::cancel_job))
+        .route("/v1/redteam/jobs/{id}", get(redteam::get_job))
+        .route("/v1/redteam/jobs/{id}/report", get(redteam::get_report))
+        .route("/v1/redteam/jobs/{id}/harden", post(redteam::harden_job))
+        .route("/v1/redteam/jobs/{id}/cancel", post(redteam::cancel_job))
         .route("/v1/redteam/reports", post(redteam::create_report))
         .route(
-            "/v1/redteam/reports/:token/revoke",
+            "/v1/redteam/reports/{token}/revoke",
             post(redteam::revoke_report),
         )
         .with_state(redteam::RedteamState {
@@ -467,7 +467,7 @@ pub(super) fn github_integration_routes(state: &AppState) -> Router {
                 .post(github_integration::handlers::create_connection),
         )
         .route(
-            "/v1/github-integration/connections/:id",
+            "/v1/github-integration/connections/{id}",
             axum::routing::delete(github_integration::handlers::disconnect_connection),
         )
         .route(
@@ -475,15 +475,15 @@ pub(super) fn github_integration_routes(state: &AppState) -> Router {
             post(github_integration::handlers::create_job),
         )
         .route(
-            "/v1/github-integration/jobs/:id",
+            "/v1/github-integration/jobs/{id}",
             get(github_integration::handlers::get_job),
         )
         .route(
-            "/v1/github-integration/jobs/:id/approve",
+            "/v1/github-integration/jobs/{id}/approve",
             post(github_integration::handlers::approve_job),
         )
         .route(
-            "/v1/github-integration/jobs/:id/cancel",
+            "/v1/github-integration/jobs/{id}/cancel",
             post(github_integration::handlers::cancel_job),
         )
         .with_state(github_integration_state(state))
@@ -525,7 +525,7 @@ pub(super) fn dashboard_admin_routes(state: &AppState) -> Router {
             get(dashboard_admin::get_settings).patch(dashboard_admin::update_settings),
         )
         .route(
-            "/v1/environments/:id/checker-modes",
+            "/v1/environments/{id}/checker-modes",
             get(dashboard_admin::get_environment_checker_modes)
                 .put(dashboard_admin::put_environment_checker_modes),
         )
@@ -544,7 +544,7 @@ pub(super) fn environment_routes(state: &AppState) -> Router {
             get(environments::list_environments).post(environments::create_environment),
         )
         .route(
-            "/v1/environments/:id",
+            "/v1/environments/{id}",
             patch(environments::update_environment).delete(environments::delete_environment),
         )
         .with_state(environments::EnvironmentState {
@@ -564,7 +564,7 @@ pub(super) fn knowledge_routes(state: &AppState) -> Router {
                 .post(knowledge_sources::create_knowledge_source),
         )
         .route(
-            "/v1/knowledge-sources/:id/file",
+            "/v1/knowledge-sources/{id}/file",
             get(knowledge_sources::get_knowledge_source_file),
         )
         .with_state(knowledge_sources::KnowledgeState {
@@ -580,7 +580,7 @@ pub(super) fn team_routes(state: &AppState) -> Router {
             get(team::list_invites).post(team::create_invite),
         )
         .route(
-            "/v1/team/invites/:id",
+            "/v1/team/invites/{id}",
             axum::routing::delete(team::revoke_invite),
         )
         .route(
@@ -588,7 +588,7 @@ pub(super) fn team_routes(state: &AppState) -> Router {
             get(team::list_my_workspaces).post(team::create_my_workspace),
         )
         .route(
-            "/v1/team/my-workspaces/:id",
+            "/v1/team/my-workspaces/{id}",
             axum::routing::delete(team::delete_my_workspace),
         )
         .with_state(team::TeamState {

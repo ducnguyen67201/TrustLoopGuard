@@ -129,7 +129,7 @@ fn build_app() -> Router {
             axum::routing::post(agents::upsert_agent).get(agents::list_agents),
         )
         .route(
-            "/v1/agents/:id",
+            "/v1/agents/{id}",
             axum::routing::get(agents::get_agent).delete(agents::delete_agent),
         )
         .with_state(agent_state);
@@ -143,11 +143,11 @@ fn build_app() -> Router {
     };
     let guardrail_routes = Router::new()
         .route(
-            "/v1/agents/:id/guardrails/generate",
+            "/v1/agents/{id}/guardrails/generate",
             axum::routing::post(policies::generate_guardrails),
         )
         .route(
-            "/v1/agents/:id/guardrails",
+            "/v1/agents/{id}/guardrails",
             axum::routing::get(policies::list_guardrails),
         )
         .with_state(guardrail_state);
