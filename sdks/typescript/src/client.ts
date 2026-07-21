@@ -11,6 +11,7 @@ import type { AuthorizationApprovalListResponse } from './generated/Authorizatio
 import type { AuthorizationGrant } from './generated/AuthorizationGrant.js';
 import type { AuthorizationGrantListResponse } from './generated/AuthorizationGrantListResponse.js';
 import type { AuthorizationReceipt } from './generated/AuthorizationReceipt.js';
+import type { AuthorizationReceiptListResponse } from './generated/AuthorizationReceiptListResponse.js';
 import type { CompleteAuthorizationLeaseRequest } from './generated/CompleteAuthorizationLeaseRequest.js';
 import type { CreateAuthorizationGrantRequest } from './generated/CreateAuthorizationGrantRequest.js';
 import type { DecideAuthorizationApprovalRequest } from './generated/DecideAuthorizationApprovalRequest.js';
@@ -908,6 +909,18 @@ export class Client {
       (retrySignal) =>
         this.sendJson<AuthorizationReceipt>(
           `/v1/authorization/receipts/${encodeURIComponent(receiptId)}`,
+          { method: 'GET' },
+          retrySignal,
+        ),
+      signal,
+    );
+  }
+
+  async listAuthorizationReceipts(signal?: AbortSignal): Promise<AuthorizationReceiptListResponse> {
+    return this.withRetry(
+      (retrySignal) =>
+        this.sendJson<AuthorizationReceiptListResponse>(
+          '/v1/authorization/receipts',
           { method: 'GET' },
           retrySignal,
         ),

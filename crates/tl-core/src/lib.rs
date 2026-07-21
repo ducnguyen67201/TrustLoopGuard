@@ -154,7 +154,7 @@ pub use mcp_gateway::{
     CreateMcpGatewayConnectionRequest, McpGatewayAuthKind, McpGatewayCatalogStatus,
     McpGatewayConnectInfo, McpGatewayConnection, McpGatewayConnectionListResponse,
     McpGatewayCredentialStatus, McpGatewaySyncResponse, McpGatewaySyncStatus, McpGatewayTool,
-    McpGatewayToolAssignmentsResponse, McpGatewayToolListResponse,
+    McpGatewayToolAssignment, McpGatewayToolAssignmentsResponse, McpGatewayToolListResponse,
     ReplaceMcpGatewayToolAssignmentsRequest, UpdateMcpGatewayConnectionRequest,
     UpdateMcpGatewayToolRequest,
 };

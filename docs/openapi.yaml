@@ -985,6 +985,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/authorization/receipts:
+    get:
+      tags:
+      - authorization
+      operationId: list_receipts
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationReceiptListResponse'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/authorization/receipts/{id}:
     get:
       tags:
@@ -5409,18 +5427,39 @@ components:
           type:
           - string
           - 'null'
+        operation:
+          type:
+          - string
+          - 'null'
         policy_versions:
           type: array
           items:
             type: string
+        principal_id:
+          type:
+          - string
+          - 'null'
         reason:
           type: string
+        run_id:
+          type:
+          - string
+          - 'null'
         subject_hash:
           type: string
         trace_id:
           type:
           - string
           - 'null'
+    AuthorizationReceiptListResponse:
+      type: object
+      required:
+      - receipts
+      properties:
+        receipts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorizationReceipt'
     AuthorizationSubject:
       oneOf:
       - type: object
@@ -8222,11 +8261,16 @@ components:
       - created_at
       - updated_at
       properties:
+        agent_assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/McpGatewayToolAssignment'
         annotations: {}
         assigned_user_ids:
           type: array
           items:
             type: string
+          description: Compatibility union of legacy and agent-bound assignments.
         catalog_status:
           $ref: '#/components/schemas/McpGatewayCatalogStatus'
         connection_id:
@@ -8253,16 +8297,34 @@ components:
           type:
           - string
           - 'null'
+        unbound_user_ids:
+          type: array
+          items:
+            type: string
+          description: Legacy user-only rows that do not authorize hosted MCP runtime calls.
         updated_at:
           type: string
         upstream_name:
+          type: string
+    McpGatewayToolAssignment:
+      type: object
+      required:
+      - user_id
+      - agent_id
+      properties:
+        agent_id:
+          type: string
+        user_id:
           type: string
     McpGatewayToolAssignmentsResponse:
       type: object
       required:
       - tool_id
+      - agent_id
       - user_ids
       properties:
+        agent_id:
+          type: string
         tool_id:
           type: string
         user_ids:
@@ -9305,8 +9367,11 @@ components:
     ReplaceMcpGatewayToolAssignmentsRequest:
       type: object
       required:
+      - agent_id
       - user_ids
       properties:
+        agent_id:
+          type: string
         user_ids:
           type: array
           items:

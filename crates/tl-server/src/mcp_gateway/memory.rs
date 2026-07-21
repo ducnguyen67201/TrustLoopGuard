@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use tl_core::{
     McpGatewayAuthKind, McpGatewayCatalogStatus, McpGatewayConnection, McpGatewayCredentialStatus,
-    McpGatewaySyncStatus, McpGatewayTool, SideEffectClass,
+    McpGatewaySyncStatus, McpGatewayTool, McpGatewayToolAssignment, SideEffectClass,
 };
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -23,6 +23,7 @@ pub struct MemoryMcpGatewayStore {
 struct MemoryState {
     connections: HashMap<(String, Uuid), (McpGatewayConnection, Option<String>)>,
     tools: HashMap<(String, Uuid), McpGatewayTool>,
+    agent_assignments: HashMap<(String, Uuid, String), BTreeSet<Uuid>>,
     assignments: HashMap<(String, Uuid), BTreeSet<Uuid>>,
 }
 
@@ -39,6 +40,41 @@ fn credential_status(
 
 fn now() -> String {
     Utc::now().to_rfc3339()
+}
+
+fn assignment_views(
+    state: &MemoryState,
+    workspace_id: &str,
+    tool_id: Uuid,
+) -> (Vec<String>, Vec<McpGatewayToolAssignment>, Vec<String>) {
+    let legacy = state
+        .assignments
+        .get(&(workspace_id.to_string(), tool_id))
+        .cloned()
+        .unwrap_or_default();
+    let pairs = state
+        .agent_assignments
+        .iter()
+        .filter(|((workspace, assigned_tool, _), _)| {
+            workspace == workspace_id && *assigned_tool == tool_id
+        })
+        .flat_map(|((_, _, agent_id), users)| {
+            users.iter().map(move |user_id| McpGatewayToolAssignment {
+                user_id: user_id.to_string(),
+                agent_id: agent_id.clone(),
+            })
+        })
+        .collect::<Vec<_>>();
+    let bound = pairs
+        .iter()
+        .filter_map(|assignment| Uuid::parse_str(&assignment.user_id).ok())
+        .collect::<BTreeSet<_>>();
+    let unbound = legacy.difference(&bound).map(ToString::to_string).collect();
+    (
+        legacy.into_iter().map(|id| id.to_string()).collect(),
+        pairs,
+        unbound,
+    )
 }
 
 #[async_trait]
@@ -199,6 +235,9 @@ impl McpGatewayStore for MemoryMcpGatewayStore {
         for id in ids {
             state.tools.remove(&(workspace_id.to_string(), id));
             state.assignments.remove(&(workspace_id.to_string(), id));
+            state
+                .agent_assignments
+                .retain(|(workspace, tool_id, _), _| workspace != workspace_id || *tool_id != id);
         }
         Ok(())
     }
@@ -232,14 +271,8 @@ impl McpGatewayStore for MemoryMcpGatewayStore {
                 })
                 .map(|((_, id), _)| *id)
                 .unwrap_or_else(Uuid::new_v4);
-            let assigned = state
-                .assignments
-                .get(&(workspace_id.to_string(), existing))
-                .cloned()
-                .unwrap_or_default()
-                .into_iter()
-                .map(|id| id.to_string())
-                .collect();
+            let (assigned, agent_assignments, unbound_user_ids) =
+                assignment_views(&state, workspace_id, existing);
             let timestamp = now();
             let created_at = state
                 .tools
@@ -268,6 +301,8 @@ impl McpGatewayStore for MemoryMcpGatewayStore {
                     side_effect: SideEffectClass::ApiMutation,
                     catalog_status: McpGatewayCatalogStatus::Active,
                     assigned_user_ids: assigned,
+                    agent_assignments,
+                    unbound_user_ids,
                     created_at,
                     updated_at: timestamp,
                 },
@@ -301,17 +336,14 @@ impl McpGatewayStore for MemoryMcpGatewayStore {
             .filter(|((workspace, _), _)| workspace == workspace_id)
             .map(|(_, tool)| {
                 let mut tool = tool.clone();
-                tool.assigned_user_ids = state
-                    .assignments
-                    .get(&(
-                        workspace_id.to_string(),
-                        Uuid::parse_str(&tool.id).unwrap_or_default(),
-                    ))
-                    .cloned()
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|id| id.to_string())
-                    .collect();
+                let (assigned_user_ids, agent_assignments, unbound_user_ids) = assignment_views(
+                    &state,
+                    workspace_id,
+                    Uuid::parse_str(&tool.id).unwrap_or_default(),
+                );
+                tool.assigned_user_ids = assigned_user_ids;
+                tool.agent_assignments = agent_assignments;
+                tool.unbound_user_ids = unbound_user_ids;
                 tool
             })
             .collect::<Vec<_>>();
@@ -325,12 +357,16 @@ impl McpGatewayStore for MemoryMcpGatewayStore {
         side_effect: SideEffectClass,
     ) -> Result<McpGatewayTool, McpGatewayStoreError> {
         let mut state = self.inner.write().await;
+        let assignment_views = assignment_views(&state, workspace_id, tool_id);
         let tool = state
             .tools
             .get_mut(&(workspace_id.to_string(), tool_id))
             .ok_or(McpGatewayStoreError::NotFound)?;
         tool.side_effect = side_effect;
         tool.updated_at = now();
+        tool.assigned_user_ids = assignment_views.0;
+        tool.agent_assignments = assignment_views.1;
+        tool.unbound_user_ids = assignment_views.2;
         Ok(tool.clone())
     }
     async fn mark_tool_schema_changed(
@@ -350,6 +386,7 @@ impl McpGatewayStore for MemoryMcpGatewayStore {
         &self,
         workspace_id: &str,
         user_id: Uuid,
+        agent_id: &str,
         public_name: &str,
     ) -> Result<EntitledMcpTool, McpGatewayStoreError> {
         let state = self.inner.read().await;
@@ -361,8 +398,8 @@ impl McpGatewayStore for MemoryMcpGatewayStore {
                     && tool.public_name == public_name
                     && tool.catalog_status == McpGatewayCatalogStatus::Active
                     && state
-                        .assignments
-                        .get(&(workspace.clone(), *id))
+                        .agent_assignments
+                        .get(&(workspace.clone(), *id, agent_id.to_string()))
                         .is_some_and(|users| users.contains(&user_id))
             })
             .map(|(_, tool)| tool.clone())
@@ -378,6 +415,11 @@ impl McpGatewayStore for MemoryMcpGatewayStore {
             .ok_or(McpGatewayStoreError::NotFound)?;
         let mut tool = tool;
         tool.assigned_user_ids = vec![user_id.to_string()];
+        tool.agent_assignments = vec![McpGatewayToolAssignment {
+            user_id: user_id.to_string(),
+            agent_id: agent_id.to_string(),
+        }];
+        tool.unbound_user_ids.clear();
         Ok(EntitledMcpTool {
             tool,
             endpoint_url: connection.endpoint_url.clone(),
@@ -392,6 +434,7 @@ impl McpGatewayStore for MemoryMcpGatewayStore {
         &self,
         workspace_id: &str,
         user_id: Uuid,
+        agent_id: &str,
         after_public_name: Option<&str>,
         limit: u32,
     ) -> Result<Vec<EntitledMcpTool>, McpGatewayStoreError> {
@@ -412,7 +455,7 @@ impl McpGatewayStore for MemoryMcpGatewayStore {
         let mut out = Vec::new();
         for name in names {
             if let Ok(tool) = self
-                .resolve_entitled_tool(workspace_id, user_id, &name)
+                .resolve_entitled_tool(workspace_id, user_id, agent_id, &name)
                 .await
             {
                 out.push(tool);
@@ -423,10 +466,11 @@ impl McpGatewayStore for MemoryMcpGatewayStore {
         }
         Ok(out)
     }
-    async fn replace_assignments(
+    async fn replace_agent_assignments(
         &self,
         workspace_id: &str,
         tool_id: Uuid,
+        agent_id: &str,
         user_ids: Vec<Uuid>,
         _created_by: Option<Uuid>,
     ) -> Result<Vec<Uuid>, McpGatewayStoreError> {
@@ -443,12 +487,62 @@ impl McpGatewayStore for MemoryMcpGatewayStore {
         {
             return Err(McpGatewayStoreError::NotFound);
         }
-        state
+        let key = (workspace_id.to_string(), tool_id, agent_id.to_string());
+        let previous = state
+            .agent_assignments
+            .insert(key, unique.clone())
+            .unwrap_or_default();
+        let mut remove_from_legacy = Vec::new();
+        for removed in previous.difference(&unique) {
+            let remains_bound =
+                state
+                    .agent_assignments
+                    .iter()
+                    .any(|((workspace, assigned_tool, _), users)| {
+                        workspace == workspace_id
+                            && *assigned_tool == tool_id
+                            && users.contains(removed)
+                    });
+            if !remains_bound {
+                remove_from_legacy.push(*removed);
+            }
+        }
+        let legacy = state
             .assignments
-            .insert((workspace_id.to_string(), tool_id), unique.clone());
+            .entry((workspace_id.to_string(), tool_id))
+            .or_default();
+        legacy.extend(unique.iter().copied());
+        for removed in remove_from_legacy {
+            legacy.remove(&removed);
+        }
+        let assigned_user_ids = legacy.iter().map(ToString::to_string).collect::<Vec<_>>();
+        let agent_assignments = state
+            .agent_assignments
+            .iter()
+            .filter(|((workspace, assigned_tool, _), _)| {
+                workspace == workspace_id && *assigned_tool == tool_id
+            })
+            .flat_map(|((_, _, assigned_agent), users)| {
+                users.iter().map(move |user_id| McpGatewayToolAssignment {
+                    user_id: user_id.to_string(),
+                    agent_id: assigned_agent.clone(),
+                })
+            })
+            .collect::<Vec<_>>();
+        let bound = agent_assignments
+            .iter()
+            .map(|assignment| assignment.user_id.as_str())
+            .collect::<BTreeSet<_>>();
+        let unbound_user_ids = assigned_user_ids
+            .iter()
+            .filter(|user_id| !bound.contains(user_id.as_str()))
+            .cloned()
+            .collect();
         let output = unique.into_iter().collect::<Vec<_>>();
         if let Some(tool) = state.tools.get_mut(&(workspace_id.to_string(), tool_id)) {
-            tool.assigned_user_ids = output.iter().map(ToString::to_string).collect();
+            tool.assigned_user_ids = assigned_user_ids;
+            tool.agent_assignments = agent_assignments;
+            tool.unbound_user_ids = unbound_user_ids;
         }
         Ok(output)
     }

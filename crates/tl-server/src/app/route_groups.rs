@@ -136,6 +136,10 @@ pub(super) fn authorization_routes(state: &AppState) -> Router {
             post(authorization::complete_lease),
         )
         .route(
+            "/v1/authorization/receipts",
+            get(authorization::list_receipts),
+        )
+        .route(
             "/v1/authorization/receipts/:id",
             get(authorization::get_receipt),
         )

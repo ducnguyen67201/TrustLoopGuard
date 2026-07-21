@@ -55,6 +55,33 @@ pub(super) async fn require_signed_member_feature(
             "MCP access is not enabled for this workspace",
         ));
     }
+    match app
+        .agent_store
+        .get(&context.workspace_id, &context.agent_id)
+        .await
+    {
+        Ok(_) => {}
+        Err(crate::agents::AgentStoreError::NotFound) => {
+            return Err(error_response(
+                StatusCode::FORBIDDEN,
+                ApiErrorCode::Forbidden,
+                "the OAuth-bound agent is no longer available",
+            ))
+        }
+        Err(error) => {
+            tracing::error!(
+                workspace_id = %context.workspace_id,
+                agent_id = %context.agent_id,
+                error = %error,
+                "MCP agent lookup failed"
+            );
+            return Err(error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                "agent lookup failed",
+            ));
+        }
+    }
     Ok(workspace)
 }
 

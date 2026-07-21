@@ -41,6 +41,12 @@ pub(crate) struct EventSubmissionResult {
     pub authorization: AuthorizationDecision,
 }
 
+#[derive(Debug, Clone, Default)]
+pub(crate) struct EventSubmissionContext {
+    pub authorization_principal_id: Option<String>,
+    pub additional_findings: Vec<AuthorizationFinding>,
+}
+
 pub(crate) async fn execute_event_submission(
     state: &AppState,
     workspace_id: &str,
@@ -48,7 +54,15 @@ pub(crate) async fn execute_event_submission(
     event: GuardEvent,
     start: std::time::Instant,
 ) -> Result<EventSubmissionResult, Response> {
-    execute_event_submission_inner(state, workspace_id, environment_id, event, start, None).await
+    execute_event_submission_inner(
+        state,
+        workspace_id,
+        environment_id,
+        event,
+        start,
+        EventSubmissionContext::default(),
+    )
+    .await
 }
 
 pub(crate) async fn execute_event_submission_as_principal(
@@ -65,9 +79,23 @@ pub(crate) async fn execute_event_submission_as_principal(
         environment_id,
         event,
         start,
-        Some(authorization_principal_id),
+        EventSubmissionContext {
+            authorization_principal_id: Some(authorization_principal_id.to_string()),
+            additional_findings: Vec::new(),
+        },
     )
     .await
+}
+
+pub(crate) async fn execute_event_submission_with_context(
+    state: &AppState,
+    workspace_id: &str,
+    environment_id: &str,
+    event: GuardEvent,
+    start: std::time::Instant,
+    context: EventSubmissionContext,
+) -> Result<EventSubmissionResult, Response> {
+    execute_event_submission_inner(state, workspace_id, environment_id, event, start, context).await
 }
 
 async fn execute_event_submission_inner(
@@ -76,7 +104,7 @@ async fn execute_event_submission_inner(
     environment_id: &str,
     mut event: GuardEvent,
     start: std::time::Instant,
-    authorization_principal_id: Option<&str>,
+    context: EventSubmissionContext,
 ) -> Result<EventSubmissionResult, Response> {
     // Authorization is a replay credential, not trace evidence. Extract it
     // before validation/pipeline work and never persist it with the event.
@@ -265,13 +293,16 @@ async fn execute_event_submission_inner(
     let requirement_id = requirement
         .as_ref()
         .map(|requirement| requirement.id.clone());
-    let findings = authorization_findings(&event, &decision, requirement_id.as_deref());
+    let mut findings = authorization_findings(&event, &decision, requirement_id.as_deref());
+    findings.extend(context.additional_findings);
     let authorization_decision = state
         .authorization_coordinator
         .evaluate(crate::authorization::AuthorizationEvaluationRequest {
             workspace_id: workspace_id.to_string(),
             environment_id: environment_id.to_string(),
-            principal_id: authorization_principal_id
+            principal_id: context
+                .authorization_principal_id
+                .as_deref()
                 .unwrap_or(&event.principal.agent_id)
                 .to_string(),
             subject,
@@ -284,6 +315,7 @@ async fn execute_event_submission_inner(
             claim: authorization,
             attempt_id,
             trace_id: decision.trace_id.clone(),
+            run_id: event.principal.run_id.clone(),
             transformed_value: decision.safe_output.clone().map(serde_json::Value::String),
             intent_expires_at: None,
         })
@@ -617,21 +649,19 @@ fn authorization_error(error: crate::authorization::AuthorizationError) -> Respo
 }
 
 fn trace_domain(event: &GuardEvent) -> &'static str {
-    let is_gateway = event
+    let integration_mode = event
         .context
         .get("integration_mode")
-        .and_then(serde_json::Value::as_str)
-        == Some("gateway");
-    if !is_gateway {
-        return EVENT_TRACE_DOMAIN;
-    }
-    match event
+        .and_then(serde_json::Value::as_str);
+    let phase = event
         .context
         .get("gateway_phase")
-        .and_then(serde_json::Value::as_str)
-    {
-        Some("gateway_input_check") => "gateway_input",
-        Some("gateway_output_check") => "gateway_output",
+        .and_then(serde_json::Value::as_str);
+    match (integration_mode, phase) {
+        (Some("gateway"), Some("gateway_input_check"))
+        | (Some("hosted_mcp"), Some("mcp_preflight")) => "gateway_input",
+        (Some("gateway"), Some("gateway_output_check"))
+        | (Some("hosted_mcp"), Some("mcp_result_disclosure")) => "gateway_output",
         _ => EVENT_TRACE_DOMAIN,
     }
 }

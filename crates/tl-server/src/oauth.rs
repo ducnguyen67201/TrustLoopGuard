@@ -346,6 +346,8 @@ struct AuthorizeRequest {
     resource: Option<String>,
     #[serde(default)]
     scope: Option<String>,
+    #[serde(default)]
+    agent_id: Option<String>,
 }
 
 async fn authorize(
@@ -428,6 +430,40 @@ async fn authorize(
             "user is not a member of the selected workspace",
         );
     };
+    let agent_id = if binding.hosted_mcp {
+        let Some(agent_id) = req
+            .agent_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty() && value.len() <= 200)
+        else {
+            return oauth_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_request",
+                "agent_id is required for hosted MCP access",
+            );
+        };
+        match app.agent_store.get(&workspace_id, agent_id).await {
+            Ok(_) => Some(agent_id.to_string()),
+            Err(crate::agents::AgentStoreError::NotFound) => {
+                return oauth_error(
+                    StatusCode::FORBIDDEN,
+                    "access_denied",
+                    "the selected agent is not available in this workspace",
+                )
+            }
+            Err(error) => {
+                tracing::error!(workspace_id, error = %error, "oauth agent lookup failed");
+                return oauth_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "server_error",
+                    "agent lookup failed",
+                );
+            }
+        }
+    } else {
+        None
+    };
     let code = random_token();
     let record = OAuthAuthorizationCodeRecord {
         client_id: req.client_id,
@@ -435,6 +471,7 @@ async fn authorize(
         user_id,
         username: member.username,
         workspace_id,
+        agent_id,
         resource: binding.resource,
         scope: binding.scope,
         code_challenge: req.code_challenge,
@@ -531,6 +568,7 @@ async fn token(State(state): State<OAuthPublicState>, Form(form): Form<TokenForm
                 entry.user_id,
                 &entry.username,
                 &entry.workspace_id,
+                entry.agent_id.as_deref(),
                 &entry.resource,
                 &entry.scope,
             )
@@ -579,6 +617,7 @@ async fn token(State(state): State<OAuthPublicState>, Form(form): Form<TokenForm
                 entry.user_id,
                 &entry.username,
                 &entry.workspace_id,
+                entry.agent_id.as_deref(),
                 &entry.resource,
                 &entry.scope,
             )
@@ -600,14 +639,33 @@ async fn issue_tokens(
     user_id: Uuid,
     username: &str,
     workspace_id: &str,
+    agent_id: Option<&str>,
     resource: &str,
     scope: &str,
 ) -> Response {
     let access = if resource == mcp_resource_url() && scope == MCP_SCOPE {
+        let Some(agent_id) = agent_id else {
+            return oauth_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_grant",
+                "hosted MCP authorization must be renewed",
+            );
+        };
+        if let Err(error) = app.agent_store.get(workspace_id, agent_id).await {
+            if !matches!(error, crate::agents::AgentStoreError::NotFound) {
+                tracing::error!(workspace_id, agent_id, error = %error, "oauth agent revalidation failed");
+            }
+            return oauth_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_grant",
+                "hosted MCP authorization must be renewed",
+            );
+        }
         signer.mint_mcp_access_token(
             user_id,
             username,
             workspace_id,
+            agent_id,
             &issuer(),
             resource,
             client_id,
@@ -633,6 +691,7 @@ async fn issue_tokens(
         user_id,
         username: username.to_string(),
         workspace_id: workspace_id.to_string(),
+        agent_id: agent_id.map(str::to_string),
         resource: resource.to_string(),
         scope: scope.to_string(),
         expires_at: expires_after_seconds(REFRESH_TTL_SECONDS),

@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  IconActivity,
   IconCheck,
   IconClockHour4,
   IconFingerprint,
@@ -8,7 +9,14 @@ import {
   IconShieldCheck,
   IconX,
 } from '@tabler/icons-react';
-import type { AuthorizationApproval, AuthorizationDomain, GrantMode } from '@trustloopguard/sdk';
+import type {
+  AuthorizationApproval,
+  AuthorizationDomain,
+  AuthorizationEffect,
+  AuthorizationReceipt,
+  GrantMode,
+} from '@trustloopguard/sdk';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -31,10 +39,13 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 
+import { FinancialAuthorizationBadge } from './financial-utils';
+
 type Props = {
   workspaceSlug: string;
   environmentId: string;
   approvals: AuthorizationApproval[];
+  receipts?: AuthorizationReceipt[];
 };
 
 const decisionResponseSchema = z.object({
@@ -49,6 +60,14 @@ const decisionResponseSchema = z.object({
   grant: z.object({ id: z.string() }).nullable().optional(),
 });
 const domainFilterSchema = z.enum(['all', 'content', 'tool', 'financial']);
+const effectFilterSchema = z.enum([
+  'all',
+  'permit',
+  'deny',
+  'transform',
+  'require_approval',
+  'defer',
+]);
 const statusVariant: Record<
   AuthorizationApproval['status'],
   'outline' | 'permit' | 'deny' | 'defer'
@@ -60,9 +79,15 @@ const statusVariant: Record<
   expired: 'defer',
 };
 
-export function AuthorizationApprovalsContent({ workspaceSlug, environmentId, approvals }: Props) {
+export function AuthorizationApprovalsContent({
+  workspaceSlug,
+  environmentId,
+  approvals,
+  receipts = [],
+}: Props) {
   const [rows, setRows] = useState(approvals);
   const [domain, setDomain] = useState<AuthorizationDomain | 'all'>('all');
+  const [effect, setEffect] = useState<AuthorizationEffect | 'all'>('all');
   const [selected, setSelected] = useState<AuthorizationApproval | null>(null);
   const [busy, setBusy] = useState(false);
   const query = `?workspace=${encodeURIComponent(workspaceSlug)}&environment=${encodeURIComponent(environmentId)}`;
@@ -79,6 +104,15 @@ export function AuthorizationApprovalsContent({ workspaceSlug, environmentId, ap
         (row) => row.status !== 'pending' && (domain === 'all' || row.envelope.domain === domain),
       ),
     [domain, rows],
+  );
+  const activity = useMemo(
+    () =>
+      receipts.filter(
+        (receipt) =>
+          (domain === 'all' || receipt.domain === domain) &&
+          (effect === 'all' || receipt.effect === effect),
+      ),
+    [domain, effect, receipts],
   );
   const summary = useMemo(() => buildSummary(rows), [rows]);
 
@@ -236,40 +270,152 @@ export function AuthorizationApprovalsContent({ workspaceSlug, environmentId, ap
       cell: (row) => scopeSummary(row),
     },
   ];
+  const activityColumns: DataTableColumn<AuthorizationReceipt>[] = [
+    {
+      id: 'time',
+      header: 'Time',
+      cellClassName: 'w-44 max-w-44',
+      cell: (row) => (
+        <time dateTime={row.created_at} className="text-xs text-muted-foreground">
+          {formatDate(row.created_at)}
+        </time>
+      ),
+    },
+    {
+      id: 'outcome',
+      header: 'Outcome',
+      cellClassName: 'w-36 max-w-36',
+      cell: (row) => <FinancialAuthorizationBadge effect={row.effect} />,
+    },
+    {
+      id: 'domain',
+      header: 'Domain',
+      cell: (row) => <Badge variant="outline">{row.domain}</Badge>,
+    },
+    {
+      id: 'principal',
+      header: 'Principal',
+      cellClassName: 'min-w-44 max-w-56',
+      cell: (row) => (
+        <span className="block truncate" title={row.principal_id ?? undefined}>
+          {row.principal_id ?? 'Legacy / unknown'}
+        </span>
+      ),
+    },
+    {
+      id: 'operation',
+      header: 'Operation',
+      cellClassName: 'min-w-56 max-w-72',
+      cell: (row) => (
+        <div className="grid gap-1">
+          <span className="truncate font-mono text-xs" title={row.operation ?? undefined}>
+            {row.operation ?? '—'}
+          </span>
+          {row.run_id ? (
+            <Link
+              className="text-xs text-primary hover:underline"
+              href={`/runs/${encodeURIComponent(row.run_id)}${query}`}
+            >
+              View run
+            </Link>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      id: 'reason',
+      header: 'Reason',
+      cellClassName: 'min-w-64 max-w-md',
+      cell: (row) => (
+        <div className="grid gap-1">
+          <span className="line-clamp-2 text-sm">{row.reason}</span>
+          <Link
+            className="text-xs text-primary hover:underline"
+            href={`/authorization/receipts/${encodeURIComponent(row.id)}${query}`}
+          >
+            View receipt
+          </Link>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="grid gap-6 px-4 lg:px-6">
       <PageHeader
         eyebrow="Unified authorization"
-        title="Approvals"
-        description="The only queue that can authorize or deny a waiting action across tools, content workflows, and finance."
+        title="Authorization"
+        description="Review policy outcomes, act on waiting approvals, and inspect authorization history across tools, content workflows, and finance."
       />
       <div className="grid gap-3 md:grid-cols-4">
+        <MetricCard label="Activity" value={receipts.length} icon={<IconActivity />} />
         <MetricCard label="Pending" value={summary.pending} icon={<IconClockHour4 />} />
         <MetricCard label="Expiring soon" value={summary.expiringSoon} icon={<IconShieldCheck />} />
-        <MetricCard label="Reusable scope" value={summary.scoped} icon={<IconFingerprint />} />
         <MetricCard label="History" value={summary.history} icon={<IconHistory />} />
       </div>
-      <Tabs defaultValue="pending">
+      <Tabs defaultValue="activity">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <TabsList aria-label="Approval views">
-            <TabsTrigger value="pending">Pending</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
+          <TabsList aria-label="Authorization views">
+            <TabsTrigger value="activity">Activity</TabsTrigger>
+            <TabsTrigger value="pending">Needs approval</TabsTrigger>
+            <TabsTrigger value="history">Approval history</TabsTrigger>
           </TabsList>
-          <label className="flex w-fit items-center gap-2 text-sm">
-            Domain
-            <select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs"
-              value={domain}
-              onChange={(event) => setDomain(domainFilterSchema.parse(event.target.value))}
-            >
-              <option value="all">All</option>
-              <option value="tool">Tool</option>
-              <option value="financial">Financial</option>
-              <option value="content">Content</option>
-            </select>
-          </label>
+          <div className="flex flex-wrap gap-3">
+            <label className="flex w-fit items-center gap-2 text-sm">
+              Domain
+              <select
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs"
+                value={domain}
+                onChange={(event) => setDomain(domainFilterSchema.parse(event.target.value))}
+              >
+                <option value="all">All</option>
+                <option value="tool">Tool</option>
+                <option value="financial">Financial</option>
+                <option value="content">Content</option>
+              </select>
+            </label>
+            <label className="flex w-fit items-center gap-2 text-sm">
+              Outcome
+              <select
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs"
+                value={effect}
+                onChange={(event) => setEffect(effectFilterSchema.parse(event.target.value))}
+              >
+                <option value="all">All</option>
+                <option value="permit">Permit</option>
+                <option value="deny">Deny</option>
+                <option value="defer">Defer</option>
+                <option value="require_approval">Require approval</option>
+                <option value="transform">Transform</option>
+              </select>
+            </label>
+          </div>
         </div>
+        <TabsContent value="activity">
+          <Card>
+            <CardHeader>
+              <CardTitle>Authorization activity</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Policy and authority outcomes. A permit is an evaluated outcome, not a human
+                approval.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={activityColumns}
+                rows={activity}
+                getRowKey={(row) => row.id}
+                caption="Authorization receipt activity"
+                empty={
+                  <EmptyState
+                    title="No authorization activity"
+                    description="Policy and authority receipts will appear here."
+                  />
+                }
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
         <TabsContent value="pending">
           <Card>
             <CardHeader className="flex-row items-center justify-between gap-4">

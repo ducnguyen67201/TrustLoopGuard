@@ -150,6 +150,7 @@ pub struct McpAccessContext {
     pub user_id: uuid::Uuid,
     pub username: String,
     pub workspace_id: String,
+    pub agent_id: String,
     pub client_id: String,
     pub resource: String,
     pub scope: String,
@@ -339,6 +340,9 @@ pub async fn require_mcp_bearer(
     let client_id = claims
         .oauth_client_id
         .ok_or_else(|| unauthorized_mcp("invalid bearer token"))?;
+    let agent_id = claims
+        .agent_id
+        .ok_or_else(|| unauthorized_mcp("invalid bearer token"))?;
     let scope = claims
         .scope
         .ok_or_else(|| unauthorized_mcp("invalid bearer token"))?;
@@ -354,6 +358,7 @@ pub async fn require_mcp_bearer(
         user_id,
         username: claims.username,
         workspace_id,
+        agent_id,
         client_id,
         resource,
         scope,

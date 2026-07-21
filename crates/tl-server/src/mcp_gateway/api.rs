@@ -466,6 +466,10 @@ pub async fn replace_assignments(
     if input.user_ids.len() > 500 {
         return invalid("at most 500 user assignments are allowed");
     }
+    let agent_id = input.agent_id.trim().to_string();
+    if agent_id.is_empty() || agent_id.len() > 200 {
+        return invalid("agent_id must be between 1 and 200 characters");
+    }
     let mut users = Vec::with_capacity(input.user_ids.len());
     for value in input.user_ids {
         match Uuid::parse_str(&value) {
@@ -475,11 +479,12 @@ pub async fn replace_assignments(
     }
     match state
         .store
-        .replace_assignments(&workspace_id, id, users, created_by)
+        .replace_agent_assignments(&workspace_id, id, &agent_id, users, created_by)
         .await
     {
         Ok(user_ids) => Json(McpGatewayToolAssignmentsResponse {
             tool_id: id.to_string(),
+            agent_id,
             user_ids: user_ids.into_iter().map(|id| id.to_string()).collect(),
         })
         .into_response(),

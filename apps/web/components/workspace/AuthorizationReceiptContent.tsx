@@ -1,11 +1,22 @@
 import type { AuthorizationReceipt } from '@trustloopguard/sdk';
+import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { FinancialAuthorizationBadge, formatDateTime } from './financial-utils';
 
-export function AuthorizationReceiptContent({ receipt }: { receipt: AuthorizationReceipt }) {
+export function AuthorizationReceiptContent({
+  receipt,
+  workspaceSlug,
+  environmentId,
+}: {
+  receipt: AuthorizationReceipt;
+  workspaceSlug: string;
+  environmentId: string;
+}) {
+  const query = `?workspace=${encodeURIComponent(workspaceSlug)}&environment=${encodeURIComponent(environmentId)}`;
   return (
     <div className="grid gap-4 px-4 lg:px-6">
       <PageHeader
@@ -30,6 +41,24 @@ export function AuthorizationReceiptContent({ receipt }: { receipt: Authorizatio
             <Fact label="Subject hash" value={receipt.subject_hash} mono />
             <Fact label="Trace" value={receipt.trace_id ?? '—'} mono />
             <Fact label="Intent" value={receipt.intent_id ?? 'Observation only'} mono />
+            <Fact label="Principal" value={receipt.principal_id ?? 'Legacy / unknown'} mono />
+            <Fact label="Operation" value={receipt.operation ?? 'Legacy / unknown'} mono />
+            <Fact
+              label="Run"
+              value={
+                receipt.run_id ? (
+                  <Link
+                    className="text-primary hover:underline"
+                    href={`/runs/${encodeURIComponent(receipt.run_id)}${query}`}
+                  >
+                    {receipt.run_id}
+                  </Link>
+                ) : (
+                  'Not grouped'
+                )
+              }
+              mono
+            />
             <Fact label="Created" value={formatDateTime(receipt.created_at)} />
           </CardContent>
         </Card>
@@ -90,7 +119,7 @@ export function AuthorizationReceiptContent({ receipt }: { receipt: Authorizatio
   );
 }
 
-function Fact({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+function Fact({ label, value, mono = false }: { label: string; value: ReactNode; mono?: boolean }) {
   return (
     <div className="grid gap-1">
       <span className="text-xs text-muted-foreground">{label}</span>

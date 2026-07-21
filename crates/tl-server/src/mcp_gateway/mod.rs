@@ -2,9 +2,11 @@
 
 mod api;
 mod bounded_http;
+mod governance;
 mod handler;
 mod memory;
 mod naming;
+mod runs;
 mod service;
 mod store;
 mod upstream;

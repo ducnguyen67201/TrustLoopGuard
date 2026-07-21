@@ -8,7 +8,8 @@ use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{
     ActionGrantScope, ApprovalDecision, ApprovalEnvelope, AuthorizationCapabilityId,
-    AuthorizationDomain, AuthorizationGrantScope, DecideAuthorizationApprovalRequest, GrantMode,
+    AuthorizationDomain, AuthorizationDomainEvidence, AuthorizationEffect, AuthorizationGrantScope,
+    AuthorizationIntentStatus, AuthorizationReceipt, DecideAuthorizationApprovalRequest, GrantMode,
     GrantStatus, SideEffectClass,
 };
 use tl_storage::{
@@ -248,4 +249,87 @@ async fn reviewer_signoff_mints_one_hash_bound_grant_and_lease_retry_consumes_on
         .await,
         Err(StorageError::Conflict)
     ));
+}
+
+#[tokio::test]
+async fn receipt_activity_round_trips_metadata_and_stays_environment_scoped() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = AuthorizationRepo::new(pool);
+    let intent_id = Uuid::now_v7();
+    repo.create_or_get_intent(intent(intent_id, "sha256:v1:receipt"))
+        .await
+        .unwrap();
+    let receipt_id = Uuid::now_v7().to_string();
+    let run_id = Uuid::now_v7().to_string();
+    repo.write_receipt(
+        "workspace-1",
+        "production",
+        AuthorizationReceipt {
+            id: receipt_id.clone(),
+            intent_id: Some(intent_id.to_string()),
+            trace_id: Some("trace-receipt".into()),
+            principal_id: None,
+            operation: Some("mcp:company:customer_database_query".into()),
+            run_id: Some(run_id.clone()),
+            domain: AuthorizationDomain::Tool,
+            effect: AuthorizationEffect::Permit,
+            intent_status: Some(AuthorizationIntentStatus::Authorized),
+            subject_hash: "sha256:v1:receipt".into(),
+            reason: "permitted".into(),
+            findings: vec![],
+            policy_versions: vec!["customer-data:v1".into()],
+            approval_id: None,
+            grant_id: None,
+            lease_id: None,
+            domain_evidence: AuthorizationDomainEvidence::Tool(serde_json::json!({
+                "operation":"mcp:company:customer_database_query"
+            })),
+            created_at: Utc::now().to_rfc3339(),
+        },
+    )
+    .await
+    .unwrap();
+    repo.write_receipt(
+        "workspace-1",
+        "staging",
+        AuthorizationReceipt {
+            id: Uuid::now_v7().to_string(),
+            intent_id: None,
+            trace_id: Some("trace-staging".into()),
+            principal_id: Some("agent-staging".into()),
+            operation: Some("mcp:staging:read".into()),
+            run_id: None,
+            domain: AuthorizationDomain::Tool,
+            effect: AuthorizationEffect::Deny,
+            intent_status: Some(AuthorizationIntentStatus::Denied),
+            subject_hash: "sha256:v1:staging".into(),
+            reason: "denied".into(),
+            findings: vec![],
+            policy_versions: vec![],
+            approval_id: None,
+            grant_id: None,
+            lease_id: None,
+            domain_evidence: AuthorizationDomainEvidence::Tool(serde_json::Value::Null),
+            created_at: Utc::now().to_rfc3339(),
+        },
+    )
+    .await
+    .unwrap();
+
+    let production = repo
+        .list_receipts("workspace-1", Some("production"))
+        .await
+        .unwrap();
+    assert_eq!(production.len(), 1);
+    assert_eq!(
+        production[0].operation.as_deref(),
+        Some("mcp:company:customer_database_query")
+    );
+    assert_eq!(production[0].run_id.as_deref(), Some(run_id.as_str()));
+    assert_eq!(
+        repo.get_receipt_principal("workspace-1", "production", &receipt_id)
+            .await
+            .unwrap(),
+        "agent-1"
+    );
 }

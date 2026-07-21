@@ -10,12 +10,42 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 const base: McpAccessPageData = {
   user: { id: 'user', name: 'Member', email: 'member@example.com', avatar: '' },
   organization: { id: 'org', name: 'Org', slug: 'org' },
-  activeWorkspace: { id: 'ws', name: 'Workspace', slug: 'workspace', description: '', policyCount: 0, enabledPolicies: 0, agentCount: 0, sourceCount: 0, apiKeyCount: 0, role: 'viewer', isKnowledgeBaseEnabled: false, isAttacksEnabled: false, isMcpGatewayEnabled: true },
+  activeWorkspace: {
+    id: 'ws',
+    name: 'Workspace',
+    slug: 'workspace',
+    description: '',
+    policyCount: 0,
+    enabledPolicies: 0,
+    agentCount: 0,
+    sourceCount: 0,
+    apiKeyCount: 0,
+    role: 'viewer',
+    isKnowledgeBaseEnabled: false,
+    isAttacksEnabled: false,
+    isMcpGatewayEnabled: true,
+  },
   workspaces: [],
-  activeEnvironment: { id: 'production', slug: 'production', name: 'Production', description: null, isDefault: true },
-  environments: [], agents: [], isAdmin: false,
-  connectInfo: { resource_url: 'https://guard.example/mcp', scope: 'mcp:tools', oauth_configured: true, default_environment_id: 'production', default_environment_name: 'Production' },
-  connections: [], tools: [], members: [],
+  activeEnvironment: {
+    id: 'production',
+    slug: 'production',
+    name: 'Production',
+    description: null,
+    isDefault: true,
+  },
+  environments: [],
+  agents: [],
+  isAdmin: false,
+  connectInfo: {
+    resource_url: 'https://guard.example/mcp',
+    scope: 'mcp:tools',
+    oauth_configured: true,
+    default_environment_id: 'production',
+    default_environment_name: 'Production',
+  },
+  connections: [],
+  tools: [],
+  members: [],
 };
 
 describe('McpAccessPageContent', () => {
@@ -31,7 +61,15 @@ describe('McpAccessPageContent', () => {
   });
 
   it('shows the setup runway and admin workbenches for owners', () => {
-    render(<McpAccessPageContent data={{ ...base, isAdmin: true, activeWorkspace: { ...base.activeWorkspace, role: 'owner' } }} />);
+    render(
+      <McpAccessPageContent
+        data={{
+          ...base,
+          isAdmin: true,
+          activeWorkspace: { ...base.activeWorkspace, role: 'owner' },
+        }}
+      />,
+    );
     expect(screen.getByRole('tab', { name: 'Overview' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Servers' })).toBeInTheDocument();
     expect(screen.getByText('Connect server')).toBeInTheDocument();
@@ -40,11 +78,20 @@ describe('McpAccessPageContent', () => {
 
   it('clears a write-only credential after connecting a server', async () => {
     const user = userEvent.setup();
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'connection' }), { status: 201 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ tool_count: 1 }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
-    render(<McpAccessPageContent data={{ ...base, isAdmin: true, activeWorkspace: { ...base.activeWorkspace, role: 'owner' } }} />);
+    render(
+      <McpAccessPageContent
+        data={{
+          ...base,
+          isAdmin: true,
+          activeWorkspace: { ...base.activeWorkspace, role: 'owner' },
+        }}
+      />,
+    );
 
     await user.click(screen.getByRole('tab', { name: 'Servers' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -71,20 +118,22 @@ describe('McpAccessPageContent', () => {
       ...base,
       isAdmin: true,
       activeWorkspace: { ...base.activeWorkspace, role: 'owner' as const },
-      connections: [{
-        id: 'connection',
-        display_name: 'Company tools',
-        server_slug: 'company',
-        endpoint_url: 'https://tools.example/mcp',
-        auth_kind: 'static_bearer' as const,
-        credential_status: 'configured' as const,
-        enabled: true,
-        last_sync_status: 'succeeded' as const,
-        last_synced_at: '2026-07-19T16:30:00Z',
-        tool_count: 12,
-        created_at: '2026-07-19T00:00:00Z',
-        updated_at: '2026-07-19T16:30:00Z',
-      }],
+      connections: [
+        {
+          id: 'connection',
+          display_name: 'Company tools',
+          server_slug: 'company',
+          endpoint_url: 'https://tools.example/mcp',
+          auth_kind: 'static_bearer' as const,
+          credential_status: 'configured' as const,
+          enabled: true,
+          last_sync_status: 'succeeded' as const,
+          last_synced_at: '2026-07-19T16:30:00Z',
+          tool_count: 12,
+          created_at: '2026-07-19T00:00:00Z',
+          updated_at: '2026-07-19T16:30:00Z',
+        },
+      ],
     };
     render(<McpAccessPageContent data={admin} />);
 
@@ -100,10 +149,12 @@ describe('McpAccessPageContent', () => {
     expect(screen.getByRole('button', { name: 'Delete Company tools' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Sync Company tools' }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('/api/mcp-gateway/connections/connection/sync'),
-      expect.objectContaining({ method: 'POST' }),
-    ));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/mcp-gateway/connections/connection/sync'),
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    );
   });
 
   it('labels member selection and lets admins classify a tool side effect', async () => {
@@ -115,25 +166,101 @@ describe('McpAccessPageContent', () => {
       ...base,
       isAdmin: true,
       activeWorkspace: { ...base.activeWorkspace, role: 'owner' as const },
+      agents: [{ id: 'agent-customer', name: 'Customer agent' }],
       members: [{ user_id: 'intern', username: 'leo_intern', role: 'viewer' as const }],
-      tools: [{
-        id: 'tool', connection_id: 'connection', connection_name: 'Company tools',
-        upstream_name: 'charge', public_name: 'company__charge', input_schema: {},
-        annotations: {}, schema_hash: 'hash', side_effect: 'read' as const,
-        catalog_status: 'active' as const, assigned_user_ids: [],
-        created_at: '2026-07-19T00:00:00Z', updated_at: '2026-07-19T00:00:00Z',
-      }],
+      tools: [
+        {
+          id: 'tool',
+          connection_id: 'connection',
+          connection_name: 'Company tools',
+          upstream_name: 'charge',
+          public_name: 'company__charge',
+          input_schema: {},
+          annotations: {},
+          schema_hash: 'hash',
+          side_effect: 'read' as const,
+          catalog_status: 'active' as const,
+          assigned_user_ids: [],
+          agent_assignments: [],
+          unbound_user_ids: [],
+          created_at: '2026-07-19T00:00:00Z',
+          updated_at: '2026-07-19T00:00:00Z',
+        },
+      ],
     };
     render(<McpAccessPageContent data={admin} />);
 
     await user.click(screen.getByRole('tab', { name: 'Tool access' }));
     expect(screen.getByLabelText('Member')).toBeInTheDocument();
-    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Classify company__charge' }), { key: 'ArrowDown' });
+    expect(screen.getByLabelText('Agent')).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Classify company__charge' }), {
+      key: 'ArrowDown',
+    });
     await user.click(screen.getByRole('option', { name: 'API mutation' }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('/api/mcp-gateway/tools/tool'),
-      expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ side_effect: 'api_mutation' }) }),
-    ));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/mcp-gateway/tools/tool'),
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ side_effect: 'api_mutation' }),
+        }),
+      ),
+    );
+  });
+
+  it('grants only the selected member and agent pair and identifies legacy access', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const admin: McpAccessPageData = {
+      ...base,
+      isAdmin: true,
+      activeWorkspace: { ...base.activeWorkspace, role: 'owner' },
+      agents: [
+        { id: 'agent-customer', name: 'Customer agent' },
+        { id: 'agent-finance', name: 'Finance agent' },
+      ],
+      members: [{ user_id: 'intern', username: 'leo_intern', role: 'viewer' }],
+      tools: [
+        {
+          id: 'tool',
+          connection_id: 'connection',
+          connection_name: 'Company tools',
+          upstream_name: 'customer_database_query',
+          public_name: 'company__customer_database_query',
+          input_schema: {},
+          annotations: {},
+          schema_hash: 'hash',
+          side_effect: 'read',
+          catalog_status: 'active',
+          assigned_user_ids: ['legacy-user'],
+          agent_assignments: [{ user_id: 'finance-user', agent_id: 'agent-customer' }],
+          unbound_user_ids: ['legacy-user'],
+          created_at: '2026-07-19T00:00:00Z',
+          updated_at: '2026-07-19T00:00:00Z',
+        },
+      ],
+    };
+    render(<McpAccessPageContent data={admin} />);
+
+    await user.click(screen.getByRole('tab', { name: 'Tool access' }));
+    expect(screen.getByText('1 unbound')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Grant' }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/mcp-gateway/tools/tool/assignments'),
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({
+            agent_id: 'agent-customer',
+            user_ids: ['finance-user', 'intern'],
+          }),
+        }),
+      ),
+    );
   });
 });

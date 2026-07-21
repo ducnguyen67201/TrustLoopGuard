@@ -12,11 +12,11 @@ use crate::schema::{
     gateway_provider_connections, gateway_routes, github_installation_states, github_installations,
     github_integration_jobs, github_repository_connections, human_review_events,
     llm_budget_principal_locks, llm_budget_reservations, llm_model_prices, llm_usage_events,
-    mcp_oauth_authorization_codes, mcp_oauth_clients, mcp_oauth_refresh_tokens,
-    mcp_server_connections, mcp_tool_assignments, mcp_tools, oauth_identities, policies,
-    policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
-    redteam_report_shares, redteam_session_events, run_events, runs, tool_metadata, traces, users,
-    workspace_environments,
+    mcp_agent_tool_assignments, mcp_oauth_authorization_codes, mcp_oauth_clients,
+    mcp_oauth_refresh_tokens, mcp_server_connections, mcp_tool_assignments, mcp_tools,
+    oauth_identities, policies, policy_environment_deployments, redteam_attack_sessions,
+    redteam_jobs, redteam_plans, redteam_report_shares, redteam_session_events, run_events, runs,
+    tool_metadata, traces, users, workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -396,6 +396,9 @@ pub struct NewAuthorizationReceipt {
     pub id: Uuid,
     pub intent_id: Option<Uuid>,
     pub trace_id: Option<String>,
+    pub principal_id: Option<String>,
+    pub operation: Option<String>,
+    pub run_id: Option<Uuid>,
     pub domain: String,
     pub effect: String,
     pub intent_status: Option<String>,
@@ -418,6 +421,9 @@ pub struct AuthorizationReceiptRecord {
     pub id: Uuid,
     pub intent_id: Option<Uuid>,
     pub trace_id: Option<String>,
+    pub principal_id: Option<String>,
+    pub operation: Option<String>,
+    pub run_id: Option<Uuid>,
     pub domain: String,
     pub effect: String,
     pub intent_status: Option<String>,
@@ -911,6 +917,7 @@ pub struct NewMcpOAuthAuthorizationCode {
     pub user_id: Uuid,
     pub username: String,
     pub workspace_id: String,
+    pub agent_id: Option<String>,
     pub resource: String,
     pub scope: String,
     pub code_challenge: String,
@@ -927,6 +934,7 @@ pub struct McpOAuthAuthorizationCodeRecord {
     pub user_id: Uuid,
     pub username: String,
     pub workspace_id: String,
+    pub agent_id: Option<String>,
     pub resource: String,
     pub scope: String,
     pub code_challenge: String,
@@ -942,6 +950,7 @@ pub struct NewMcpOAuthRefreshToken {
     pub user_id: Uuid,
     pub username: String,
     pub workspace_id: String,
+    pub agent_id: Option<String>,
     pub resource: String,
     pub scope: String,
     pub expires_at: DateTime<Utc>,
@@ -956,6 +965,7 @@ pub struct McpOAuthRefreshTokenRecord {
     pub user_id: Uuid,
     pub username: String,
     pub workspace_id: String,
+    pub agent_id: Option<String>,
     pub resource: String,
     pub scope: String,
     pub expires_at: DateTime<Utc>,
@@ -1039,6 +1049,16 @@ pub struct NewMcpToolAssignment {
     pub workspace_id: String,
     pub tool_id: Uuid,
     pub user_id: Uuid,
+    pub created_by: Option<Uuid>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = mcp_agent_tool_assignments)]
+pub struct NewMcpAgentToolAssignment {
+    pub workspace_id: String,
+    pub tool_id: Uuid,
+    pub user_id: Uuid,
+    pub agent_id: String,
     pub created_by: Option<Uuid>,
 }
 

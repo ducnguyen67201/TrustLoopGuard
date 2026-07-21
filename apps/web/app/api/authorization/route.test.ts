@@ -11,6 +11,7 @@ import { GET as getApproval } from './approvals/[id]/route';
 import { POST as decideApproval } from './approvals/[id]/decide/route';
 import { GET as listGrants, POST as createGrant } from './grants/route';
 import { POST as revokeGrant } from './grants/[id]/revoke/route';
+import { GET as listReceipts } from './receipts/route';
 import { GET as getReceipt } from './receipts/[id]/route';
 
 const proxyMock = vi.mocked(proxyRustJson);
@@ -88,9 +89,12 @@ describe('unified authorization web proxy', () => {
   });
 
   it('proxies authorization receipt reads with encoded ids', async () => {
+    const listRequest = new Request('https://app.test/api/authorization/receipts');
     const request = new Request('https://app.test/api/authorization/receipts/r%2F1');
 
+    expect(await listReceipts(listRequest)).toBe(response);
     expect(await getReceipt(request, context('r/1'))).toBe(response);
-    expect(proxyMock).toHaveBeenCalledWith(request, '/v1/authorization/receipts/r%2F1');
+    expect(proxyMock).toHaveBeenNthCalledWith(1, listRequest, '/v1/authorization/receipts');
+    expect(proxyMock).toHaveBeenNthCalledWith(2, request, '/v1/authorization/receipts/r%2F1');
   });
 });

@@ -5,4 +5,4 @@ import type { AuthorizationEffect } from "./AuthorizationEffect.js";
 import type { AuthorizationFinding } from "./AuthorizationFinding.js";
 import type { AuthorizationIntentStatus } from "./AuthorizationIntentStatus.js";
 
-export type AuthorizationReceipt = { id: string, intent_id?: string, trace_id?: string, domain: AuthorizationDomain, effect: AuthorizationEffect, intent_status?: AuthorizationIntentStatus, subject_hash: string, reason: string, findings: Array<AuthorizationFinding>, policy_versions: Array<string>, approval_id?: string, grant_id?: string, lease_id?: string, domain_evidence: AuthorizationDomainEvidence, created_at: string, };
+export type AuthorizationReceipt = { id: string, intent_id?: string, trace_id?: string, principal_id?: string, operation?: string, run_id?: string, domain: AuthorizationDomain, effect: AuthorizationEffect, intent_status?: AuthorizationIntentStatus, subject_hash: string, reason: string, findings: Array<AuthorizationFinding>, policy_versions: Array<string>, approval_id?: string, grant_id?: string, lease_id?: string, domain_evidence: AuthorizationDomainEvidence, created_at: string, };

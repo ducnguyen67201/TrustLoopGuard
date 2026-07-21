@@ -4,7 +4,10 @@ use tl_core::{
     McpGatewayTool, Principal, SideEffectClass,
 };
 
-use super::{handler, upstream, EntitledMcpTool};
+use super::{
+    handler, upstream, CatalogToolInput, EntitledMcpTool, McpGatewayStore, MemoryMcpGatewayStore,
+    NewMcpConnection,
+};
 
 fn event() -> GuardEvent {
     GuardEvent {
@@ -54,6 +57,8 @@ fn entitled(side_effect: SideEffectClass) -> EntitledMcpTool {
             side_effect,
             catalog_status: McpGatewayCatalogStatus::Active,
             assigned_user_ids: vec!["user".into()],
+            agent_assignments: Vec::new(),
+            unbound_user_ids: vec!["user".into()],
             created_at: "2026-07-19T00:00:00Z".into(),
             updated_at: "2026-07-19T00:00:00Z".into(),
         },
@@ -116,4 +121,62 @@ fn insecure_http_is_only_valid_for_loopback_addresses() {
 fn catalog_pagination_stops_before_accumulating_too_many_tools() {
     assert!(upstream::catalog_page_fits(499, 1));
     assert!(!upstream::catalog_page_fits(500, 1));
+}
+
+#[tokio::test]
+async fn runtime_entitlement_requires_the_exact_user_and_agent_pair() {
+    let store = MemoryMcpGatewayStore::default();
+    let workspace_id = "workspace";
+    let connection_id = uuid::Uuid::now_v7();
+    let user_id = uuid::Uuid::now_v7();
+    store
+        .create_connection(NewMcpConnection {
+            workspace_id: workspace_id.into(),
+            id: connection_id,
+            display_name: "Company tools".into(),
+            server_slug: "company".into(),
+            endpoint_url: "https://tools.example/mcp".into(),
+            auth_kind: McpGatewayAuthKind::None,
+            encrypted_credential: None,
+            enabled: true,
+        })
+        .await
+        .unwrap();
+    store
+        .replace_catalog_snapshot(
+            workspace_id,
+            connection_id,
+            vec![CatalogToolInput {
+                upstream_name: "customer_database_query".into(),
+                public_name: "company__customer_database_query".into(),
+                title: None,
+                description: None,
+                input_schema: serde_json::json!({"type":"object"}),
+                output_schema: None,
+                annotations: serde_json::json!({}),
+                schema_hash: "sha256:v1:schema".into(),
+            }],
+        )
+        .await
+        .unwrap();
+    let tool_id =
+        uuid::Uuid::parse_str(&store.list_tools(workspace_id).await.unwrap()[0].id).unwrap();
+    store
+        .replace_agent_assignments(workspace_id, tool_id, "customer-agent", vec![user_id], None)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        store
+            .list_entitled_tools(workspace_id, user_id, "customer-agent", None, 100)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(store
+        .list_entitled_tools(workspace_id, user_id, "finance-agent", None, 100)
+        .await
+        .unwrap()
+        .is_empty());
 }

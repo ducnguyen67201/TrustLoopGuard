@@ -391,6 +391,7 @@ impl FinancialAuthorizationService {
                 claim,
                 attempt_id,
                 trace_id: uuid::Uuid::now_v7().to_string(),
+                run_id: None,
                 transformed_value: None,
                 intent_expires_at: Some(Utc::now() + Duration::minutes(15)),
             })

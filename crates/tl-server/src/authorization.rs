@@ -27,9 +27,9 @@ use tl_core::{
     ApiErrorCode, ApprovalDecision, ApprovalStatus, AuthorizationApproval,
     AuthorizationApprovalListResponse, AuthorizationDomain, AuthorizationGrant,
     AuthorizationGrantListResponse, AuthorizationGrantSource, AuthorizationLease,
-    AuthorizationReceipt, CompleteAuthorizationLeaseRequest, CreateAuthorizationGrantRequest,
-    DecideAuthorizationApprovalRequest, DecideAuthorizationApprovalResponse, GrantMode,
-    GrantStatus, LeaseStatus,
+    AuthorizationReceipt, AuthorizationReceiptListResponse, CompleteAuthorizationLeaseRequest,
+    CreateAuthorizationGrantRequest, DecideAuthorizationApprovalRequest,
+    DecideAuthorizationApprovalResponse, GrantMode, GrantStatus, LeaseStatus,
 };
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -758,13 +758,17 @@ impl AuthorizationStore for MemoryAuthorizationStore {
         environment_id: &str,
         receipt_id: &str,
     ) -> Result<String, AuthorizationStoreError> {
-        let intent_id = self
+        let receipt = self
             .receipts
             .read()
             .await
             .get(&key(workspace_id, environment_id, receipt_id))
-            .and_then(|receipt| receipt.intent_id.clone())
+            .cloned()
             .ok_or(AuthorizationStoreError::NotFound)?;
+        if let Some(principal_id) = receipt.principal_id {
+            return Ok(principal_id);
+        }
+        let intent_id = receipt.intent_id.ok_or(AuthorizationStoreError::NotFound)?;
         self.intents
             .read()
             .await
@@ -1064,6 +1068,40 @@ pub async fn complete_lease(
     {
         Ok(lease) => Json(lease).into_response(),
         Err(error) => coordinator_error(error),
+    }
+}
+
+#[utoipa::path(get, path = "/v1/authorization/receipts", tag = "authorization", responses((status = 200, body = AuthorizationReceiptListResponse), (status = 403, body = tl_core::ApiError)))]
+pub async fn list_receipts(
+    State(state): State<AuthorizationState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    headers: HeaderMap,
+) -> Response {
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
+    let environment_id = environment_id(&headers);
+    if let Err(response) = authorize_admin(
+        &state,
+        &headers,
+        user,
+        internal,
+        None,
+        "list authorization receipts",
+    )
+    .await
+    {
+        return response;
+    }
+    match state
+        .store
+        .list_receipts(&workspace_id, Some(&environment_id))
+        .await
+    {
+        Ok(receipts) => Json(AuthorizationReceiptListResponse { receipts }).into_response(),
+        Err(error) => store_error(error),
     }
 }
 
@@ -1613,6 +1651,9 @@ mod tests {
             id: Uuid::now_v7().to_string(),
             intent_id: Some(intent_id),
             trace_id: Some("trace-1".into()),
+            principal_id: Some("principal".into()),
+            operation: Some("tool:test".into()),
+            run_id: None,
             domain: AuthorizationDomain::Tool,
             effect: tl_core::AuthorizationEffect::Permit,
             intent_status: Some(tl_core::AuthorizationIntentStatus::Authorized),

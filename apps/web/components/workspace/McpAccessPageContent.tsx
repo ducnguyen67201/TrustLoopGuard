@@ -28,7 +28,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/ui/page-header';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { McpAccessPageData } from '@/lib/server/dashboard-data';
 import { cn } from '@/lib/utils';
@@ -66,7 +72,7 @@ export function McpAccessPageContent({ data }: { data: McpAccessPageData }) {
               ) : (
                 <SetupRunway
                   hasServer
-                  hasAssignments={data.tools.some((tool) => tool.assigned_user_ids.length > 0)}
+                  hasAssignments={data.tools.some((tool) => tool.agent_assignments.length > 0)}
                 />
               )}
               <Exceptions data={data} />
@@ -88,8 +94,32 @@ export function McpAccessPageContent({ data }: { data: McpAccessPageData }) {
 }
 
 function Exceptions({ data }: { data: McpAccessPageData }) {
-  const exceptions = [...data.connections.filter((connection) => connection.last_sync_status === 'failed').map((connection) => `${connection.display_name} failed its last sync.`), ...data.tools.filter((tool) => tool.catalog_status === 'schema_changed').map((tool) => `${tool.public_name} changed schema and is hidden until sync.`)];
-  return <Card><CardHeader><CardTitle>Action needed</CardTitle></CardHeader><CardContent>{exceptions.length ? <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">{exceptions.map((value) => <li key={value}>{value}</li>)}</ul> : <p className="text-sm text-muted-foreground">No catalog exceptions need attention.</p>}</CardContent></Card>;
+  const exceptions = [
+    ...data.connections
+      .filter((connection) => connection.last_sync_status === 'failed')
+      .map((connection) => `${connection.display_name} failed its last sync.`),
+    ...data.tools
+      .filter((tool) => tool.catalog_status === 'schema_changed')
+      .map((tool) => `${tool.public_name} changed schema and is hidden until sync.`),
+  ];
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Action needed</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {exceptions.length ? (
+          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            {exceptions.map((value) => (
+              <li key={value}>{value}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">No catalog exceptions need attention.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 function Servers({ data }: { data: McpAccessPageData }) {
@@ -97,7 +127,10 @@ function Servers({ data }: { data: McpAccessPageData }) {
   const [saving, setSaving] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const enabledCount = data.connections.filter((connection) => connection.enabled).length;
-  const toolCount = data.connections.reduce((total, connection) => total + connection.tool_count, 0);
+  const toolCount = data.connections.reduce(
+    (total, connection) => total + connection.tool_count,
+    0,
+  );
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -116,16 +149,17 @@ function Servers({ data }: { data: McpAccessPageData }) {
           credential: values.get('credential') || undefined,
         }),
       });
-      const connection = await response.json() as { id?: string; error?: string };
+      const connection = (await response.json()) as { id?: string; error?: string };
       if (!response.ok || !connection.id) {
         throw new Error(connection.error ?? 'Could not add server');
       }
-      const sync = await fetch(
-        scoped(`/api/mcp-gateway/connections/${connection.id}/sync`, data),
-        { method: 'POST' },
-      );
+      const sync = await fetch(scoped(`/api/mcp-gateway/connections/${connection.id}/sync`, data), {
+        method: 'POST',
+      });
       if (!sync.ok) {
-        toast.error('Server saved, but synchronization failed. The row remains available to retry.');
+        toast.error(
+          'Server saved, but synchronization failed. The row remains available to retry.',
+        );
       } else {
         toast.success('Server connected and synchronized.');
       }
@@ -181,7 +215,12 @@ function Servers({ data }: { data: McpAccessPageData }) {
           ) : (
             <ul aria-label="Connected MCP servers" className="divide-y">
               {data.connections.map((connection) => (
-                <ServerRow key={connection.id} connection={connection} data={data} router={router} />
+                <ServerRow
+                  key={connection.id}
+                  connection={connection}
+                  data={data}
+                  router={router}
+                />
               ))}
             </ul>
           )}
@@ -277,7 +316,10 @@ function ServerRow({
               {connection.enabled ? 'Enabled' : 'Disabled'}
             </Badge>
           </div>
-          <p className="truncate font-data text-xs text-muted-foreground" title={connection.endpoint_url}>
+          <p
+            className="truncate font-data text-xs text-muted-foreground"
+            title={connection.endpoint_url}
+          >
             {new URL(connection.endpoint_url).hostname}
           </p>
         </div>
@@ -288,12 +330,16 @@ function ServerRow({
           <span className="font-data tabular-nums">{connection.tool_count}</span>
         </ServerMetric>
         <ServerMetric label="Credential">
-          <span className={connection.credential_status === 'missing' ? 'text-destructive' : undefined}>
+          <span
+            className={connection.credential_status === 'missing' ? 'text-destructive' : undefined}
+          >
             {credentialLabel(connection)}
           </span>
         </ServerMetric>
         <ServerMetric label="Last sync">
-          <span className={connection.last_sync_status === 'failed' ? 'text-destructive' : undefined}>
+          <span
+            className={connection.last_sync_status === 'failed' ? 'text-destructive' : undefined}
+          >
             {syncLabel(connection.last_sync_status)}
           </span>
           {connection.last_synced_at ? (
@@ -313,11 +359,13 @@ function ServerRow({
           variant="ghost"
           size="sm"
           aria-label={`Sync ${connection.display_name}`}
-          onClick={() => void act(
-            scoped(`/api/mcp-gateway/connections/${connection.id}/sync`, data),
-            'POST',
-            router,
-          )}
+          onClick={() =>
+            void act(
+              scoped(`/api/mcp-gateway/connections/${connection.id}/sync`, data),
+              'POST',
+              router,
+            )
+          }
         >
           <IconRefresh aria-hidden />
           Sync
@@ -327,12 +375,14 @@ function ServerRow({
           variant="ghost"
           size="sm"
           aria-label={`${connection.enabled ? 'Disable' : 'Enable'} ${connection.display_name}`}
-          onClick={() => void act(
-            scoped(`/api/mcp-gateway/connections/${connection.id}`, data),
-            'PATCH',
-            router,
-            { enabled: !connection.enabled },
-          )}
+          onClick={() =>
+            void act(
+              scoped(`/api/mcp-gateway/connections/${connection.id}`, data),
+              'PATCH',
+              router,
+              { enabled: !connection.enabled },
+            )
+          }
         >
           {connection.enabled ? 'Disable' : 'Enable'}
         </Button>
@@ -342,11 +392,13 @@ function ServerRow({
           size="sm"
           className="text-muted-foreground hover:text-destructive"
           aria-label={`Delete ${connection.display_name}`}
-          onClick={() => void act(
-            scoped(`/api/mcp-gateway/connections/${connection.id}`, data),
-            'DELETE',
-            router,
-          )}
+          onClick={() =>
+            void act(
+              scoped(`/api/mcp-gateway/connections/${connection.id}`, data),
+              'DELETE',
+              router,
+            )
+          }
         >
           <IconTrash aria-hidden />
           Delete
@@ -393,49 +445,89 @@ function formatSyncDate(value: string) {
 function ToolAccess({ data }: { data: McpAccessPageData }) {
   const router = useRouter();
   const [memberId, setMemberId] = useState(data.members[0]?.user_id ?? '');
-  const columns = useMemo<DataTableColumn<McpGatewayTool>[]>(() => [
-    {
-      id: 'tool',
-      header: 'Tool',
-      headerClassName: 'min-w-72 px-6',
-      cellClassName: 'px-6 py-4',
-      cell: (row) => <div><p className="font-mono text-xs font-medium">{row.public_name}</p><p className="mt-1 text-xs text-muted-foreground">{row.connection_name}</p></div>,
-    },
-    {
-      id: 'status',
-      header: 'Catalog',
-      headerClassName: 'min-w-40 px-4',
-      cellClassName: 'px-4 py-4',
-      cell: (row) => <Badge variant="outline" className="font-normal capitalize">{row.catalog_status.replaceAll('_', ' ')}</Badge>,
-    },
-    {
-      id: 'effect',
-      header: 'Side effect',
-      headerClassName: 'min-w-56 px-4',
-      cellClassName: 'px-4 py-4',
-      cell: (row) => <SideEffectSelect tool={row} data={data} router={router} className="w-full" />,
-    },
-    {
-      id: 'assigned',
-      header: 'Assigned',
-      headerClassName: 'min-w-32 px-4',
-      cellClassName: 'px-4 py-4',
-      cell: (row) => <Badge variant="secondary" className="min-w-7 font-data tabular-nums">{row.assigned_user_ids.length}</Badge>,
-      align: 'right',
-    },
-    {
-      id: 'access',
-      header: <span className="sr-only">Access</span>,
-      headerClassName: 'w-28 px-6',
-      cellClassName: 'px-6 py-4',
-      cell: (row) => { const assigned = row.assigned_user_ids.includes(memberId); return <Button size="sm" variant={assigned ? 'outline' : 'default'} disabled={!memberId || row.catalog_status !== 'active'} onClick={() => void replaceToolAssignment(row, memberId, !assigned, router, data)}>{assigned ? 'Revoke' : 'Grant'}</Button>; },
-      align: 'right',
-    },
-  ], [data, memberId, router]);
+  const [agentId, setAgentId] = useState(data.agents[0]?.id ?? '');
+  const columns = useMemo<DataTableColumn<McpGatewayTool>[]>(
+    () => [
+      {
+        id: 'tool',
+        header: 'Tool',
+        headerClassName: 'min-w-72 px-6',
+        cellClassName: 'px-6 py-4',
+        cell: (row) => (
+          <div>
+            <p className="font-mono text-xs font-medium">{row.public_name}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{row.connection_name}</p>
+          </div>
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Catalog',
+        headerClassName: 'min-w-40 px-4',
+        cellClassName: 'px-4 py-4',
+        cell: (row) => (
+          <Badge variant="outline" className="font-normal capitalize">
+            {row.catalog_status.replaceAll('_', ' ')}
+          </Badge>
+        ),
+      },
+      {
+        id: 'effect',
+        header: 'Side effect',
+        headerClassName: 'min-w-56 px-4',
+        cellClassName: 'px-4 py-4',
+        cell: (row) => (
+          <SideEffectSelect tool={row} data={data} router={router} className="w-full" />
+        ),
+      },
+      {
+        id: 'assigned',
+        header: 'Assigned',
+        headerClassName: 'min-w-44 px-4',
+        cellClassName: 'px-4 py-4',
+        cell: (row) => (
+          <div className="flex flex-wrap justify-end gap-1">
+            <Badge variant="secondary" className="min-w-7 font-data tabular-nums">
+              {row.agent_assignments.length}
+            </Badge>
+            {row.unbound_user_ids.length > 0 ? (
+              <Badge variant="defer">{row.unbound_user_ids.length} unbound</Badge>
+            ) : null}
+          </div>
+        ),
+        align: 'right',
+      },
+      {
+        id: 'access',
+        header: <span className="sr-only">Access</span>,
+        headerClassName: 'w-28 px-6',
+        cellClassName: 'px-6 py-4',
+        cell: (row) => {
+          const assigned = row.agent_assignments.some(
+            (assignment) => assignment.user_id === memberId && assignment.agent_id === agentId,
+          );
+          return (
+            <Button
+              size="sm"
+              variant={assigned ? 'outline' : 'default'}
+              disabled={!memberId || !agentId || row.catalog_status !== 'active'}
+              onClick={() =>
+                void replaceToolAssignment(row, memberId, agentId, !assigned, router, data)
+              }
+            >
+              {assigned ? 'Revoke' : 'Grant'}
+            </Button>
+          );
+        },
+        align: 'right',
+      },
+    ],
+    [agentId, data, memberId, router],
+  );
   return (
     <Card className="gap-0 overflow-hidden py-0">
       <CardHeader className="border-b bg-muted/30 px-6 py-5">
-        <div className="grid gap-5 md:grid-cols-2 md:items-end">
+        <div className="grid gap-5 md:grid-cols-3 md:items-end">
           <div className="space-y-2">
             <CardTitle>Tool access</CardTitle>
             <CardDescription>
@@ -451,7 +543,28 @@ function ToolAccess({ data }: { data: McpAccessPageData }) {
                 <SelectValue placeholder="Choose a member" />
               </SelectTrigger>
               <SelectContent>
-                {data.members.map((member) => <SelectItem key={member.user_id} value={member.user_id}>{member.username} · {member.role}</SelectItem>)}
+                {data.members.map((member) => (
+                  <SelectItem key={member.user_id} value={member.user_id}>
+                    {member.username} · {member.role}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-full space-y-1.5 md:max-w-sm md:justify-self-end">
+            <Label htmlFor="mcp-agent" className="text-xs font-medium text-muted-foreground">
+              Agent
+            </Label>
+            <Select value={agentId} onValueChange={setAgentId}>
+              <SelectTrigger id="mcp-agent" className="w-full bg-background">
+                <SelectValue placeholder="Choose an agent" />
+              </SelectTrigger>
+              <SelectContent>
+                {data.agents.map((agent) => (
+                  <SelectItem key={agent.id} value={agent.id}>
+                    {agent.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -462,7 +575,7 @@ function ToolAccess({ data }: { data: McpAccessPageData }) {
           columns={columns}
           rows={data.tools}
           getRowKey={(row) => row.id}
-          caption="MCP tools and access assignments for the selected member."
+          caption="MCP tools and exact member-and-agent access assignments."
           empty="Synchronize a server to review its tools."
         />
       </CardContent>
@@ -483,16 +596,148 @@ const SIDE_EFFECTS: ReadonlyArray<{ value: SideEffectClass; label: string }> = [
   { value: 'publish', label: 'Publish' },
 ];
 
-function SideEffectSelect({ tool, data, router, className }: { tool: McpGatewayTool; data: McpAccessPageData; router: ReturnType<typeof useRouter>; className?: string }) {
-  return <Select value={tool.side_effect} onValueChange={(sideEffect: SideEffectClass) => void act(scoped(`/api/mcp-gateway/tools/${tool.id}`, data), 'PATCH', router, { side_effect: sideEffect })}><SelectTrigger size="sm" className={className} aria-label={`Classify ${tool.public_name}`}><SelectValue /></SelectTrigger><SelectContent>{SIDE_EFFECTS.map((effect) => <SelectItem key={effect.value} value={effect.value}>{effect.label}</SelectItem>)}</SelectContent></Select>;
+function SideEffectSelect({
+  tool,
+  data,
+  router,
+  className,
+}: {
+  tool: McpGatewayTool;
+  data: McpAccessPageData;
+  router: ReturnType<typeof useRouter>;
+  className?: string;
+}) {
+  return (
+    <Select
+      value={tool.side_effect}
+      onValueChange={(sideEffect: SideEffectClass) =>
+        void act(scoped(`/api/mcp-gateway/tools/${tool.id}`, data), 'PATCH', router, {
+          side_effect: sideEffect,
+        })
+      }
+    >
+      <SelectTrigger size="sm" className={className} aria-label={`Classify ${tool.public_name}`}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {SIDE_EFFECTS.map((effect) => (
+          <SelectItem key={effect.value} value={effect.value}>
+            {effect.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 function Connect({ data }: { data: McpAccessPageData }) {
-  const config = JSON.stringify({ mcpServers: { trustloopguard: { type: 'http', url: data.connectInfo.resource_url } } }, null, 2);
-  return <Card><CardHeader><CardTitle>Your managed connection</CardTitle><CardDescription>Every member uses the same endpoint. OAuth identity and workspace assignments personalize the tools they receive.</CardDescription></CardHeader><CardContent className="space-y-4"><div><Label htmlFor="mcp-endpoint">Remote MCP endpoint</Label><div className="flex gap-2"><Input id="mcp-endpoint" readOnly value={data.connectInfo.resource_url} /><Button variant="outline" size="icon" aria-label="Copy MCP endpoint" onClick={() => void navigator.clipboard.writeText(data.connectInfo.resource_url).then(() => toast.success('Endpoint copied'))}><IconCopy /></Button></div></div><p className="text-sm text-muted-foreground">Scope: <span className="font-mono">{data.connectInfo.scope}</span> · Policy environment: {data.connectInfo.default_environment_name}</p><pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs"><code>{config}</code></pre></CardContent></Card>;
+  const config = JSON.stringify(
+    { mcpServers: { trustloopguard: { type: 'http', url: data.connectInfo.resource_url } } },
+    null,
+    2,
+  );
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Your managed connection</CardTitle>
+        <CardDescription>
+          Every member uses the same endpoint. OAuth identity and workspace assignments personalize
+          the tools they receive.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <Label htmlFor="mcp-endpoint">Remote MCP endpoint</Label>
+          <div className="flex gap-2">
+            <Input id="mcp-endpoint" readOnly value={data.connectInfo.resource_url} />
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Copy MCP endpoint"
+              onClick={() =>
+                void navigator.clipboard
+                  .writeText(data.connectInfo.resource_url)
+                  .then(() => toast.success('Endpoint copied'))
+              }
+            >
+              <IconCopy />
+            </Button>
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Scope: <span className="font-mono">{data.connectInfo.scope}</span> · Policy environment:{' '}
+          {data.connectInfo.default_environment_name}
+        </p>
+        <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs">
+          <code>{config}</code>
+        </pre>
+      </CardContent>
+    </Card>
+  );
 }
 
-function Field({ label, name, type = 'text', required = true }: { label: string; name: string; type?: string; required?: boolean }) { return <div className="space-y-1"><Label htmlFor={name}>{label}</Label><Input id={name} name={name} type={type} required={required} /></div>; }
-async function act(url: string, method: 'POST' | 'PATCH' | 'PUT' | 'DELETE', router: ReturnType<typeof useRouter>, body?: Record<string, unknown>) { const init: RequestInit = { method }; if (body) { init.headers = { 'Content-Type': 'application/json' }; init.body = JSON.stringify(body); } const response = await fetch(url, init); if (!response.ok) { const value = await response.json().catch(() => ({})) as { error?: string; message?: string }; toast.error(value.message ?? value.error ?? 'MCP gateway operation failed'); return; } toast.success('MCP gateway updated.'); router.refresh(); }
-async function replaceToolAssignment(tool: McpGatewayTool, memberId: string, grant: boolean, router: ReturnType<typeof useRouter>, data: McpAccessPageData) { const next = new Set(tool.assigned_user_ids); if (grant) next.add(memberId); else next.delete(memberId); await act(scoped(`/api/mcp-gateway/tools/${tool.id}/assignments`, data), 'PUT', router, { user_ids: Array.from(next) }); }
-function scoped(path: string, data: McpAccessPageData) { const params = new URLSearchParams({ workspace: data.activeWorkspace.slug, environment: data.activeEnvironment.id }); return `${path}?${params}`; }
+function Field({
+  label,
+  name,
+  type = 'text',
+  required = true,
+}: {
+  label: string;
+  name: string;
+  type?: string;
+  required?: boolean;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={name}>{label}</Label>
+      <Input id={name} name={name} type={type} required={required} />
+    </div>
+  );
+}
+async function act(
+  url: string,
+  method: 'POST' | 'PATCH' | 'PUT' | 'DELETE',
+  router: ReturnType<typeof useRouter>,
+  body?: Record<string, unknown>,
+) {
+  const init: RequestInit = { method };
+  if (body) {
+    init.headers = { 'Content-Type': 'application/json' };
+    init.body = JSON.stringify(body);
+  }
+  const response = await fetch(url, init);
+  if (!response.ok) {
+    const value = (await response.json().catch(() => ({}))) as { error?: string; message?: string };
+    toast.error(value.message ?? value.error ?? 'MCP gateway operation failed');
+    return;
+  }
+  toast.success('MCP gateway updated.');
+  router.refresh();
+}
+async function replaceToolAssignment(
+  tool: McpGatewayTool,
+  memberId: string,
+  agentId: string,
+  grant: boolean,
+  router: ReturnType<typeof useRouter>,
+  data: McpAccessPageData,
+) {
+  const next = new Set(
+    tool.agent_assignments
+      .filter((assignment) => assignment.agent_id === agentId)
+      .map((assignment) => assignment.user_id),
+  );
+  if (grant) next.add(memberId);
+  else next.delete(memberId);
+  await act(scoped(`/api/mcp-gateway/tools/${tool.id}/assignments`, data), 'PUT', router, {
+    agent_id: agentId,
+    user_ids: Array.from(next),
+  });
+}
+function scoped(path: string, data: McpAccessPageData) {
+  const params = new URLSearchParams({
+    workspace: data.activeWorkspace.slug,
+    environment: data.activeEnvironment.id,
+  });
+  return `${path}?${params}`;
+}

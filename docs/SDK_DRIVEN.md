@@ -102,6 +102,7 @@ All SDKs expose the same control-plane operations:
 - list/get/decide approvals;
 - create/list/revoke grants;
 - complete a lease;
+- list common authorization receipt activity with a privileged control-plane credential;
 - get a common authorization receipt.
 
 Approval decisions and grant management require a privileged dashboard/internal credential. Runtime keys can read only approvals and receipts for their bound workspace, environment, and principal, and can complete only their own leases.
@@ -149,8 +150,12 @@ The common `AuthorizationReceipt` proves why execution was permitted. `Financial
 `apps/mcp-proxy` uses the TypeScript guarded-action helper. It mirrors the downstream tool schema, submits exact parameters, waits for authorization, calls the downstream MCP server once after `permit`, and completes or cancels the lease. A timeout, cancellation, denial, deferral, changed schema, or changed parameters never reaches the downstream tool.
 
 The hosted MCP access gateway requires no SDK wrapper. A member adds the
-workspace's managed `/mcp` URL to their AI client and completes OAuth. Rust
-then applies durable assignments and the same event/authorization runtime.
+workspace's managed `/mcp` URL to their AI client and completes OAuth by
+selecting a registered agent. Rust requires exact member-and-agent assignments,
+advertises a required client-declared `__trustloop` governance context, and
+applies the same event/authorization runtime both before execution and before
+result disclosure. Each call is linked to the selected agent's Runs and
+authorization receipts.
 The local `apps/mcp-proxy` flow remains unchanged for customers who explicitly
 run it. See [the hosted gateway concept](concept/hosted-mcp-access-gateway.md).
 

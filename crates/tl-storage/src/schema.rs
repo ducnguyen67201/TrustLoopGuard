@@ -614,6 +614,9 @@ diesel::table! {
         id -> Uuid,
         intent_id -> Nullable<Uuid>,
         trace_id -> Nullable<Text>,
+        principal_id -> Nullable<Text>,
+        operation -> Nullable<Text>,
+        run_id -> Nullable<Uuid>,
         domain -> Text,
         effect -> Text,
         intent_status -> Nullable<Text>,
@@ -870,6 +873,7 @@ diesel::table! {
         user_id -> Uuid,
         username -> Text,
         workspace_id -> Text,
+        agent_id -> Nullable<Text>,
         resource -> Text,
         scope -> Text,
         code_challenge -> Text,
@@ -885,6 +889,7 @@ diesel::table! {
         user_id -> Uuid,
         username -> Text,
         workspace_id -> Text,
+        agent_id -> Nullable<Text>,
         resource -> Text,
         scope -> Text,
         expires_at -> Timestamptz,
@@ -927,6 +932,17 @@ diesel::table! {
         catalog_status -> Text,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    mcp_agent_tool_assignments (workspace_id, tool_id, user_id, agent_id) {
+        workspace_id -> Text,
+        tool_id -> Uuid,
+        user_id -> Uuid,
+        agent_id -> Text,
+        created_by -> Nullable<Uuid>,
+        created_at -> Timestamptz,
     }
 }
 
@@ -1021,5 +1037,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     mcp_oauth_refresh_tokens,
     mcp_server_connections,
     mcp_tools,
+    mcp_agent_tool_assignments,
     mcp_tool_assignments,
 );

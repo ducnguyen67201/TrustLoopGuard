@@ -118,6 +118,16 @@ The `/api-keys` dashboard page creates and lists these keys through Rust:
 - **Runtime-only surface**: workspace keys are for SDK and gateway model traffic. They cannot list, create, or revoke API keys, and gateway configuration endpoints reject this lane. Dashboard/user credentials must manage provider connections, routes, and keys.
 - **Deployment boundary**: hosted SDK integrations use a workspace key at runtime and keep internal/dashboard credentials in setup or control-plane processes only. Runtime services do not select tenancy with caller-supplied workspace headers; the stored key scope selects it.
 
+## Hosted MCP OAuth lane
+
+`/mcp` is a separate resource-server lane, not a fourth credential accepted by
+generic `/v1` middleware. Its audience-bound access token carries signed
+workspace, member, OAuth client, scope, and registered-agent identity. The
+server revalidates membership, agent existence, and the feature flag on every
+MCP request; identity supplied in tool arguments or MCP metadata is never
+trusted. Exact member-and-agent entitlement and the two policy checkpoints are
+defined in [hosted-mcp-access-gateway.md](hosted-mcp-access-gateway.md).
+
 ## What this model does *not* have
 
 - **No refresh tokens, no revocation list.** Stateless JWT verification only. The TTL is the only expiry.

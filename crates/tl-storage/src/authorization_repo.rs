@@ -744,6 +744,9 @@ impl AuthorizationRepo {
                 id: parse_uuid(&receipt.id)?,
                 intent_id: receipt.intent_id.as_deref().map(parse_uuid).transpose()?,
                 trace_id: receipt.trace_id,
+                principal_id: receipt.principal_id,
+                operation: receipt.operation,
+                run_id: receipt.run_id.as_deref().map(parse_uuid).transpose()?,
                 domain: text(&receipt.domain)?,
                 effect: text(&receipt.effect)?,
                 intent_status: receipt.intent_status.as_ref().map(text).transpose()?,
@@ -786,14 +789,20 @@ impl AuthorizationRepo {
         id: &str,
     ) -> Result<String, StorageError> {
         let mut conn = self.connection().await?;
-        let intent_id = authorization_receipts::table
+        let (principal_id, intent_id) = authorization_receipts::table
             .filter(authorization_receipts::workspace_id.eq(workspace_id))
             .filter(authorization_receipts::environment_id.eq(environment_id))
             .filter(authorization_receipts::id.eq(parse_uuid(id)?))
-            .select(authorization_receipts::intent_id)
-            .first::<Option<Uuid>>(&mut conn)
-            .await?
-            .ok_or(StorageError::NotFound)?;
+            .select((
+                authorization_receipts::principal_id,
+                authorization_receipts::intent_id,
+            ))
+            .first::<(Option<String>, Option<Uuid>)>(&mut conn)
+            .await?;
+        if let Some(principal_id) = principal_id {
+            return Ok(principal_id);
+        }
+        let intent_id = intent_id.ok_or(StorageError::NotFound)?;
         authorization_intents::table
             .filter(authorization_intents::workspace_id.eq(workspace_id))
             .filter(authorization_intents::environment_id.eq(environment_id))
@@ -991,6 +1000,9 @@ fn receipt_from_record(
         id: row.id.to_string(),
         intent_id: row.intent_id.map(|id| id.to_string()),
         trace_id: row.trace_id,
+        principal_id: row.principal_id,
+        operation: row.operation,
+        run_id: row.run_id.map(|id| id.to_string()),
         domain: enum_from_text(&row.domain)?,
         effect: enum_from_text(&row.effect)?,
         intent_status: row

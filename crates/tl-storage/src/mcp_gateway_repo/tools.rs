@@ -4,17 +4,17 @@ use diesel::dsl::now;
 use diesel::prelude::*;
 use diesel::upsert::excluded;
 use diesel_async::{AsyncConnection, RunQueryDsl};
-use tl_core::{McpGatewayConnection, McpGatewayTool, SideEffectClass};
+use tl_core::{McpGatewayConnection, McpGatewayTool, McpGatewayToolAssignment, SideEffectClass};
 use uuid::Uuid;
 
-use super::assignments::assigned_user_ids_for;
+use super::assignments::assignment_views_for;
 use super::connections::tool_count_for;
 use super::{
     connection_record_to_wire, parse_auth_kind, side_effect_text, tool_record_to_wire,
     CatalogToolInput, EntitledMcpTool, McpGatewayRepo,
 };
 use crate::models::{McpServerConnectionRecord, McpToolRecord, NewMcpTool};
-use crate::schema::{mcp_server_connections, mcp_tool_assignments, mcp_tools};
+use crate::schema::{mcp_agent_tool_assignments, mcp_server_connections, mcp_tools};
 use crate::StorageError;
 
 impl McpGatewayRepo {
@@ -134,8 +134,15 @@ impl McpGatewayRepo {
                 .get(&row.connection_id)
                 .cloned()
                 .ok_or_else(|| StorageError::Internal("MCP connection missing".to_string()))?;
-            let assigned = assigned_user_ids_for(&mut conn, workspace_id, row.id).await?;
-            output.push(tool_record_to_wire(row, connection_name, assigned)?);
+            let (assigned, agent_assignments, unbound) =
+                assignment_views_for(&mut conn, workspace_id, row.id).await?;
+            output.push(tool_record_to_wire(
+                row,
+                connection_name,
+                assigned,
+                agent_assignments,
+                unbound,
+            )?);
         }
         Ok(output)
     }
@@ -165,8 +172,9 @@ impl McpGatewayRepo {
             .select(mcp_server_connections::display_name)
             .first::<String>(&mut conn)
             .await?;
-        let assigned = assigned_user_ids_for(&mut conn, workspace_id, row.id).await?;
-        tool_record_to_wire(row, connection_name, assigned)
+        let (assigned, agent_assignments, unbound) =
+            assignment_views_for(&mut conn, workspace_id, row.id).await?;
+        tool_record_to_wire(row, connection_name, assigned, agent_assignments, unbound)
     }
 
     pub async fn mark_tool_schema_changed(
@@ -197,22 +205,24 @@ impl McpGatewayRepo {
         &self,
         workspace_id: &str,
         user_id: Uuid,
+        agent_id: &str,
         public_name: &str,
     ) -> Result<EntitledMcpTool, StorageError> {
         let mut conn = self.connection().await?;
-        let (tool, connection) = mcp_tool_assignments::table
+        let (tool, connection) = mcp_agent_tool_assignments::table
             .inner_join(
-                mcp_tools::table.on(mcp_tool_assignments::workspace_id
+                mcp_tools::table.on(mcp_agent_tool_assignments::workspace_id
                     .eq(mcp_tools::workspace_id)
-                    .and(mcp_tool_assignments::tool_id.eq(mcp_tools::id))),
+                    .and(mcp_agent_tool_assignments::tool_id.eq(mcp_tools::id))),
             )
             .inner_join(
                 mcp_server_connections::table.on(mcp_tools::workspace_id
                     .eq(mcp_server_connections::workspace_id)
                     .and(mcp_tools::connection_id.eq(mcp_server_connections::id))),
             )
-            .filter(mcp_tool_assignments::workspace_id.eq(workspace_id))
-            .filter(mcp_tool_assignments::user_id.eq(user_id))
+            .filter(mcp_agent_tool_assignments::workspace_id.eq(workspace_id))
+            .filter(mcp_agent_tool_assignments::user_id.eq(user_id))
+            .filter(mcp_agent_tool_assignments::agent_id.eq(agent_id))
             .filter(mcp_tools::catalog_status.eq("active"))
             .filter(mcp_server_connections::enabled.eq(true))
             .filter(mcp_tools::public_name.eq(public_name))
@@ -222,30 +232,32 @@ impl McpGatewayRepo {
             ))
             .first::<(McpToolRecord, McpServerConnectionRecord)>(&mut conn)
             .await?;
-        entitled_from_records(tool, connection, user_id)
+        entitled_from_records(tool, connection, user_id, agent_id)
     }
 
     pub async fn list_entitled_tools(
         &self,
         workspace_id: &str,
         user_id: Uuid,
+        agent_id: &str,
         after_public_name: Option<&str>,
         limit: u32,
     ) -> Result<Vec<EntitledMcpTool>, StorageError> {
         let mut conn = self.connection().await?;
-        let mut query = mcp_tool_assignments::table
+        let mut query = mcp_agent_tool_assignments::table
             .inner_join(
-                mcp_tools::table.on(mcp_tool_assignments::workspace_id
+                mcp_tools::table.on(mcp_agent_tool_assignments::workspace_id
                     .eq(mcp_tools::workspace_id)
-                    .and(mcp_tool_assignments::tool_id.eq(mcp_tools::id))),
+                    .and(mcp_agent_tool_assignments::tool_id.eq(mcp_tools::id))),
             )
             .inner_join(
                 mcp_server_connections::table.on(mcp_tools::workspace_id
                     .eq(mcp_server_connections::workspace_id)
                     .and(mcp_tools::connection_id.eq(mcp_server_connections::id))),
             )
-            .filter(mcp_tool_assignments::workspace_id.eq(workspace_id))
-            .filter(mcp_tool_assignments::user_id.eq(user_id))
+            .filter(mcp_agent_tool_assignments::workspace_id.eq(workspace_id))
+            .filter(mcp_agent_tool_assignments::user_id.eq(user_id))
+            .filter(mcp_agent_tool_assignments::agent_id.eq(agent_id))
             .filter(mcp_tools::catalog_status.eq("active"))
             .filter(mcp_server_connections::enabled.eq(true))
             .into_boxed();
@@ -262,7 +274,7 @@ impl McpGatewayRepo {
             .load::<(McpToolRecord, McpServerConnectionRecord)>(&mut conn)
             .await?;
         rows.into_iter()
-            .map(|(tool, connection)| entitled_from_records(tool, connection, user_id))
+            .map(|(tool, connection)| entitled_from_records(tool, connection, user_id, agent_id))
             .collect()
     }
 }
@@ -271,13 +283,23 @@ fn entitled_from_records(
     tool: McpToolRecord,
     connection: McpServerConnectionRecord,
     user_id: Uuid,
+    agent_id: &str,
 ) -> Result<EntitledMcpTool, StorageError> {
     let endpoint_url = connection.endpoint_url.clone();
     let auth_kind = parse_auth_kind(&connection.auth_kind)?;
     let encrypted_credential = connection.encrypted_credential.clone();
     let connection_updated_at = connection.updated_at;
     Ok(EntitledMcpTool {
-        tool: tool_record_to_wire(tool, connection.display_name, vec![user_id.to_string()])?,
+        tool: tool_record_to_wire(
+            tool,
+            connection.display_name,
+            vec![user_id.to_string()],
+            vec![McpGatewayToolAssignment {
+                user_id: user_id.to_string(),
+                agent_id: agent_id.to_string(),
+            }],
+            Vec::new(),
+        )?,
         endpoint_url,
         auth_kind,
         encrypted_credential,
