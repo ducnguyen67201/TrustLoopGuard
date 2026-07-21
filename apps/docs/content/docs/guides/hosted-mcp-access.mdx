@@ -20,7 +20,8 @@ You need:
 - Owner or Admin access to configure servers and assignments.
 - A publicly reachable HTTPS Streamable HTTP MCP server. TrustLoopGuard does not launch stdio
   commands or connect to legacy HTTP+SSE servers.
-- An OAuth-capable Streamable HTTP client such as Codex CLI, Claude Code, Cursor, or OpenCode.
+- An OAuth-capable Streamable HTTP client. Use one of the verified clients below, or another client
+  that supports OAuth discovery, dynamic client registration, and PKCE.
 
 TrustLoop Cloud uses this managed endpoint:
 
@@ -61,7 +62,20 @@ still evaluates every assigned `tools/call`.
 Choose your client. Each option connects to the same managed endpoint and opens the
 TrustLoopGuard authorization page in your browser.
 
-<Tabs items={['Codex CLI', 'Claude Code', 'Cursor', 'OpenCode']}>
+<Tabs
+  items={[
+    'Codex CLI',
+    'Claude Code',
+    'Cursor',
+    'OpenCode',
+    'Hermes',
+    'Gemini CLI',
+    'VS Code',
+    'Windsurf',
+    'Claude',
+    'Other clients',
+  ]}
+>
   <Tab value="Codex CLI">
     Add the managed endpoint once:
 
@@ -147,6 +161,105 @@ TrustLoopGuard authorization page in your browser.
     opencode mcp auth trustloopguard
     opencode mcp list
     ```
+  </Tab>
+
+  <Tab value="Hermes">
+    Add TrustLoopGuard to `~/.hermes/config.yaml`:
+
+    ```yaml
+    mcp_servers:
+      trustloopguard:
+        url: "https://api.gettrustloop.app/mcp"
+        auth: oauth
+    ```
+
+    Complete OAuth from a fresh terminal, then start a new Hermes session:
+
+    ```sh
+    hermes mcp login trustloopguard
+    hermes chat
+    ```
+
+    Hermes supports browser callbacks, paste-back authorization for remote hosts, and PKCE with
+    dynamic client registration.
+  </Tab>
+
+  <Tab value="Gemini CLI">
+    Add the managed endpoint to your user configuration:
+
+    ```sh
+    gemini mcp add --scope user --transport http \
+      trustloopguard https://api.gettrustloop.app/mcp
+    ```
+
+    Start Gemini CLI and complete OAuth:
+
+    ```text
+    /mcp auth trustloopguard
+    /mcp list
+    ```
+  </Tab>
+
+  <Tab value="VS Code">
+    Run **MCP: Open User Configuration** from the Command Palette, or create `.vscode/mcp.json`
+    for one workspace:
+
+    ```json
+    {
+      "servers": {
+        "trustloopguard": {
+          "type": "http",
+          "url": "https://api.gettrustloop.app/mcp"
+        }
+      }
+    }
+    ```
+
+    Run **MCP: List Servers**, start `trustloopguard`, and complete the browser authorization flow.
+    Use **MCP: Reset Cached Tools** after a grant when you need to refresh discovery immediately.
+  </Tab>
+
+  <Tab value="Windsurf">
+    Open **Windsurf Settings → Cascade → MCP Servers → View Raw Config**, then add:
+
+    ```json
+    {
+      "mcpServers": {
+        "trustloopguard": {
+          "serverUrl": "https://api.gettrustloop.app/mcp"
+        }
+      }
+    }
+    ```
+
+    Refresh the MCP list, select `trustloopguard`, and complete OAuth in your browser.
+  </Tab>
+
+  <Tab value="Claude">
+    Claude web and Claude Desktop connect to remote MCP servers through custom connectors:
+
+    1. Open **Customize → Connectors**.
+    2. Select **Add custom connector**. Team and Enterprise workspaces require an Owner to add it
+       from **Organization settings → Connectors** first.
+    3. Name it `TrustLoopGuard` and enter:
+
+       ```text
+       https://api.gettrustloop.app/mcp
+       ```
+
+    4. Select **Connect**, complete OAuth, and enable the connector for the conversation.
+  </Tab>
+
+  <Tab value="Other clients">
+    Use this endpoint in any client that supports remote MCP over Streamable HTTP and OAuth 2.1:
+
+    ```text
+    https://api.gettrustloop.app/mcp
+    ```
+
+    The client must support protected-resource and authorization-server discovery, dynamic client
+    registration, PKCE with `S256`, browser authorization, refresh tokens, and the `mcp:tools`
+    scope. A client that only accepts a static bearer token is not compatible with employee OAuth.
   </Tab>
 </Tabs>
 
