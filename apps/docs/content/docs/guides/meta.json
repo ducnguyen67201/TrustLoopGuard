@@ -1,4 +1,4 @@
 {
   "title": "Guides",
-  "pages": ["index", "gateway", "policy-authoring", "guard-modes"]
+  "pages": ["index", "hosted-mcp-access", "gateway", "policy-authoring", "guard-modes"]
 }
