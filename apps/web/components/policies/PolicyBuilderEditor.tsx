@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
   draftToYaml,
@@ -82,7 +83,19 @@ export function PolicyBuilderEditor({
     onYamlChange(draftToYaml({ ...draft, [key]: value }));
   };
 
+  const updateAgentId = (value: string) => {
+    const agentId = value.trim();
+    onYamlChange(
+      draftToYaml({
+        ...draft,
+        agentIds: agentId === '' ? undefined : [agentId],
+        ownerAgentId: agentId === '' ? undefined : agentId,
+      }),
+    );
+  };
+
   const effect = actionVariant(draft.action);
+  const includesHostedMcp = !draft.channels?.length;
 
   return (
     <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.82fr)]">
@@ -155,6 +168,25 @@ export function PolicyBuilderEditor({
               />
             </Field>
           </div>
+          <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/30 p-3">
+            <div className="grid gap-1">
+              <Label htmlFor="builder-hosted-mcp" className="text-xs font-medium text-foreground">
+                Include hosted MCP tool calls
+              </Label>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Applies this rule to MCP intent and result-disclosure checks. This uses all-channel
+                coverage because hosted MCP calls do not declare chat, voice, or email.
+              </p>
+            </div>
+            <Switch
+              id="builder-hosted-mcp"
+              aria-label="Include hosted MCP tool calls"
+              checked={includesHostedMcp}
+              onCheckedChange={(checked) =>
+                update('channels', checked ? undefined : (draft.channels ?? ['chat']))
+              }
+            />
+          </div>
           <details className="text-sm">
             <summary className="cursor-pointer text-xs font-medium text-muted-foreground select-none">
               Narrow it down (optional)
@@ -163,7 +195,7 @@ export function PolicyBuilderEditor({
               <Field
                 label="Channels"
                 htmlFor="builder-channels"
-                hint="Limit to certain channels, like chat. Leave blank for all."
+                hint="Limit to chat, voice, or email. Leave blank for all channels and hosted MCP."
               >
                 <Input
                   id="builder-channels"
@@ -248,12 +280,12 @@ export function PolicyBuilderEditor({
           <Field
             label="Applies to one assistant"
             htmlFor="builder-owner-agent"
-            hint="Optional. The ID of a single AI assistant to limit this rule to."
+            hint="Optional. Limits runtime checks to this assistant. Leave blank for all assistants."
           >
             <Input
               id="builder-owner-agent"
-              value={draft.ownerAgentId ?? ''}
-              onChange={(event) => update('ownerAgentId', event.target.value)}
+              value={draft.agentIds?.[0] ?? ''}
+              onChange={(event) => updateAgentId(event.target.value)}
               placeholder="optional"
               className="font-mono"
             />
