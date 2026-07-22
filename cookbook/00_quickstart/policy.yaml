@@ -1,0 +1,11 @@
+id: cookbook-block-sensitive-identifiers
+description: Blocks the quickstart agent from returning synthetic SSNs.
+severity: critical
+when:
+  domains: [customer_support]
+  agents: [cookbook-support-agent]
+match:
+  any:
+    - regex: "(?i)\\bssn\\b"
+    - regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+action: deny

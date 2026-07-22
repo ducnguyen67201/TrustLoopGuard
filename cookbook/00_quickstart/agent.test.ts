@@ -1,11 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  DEFAULT_SAFE_REPLY,
-  createGuardedSupportAgent,
-  draftSupportReply,
-} from './agent';
+import { DEFAULT_SAFE_REPLY, createGuardedSupportAgent, draftSupportReply } from './agent';
 
 type SubmittedEvent = {
   kind: string;

@@ -1,8 +1,4 @@
-import {
-  guard,
-  type GuardLogEvent,
-  type RetryConfig,
-} from '@trustloopguard/sdk';
+import { guard, type GuardLogEvent, type RetryConfig } from '@trustloopguard/sdk';
 
 export const DEFAULT_AGENT_ID = 'cookbook-support-agent';
 export const DEFAULT_SAFE_REPLY =

@@ -8,6 +8,7 @@
   "scripts": {
     "quickstart": "tsx 00_quickstart/run.ts",
     "test": "tsx --test 00_quickstart/agent.test.ts",
+    "test:coverage": "tsx --test --experimental-test-coverage --test-coverage-include=00_quickstart/agent.ts --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 00_quickstart/agent.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

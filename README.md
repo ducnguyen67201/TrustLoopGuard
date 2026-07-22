@@ -338,6 +338,10 @@ pnpm --filter @trustloopguard/demo dispute:serve  # raw + guarded attack targets
 The LiveKit voice-agent demo lives under `demo/livekit` and uses the Python SDK
 inside the LiveKit Agents runtime. See [`demo/README.md`](demo/README.md).
 
+For the smallest learn-first example, start with the
+[`cookbook/00_quickstart`](cookbook/00_quickstart/README.md) output-boundary
+walkthrough.
+
 ## Where things live
 
 | Path | Purpose |
@@ -349,6 +353,7 @@ inside the LiveKit Agents runtime. See [`demo/README.md`](demo/README.md).
 | `apps/mcp-server` | Local stdio MCP server backed by the TypeScript SDK |
 | `sdks/python` | Python SDK with Pydantic types from `tl-codegen` |
 | `sdks/typescript` | TypeScript SDK with `ts-rs` types from `tl-codegen` |
+| `cookbook` | Small, runnable examples that teach one SDK concept at a time |
 | `docs/openapi.yaml` | Generated from `tl-server` annotations |
 | `docs/SDK_DRIVEN.md` | Why every feature ships behind all three SDKs |
 | `docs/AGENT_PROFILE.md` | Field-by-field reference for agent profile YAML |
