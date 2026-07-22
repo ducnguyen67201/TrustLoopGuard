@@ -123,6 +123,9 @@ Configure these controls from **Usage & budgets** in the dashboard:
 3. Add a percent alert such as 80%. Alerts are meter-scoped, so an action-spend alert cannot fire
    from model usage.
 
+See [Set AI Usage Cost Caps](/docs/guides/llm-spending-caps) for the complete dashboard setup,
+per-principal behavior, and a safe hard-stop test.
+
 Each Gateway request appears under Runs with the exact checked user and assistant turns, provider
 response id, model, token usage, latency, estimated cost, deterministic budget snapshot, and
 separate TrustLoopGuard guardrail overhead. Estimated costs use the price snapshot recorded with the

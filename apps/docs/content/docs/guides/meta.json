@@ -1,4 +1,11 @@
 {
   "title": "Guides",
-  "pages": ["index", "hosted-mcp-access", "gateway", "policy-authoring", "guard-modes"]
+  "pages": [
+    "index",
+    "hosted-mcp-access",
+    "gateway",
+    "llm-spending-caps",
+    "policy-authoring",
+    "guard-modes"
+  ]
 }
