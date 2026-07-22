@@ -3,7 +3,7 @@ title: Set AI Usage Cost Caps
 description: Add per-principal LLM spending caps, 80% alerts, and hard preflight enforcement to OpenAI-compatible Gateway traffic.
 ---
 
-A weekly `$25` cap with an `80%` alert gives each caller its own budget. When a bounded request
+A weekly `$50` cap with an `80%` alert gives each caller its own budget. When a bounded request
 would exceed the remaining budget, TrustLoopGuard returns `429 budget_exceeded` before contacting
 the model provider.
 
@@ -14,22 +14,50 @@ customer inference spend; TrustLoopGuard's own guardrail-model overhead is measu
 
 You need:
 
-- an OpenAI-compatible [Gateway route](/docs/guides/gateway#set-up-a-route)
+- an OpenAI-compatible provider connection and an agent
 - a runtime API key bound to the person or agent whose spend you want to track
-- the exact model name your application sends, such as `deepseek-4-flash`
+- the exact model name your application sends, such as `gpt-4o-mini`
 - the provider's current input and output prices for that model
 
 The runtime-key principal is the budget identity. If two callers need separate budgets, give them
 keys bound to different principals.
 
-## 1. Set the model price
+The walkthrough below was verified in the **Demo / Production** workspace with the `test` agent,
+an OpenAI-compatible provider named `Demo`, and `gpt-4o-mini`. Use your own provider, agent, model,
+and budget values in another workspace.
+
+## 1. Create the Gateway route
+
+Open **Gateway**, select **New route**, and use:
+
+| Field    | Production demo value      |
+| -------- | -------------------------- |
+| Short id | `cost-cap-demo`            |
+| Name     | `Production cost cap demo` |
+| Provider | `Demo`                     |
+| Agent    | `test`                     |
+
+Select **Create route**. TrustLoopGuard generates the OpenAI-compatible base URL and client example
+for the route. Every enabled policy for the selected environment and agent applies automatically.
+
+## 2. Set the model price
 
 Open **Usage & budgets**, then select **Set model price**.
 
-1. Enter the exact model value sent in Gateway requests.
-2. Enter the provider's input price in USD per one million tokens.
-3. Enter the provider's output price in USD per one million tokens.
-4. Select **Set price**.
+For the production demo, the provider's default model is `gpt-4o-mini`. We entered the standard
+[OpenAI GPT-4o mini prices](https://developers.openai.com/api/docs/models/gpt-4o-mini):
+
+| Field                  | Production demo value |
+| ---------------------- | --------------------- |
+| Provider model         | `gpt-4o-mini`         |
+| Input $ per 1M tokens  | `0.15`                |
+| Output $ per 1M tokens | `0.60`                |
+
+![Set the trusted gpt-4o-mini model price in Demo / Production](/images/guides/llm-spending-caps/model-price.jpg)
+
+Select **Set price**. Always verify the provider's current published or negotiated price before
+saving it; the numbers above reproduce the production demo rather than overriding your provider
+contract.
 
 Use the provider's published price, including any deployment-specific price you negotiated. New
 calls use the saved workspace price immediately, while earlier usage keeps its original price
@@ -38,18 +66,21 @@ snapshot for auditability.
 TrustLoopGuard fails a budgeted request with `503 pricing_unavailable` when the requested model has
 no trusted price. This prevents unpriced provider spend from bypassing a cap.
 
-## 2. Create the spending cap
+## 3. Create the spending cap
 
 On the same **Usage & budgets** page, find **LLM spending caps** and select **New LLM cap**.
 
-For a `$25` weekly cap, use:
+To reproduce the production demo's `$50` weekly cap, use:
 
-| Field      | Value                                                            |
-| ---------- | ---------------------------------------------------------------- |
-| Control id | `weekly-ai-budget`                                               |
-| Principal  | Leave blank for every principal, or enter one exact principal ID |
-| Weekly cap | `25.00`                                                          |
-| Cap breach | `Deny`                                                           |
+| Field       | Production demo value                               |
+| ----------- | --------------------------------------------------- |
+| Control id  | `llm-weekly-budget`                                 |
+| Principal   | Leave blank to apply the control to every principal |
+| Description | `Weekly LLM spend cap per principal`                |
+| Daily cap   | Leave blank                                         |
+| Weekly cap  | `50`                                                |
+| Monthly cap | Leave blank                                         |
+| Cap breach  | `Deny`                                              |
 
 You can set daily, weekly, and monthly caps on the same control. A request must fit under every
 configured window. Window boundaries use UTC: days begin at `00:00`, weeks begin Monday at
@@ -59,7 +90,7 @@ Leaving **Principal** blank does not create one shared workspace pool. The polic
 runtime-key principal, and TrustLoopGuard meters each principal separately. Enter a principal when
 the control should apply to only one caller.
 
-## 3. Add an 80% alert
+## 4. Add an 80% alert
 
 Under **Budget alerts**, select **New alert** and use:
 
@@ -79,7 +110,17 @@ under **Recent firings**. Add a webhook when an external system should receive t
 The alert window must match a window that has a hard cap. For example, a weekly alert watches the
 weekly cap, not the daily or monthly cap.
 
-## 4. Bound each request
+After saving, **Usage & budgets** should show the `$50.00 / week` cap and the enabled
+`weekly-80-percent` alert:
+
+![Configured weekly LLM cap and 80 percent alert in Demo / Production](/images/guides/llm-spending-caps/usage-budgets.jpg)
+
+Return to **Gateway**. The **Provider spending controls** card should show **Model price ready**,
+**Hard cap ready**, and **Alert ready**:
+
+![Production Gateway route with all provider spending controls ready](/images/guides/llm-spending-caps/gateway-ready.jpg)
+
+## 5. Bound each request
 
 Change two settings in your existing OpenAI-compatible client:
 
@@ -94,11 +135,11 @@ import OpenAI from 'openai';
 
 const openai = new OpenAI({
   apiKey: process.env.TLG_API_KEY,
-  baseURL: 'https://api.gettrustloop.app/v1/gateway/<route_id>/openai',
+  baseURL: 'https://api.gettrustloop.app/v1/gateway/cost-cap-demo/openai',
 });
 
 const response = await openai.chat.completions.create({
-  model: 'deepseek-4-flash',
+  model: 'gpt-4o-mini',
   messages: [{ role: 'user', content: 'Summarize this support ticket.' }],
   max_tokens: 512,
 });
@@ -107,7 +148,11 @@ const response = await openai.chat.completions.create({
 The provider credential remains encrypted behind the Gateway route. Do not put the provider key or
 the TrustLoopGuard runtime key in browser code.
 
-## 5. Verify enforcement
+Replace `cost-cap-demo` with the short id of your own route. Keeping a positive `max_tokens` (or
+`max_completion_tokens`) is what lets TrustLoopGuard reserve the maximum possible cost and enforce
+the cap before contacting the provider.
+
+## 6. Verify enforcement
 
 Send one normal bounded request, then open **Runs** and **Usage & budgets**.
 
