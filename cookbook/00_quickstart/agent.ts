@@ -12,6 +12,7 @@ export interface CookbookAgentOptions {
   agentId?: string;
   baseUrl?: string;
   apiKey?: string;
+  workspaceId?: string;
   fetchImpl?: typeof fetch;
   retry?: RetryConfig;
   log?: (event: GuardLogEvent) => void;
@@ -31,7 +32,7 @@ export function createGuardedSupportAgent(
     agentId: options.agentId ?? DEFAULT_AGENT_ID,
     baseUrl: options.baseUrl,
     apiKey: options.apiKey,
-    fetchImpl: options.fetchImpl,
+    fetchImpl: withLocalWorkspace(options.fetchImpl, options.workspaceId),
     retry: options.retry,
     log: options.log,
     failClosed: true,
@@ -40,4 +41,19 @@ export function createGuardedSupportAgent(
   });
 
   return guardrail.wrap(draftSupportReply);
+}
+
+function withLocalWorkspace(
+  fetchImpl: typeof fetch | undefined,
+  workspaceId: string | undefined,
+): typeof fetch | undefined {
+  const resolvedWorkspaceId = workspaceId?.trim();
+  if (!resolvedWorkspaceId) return fetchImpl;
+
+  const delegate = fetchImpl ?? globalThis.fetch.bind(globalThis);
+  return async (input, init) => {
+    const headers = new Headers(init?.headers);
+    headers.set('x-tlg-workspace-id', resolvedWorkspaceId);
+    return delegate(input, { ...init, headers });
+  };
 }
