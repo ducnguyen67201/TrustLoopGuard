@@ -113,3 +113,30 @@ test('fails closed when the guard service cannot be reached', async () => {
   assert.equal(result, DEFAULT_SAFE_REPLY);
   assert.doesNotMatch(result, /123-45-6789/);
 });
+
+test('attaches local workspace context when the quickstart explicitly supplies it', async () => {
+  let submittedHeaders = new Headers();
+  const fetchImpl: typeof fetch = async (_input, init) => {
+    submittedHeaders = new Headers(init?.headers);
+    return new Response(
+      JSON.stringify({
+        trace_id: 'trace-workspace',
+        domain: 'customer_support',
+        effect: 'permit',
+        reason: 'No policy matched.',
+        findings: [],
+        latency_ms: 1,
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
+  const reply = createGuardedSupportAgent({
+    baseUrl: 'https://guard.test',
+    fetchImpl,
+    workspaceId: 'cookbook-local',
+  });
+
+  await reply('What are your support hours?');
+
+  assert.equal(submittedHeaders.get('x-tlg-workspace-id'), 'cookbook-local');
+});
