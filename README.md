@@ -340,7 +340,8 @@ inside the LiveKit Agents runtime. See [`demo/README.md`](demo/README.md).
 
 For the smallest learn-first example, start with the
 [`cookbook/00_quickstart`](cookbook/00_quickstart/README.md) output-boundary
-walkthrough.
+walkthrough. Browse [`cookbook/01_demo`](cookbook/01_demo/README.md) for a
+concept-first guide to every current demo.
 
 ## Where things live
 
