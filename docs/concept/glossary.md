@@ -227,6 +227,10 @@ A tenant-scoped execution proof for a financial action. It links the action and 
 
 The operational and risk result of a financial action after authorization or execution. Outcomes record provider status, provider reference, reversal capability, recovery status, dispute/loss metadata, and final loss amount when known. Outcomes do not replace ledger entries: ledger entries answer spend/reservation questions, while outcomes answer whether the action succeeded, failed, reversed, recovered, was disputed, or caused loss.
 
+### Action underwriting
+
+A separately agreed commercial service that assigns a risk price and coverage terms to a proposed agent action before execution. The open-source TrustLoopGuard runtime supplies authorization, receipts, and outcome/recovery records; it does not by itself bind coverage, issue an insurance policy, or guarantee payment.
+
 ### Financial action state
 
 The Rust-derived product projection of a financial action's trusted evidence, authorization, and execution lifecycle. It lets callers distinguish `not_executable` eligibility failures, policy `blocked` actions, `held_for_approval` actions, authorized work, active execution, and terminal outcomes without inferring meaning from raw `defer`, `evaluating`, or `not_started` fields. It is computed from existing records and is not a separate durable state machine.
@@ -253,7 +257,7 @@ Provider-aware description of how an executed or pending financial action can be
 
 ### Recovery status
 
-The current recovery state for a financial action outcome: not needed, unavailable, available, started, recovered, failed, or requiring manual work. This vocabulary supports future agent-underwriting data without turning the current product into an underwriting, insurance, or guarantee system.
+The current recovery state for a financial action outcome: not needed, unavailable, available, started, recovered, failed, or requiring manual work. This vocabulary supplies outcome evidence for separately agreed [action underwriting](#action-underwriting) without making the runtime itself an insurance or guarantee system.
 
 ### MCP OAuth
 

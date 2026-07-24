@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { MarketingHome } from '@/components/marketing-home';
 import { SITE_NAME, SITE_URL } from '@/lib/seo';
 
-const TITLE = 'TrustLoopGuard — Kiểm soát tác nhân AI trong thời gian chạy';
+const TITLE = 'TrustLoopGuard — Thẩm định rủi ro cho hành động của tác nhân AI';
 const DESCRIPTION =
-  'Kiểm tra đầu ra và hành động do tác nhân AI đề xuất theo chính sách trước khi thực thi. Nhận quyết định cho phép, từ chối, chuyển đổi hoặc yêu cầu phê duyệt, kèm lý do và mã truy vết.';
+  'Định giá hành động quan trọng của tác nhân AI trước khi thực thi, cấp quyền theo điều khoản đã thỏa thuận và gắn mọi kết quả với hồ sơ rủi ro có thể kiểm tra.';
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
