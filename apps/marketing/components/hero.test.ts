@@ -2,16 +2,32 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-test('the homepage hero leads with a concrete outcome and the live demo', () => {
+test('the homepage hero leads with agent underwriting and the live demo', () => {
   const hero = readFileSync(new URL('./hero.tsx', import.meta.url), 'utf8');
 
-  assert.match(hero, /send, spend, or execute/i);
+  assert.match(hero, /We underwrite/i);
+  assert.match(hero, /Every consequential action gets a price before it runs/i);
+  assert.match(hero, /eligible losses are paid under the agreed terms/i);
   assert.match(hero, /href=\{locale === 'vi' \? '\/vi\/demo' : '\/demo'\}/);
   assert.match(hero, /event="demo_click"/);
   assert.match(hero, /Try the live refund demo/i);
   assert.match(hero, /href="#how"/);
-  assert.match(hero, /execution not started/i);
-  assert.match(hero, /require_approval/i);
+  assert.match(hero, /Action value/i);
+  assert.match(hero, /Risk price/i);
+  assert.match(hero, /Coverage limit/i);
+  assert.match(hero, /Authorized to execute/i);
+  assert.match(hero, /Coverage is available only under separate agreed terms/i);
+});
+
+test('the underwriting preview is one continuous risk slip, not nested cards', () => {
+  const hero = readFileSync(new URL('./hero.tsx', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
+
+  assert.match(hero, /quote-rate-primary/);
+  assert.match(hero, /quote-terms/);
+  assert.match(hero, /quote-flow/);
+  assert.doesNotMatch(hero, /control-proposal|control-pricing|control-decision/);
+  assert.doesNotMatch(styles, /\.control-proposal|\.control-pricing|\.control-decision/);
 });
 
 test('the hero keeps source inspection as tertiary proof', () => {

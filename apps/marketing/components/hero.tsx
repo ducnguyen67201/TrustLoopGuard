@@ -8,15 +8,14 @@ const FINANCIAL_CONTRACT_URL = `${GITHUB_URL}/blob/main/docs/concept/financial-a
 const COPY = {
   en: {
     statusLabel: 'TrustLoopGuard product status',
-    status: 'Open-source control boundary',
-    statusDetail: 'Proposed action in. Typed decision out. Side effect stays on your side.',
-    eyebrow: 'Runtime control for production AI agents',
-    title: 'Stop AI agents',
-    titleDetail: 'before they send, spend, or execute.',
-    introBefore:
-      'TrustLoopGuard checks a proposed output or action before it becomes a real side effect. Your runtime gets',
-    effects: 'permit, deny, transform, require approval, or defer',
-    introAfter: '—plus a receipt showing why.',
+    status: 'Agent risk infrastructure',
+    statusDetail: 'Price the action. Set the terms. Authorize execution. Track the outcome.',
+    eyebrow: 'Financial accountability for production AI agents',
+    title: 'We underwrite',
+    titleDetail: 'your agent.',
+    intro:
+      'Every consequential action gets a price before it runs. TrustLoopGuard evaluates the proposed action, returns the terms, and lets your runtime decide whether it should proceed.',
+    coverage: 'Where coverage is available, eligible losses are paid under the agreed terms.',
     founderProof: 'Built by a former engineer at a company backed by',
     demo: 'Try the live refund demo',
     app: 'Go to the app',
@@ -28,38 +27,44 @@ const COPY = {
       { label: 'Apache-2.0', detail: 'Inspect every decision path' },
       { label: 'Self-hostable', detail: 'Rust runtime in your infrastructure' },
       { label: 'TypeScript · Python · Rust', detail: 'One generated decision contract' },
-      { label: 'Decision + receipt', detail: 'Authorization before, proof after' },
+      { label: 'Outcome-linked receipts', detail: 'Authorization before, proof after' },
     ],
     previewLabel:
-      'Example control boundary: refund-bot proposes a 75 dollar refund, TrustLoopGuard requires approval, and execution does not start.',
-    liveBoundary: 'Live control boundary',
+      'Illustrative action terms for a 75 dollar refund: the action is priced at 42 cents, authorized to execute, and linked to a 75 dollar coverage limit.',
+    liveBoundary: 'Action underwriting',
+    quoteId: 'QUOTE / REFUND-7F3A',
     proposes: 'Agent proposes',
-    proposed: 'Proposed',
-    checks: 'TrustLoopGuard checks',
-    authority: 'Authority',
-    orderEvidence: 'Order evidence',
-    refundPolicy: 'Refund policy',
-    pass: 'pass',
-    approval: 'approval',
-    effect: 'Effect',
-    decisionReturned: 'Typed decision returned',
-    executionNotStarted: 'Execution not started',
-    receiptReserved: 'Receipt reserved',
-    stopped: 'Side effect stopped at the boundary',
-    noStripeCall: 'No Stripe call made',
+    proposed: 'Quote ready',
+    actionValue: 'Action value',
+    riskPrice: 'Risk price',
+    coverageLimit: 'Coverage limit',
+    priceDetail: 'Per authorized execution',
+    boundedTerms: 'Bounded terms',
+    authorityPolicy: 'Authority + policy',
+    evidenceRecovery: 'Evidence + recoverability',
+    outcomeReceipt: 'Outcome receipt',
+    verified: 'Verified',
+    reserved: 'Reserved',
+    termsLocked: 'Locked before execution',
+    authorizedToExecute: 'Authorized to execute',
+    limit: 'Coverage limit: $75.00',
+    flowLabel: 'Action lifecycle',
+    flowSteps: ['Price', 'Authorize', 'Execute', 'Outcome'],
+    coverageDisclosure:
+      'Coverage is available only under separate agreed terms; it is not included with the open-source runtime.',
   },
   vi: {
     statusLabel: 'Trạng thái sản phẩm TrustLoopGuard',
-    status: 'Ranh giới kiểm soát mã nguồn mở',
+    status: 'Hạ tầng rủi ro cho tác nhân AI',
     statusDetail:
-      'Nhận hành động đề xuất. Trả về quyết định có kiểu. Tác dụng phụ vẫn do bạn kiểm soát.',
-    eyebrow: 'Kiểm soát tác nhân AI trong môi trường production',
-    title: 'Chặn tác nhân AI',
-    titleDetail: 'trước khi chúng gửi, chi tiền hoặc thực thi.',
-    introBefore:
-      'TrustLoopGuard kiểm tra đầu ra hoặc hành động được đề xuất trước khi nó tạo ra tác dụng thực tế. Hệ thống của bạn nhận về',
-    effects: 'cho phép, từ chối, chuyển đổi, yêu cầu phê duyệt hoặc trì hoãn',
-    introAfter: '—kèm biên nhận giải thích lý do.',
+      'Định giá hành động. Đặt điều khoản. Cho phép thực thi. Theo dõi kết quả.',
+    eyebrow: 'Trách nhiệm tài chính cho tác nhân AI trong production',
+    title: 'Chúng tôi thẩm định',
+    titleDetail: 'tác nhân của bạn.',
+    intro:
+      'Mỗi hành động quan trọng đều được định giá trước khi chạy. TrustLoopGuard đánh giá hành động đề xuất, trả về điều khoản và để hệ thống của bạn quyết định có nên tiếp tục hay không.',
+    coverage:
+      'Khi có phạm vi bảo vệ, tổn thất đủ điều kiện sẽ được chi trả theo điều khoản đã thỏa thuận.',
     founderProof: 'Được xây dựng bởi cựu kỹ sư tại một công ty được hậu thuẫn bởi',
     demo: 'Thử bản demo hoàn tiền trực tiếp',
     app: 'Vào ứng dụng',
@@ -71,25 +76,31 @@ const COPY = {
       { label: 'Apache-2.0', detail: 'Kiểm tra mọi đường dẫn quyết định' },
       { label: 'Tự lưu trữ', detail: 'Runtime Rust trong hạ tầng của bạn' },
       { label: 'TypeScript · Python · Rust', detail: 'Một hợp đồng quyết định được sinh tự động' },
-      { label: 'Quyết định + biên nhận', detail: 'Cấp quyền trước, bằng chứng sau' },
+      { label: 'Biên nhận gắn với kết quả', detail: 'Cấp quyền trước, bằng chứng sau' },
     ],
     previewLabel:
-      'Ví dụ về ranh giới kiểm soát: refund-bot đề xuất hoàn 75 đô la, TrustLoopGuard yêu cầu phê duyệt và việc thực thi chưa bắt đầu.',
-    liveBoundary: 'Ranh giới kiểm soát trực tiếp',
+      'Điều khoản minh họa cho khoản hoàn tiền 75 đô la: hành động được định giá 42 xu, được phép thực thi và gắn với giới hạn bảo vệ 75 đô la.',
+    liveBoundary: 'Thẩm định hành động',
+    quoteId: 'BÁO GIÁ / REFUND-7F3A',
     proposes: 'Tác nhân đề xuất',
-    proposed: 'Đã đề xuất',
-    checks: 'TrustLoopGuard kiểm tra',
-    authority: 'Thẩm quyền',
-    orderEvidence: 'Bằng chứng đơn hàng',
-    refundPolicy: 'Chính sách hoàn tiền',
-    pass: 'đạt',
-    approval: 'cần phê duyệt',
-    effect: 'Hiệu lực',
-    decisionReturned: 'Đã trả về quyết định có kiểu',
-    executionNotStarted: 'Chưa bắt đầu thực thi',
-    receiptReserved: 'Đã dành mã biên nhận',
-    stopped: 'Tác dụng phụ bị chặn tại ranh giới',
-    noStripeCall: 'Không gọi Stripe',
+    proposed: 'Báo giá sẵn sàng',
+    actionValue: 'Giá trị hành động',
+    riskPrice: 'Giá rủi ro',
+    coverageLimit: 'Giới hạn bảo vệ',
+    priceDetail: 'Mỗi lần thực thi được cấp quyền',
+    boundedTerms: 'Điều khoản giới hạn',
+    authorityPolicy: 'Thẩm quyền + chính sách',
+    evidenceRecovery: 'Bằng chứng + khả năng phục hồi',
+    outcomeReceipt: 'Biên nhận kết quả',
+    verified: 'Đã xác minh',
+    reserved: 'Đã dành',
+    termsLocked: 'Khóa trước khi thực thi',
+    authorizedToExecute: 'Được phép thực thi',
+    limit: 'Giới hạn bảo vệ: $75.00',
+    flowLabel: 'Vòng đời hành động',
+    flowSteps: ['Định giá', 'Cấp quyền', 'Thực thi', 'Kết quả'],
+    coverageDisclosure:
+      'Phạm vi bảo vệ chỉ có theo thỏa thuận riêng; không đi kèm với runtime mã nguồn mở.',
   },
 } as const;
 
@@ -120,8 +131,7 @@ export function Hero({ locale = 'en' }: { locale?: MarketingLocale }) {
             <span>{copy.titleDetail}</span>
           </h1>
           <p className="hero-sub">
-            {copy.introBefore} <strong>{copy.effects}</strong>
-            {copy.introAfter}
+            {copy.intro} <strong>{copy.coverage}</strong>
           </p>
           <p className="hero-backing-proof">
             <span>{copy.founderProof}</span>
@@ -197,7 +207,7 @@ export function Hero({ locale = 'en' }: { locale?: MarketingLocale }) {
           </div>
         </div>
 
-        <ControlBoundaryPreview locale={locale} />
+        <UnderwritingPreview locale={locale} />
       </div>
 
       <div className="proof-strip" aria-label={copy.proofLabel}>
@@ -224,7 +234,7 @@ export function Hero({ locale = 'en' }: { locale?: MarketingLocale }) {
   );
 }
 
-function ControlBoundaryPreview({ locale }: { locale: MarketingLocale }) {
+function UnderwritingPreview({ locale }: { locale: MarketingLocale }) {
   const copy = COPY[locale];
 
   return (
@@ -234,73 +244,85 @@ function ControlBoundaryPreview({ locale }: { locale: MarketingLocale }) {
           <span className="control-live-dot" aria-hidden="true" />
           {copy.liveBoundary}
         </div>
-        <code>POST /v1/financial/actions</code>
+        <code>{copy.quoteId}</code>
       </header>
 
-      <div className="control-proposal">
-        <span className="control-node-number">01</span>
-        <div>
+      <div className="quote-intent">
+        <span className="quote-sequence">01</span>
+        <div className="quote-intent-copy">
           <p>{copy.proposes}</p>
           <strong>issue_refund</strong>
-          <dl>
-            <div>
-              <dt>principal</dt>
-              <dd>refund-bot</dd>
-            </div>
-            <div>
-              <dt>amount</dt>
-              <dd>$75.00 USD</dd>
-            </div>
-          </dl>
+          <span className="quote-intent-meta">
+            <code>refund-bot</code>
+            <span aria-hidden="true">•</span>
+            <code>$75.00 USD</code>
+          </span>
         </div>
-        <span className="control-proposal-state">{copy.proposed}</span>
+        <span className="quote-ready">{copy.proposed}</span>
       </div>
 
-      <div className="control-gate">
-        <div className="control-gate-rail" aria-hidden="true">
-          <span />
+      <section className="quote-rate" aria-labelledby="quote-rate-heading">
+        <div className="quote-rate-primary">
+          <p id="quote-rate-heading">{copy.riskPrice}</p>
+          <strong>
+            $0.42 <small>USD</small>
+          </strong>
+          <span>{copy.priceDetail}</span>
         </div>
-        <div className="control-gate-copy">
-          <p>{copy.checks}</p>
-          <ul>
-            <li>
-              <span>{copy.authority}</span>
-              <strong>{copy.pass}</strong>
-            </li>
-            <li>
-              <span>{copy.orderEvidence}</span>
-              <strong>{copy.pass}</strong>
-            </li>
-            <li>
-              <span>{copy.refundPolicy}</span>
-              <strong className="control-check-held">{copy.approval}</strong>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <div className="control-decision">
-        <div className="control-decision-stamp">
-          <small>{copy.effect}</small>
-          <strong>REQUIRE</strong>
-          <strong>APPROVAL</strong>
-        </div>
-        <div className="control-decision-copy">
-          <p>{copy.decisionReturned}</p>
-          <code>effect: require_approval</code>
+        <dl className="quote-exposure">
           <div>
-            <span>{copy.executionNotStarted}</span>
-            <span>{copy.receiptReserved}</span>
+            <dt>{copy.actionValue}</dt>
+            <dd>$75.00</dd>
           </div>
+          <div>
+            <dt>{copy.coverageLimit}</dt>
+            <dd>$75.00</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className="quote-terms">
+        <header>
+          <p>{copy.boundedTerms}</p>
+          <code>{copy.termsLocked}</code>
+        </header>
+        <ul>
+          <li>
+            <span>{copy.authorityPolicy}</span>
+            <strong>{copy.verified}</strong>
+          </li>
+          <li>
+            <span>{copy.evidenceRecovery}</span>
+            <strong>{copy.verified}</strong>
+          </li>
+          <li>
+            <span>{copy.outcomeReceipt}</span>
+            <strong>{copy.reserved}</strong>
+          </li>
+        </ul>
+      </section>
+
+      <div className="quote-authorization">
+        <span className="quote-authorization-icon" aria-hidden="true">
+          <ProceedIcon />
+        </span>
+        <div>
+          <p>{copy.authorizedToExecute}</p>
+          <code>{copy.quoteId}</code>
         </div>
+        <strong>{copy.limit}</strong>
       </div>
 
-      <footer className="control-preview-footer">
-        <span>
-          <StopIcon />
-          {copy.stopped}
-        </span>
-        <strong>{copy.noStripeCall}</strong>
+      <footer className="quote-flow" aria-label={copy.flowLabel}>
+        <ol>
+          {copy.flowSteps.map((step, index) => (
+            <li key={step} data-complete={index < 2}>
+              <span>0{index + 1}</span>
+              <strong>{step}</strong>
+            </li>
+          ))}
+        </ol>
+        <p>{copy.coverageDisclosure}</p>
       </footer>
     </article>
   );
@@ -328,15 +350,17 @@ function ArrowIcon() {
   );
 }
 
-function StopIcon() {
+function ProceedIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2" />
       <path
-        d="M4.1 1.5h5.8l2.6 2.6v5.8l-2.6 2.6H4.1L1.5 9.9V4.1l2.6-2.6Z"
+        d="m4.5 7 1.65 1.65L9.75 5"
         stroke="currentColor"
         strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      <path d="M4.25 7h5.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );
 }

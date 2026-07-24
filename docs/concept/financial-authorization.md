@@ -85,3 +85,7 @@ x402 authorization uses the same financial adapter and grant model, with scope f
 - `/approvals` is the only actionable decision queue for both financial and non-financial work.
 - `/grants` creates, lists, and revokes saved authority.
 - `/financial` is a ledger and execution-history surface. It leads with the product state and reason while retaining the raw authorization and execution axes, and it has no approve/deny controls.
+
+## Commercial coverage boundary
+
+[Action underwriting](glossary.md#action-underwriting) is a separately agreed commercial layer outside the open-source authorization contract. The current `/v1/financial/actions` API authorizes and executes financial actions and records their outcomes; it does not quote a risk price, bind coverage, issue an insurance policy, or guarantee payment. Any coverage is available only under separate agreed terms.
