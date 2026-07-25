@@ -1,21 +1,25 @@
 # SDK agent adapters
 
-TypeScript agent adapters are the framework-facing layer behind
-`guardAgent(agent, options)`. They discover local executable tools without
-adding runtime dependencies on agent frameworks, then route those tools through
-the same Rust authorization contract used by explicit SDK callers.
+SDK agent adapters attach TrustLoopGuard to framework-owned execution seams.
+They route local executable tools and supported final-output boundaries through
+the same Rust authorization contract used by explicit SDK callers, while
+preserving the framework's agent object and run lifecycle.
 
 ## Supported discovery seams
 
-| Host shape | Discovery seam | Enforcement seam |
-|---|---|---|
-| OpenAI Agents JS | mutable `agent.tools` array | local function-tool `execute()` |
-| LiveKit Agents for Node.js | `agent.toolCtx.tools` and `toolCtx.updateTools()` | local function-tool `execute()` |
-| Mastra | `getToolsForExecution()` result | each resolved tool `execute()` |
-| Compatible custom agent | `agent.tools` object map or array | each value's `execute()` |
+| SDK / host | Discovery seam | Tool enforcement seam | Final-output seam |
+|---|---|---|---|
+| TypeScript / OpenAI Agents JS | mutable `agent.tools` array | local function-tool `execute()` | decorated `reply()` |
+| TypeScript / LiveKit Agents | `agent.toolCtx.tools` and `toolCtx.updateTools()` | local function-tool `execute()` | decorated `reply()` when present |
+| TypeScript / Mastra | `getToolsForExecution()` result | each resolved tool `execute()` | decorated `reply()` when present |
+| TypeScript / compatible custom agent | `agent.tools` object map or array | each value's `execute()` | decorated `reply()` when present |
+| Python / AG2 1.0 | public `agent.tools` and per-call tool event | outer `on_tool_execution()` middleware | outer `on_turn()` middleware |
+| Python / Agno 2.x | `Function`, callable, `Toolkit`, and `run_context.tools` | first agent tool hook | last agent post-hook |
 
-Adapters use structural inspection only. TrustLoopGuard does not import Mastra,
-OpenAI Agents JS, or LiveKit at runtime.
+TypeScript adapters use structural inspection and do not import Mastra, OpenAI
+Agents JS, or LiveKit at runtime. Python framework imports live only in their
+matching optional integration module. Importing base `trustloopguard` or
+`trustloopguard.integrations` does not require AG2 or Agno.
 
 ## Decoration flow
 
@@ -35,6 +39,33 @@ OpenAI Agents JS, or LiveKit at runtime.
 8. The original tool executes at most once after `permit` or a successfully
    resumed approval. Deny, defer, failed approval, cancellation, and transport
    failure do not execute it.
+
+Python uses framework-native hooks instead of replacing registry functions.
+`guard_ag2()` installs one outer async middleware and uses the AG2 tool-call ID
+as invocation identity. `guard_agno()` installs synchronous hooks for `Client`
+and asynchronous hooks for `AsyncClient`; the selected client must match
+`run()` or `arun()`. Each Agno hook call receives a fresh invocation identity.
+Both adapters submit copied arguments, public schema identity, one
+unknown-origin argument source, top-level provenance, and bounded framework
+IDs. Agno run IDs stay in event context and are never represented as
+TrustLoopGuard Run IDs.
+
+AG2 attachment intentionally uses `guard_ag2(agent, ...)` after Agent
+construction instead of returning an `ag2.Plugin`. AG2 applies plugin
+middleware after middleware already present on the Agent, which makes that
+middleware inner rather than outer. The attachment helper uses AG2's public
+`insert_middleware()` API so the authorization boundary runs before existing
+middleware and can prevent an unapproved tool callback from being reached.
+
+The adapter calls the existing guarded-action helper for approval polling,
+grant resume, current-policy re-evaluation, lease claim, and completion. See
+[authorization-kernel.md](authorization-kernel.md) for that contract. Tool
+`transform` is a non-execution result because silently executing changed
+arguments would no longer be the framework's proposed call.
+
+Missing Python side-effect metadata defaults conservatively to
+`api_mutation` and emits a warning once per tool. Customers should classify
+known read-only tools explicitly to avoid unnecessary approval or blocking.
 
 If the agent exposes `reply(message, ...)`, the same decorator also preserves
 the existing output-boundary behavior for `output.proposed`. It records the raw
@@ -97,3 +128,20 @@ outside this boundary.
 Unsupported entries can be surfaced through `onDiscoveryWarning`. The caller
 then uses a host adapter or `withAuthorizedAction()` at the execution boundary
 it owns.
+
+The Python adapters guard local function tools and final plain-text output.
+They do not guard input as a separate authorization event or guard tool results.
+Agno structured output passes through unchanged with a warning; AG2 response
+schema parsing can fail when a safe text replacement does not match the
+customer's schema.
+
+Final middleware and post-hooks cannot retract streaming chunks already
+delivered to a consumer. Use a non-streaming call or an outer buffer that
+guards the complete draft before emitting it. Provider-hosted dictionary tools
+and remote execution hidden from a local hook are not intercepted.
+
+The AG2 adapter targets the current `ag2` 1.0 object model, not classic
+`autogen.ConversableAgent`. Agno approval waits inside the tool hook; it is not
+a durable Agno paused run and does not create an Agno `RunRequirement`. Guard
+each Agno member Agent explicitly; Team and Workflow transitive protection is
+not implied.

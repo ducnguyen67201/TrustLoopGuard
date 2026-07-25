@@ -62,6 +62,7 @@ from trustloopguard._generated.types import (
     PolicyFamily,
     PolicyListResponse,
     Principal,
+    ProvenanceMap,
     RunDetail,
     RunEventListResponse,
     RunEventSummary,
@@ -70,6 +71,7 @@ from trustloopguard._generated.types import (
     RunStatus,
     RunSummary,
     SideEffectClass,
+    Source,
     TraceListResponse,
     ToolIdentity,
     UpdateRunRequest,
@@ -406,29 +408,37 @@ class Client:
         invocation_id: str | None = None,
         parameters: dict[str, Any] | None = None,
         side_effect: str | SideEffectClass | None = None,
+        principal: Principal | None = None,
+        sources: list[Source] | None = None,
+        provenance: ProvenanceMap | None = None,
+        context: dict[str, Any] | None = None,
         timeout: float = 60.0,
         poll_interval: float | None = None,
         sleep: Callable[[float], None] = time.sleep,
     ) -> AuthorizationResult[ResultT]:
-        event = GuardEvent.model_validate(
-            {
-                "kind": event_kind,
-                "principal": {
-                    "workspace_id": "",
-                    "environment_id": "",
-                    "agent_id": agent_id,
-                },
-                "action": {
-                    "operation": operation,
-                    "parameters": copy.deepcopy(parameters or {}),
-                    "side_effect": side_effect,
-                    "invocation_id": invocation_id or str(uuid.uuid4()),
-                    "tool_identity": tool_identity.model_dump(mode="json"),
-                },
-                "sources": [],
-                "provenance": {},
-                "context": None,
-            }
+        if principal is not None and principal.agent_id != agent_id:
+            raise ValueError("principal.agent_id must match agent_id")
+        event = GuardEvent(
+            kind=event_kind,
+            principal=(
+                principal.model_copy(deep=True)
+                if principal is not None
+                else Principal(
+                    workspace_id="",
+                    environment_id="",
+                    agent_id=agent_id,
+                )
+            ),
+            action=Action(
+                operation=operation,
+                parameters=copy.deepcopy(parameters or {}),
+                side_effect=side_effect,
+                invocation_id=invocation_id or str(uuid.uuid4()),
+                tool_identity=tool_identity.model_copy(deep=True),
+            ),
+            sources=copy.deepcopy(sources or []),
+            provenance=copy.deepcopy(provenance or ProvenanceMap({})),
+            context=copy.deepcopy(context),
         )
         approved_parameters = copy.deepcopy(parameters or {})
 
@@ -1454,28 +1464,36 @@ class AsyncClient:
         invocation_id: str | None = None,
         parameters: dict[str, Any] | None = None,
         side_effect: str | SideEffectClass | None = None,
+        principal: Principal | None = None,
+        sources: list[Source] | None = None,
+        provenance: ProvenanceMap | None = None,
+        context: dict[str, Any] | None = None,
         timeout: float = 60.0,
         poll_interval: float | None = None,
     ) -> AuthorizationResult[ResultT]:
-        event = GuardEvent.model_validate(
-            {
-                "kind": event_kind,
-                "principal": {
-                    "workspace_id": "",
-                    "environment_id": "",
-                    "agent_id": agent_id,
-                },
-                "action": {
-                    "operation": operation,
-                    "parameters": copy.deepcopy(parameters or {}),
-                    "side_effect": side_effect,
-                    "invocation_id": invocation_id or str(uuid.uuid4()),
-                    "tool_identity": tool_identity.model_dump(mode="json"),
-                },
-                "sources": [],
-                "provenance": {},
-                "context": None,
-            }
+        if principal is not None and principal.agent_id != agent_id:
+            raise ValueError("principal.agent_id must match agent_id")
+        event = GuardEvent(
+            kind=event_kind,
+            principal=(
+                principal.model_copy(deep=True)
+                if principal is not None
+                else Principal(
+                    workspace_id="",
+                    environment_id="",
+                    agent_id=agent_id,
+                )
+            ),
+            action=Action(
+                operation=operation,
+                parameters=copy.deepcopy(parameters or {}),
+                side_effect=side_effect,
+                invocation_id=invocation_id or str(uuid.uuid4()),
+                tool_identity=tool_identity.model_copy(deep=True),
+            ),
+            sources=copy.deepcopy(sources or []),
+            provenance=copy.deepcopy(provenance or ProvenanceMap({})),
+            context=copy.deepcopy(context),
         )
         approved_parameters = copy.deepcopy(parameters or {})
 
