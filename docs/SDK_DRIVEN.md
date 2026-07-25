@@ -30,6 +30,62 @@ read from `agent.tools`, LiveKit tools from `agent.toolCtx`, and Mastra tools
 from `getToolsForExecution()`. The original tool runs at most once and only
 after `permit` or a successfully resumed approval.
 
+Python also provides construction-time adapters for current AG2 and Agno
+agents:
+
+```python
+from ag2 import Agent
+from trustloopguard import AsyncClient, SideEffectClass
+from trustloopguard.integrations.ag2 import guard_ag2
+
+agent = Agent("sales-agent", tools=[confirm_order, lookup_inventory])
+guard_ag2(
+    agent,
+    client=AsyncClient(base_url=TLG_URL, api_key=TLG_API_KEY),
+    tool_side_effects={
+        "confirm_order": SideEffectClass.api_mutation,
+        "lookup_inventory": SideEffectClass.read,
+    },
+)
+reply = await agent.ask("Confirm order 123")
+```
+
+```python
+from agno.agent import Agent
+from trustloopguard import Client, SideEffectClass
+from trustloopguard.integrations.agno import guard_agno
+
+agent = Agent(name="sales-agent", tools=[confirm_order, lookup_inventory])
+guard_agno(
+    agent,
+    client=Client(base_url=TLG_URL, api_key=TLG_API_KEY),
+    tool_side_effects={
+        "confirm_order": SideEffectClass.api_mutation,
+        "lookup_inventory": SideEffectClass.read,
+    },
+)
+reply = agent.run("Confirm order 123")
+```
+
+AG2 requires `AsyncClient`. Agno uses synchronous hooks with `Client` and
+asynchronous hooks with `AsyncClient`, matching `run()` and `arun()`
+respectively. The adapters guard local function calls before execution and
+plain-text final output before return. They do not own or close the supplied
+client.
+
+For local tools, `permit` executes once. `deny`, `defer`, and `transform`
+return a safe framework-visible result without execution.
+`require_approval` waits through the existing grant/lease path and executes
+only after a fresh `permit` with a lease. An SDK failure before callback
+execution also returns a safe non-execution result. A completion-reporting
+failure after the callback returns the captured tool result and never retries
+the tool. Output transport/decode fallback alone can be configured
+fail-open with `output_fail_closed=False`.
+
+These adapters use the existing `POST /v1/events` endpoint and generated wire
+contract unchanged. Their supported seams and limitations are defined in
+[sdk-agent-adapters.md](concept/sdk-agent-adapters.md).
+
 When `reply(message, ...)` exists, the TypeScript decorator also guards its
 returned string. With automatic Runs enabled, it records the raw message as a
 `user_turn` and the proposed reply as an `assistant_turn`. Creating the user

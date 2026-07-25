@@ -1,0 +1,217 @@
+---
+title: Guard Python agents
+description: Attach TrustLoopGuard to AG2 or Agno local tools and final plain-text output.
+---
+
+Use the Python framework adapters when an existing AG2 or Agno agent should be
+protected without rewriting its tools or business flow. Each adapter returns
+the same Agent object and sends runtime checks directly to the TrustLoopGuard
+Rust API.
+
+## Install the matching extra
+
+The AG2 adapter targets the current async-first `ag2` package:
+
+```bash
+python -m pip install "trustloopguard[ag2]"
+python -c "import ag2; print(ag2.__version__)"
+```
+
+The Agno adapter supports Agno 2.x:
+
+```bash
+python -m pip install "trustloopguard[agno]"
+python -c "import agno; print(agno.__version__)"
+```
+
+Keep the client alive for as long as the agent uses the adapter, then close it.
+The adapter does not own the client.
+
+## Classify your tools
+
+TrustLoopGuard defaults an unclassified tool to the conservative
+`api_mutation` side-effect class and emits a warning. Classify known tools so
+read-only operations do not inherit mutation policy:
+
+```python
+from trustloopguard import SideEffectClass
+
+tool_side_effects = {
+    "confirm_order": SideEffectClass.api_mutation,
+    "lookup_inventory": SideEffectClass.read,
+}
+```
+
+In this sales example, `confirm_order` can change customer-visible state while
+`lookup_inventory` only reads it.
+
+## AG2
+
+AG2 middleware is asynchronous, so use `AsyncClient`:
+
+```python
+import os
+
+from ag2 import Agent
+from trustloopguard import AsyncClient, SideEffectClass
+from trustloopguard.integrations.ag2 import guard_ag2
+
+tlg = AsyncClient(
+    base_url="https://api.gettrustloop.app",
+    api_key=os.environ["TLG_API_KEY"],
+)
+
+agent = Agent(
+    "sales-agent",
+    tools=[confirm_order, lookup_inventory],
+)
+guard_ag2(
+    agent,
+    client=tlg,
+    tool_side_effects={
+        "confirm_order": SideEffectClass.api_mutation,
+        "lookup_inventory": SideEffectClass.read,
+    },
+)
+
+reply = await agent.ask("Confirm order 123")
+await tlg.aclose()
+```
+
+`guard_ag2()` installs one outer middleware. Local tool calls pass through
+`on_tool_execution()` before AG2 executes them, and the final plain-text
+response passes through `on_turn()` before `ask()` returns.
+
+Attach the guard immediately after constructing the Agent and before starting
+a run. The helper uses AG2's outer-middleware insertion API so existing
+middleware cannot execute a tool before TrustLoopGuard authorizes it.
+
+## Agno sync
+
+Pair `Client` with `Agent.run()`:
+
+```python
+import os
+
+from agno.agent import Agent
+from trustloopguard import Client, SideEffectClass
+from trustloopguard.integrations.agno import guard_agno
+
+with Client(
+    base_url="https://api.gettrustloop.app",
+    api_key=os.environ["TLG_API_KEY"],
+) as tlg:
+    agent = Agent(
+        name="sales-agent",
+        tools=[confirm_order, lookup_inventory],
+    )
+    guard_agno(
+        agent,
+        client=tlg,
+        tool_side_effects={
+            "confirm_order": SideEffectClass.api_mutation,
+            "lookup_inventory": SideEffectClass.read,
+        },
+    )
+    result = agent.run("Confirm order 123")
+```
+
+## Agno async
+
+Pair `AsyncClient` with `Agent.arun()`:
+
+```python
+import os
+
+from agno.agent import Agent
+from trustloopguard import AsyncClient, SideEffectClass
+from trustloopguard.integrations.agno import guard_agno
+
+async with AsyncClient(
+    base_url="https://api.gettrustloop.app",
+    api_key=os.environ["TLG_API_KEY"],
+) as tlg:
+    agent = Agent(
+        name="sales-agent",
+        tools=[confirm_order, lookup_inventory],
+    )
+    guard_agno(
+        agent,
+        client=tlg,
+        tool_side_effects={
+            "confirm_order": SideEffectClass.api_mutation,
+            "lookup_inventory": SideEffectClass.read,
+        },
+    )
+    result = await agent.arun("Confirm order 123")
+```
+
+Agno installs the TrustLoopGuard tool hook first, before existing tool hooks,
+and its output hook last, after existing output transformations.
+
+## What each decision does
+
+| Effect | Local function tool | Final plain-text output |
+| --- | --- | --- |
+| `permit` | Executes exactly once | Returns unchanged |
+| `transform` | Does not execute; returns a revision-required tool result | Uses a string `transformed_value`; otherwise returns safe block text |
+| `deny` | Does not execute; returns safe block text | Returns configured block text |
+| `require_approval` | Waits for TrustLoopGuard approval, re-evaluation, and a lease; otherwise does not execute | Returns configured review text |
+| `defer` | Does not execute; returns missing-context text | Returns configured retry/evidence text |
+
+Executable checks always fail closed. If the TrustLoopGuard client cannot
+complete a tool check, the tool does not run and the agent receives a normal
+safe result. Output-only transport and decode failures can preserve the draft:
+
+```python
+guard_agno(
+    agent,
+    client=tlg,
+    output_fail_closed=False,
+)
+```
+
+This option never makes a tool executable when its safety check fails.
+
+## Approval behavior
+
+An approval decision waits inside the framework tool hook. The SDK polls only
+while the approval is pending, resumes with the grant, rechecks current policy,
+and requires a one-attempt lease before calling the tool. A denial, expiry,
+timeout, or cancellation does not execute the function.
+
+This wait is not an Agno paused run and does not create a native Agno
+`RunRequirement`. Use the returned safe tool result to let the model or
+application recover normally.
+
+## Limits
+
+- Use non-streaming `ask()`, `run()`, or `arun()` when final-output enforcement
+  is required. A final middleware or post-hook cannot retract chunks already
+  emitted to a stream; an outer buffering layer is required.
+- Agno structured output is passed through unchanged with a warning. The
+  adapter does not stringify Pydantic models, dataclasses, or dictionaries.
+- AG2 safe replacement text may fail a customer-defined structured response
+  schema.
+- Provider-hosted dictionary tools, hidden remote MCP execution, and direct
+  side effects outside local function tools have no local hook to intercept.
+- Guard every Agno member Agent explicitly. Team and Workflow execution is not
+  protected transitively.
+- The AG2 adapter does not support classic
+  `autogen.ConversableAgent`.
+
+## Troubleshooting
+
+If your code imports `ConversableAgent` from `autogen`, it uses the classic
+compatibility surface, not the current `ag2` Agent targeted by this adapter.
+Keep that integration explicit at the execution boundary with
+`with_authorized_action()`.
+
+If Agno logs that a hook was skipped, check the pairing:
+
+- `Client` with `agent.run()`
+- `AsyncClient` with `await agent.arun()`
+
+If a tool schema or side-effect warning appears, expose the tool as a local
+Agno `Function`, callable, or `Toolkit`, and add its name to
+`tool_side_effects`.

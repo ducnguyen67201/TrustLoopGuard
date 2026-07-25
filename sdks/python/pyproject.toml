@@ -23,11 +23,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ag2 = [
+    "ag2>=1.0.0b0,<1.1",
+]
+agno = [
+    "agno>=2.8.3,<3",
+]
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.23",
     "datamodel-code-generator>=0.25",
     "respx>=0.21",
+    "ag2>=1.0.0b0,<1.1",
+    "agno>=2.8.3,<3",
 ]
 
 [project.urls]
