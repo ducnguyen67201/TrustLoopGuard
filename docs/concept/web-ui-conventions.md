@@ -216,7 +216,7 @@ Use a small `previewLines` (e.g. 5–6) when the surface only needs to show the 
 
 Content wraps (`whitespace-pre-wrap`) and scrolls inside its own container, so long snippets never widen the page at 360px. Blocks longer than the preview limit collapse by default behind `Show all`; the copy button always copies the full `content`, not the preview.
 
-Current adopters: `/onboarding/connect` (SDK quick-start and assistant prompt).
+Current adopters: `/onboarding/connect` (SDK quick-start, assistant prompt, and coding-agent CLI install command).
 
 ## OnboardingProgress
 

@@ -26,7 +26,8 @@ That runtime check is the product. SDK callers receive the decision and handle i
 | Event-engine contract | [event-engine.md](event-engine.md) | `GuardEvent` vocabulary, event-stage seams, policy evaluation, and decision evidence. |
 | TypeScript agent adapters | [sdk-agent-adapters.md](sdk-agent-adapters.md) | How one agent wrapper discovers and guards supported local tools. |
 | Authorization kernel | [authorization-kernel.md](authorization-kernel.md) | Shared effects, approvals, grants, leases, and receipts across every domain. |
-| Shell command safety | [command-safety.md](command-safety.md) | Tool policies, deterministic shell facts, and the Claude Code lease lifecycle. |
+| Shell command safety | [command-safety.md](command-safety.md) | Tool policies and deterministic shell facts. |
+| Coding-agent tool gates | [coding-agent-tool-gates.md](coding-agent-tool-gates.md) | Claude Code, Codex, and OpenCode installation, coverage, and lease lifecycle. |
 | Financial authorization | [financial-authorization.md](financial-authorization.md) | Typed financial policy, execution, ledger, outcome, and reversal semantics. |
 | Policies | [policies.md](policies.md) | Unified Rust policy registry, policy families, environment deployment, and domain wrappers. |
 | Environments | [environments.md](environments.md) | Runtime keys, policy deployments, runs, traces, and analytics are scoped by environment. |
@@ -41,14 +42,16 @@ That runtime check is the product. SDK callers receive the decision and handle i
 3. [authorization-kernel.md](authorization-kernel.md) — how intents, approvals, grants, claims, leases, and receipts form one authority lifecycle.
 4. [financial-authorization.md](financial-authorization.md) — the typed financial action contract and policy family.
 5. [command-safety.md](command-safety.md) — how proposed shell commands become policy evidence and exact authorization.
-6. [crates.md](crates.md) — what each crate is for, in order of dependency.
-7. [glossary.md](glossary.md) — every domain term defined once: Channel, Authorization effect, Policy, Decision, hot path, etc.
-8. [runs.md](runs.md) — how agent executions group decision traces for monitoring.
-9. [analytics-dashboards.md](analytics-dashboards.md) — how customizable analytics queries and saved dashboard views work.
-10. [gateway.md](gateway.md) — how proxy/gateway mode differs from SDK mode.
-11. [agent-breakaway-arena.md](agent-breakaway-arena.md) — the raw-vs-guarded comparison concept and the agent adapter contract the demos use.
-12. [sdk-publishing.md](sdk-publishing.md) — how `@trustloopguard/sdk` is released to npm.
-13. [sdk-agent-adapters.md](sdk-agent-adapters.md) — how TypeScript agent wrappers discover local tools and where visibility stops.
+6. [coding-agent-tool-gates.md](coding-agent-tool-gates.md) — how coding-agent host calls reach the runtime.
+7. [crates.md](crates.md) — what each crate is for, in order of dependency.
+8. [glossary.md](glossary.md) — every domain term defined once: Channel, Authorization effect, Policy, Decision, hot path, etc.
+9. [runs.md](runs.md) — how agent executions group decision traces for monitoring.
+10. [analytics-dashboards.md](analytics-dashboards.md) — how customizable analytics queries and saved dashboard views work.
+11. [gateway.md](gateway.md) — how proxy/gateway mode differs from SDK mode.
+12. [agent-breakaway-arena.md](agent-breakaway-arena.md) — the raw-vs-guarded comparison concept and the agent adapter contract the demos use.
+13. [sdk-publishing.md](sdk-publishing.md) — how `@trustloopguard/sdk` is released to npm.
+14. [cli-publishing.md](cli-publishing.md) — how `@trustloopguard/cli` is released to npm.
+15. [sdk-agent-adapters.md](sdk-agent-adapters.md) — how TypeScript agent wrappers discover local tools and where visibility stops.
 
 ## When to update these docs
 
@@ -57,10 +60,12 @@ That runtime check is the product. SDK callers receive the decision and handle i
 - Changed how a request flows through the system? → update `architecture.md`.
 - Changed the event-engine contract or stage seams? → update `event-engine.md`.
 - Changed the financial action contract, financial policy family, outcome semantics, or reversal vocabulary? → update `financial-authorization.md` and `glossary.md`.
-- Changed shell command facts, tool policy semantics, or command-hook execution? → update `command-safety.md` and `glossary.md`.
+- Changed shell command facts or tool policy semantics? → update `command-safety.md` and `glossary.md`.
+- Changed coding-agent installation, host adapters, coverage, or lease reconciliation? → update `coding-agent-tool-gates.md` and `glossary.md`.
 - Changed the proxy integration path? → update `gateway.md`.
 - Added or changed execution grouping? → update `runs.md`.
 - Changed the SDK release workflow or npm package process? → update `sdk-publishing.md`.
+- Changed the coding-agent CLI release workflow or npm package process? → update `cli-publishing.md`.
 - Changed TypeScript framework discovery or automatic tool wrapping? → update `sdk-agent-adapters.md`.
 - Changed the raw-vs-guarded comparison concept or the agent adapter contract? → update `agent-breakaway-arena.md`.
 - Changed PostHog initialization, identity, or product event names? → update `product-analytics.md`.

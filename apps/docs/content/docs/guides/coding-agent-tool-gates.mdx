@@ -1,0 +1,87 @@
+---
+title: Coding-Agent Tool Gates
+description: Install blocking TrustLoopGuard hooks for Claude Code, Codex, and OpenCode.
+---
+
+Use the coding-agent tool gate when Claude Code, Codex, or OpenCode itself must ask
+TrustLoopGuard before executing tools. This is different from adding an MCP server: MCP setup can
+govern tools routed through that server but cannot intercept native or other third-party tools.
+
+## Install
+
+Create a workspace runtime key in the dashboard with principal ID `coding-agent`, copy it once,
+and run this from the project root:
+
+```bash
+export TLG_API_KEY="<your workspace runtime key>"
+npx @trustloopguard/cli install \
+  --agent-id coding-agent \
+  --url https://api.gettrustloop.app \
+  --target claude,codex,opencode
+```
+
+The key principal must equal `--agent-id`. The onboarding page sets this binding automatically;
+manual key creation must set it explicitly so approval polling and lease completion stay within
+the runtime key's principal scope.
+
+Use `--target auto` to install only hosts currently found on `PATH`. The key remains in the shell
+environment and is not written to the project, host settings, or TrustLoopGuard registry.
+
+The installer creates a user-owned runtime outside the project and safely merges:
+
+- Claude Code `PreToolUse`, `PostToolUse`, and `PostToolUseFailure`;
+- Codex `PreToolUse`, `PostToolUse`, `Stop`, and `SessionEnd`;
+- OpenCode `tool.execute.before`, after-tool, and error reconciliation.
+
+Rerunning the command updates the registration without duplicating handlers.
+
+## Verify
+
+```bash
+npx @trustloopguard/cli status
+npx @trustloopguard/cli doctor
+```
+
+`status` checks local registration and runtime integrity. `doctor` also checks host versions,
+`TLG_API_KEY` presence, server health, activation guidance, and coverage exceptions. Health proves
+reachability only; run one harmless tool to prove the runtime key and observe the resulting trace.
+
+For each host:
+
+- **Claude Code:** restart, open `/hooks`, and confirm all three TrustLoopGuard handlers. Invoke a
+  harmless read, then confirm its pre-execution trace.
+- **Codex:** restart, open `/hooks`, review the absolute TrustLoopGuard command, and approve trust.
+  Doctor reports `host_emitted_only` because Codex handlers opt into hook events individually.
+- **OpenCode:** restart so the global plugin loads, then invoke a harmless tool and confirm its
+  trace.
+
+The TrustLoopGuard gate never overrides a stricter native permission. The host may still ask or
+deny after TrustLoopGuard permits.
+
+## Failure behavior
+
+Registered projects fail closed when the key is absent, the server is unavailable, a response is
+malformed, an approval terminates or times out, or an approved call cannot persist its execution
+lease. This applies to reads as well as writes. Projects that are not registered receive no gate
+decision and retain native host behavior.
+
+Codex can gate only tool handlers that emit `PreToolUse`; currently unproven read/search and new
+built-in handler categories appear as explicit doctor exceptions. Configuration presence is not
+reported as universal coverage.
+
+## Remove
+
+Remove one host from the current project:
+
+```bash
+npx @trustloopguard/cli uninstall --target claude
+```
+
+Remove the current project's complete registration:
+
+```bash
+npx @trustloopguard/cli uninstall --all
+```
+
+Foreign host settings survive. A shared host adapter remains installed while another registered
+project uses it, and the copied runtime is removed after the final registration.

@@ -43,6 +43,17 @@ where it is created, and keep the rest of the app calling `agent.reply(...)`
 and its local tools. No scattered `look.check(...)`, no wrapper at every call
 site, no repository clone, and no provider proxy setup.
 
+When Claude Code, Codex, or OpenCode itself is the agent, install the user-level tool gate:
+
+```bash
+export TLG_API_KEY="<your workspace runtime key>"
+npx @trustloopguard/cli install --agent-id coding-agent --target claude,codex,opencode
+```
+
+This configures each host's blocking hook/plugin boundary. An MCP `add` command only exposes an MCP
+server and cannot intercept native or third-party tool calls. See
+[Coding-agent tool gates](docs/concept/coding-agent-tool-gates.md).
+
 - 🛡️ **Inspect** local tool calls and agent output before they reach users or downstream systems
 - 🚫 **Enforce** — block, rewrite, or escalate risky responses instead of only logging them
 - 🔌 **Integrate** with `npm install @trustloopguard/sdk` and one `guardAgent()` call

@@ -35,7 +35,7 @@ The same lifecycle covers tool and financial work. A financial action remains a 
 6. An authenticated reviewer denies it or mints an `exact_once` or bounded `scoped` grant.
 7. The caller retries the same subject with `grant_id` and a stable `attempt_id`.
 8. The kernel re-evaluates current policy and live state before claiming a one-attempt execution lease.
-9. The SDK, MCP proxy, Claude Code command hook, or financial executor runs once and completes the lease as consumed or canceled.
+9. The SDK, MCP proxy, coding-agent tool gate, or financial executor runs once and completes the lease as consumed or canceled.
 10. A common authorization receipt records the decision, findings, policy versions, and approval/grant/lease references. Domain execution evidence remains owned by that domain.
 
 The effective boundary is always the intersection of the request, the active grant scope, and current policy. A grant can narrow authority but cannot widen policy.
@@ -50,7 +50,7 @@ The effective boundary is always the intersection of the request, the active gra
 
 `POST /v1/events` remains the direct SDK hot path. The dashboard never sits in the runtime path.
 
-The Claude Code bridge is an execution-lease owner: it persists the returned lease before allowing the tool, then consumes or cancels that exact lease from the matching post hook. Its command-specific translation and failure behavior live in [command-safety.md](command-safety.md); the authority lifecycle remains the common kernel described here.
+The coding-agent tool gate is an execution-lease owner: it persists the returned lease before allowing the tool, then consumes or cancels that exact lease from the matching host lifecycle event. Host integration and failure behavior live in [coding-agent-tool-gates.md](coding-agent-tool-gates.md); the authority lifecycle remains the common kernel described here.
 
 ## Operator surfaces
 

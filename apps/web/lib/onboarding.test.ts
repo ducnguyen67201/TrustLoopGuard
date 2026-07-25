@@ -4,9 +4,10 @@ import {
   approvedWorkspaceLandingPath,
   assistantOptions,
   buildAssistantPrompt,
-  buildClaudeCodeHookPrompt,
+  buildCodingAgentInstallCommand,
   buildPaymentSdkSnippet,
   buildSdkSnippet,
+  codingAgentOptions,
   createApiKeyResponseSchema,
   sanitizeAgentId,
   traceListSchema,
@@ -97,39 +98,35 @@ describe('buildAssistantPrompt', () => {
   });
 });
 
-describe('buildClaudeCodeHookPrompt', () => {
-  const prompt = buildClaudeCodeHookPrompt({
+describe('buildCodingAgentInstallCommand', () => {
+  const command = buildCodingAgentInstallCommand({
     baseUrl: 'https://api.example.test',
     agentId: 'support-ai',
+    target: 'claude',
   });
 
-  test('installs pre and post hooks around executable events', () => {
-    expect(prompt).toContain('PreToolUse');
-    expect(prompt).toContain('PostToolUse');
-    expect(prompt).toContain('PostToolUseFailure');
-    expect(prompt).toContain('.claude/hooks/tlg-guard.mjs');
-    expect(prompt).toContain("'/v1/events'");
-    expect(prompt).toContain("Bash: 'shell.action.proposed'");
-    expect(prompt).toContain('"command": "node"');
-    expect(prompt).toContain('"timeout": 330');
+  test('uses the public installer with URL, agent, and target', () => {
+    expect(command).toContain('npx @trustloopguard/cli install');
+    expect(command).toContain("--agent-id 'support-ai'");
+    expect(command).toContain("--url 'https://api.example.test'");
+    expect(command).toContain('--target claude');
   });
 
-  test('interpolates base url and agent id into the settings env block', () => {
-    expect(prompt).toContain('"TLG_URL": "https://api.example.test"');
-    expect(prompt).toContain('"TLG_AGENT_ID": "support-ai"');
+  test('produces a command for every coding-agent target', () => {
+    for (const option of codingAgentOptions) {
+      expect(
+        buildCodingAgentInstallCommand({
+          baseUrl: 'https://api.example.test',
+          agentId: 'support-ai',
+          target: option.id,
+        }),
+      ).toContain(`--target ${option.id}`);
+    }
   });
 
-  test('keeps TrustLoopGuard approval and lease authority in the bridge', () => {
-    expect(prompt).toContain("decision.effect === 'require_approval'");
-    expect(prompt).toContain("decision.effect !== 'permit' || !decision.lease");
-    expect(prompt).toContain('permissionDecision: decision');
-    expect(prompt).not.toContain("permissionDecision: 'ask'");
-  });
-
-  test('keeps the API key out of files and out of the prompt', () => {
-    expect(prompt).toContain('export TLG_API_KEY=');
-    expect(prompt).toContain('Never write my API key into any file');
-    expect(prompt).not.toContain('tl_live_');
+  test('keeps the API key as an explicit placeholder', () => {
+    expect(command).toContain('export TLG_API_KEY="<copy the key shown on this page>"');
+    expect(command).not.toContain('tl_live_');
   });
 });
 

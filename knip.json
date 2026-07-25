@@ -30,6 +30,9 @@
       "exports",
       "types"
     ],
+    "apps/cli/src/runtime/opencode-plugin.ts": [
+      "exports"
+    ],
     "sdks/typescript/src/generated/**": [
       "files",
       "exports",
