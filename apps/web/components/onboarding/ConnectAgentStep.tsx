@@ -96,7 +96,11 @@ export function ConnectAgentStep({
     try {
       const data = await http.post(
         '/api/api-keys',
-        { name: `${cleanAgentId} key`, environment_id: environmentId },
+        {
+          name: `${cleanAgentId} key`,
+          environment_id: environmentId,
+          principal_id: cleanAgentId,
+        },
         createApiKeyResponseSchema,
       );
       setCreated(data);

@@ -9,7 +9,8 @@ govern tools routed through that server but cannot intercept native or other thi
 
 ## Install
 
-Create a workspace runtime key in the dashboard, copy it once, and run this from the project root:
+Create a workspace runtime key in the dashboard with principal ID `coding-agent`, copy it once,
+and run this from the project root:
 
 ```bash
 export TLG_API_KEY="<your workspace runtime key>"
@@ -18,6 +19,10 @@ npx @trustloopguard/cli install \
   --url https://api.gettrustloop.app \
   --target claude,codex,opencode
 ```
+
+The key principal must equal `--agent-id`. The onboarding page sets this binding automatically;
+manual key creation must set it explicitly so approval polling and lease completion stay within
+the runtime key's principal scope.
 
 Use `--target auto` to install only hosts currently found on `PATH`. The key remains in the shell
 environment and is not written to the project, host settings, or TrustLoopGuard registry.

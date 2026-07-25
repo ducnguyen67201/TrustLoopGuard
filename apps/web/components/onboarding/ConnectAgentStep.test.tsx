@@ -41,7 +41,7 @@ describe('ConnectAgentStep', () => {
     );
   }
 
-  test('creates a key for the active environment via the shared http client', async () => {
+  test('creates a principal-bound key for the active environment', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(CREATED));
     renderStep();
 
@@ -58,6 +58,7 @@ describe('ConnectAgentStep', () => {
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<string, string>;
     expect(body['environment_id']).toBe('env_default');
     expect(body['name']).toBe('support-ai key');
+    expect(body['principal_id']).toBe('support-ai');
   });
 
   // The integration surface is now a tabbed control (SDK · AI assistant ·
@@ -74,6 +75,11 @@ describe('ConnectAgentStep', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /create my api key/i }));
     await screen.findByDisplayValue(CREATED.plaintext_key);
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<
+      string,
+      string
+    >;
+    expect(requestBody['principal_id']).toBe('billing-bot-drop');
 
     // Every integration panel's full payload must carry the sanitized id and
     // never the raw input. Previews are shortened, so expand each block first.

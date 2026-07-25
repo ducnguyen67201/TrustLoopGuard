@@ -10,6 +10,10 @@ npx @trustloopguard/cli install \
   --target claude,codex,opencode
 ```
 
+Create the workspace runtime key with `principal_id` set to the same value passed to `--agent-id`
+(`coding-agent` above). This binding lets the runtime key poll approvals and reconcile execution
+leases for that agent without widening its scope.
+
 The key is read from the environment and is never accepted as a command argument or written to
 disk. The installer writes a user-owned runtime and project registry under the platform config
 directory, then safely merges user-level host hooks.

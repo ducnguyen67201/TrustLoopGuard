@@ -17,6 +17,11 @@ npx @trustloopguard/cli install \
 The key remains in the environment of the process that launches the coding agent. The installer
 does not accept a key argument, edit shell profiles, or persist the key.
 
+The workspace runtime key is bound to the same principal ID passed through `--agent-id`.
+Onboarding creates that binding when it creates the key. This keeps approval polling, grants,
+leases, receipts, and traces under one server-resolved identity instead of relying on an
+unscoped workspace key.
+
 ## Ownership and layout
 
 The npm CLI owns host configuration and the local bridge only. Rust still owns `GuardEvent`,
