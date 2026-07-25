@@ -28,7 +28,7 @@ try {
   await rename(join(temporaryDirectory, 'package'), installedPackage);
 
   const packageJson = JSON.parse(await readFile(join(installedPackage, 'package.json'), 'utf8'));
-  if (packageJson.bin?.trustloopguard !== './dist/index.js') {
+  if (packageJson.bin?.trustloopguard !== 'dist/index.js') {
     throw new Error('packed CLI bin does not point to dist/index.js');
   }
   const paths = manifest.files.map((entry) => entry.path);

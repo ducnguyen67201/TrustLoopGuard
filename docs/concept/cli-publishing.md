@@ -19,6 +19,21 @@ This doc owns the release process for `@trustloopguard/cli`. The automated npm r
 The workflow is release machinery, not permission to publish. Pushing the tag and approving any
 protected GitHub environment remain explicit operator actions.
 
+## First publication
+
+npm trusted publishing is configured from an existing package's settings page. Before the first
+workflow release, publish one version with an npm account that can write to the `trustloopguard`
+organization, then configure the package's GitHub Actions trusted publisher with:
+
+- GitHub organization or user: `ducnguyen67201`
+- Repository: `TrustLoopGuard`
+- Workflow filename: `publish-cli-npm.yml`
+- Environment: `cli-publish`
+- Allowed action: `npm publish`
+
+The bootstrap publish needs `--access public`. After trusted publishing is configured, releases use
+the tag workflow and do not require a long-lived npm token.
+
 ## Before tagging
 
 ```bash
