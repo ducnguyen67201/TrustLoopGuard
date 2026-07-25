@@ -25,7 +25,7 @@ export interface LiveKitRunOptions {
  * without adding a runtime dependency on the LiveKit package.
  */
 export function liveKitRun(
-  session: LiveKitAgentSessionLike,
+  session: object,
   opts: LiveKitRunOptions,
 ): GuardAgentSessionRunOptions {
   return {
@@ -37,11 +37,16 @@ export function liveKitRun(
       ? {}
       : { onLifecycleWarning: opts.onLifecycleWarning }),
     registerEnd(finish) {
+      const on = Reflect.get(session, 'on', session);
+      if (typeof on !== 'function') {
+        throw new TypeError('liveKitRun() requires a LiveKit AgentSession with on()');
+      }
       const listener: LiveKitCloseListener = (event) => finish(liveKitRunStatus(event));
-      session.on('close', listener);
-      if (typeof session.off !== 'function') return;
+      Reflect.apply(on, session, ['close', listener]);
+      const off = Reflect.get(session, 'off', session);
+      if (typeof off !== 'function') return;
       return () => {
-        session.off?.('close', listener);
+        Reflect.apply(off, session, ['close', listener]);
       };
     },
   };
