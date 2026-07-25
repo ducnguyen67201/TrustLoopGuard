@@ -2,6 +2,7 @@
   "title": "Guides",
   "pages": [
     "index",
+    "coding-agent-tool-gates",
     "hosted-mcp-access",
     "gateway",
     "llm-spending-caps",

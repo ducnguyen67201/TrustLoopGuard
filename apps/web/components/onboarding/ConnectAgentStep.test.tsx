@@ -61,7 +61,7 @@ describe('ConnectAgentStep', () => {
   });
 
   // The integration surface is now a tabbed control (SDK · AI assistant ·
-  // Guard Claude Code); only the active panel's <pre> is mounted at a time, so
+  // Guard coding agents); only the active panel's <pre> is mounted at a time, so
   // these tests walk the tabs and assert each panel independently.
   test('sanitizes free-form agent names before they reach snippets', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(CREATED));
@@ -77,7 +77,7 @@ describe('ConnectAgentStep', () => {
 
     // Every integration panel's full payload must carry the sanitized id and
     // never the raw input. Previews are shortened, so expand each block first.
-    for (const tab of [/^SDK$/i, /AI assistant/i, /Guard Claude Code/i]) {
+    for (const tab of [/^SDK$/i, /AI assistant/i, /Guard coding agents/i]) {
       await userEvent.click(screen.getByRole('tab', { name: tab }));
       for (const showAll of screen.queryAllByRole('button', { name: /show all/i })) {
         await userEvent.click(showAll);
@@ -107,18 +107,40 @@ describe('ConnectAgentStep', () => {
     await userEvent.click(screen.getByRole('tab', { name: /AI assistant/i }));
     expect(screen.getByText(/paste this into claude code/i)).toBeDefined();
 
-    // Claude Code hook panel.
-    await userEvent.click(screen.getByRole('tab', { name: /Guard Claude Code/i }));
-    expect(screen.getByText(/paste into claude code to guard it directly/i)).toBeDefined();
-    expect(screen.getByText(/authorizes before execution/i)).toBeDefined();
-    expect(screen.getByText(/high-impact guard failures stop the tool/i)).toBeDefined();
+    // Coding-agent tool-gate panel.
+    await userEvent.click(screen.getByRole('tab', { name: /Guard coding agents/i }));
+    expect(screen.getByText(/install the claude code gate/i)).toBeDefined();
+    expect(screen.getByText(/authorizes every emitted tool call/i)).toBeDefined();
+    expect(screen.getByText(/managed projects fail closed/i)).toBeDefined();
 
     // The plaintext secret must never leak into any snippet body, on any tab.
-    for (const tab of [/^SDK$/i, /AI assistant/i, /Guard Claude Code/i]) {
+    for (const tab of [/^SDK$/i, /AI assistant/i, /Guard coding agents/i]) {
       await userEvent.click(screen.getByRole('tab', { name: tab }));
       for (const pre of Array.from(document.querySelectorAll('pre'))) {
         expect(pre.textContent).not.toContain(CREATED.plaintext_key);
       }
+    }
+  });
+
+  test('changes only the target in the coding-agent install command', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(CREATED));
+    renderStep();
+
+    await userEvent.click(screen.getByRole('button', { name: /create my api key/i }));
+    await screen.findByDisplayValue(CREATED.plaintext_key);
+    await userEvent.click(screen.getByRole('tab', { name: /Guard coding agents/i }));
+
+    expect(screen.getByText(/--target claude/i)).toBeDefined();
+    await userEvent.click(screen.getByRole('button', { name: 'Codex' }));
+    expect(screen.getByText(/--target codex/i)).toBeDefined();
+    await userEvent.click(screen.getByRole('button', { name: 'OpenCode' }));
+    expect(screen.getByText(/--target opencode/i)).toBeDefined();
+
+    for (const pre of Array.from(document.querySelectorAll('pre'))) {
+      expect(pre.textContent).not.toContain(CREATED.plaintext_key);
+      expect(pre.textContent).toContain('npx @trustloopguard/cli install');
+      expect(pre.textContent).toContain('https://api.example.test');
+      expect(pre.textContent).toContain('support-ai');
     }
   });
 

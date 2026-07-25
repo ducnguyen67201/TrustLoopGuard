@@ -1,0 +1,53 @@
+{
+  "name": "@trustloopguard/cli",
+  "version": "0.0.1",
+  "description": "Install TrustLoopGuard tool-call gates for Claude Code, Codex, and OpenCode.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ducnguyen67201/TrustLoopGuard.git",
+    "directory": "apps/cli"
+  },
+  "homepage": "https://github.com/ducnguyen67201/TrustLoopGuard/tree/main/apps/cli",
+  "bugs": {
+    "url": "https://github.com/ducnguyen67201/TrustLoopGuard/issues"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "guardrails",
+    "claude-code",
+    "codex",
+    "opencode",
+    "hooks",
+    "tool-calls"
+  ],
+  "bin": {
+    "trustloopguard": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:package": "node ./scripts/package-smoke.mjs",
+    "prepack": "pnpm build",
+    "clean": "rm -rf dist coverage"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "1.18.5",
+    "@types/node": "25.6.2",
+    "@vitest/coverage-v8": "^3.2.6",
+    "typescript": "6.0.3",
+    "vitest": "^3.2.6"
+  }
+}

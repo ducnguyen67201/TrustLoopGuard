@@ -24,12 +24,14 @@ import { http } from '@/lib/http';
 import {
   assistantOptions,
   buildAssistantPrompt,
-  buildClaudeCodeHookPrompt,
+  buildCodingAgentInstallCommand,
   buildPaymentSdkSnippet,
   buildSdkSnippet,
+  codingAgentOptions,
   createApiKeyResponseSchema,
   sanitizeAgentId,
   type AssistantKind,
+  type CodingAgentKind,
   type CreatedApiKey,
 } from '@/lib/onboarding';
 
@@ -37,7 +39,7 @@ import {
 // the full snippet. Tuned per surface so each preview ends on a meaningful line.
 const SDK_PREVIEW_LINES = 6;
 const PROMPT_PREVIEW_LINES = 5;
-const HOOK_PREVIEW_LINES = 5;
+const CLI_PREVIEW_LINES = 5;
 
 /**
  * Builds the ?workspace=&environment= suffix for onboarding-internal links so
@@ -60,7 +62,7 @@ export function onboardingContextQuery(
 /**
  * Onboarding step 2: create an API key (one-time reveal) and hand the user
  * the integration paths — SDK quick-start, a paste-into-your-AI-assistant
- * prompt, and Claude-Code-native authorization hooks. The plaintext key lives
+ * prompt, and coding-agent-native authorization hooks. The plaintext key lives
  * only in component state; it is never placed in URLs, storage, or snippets.
  */
 export function ConnectAgentStep({
@@ -81,6 +83,7 @@ export function ConnectAgentStep({
   const [created, setCreated] = useState<CreatedApiKey | null>(null);
   const [copied, setCopied] = useState(false);
   const [assistant, setAssistant] = useState<AssistantKind>('claude');
+  const [codingAgent, setCodingAgent] = useState<CodingAgentKind>('claude');
 
   const contextQuery = onboardingContextQuery(workspaceSlug, requestedEnvironmentId);
   const cleanAgentId = sanitizeAgentId(agentId).replace(/^-+|-+$/g, '') || defaultAgentId;
@@ -194,9 +197,9 @@ export function ConnectAgentStep({
               <IconShieldBolt aria-hidden />
               Agent payments
             </TabsTrigger>
-            <TabsTrigger value="claude-code">
+            <TabsTrigger value="coding-agent">
               <IconShieldBolt aria-hidden />
-              Guard Claude Code
+              Guard coding agents
             </TabsTrigger>
           </TabsList>
 
@@ -263,17 +266,51 @@ export function ConnectAgentStep({
             />
           </TabsContent>
 
-          <TabsContent value="claude-code" className="grid gap-3">
+          <TabsContent value="coding-agent" className="grid gap-4">
             <SurfaceIntro>
-              Claude Code <em className="text-foreground not-italic">is</em> your agent. This
-              installs pre/post command hooks: TrustLoopGuard authorizes before execution and
-              completes the exact lease afterward. High-impact guard failures stop the tool.
+              Install user-level hooks so TrustLoopGuard authorizes every emitted tool call before
+              execution and completes the exact lease afterward. Managed projects fail closed; Codex
+              reports host-owned coverage gaps explicitly.
             </SurfaceIntro>
+            <div className="grid gap-2">
+              <Label
+                id="onboarding-coding-agent-label"
+                className="text-3xs font-medium uppercase tracking-label text-muted-foreground"
+              >
+                Coding agent host
+              </Label>
+              <div
+                className="flex flex-wrap gap-2"
+                role="group"
+                aria-labelledby="onboarding-coding-agent-label"
+              >
+                {codingAgentOptions.map((option) => (
+                  <Button
+                    key={option.id}
+                    type="button"
+                    size="sm"
+                    variant={codingAgent === option.id ? 'default' : 'outline'}
+                    aria-pressed={codingAgent === option.id}
+                    onClick={() => setCodingAgent(option.id)}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
             <CopyBlock
-              label="Paste into Claude Code to guard it directly"
-              content={buildClaudeCodeHookPrompt({ baseUrl, agentId: cleanAgentId })}
-              previewLines={HOOK_PREVIEW_LINES}
+              label={`Install the ${codingAgentOptions.find((option) => option.id === codingAgent)?.label ?? 'coding agent'} gate`}
+              content={buildCodingAgentInstallCommand({
+                baseUrl,
+                agentId: cleanAgentId,
+                target: codingAgent,
+              })}
+              previewLines={CLI_PREVIEW_LINES}
             />
+            <p className="text-xs leading-5 text-muted-foreground">
+              Copy your one-time key into the placeholder, run the command at the project root,
+              restart the host, then invoke one harmless tool to verify the first trace.
+            </p>
           </TabsContent>
         </Tabs>
 

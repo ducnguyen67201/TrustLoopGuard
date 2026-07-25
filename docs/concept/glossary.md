@@ -151,6 +151,14 @@ The category a policy document belongs to, selected by a top-level `family:` tag
 
 A `family: tool` policy evaluated against an exact executable tool subject. It can scope by agent, operation, side-effect class, and structured tool identity, then match analyzer facts or a JSON Pointer into action parameters. It emits `deny`, `defer`, or `require_approval` findings through the common authorization kernel. See [command-safety.md](command-safety.md).
 
+### Coding-agent tool gate
+
+A user-owned Claude Code, Codex, or OpenCode adapter that blocks a host-emitted tool call while the existing Rust runtime evaluates its normalized `GuardEvent`. The gate is installed outside the guarded workspace, fails closed for registered projects, and owns execution-lease reconciliation but no policy logic. See [coding-agent-tool-gates.md](coding-agent-tool-gates.md).
+
+### Host-emitted coverage
+
+The set of tool calls for which a coding-agent host invokes its blocking before-tool extension point. `universal` means every call emitted through that extension is gated; `host_emitted_only` means the host has built-in handlers that do not expose the event and therefore cannot be intercepted by the adapter. Configuration presence alone does not prove coverage.
+
 ### Shell command fact
 
 A neutral key/value observation produced by the pure bounded shell analyzer, such as `shell.risk=filesystem_recursive_delete` or `shell.target_scope=workspace`. Facts never decide an effect by themselves; only an enabled tool policy interprets them. See [command-safety.md](command-safety.md#shell-facts).

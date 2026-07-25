@@ -132,11 +132,9 @@ A proven fact can still match during partial analysis. If a scoped fact policy c
 
 The executor completes that lease as `consumed` after success or `canceled` after failure. A changed command or identity does not fit the approved scope. See [authorization-kernel.md](authorization-kernel.md) for the shared lifecycle.
 
-## Claude Code bridge
+## Coding-agent execution
 
-The generated command hook maps Bash `PreToolUse` input to the typed shell event, fails closed on high-impact transport or protocol errors, and leaves read-only outages to Claude Code's native permission rules without emitting an allow override. A TrustLoopGuard approval is polled and resumed through the kernel; Claude's local `ask` response is not used as authority.
-
-Before returning allow for a leased action, the hook stores the lease in a user-only temporary state directory keyed by session and tool-use id. `PostToolUse` consumes it and `PostToolUseFailure` cancels it. State is removed only after successful completion, so failed audit delivery remains recoverable.
+Claude Code, Codex, and OpenCode can submit this typed shell event through the user-owned coding-agent tool gate. Installation, strict failure behavior, host coverage, and lease reconciliation are owned by [coding-agent-tool-gates.md](coding-agent-tool-gates.md).
 
 ## Clean-room boundary
 

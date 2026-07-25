@@ -53,6 +53,7 @@ That boundary keeps one source of truth:
 4. **Embedded** — for users who want zero network hop, they pull `tl-engine` directly as a Rust dependency and call `Engine::check(&req)` in-process. Same types, no HTTP.
 5. **GitHub-assisted installation** — a dashboard owner/admin connects a selected GitHub repository to an existing agent/environment and reviews a Rust-generated draft PR that adds the SDK call. It is onboarding control-plane work, not a runtime path; see [github-assisted-installation.md](github-assisted-installation.md).
 6. **Hosted MCP access gateway** — an employee points an MCP-capable AI client at one managed `/mcp` endpoint. OAuth binds employee, workspace, and registered-agent identity; exact pair assignments filter the catalog; Rust policy enforcement gates both upstream execution and result disclosure. See [hosted-mcp-access-gateway.md](hosted-mcp-access-gateway.md).
+7. **Coding-agent tool gate** — `@trustloopguard/cli` installs user-level Claude Code, Codex, or OpenCode adapters that normalize host-emitted tool calls and submit them directly to `POST /v1/events`. The bridge owns no policy logic or durable product data. See [coding-agent-tool-gates.md](coding-agent-tool-gates.md).
 
 All runtime paths use the **same engine contracts**. The server crate is a thin axum wrapper around the engine and Rust-owned storage.
 
