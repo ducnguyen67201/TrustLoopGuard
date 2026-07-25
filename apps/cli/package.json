@@ -1,6 +1,6 @@
 {
   "name": "@trustloopguard/cli",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Install TrustLoopGuard tool-call gates for Claude Code, Codex, and OpenCode.",
   "license": "Apache-2.0",
   "type": "module",
@@ -27,7 +27,7 @@
     "tool-calls"
   ],
   "bin": {
-    "trustloopguard": "./dist/index.js"
+    "trustloopguard": "dist/index.js"
   },
   "files": [
     "dist",
