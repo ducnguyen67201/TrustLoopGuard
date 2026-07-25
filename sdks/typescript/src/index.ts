@@ -253,7 +253,7 @@ export type {
   WithRunOptions,
 } from './client.js';
 
-export { GuardMode, guard, guardAgent } from './guard.js';
+export { GuardMode, guard, guardAgent, guardLiveKitAgent } from './guard.js';
 export type {
   GuardAgentOptions,
   GuardAgentReplyRunOptions,
