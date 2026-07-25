@@ -141,18 +141,20 @@ in the SDK's supported Node.js runtime. If an unsupported browser/edge runtime
 cannot provide that isolation, tool/output guards still run but automatic Run
 and transcript capture are skipped to prevent cross-session data leakage.
 
-### Keep one Run for a LiveKit session
+### Guard a LiveKit voice agent
 
-The default reply boundary is safe for generic agents because an agent object
-may serve many unrelated users. When the framework exposes a real session end,
-bind that lifecycle once while decorating the agent:
+Use `guardLiveKitAgent()` for a LiveKit STT→LLM→TTS pipeline. It applies the
+same local-tool authorization as `guardAgent()`, buffers the complete generated
+text, submits it as `output.proposed`, and gives only the permitted or safely
+transformed text to LiveKit's TTS node:
 
 ~~~ts
-import { guardAgent, liveKitRun } from '@trustloopguard/sdk';
+import { guardLiveKitAgent, liveKitRun } from '@trustloopguard/sdk';
 
 const session = createLiveKitAgentSession();
-const agent = guardAgent(createAgent(), {
+const agent = guardLiveKitAgent(createAgent(), {
   agentId: 'support-agent',
+  channel: 'voice',
   run: liveKitRun(session, {
     externalId: roomSid,
     metadata: { integrationName: 'livekit' },
@@ -162,14 +164,21 @@ const agent = guardAgent(createAgent(), {
 await session.start({ agent, room });
 ~~~
 
-The first guarded output or local tool call lazily creates one live_call Run.
-Later guarded activity from the same wrapped session reuses its run ID. The Run
-stays running until LiveKit emits close: model/session errors finish it as
-failed, job shutdown finishes it as canceled, and normal participant, user, or
-task completion finishes it as completed.
+Create one decorated agent per LiveKit session; do not share the same decorated
+voice-agent instance across callers.
+
+The full-response buffer intentionally trades some time-to-first-audio for a
+pre-delivery enforcement boundary. Direct speech-to-speech realtime audio does
+not pass through the TTS text node and is not guarded by this helper.
+
+The first guarded speech output or local tool call lazily creates one
+`live_call` Run. Later guarded activity from the same wrapped session reuses
+its run ID. The Run stays running until LiveKit emits `close`: model/session
+errors finish it as failed, job shutdown finishes it as canceled, and normal
+participant, user, or task completion finishes it as completed.
 
 The helper is structurally typed and does not add LiveKit as an SDK dependency.
-Use a LiveKit room SID as externalId when available. agentId identifies the
+Use a LiveKit room SID as `externalId` when available. `agentId` identifies the
 registered agent and must never be used as the customer-session key.
 
 Other frameworks can provide the same deterministic contract directly:
@@ -401,6 +410,9 @@ actions remain on their dedicated helpers.
 - Your framework does not expose `reply(): Promise<string>`: local tools can
   still be discovered, but guard the final framework result with the
   function-only `.wrap()` form.
+- LiveKit direct realtime audio bypasses the text TTS node: use an STT→LLM→TTS
+  pipeline with `guardLiveKitAgent()` when pre-speech text enforcement is
+  required.
 - A hosted or hidden tool was not wrapped: provide
   `tools.onDiscoveryWarning`, then use the framework host adapter or
   `withAuthorizedAction` for that boundary.

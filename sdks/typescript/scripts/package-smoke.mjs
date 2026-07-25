@@ -45,6 +45,7 @@ try {
       '--eval',
       "const sdk = await import('@trustloopguard/sdk');" +
         "if (typeof sdk.guardAgent !== 'function') process.exit(1);" +
+        "if (typeof sdk.guardLiveKitAgent !== 'function') process.exit(1);" +
         "if (typeof sdk.liveKitRun !== 'function') process.exit(1);" +
         "if (sdk.ToolRegistrationMode?.Strict !== 'strict') process.exit(1);" +
         "if (typeof sdk.GuardedToolBlocked !== 'function') process.exit(1);",

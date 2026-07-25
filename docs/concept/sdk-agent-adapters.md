@@ -10,7 +10,7 @@ preserving the framework's agent object and run lifecycle.
 | SDK / host | Discovery seam | Tool enforcement seam | Final-output seam |
 |---|---|---|---|
 | TypeScript / OpenAI Agents JS | mutable `agent.tools` array | local function-tool `execute()` | decorated `reply()` |
-| TypeScript / LiveKit Agents | `agent.toolCtx.tools` and `toolCtx.updateTools()` | local function-tool `execute()` | decorated `reply()` when present |
+| TypeScript / LiveKit Agents | `agent.toolCtx.tools` and `toolCtx.updateTools()` | local function-tool `execute()` | buffered pre-TTS text through `guardLiveKitAgent()` |
 | TypeScript / Mastra | `getToolsForExecution()` result | each resolved tool `execute()` | decorated `reply()` when present |
 | TypeScript / compatible custom agent | `agent.tools` object map or array | each value's `execute()` | decorated `reply()` when present |
 | Python / AG2 1.0 | public `agent.tools` and per-call tool event | outer `on_tool_execution()` middleware | outer `on_turn()` middleware |
@@ -76,6 +76,14 @@ turn-event, and completion failures do not replace the guard result or the
 agent's own error. Input observation never creates an authorization decision;
 local tools/actions and proposed output remain the enforcement boundaries.
 
+`guardLiveKitAgent()` adds a LiveKit-specific text-output seam without
+importing LiveKit at runtime. It captures the framework's completed user turn,
+buffers the complete text stream passed to `ttsNode()`, evaluates that draft as
+`output.proposed`, and invokes the original TTS node with only the permitted or
+transformed text. The buffer is deliberate: streamed text is never synthesized
+before the decision. A decorated LiveKit Agent belongs to one AgentSession and
+must not be shared across callers.
+
 ## Session lifecycle adapters
 
 Session scope is explicit because a framework agent object can be shared by
@@ -139,6 +147,10 @@ Final middleware and post-hooks cannot retract streaming chunks already
 delivered to a consumer. Use a non-streaming call or an outer buffer that
 guards the complete draft before emitting it. Provider-hosted dictionary tools
 and remote execution hidden from a local hook are not intercepted.
+
+LiveKit pre-TTS guarding adds full-generation latency before first audio.
+Direct realtime speech-to-speech audio uses `realtimeAudioOutputNode()` rather
+than `ttsNode()` and remains outside this text enforcement boundary.
 
 The AG2 adapter targets the current `ag2` 1.0 object model, not classic
 `autogen.ConversableAgent`. Agno approval waits inside the tool hook; it is not
