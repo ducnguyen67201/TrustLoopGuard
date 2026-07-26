@@ -4,10 +4,10 @@ import { MarketingEventLink } from './marketing-event-link';
 
 const COPY = {
   en: {
-    eyebrow: 'Start with a real failure path',
-    title: 'Bring the agent action you are least comfortable shipping.',
-    body: 'We will map the event, the policy boundary, and the decision your runtime needs before that action reaches a user or tool.',
-    talk: 'Talk through a failure path',
+    eyebrow: 'Start with one approval',
+    title: 'Choose the agent action that needs a real sign-off.',
+    body: 'We will map the request, the policy, the approver, and the execution boundary—whether it is a payment, a hospital workflow, or your own high-impact action.',
+    talk: 'Design an approval flow',
     source: 'Review the source',
     docs: 'Read the docs ↗',
   },

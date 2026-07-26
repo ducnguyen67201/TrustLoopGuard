@@ -2,24 +2,24 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-test('the homepage hero leads with agent underwriting and the live demo', () => {
+test('the homepage hero leads with policy approvals and the live demo', () => {
   const hero = readFileSync(new URL('./hero.tsx', import.meta.url), 'utf8');
 
-  assert.match(hero, /We underwrite/i);
-  assert.match(hero, /Every consequential action gets a price before it runs/i);
-  assert.match(hero, /eligible losses are paid under the agreed terms/i);
+  assert.match(hero, /Approval infrastructure for AI agents/i);
+  assert.match(hero, /Your agent asks/i);
+  assert.match(hero, /Policy decides/i);
+  assert.match(hero, /Approve a payment, a hospital request/i);
   assert.match(hero, /href=\{locale === 'vi' \? '\/vi\/demo' : '\/demo'\}/);
   assert.match(hero, /event="demo_click"/);
-  assert.match(hero, /Try the live refund demo/i);
+  assert.match(hero, /Try a live approval/i);
   assert.match(hero, /href="#how"/);
   assert.match(hero, /Action value/i);
-  assert.match(hero, /Risk price/i);
-  assert.match(hero, /Coverage limit/i);
-  assert.match(hero, /Authorized to execute/i);
-  assert.match(hero, /Coverage is available only under separate agreed terms/i);
+  assert.match(hero, /Auto-approve limit/i);
+  assert.match(hero, /Held for finance approval/i);
+  assert.match(hero, /hospital scheduling request/i);
 });
 
-test('the underwriting preview is one continuous risk slip, not nested cards', () => {
+test('the approval preview is one continuous decision record, not nested cards', () => {
   const hero = readFileSync(new URL('./hero.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
 

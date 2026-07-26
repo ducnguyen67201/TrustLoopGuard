@@ -5,7 +5,7 @@ import { GITHUB_URL } from '@/lib/github';
 export const SITE_NAME = 'TrustLoopGuard';
 export const SITE_URL = stripTrailingSlash(env.NEXT_PUBLIC_SITE_URL);
 export const DEFAULT_DESCRIPTION =
-  'Price consequential AI agent actions before execution, authorize them against agreed terms, and link every outcome to an auditable risk record.';
+  'Approval infrastructure for AI agents. Evaluate proposed payments, hospital requests, and other consequential actions against policy before they execute.';
 
 export type LandingSlug =
   | 'ai-agent-spend-controls'
