@@ -37,6 +37,7 @@ export async function AppLayout({
       <PostHogIdentity user={resolvedShell.user} />
       <AppSidebar
         variant="inset"
+        isPlatformAdmin={resolvedShell.isPlatformAdmin}
         user={resolvedShell.user}
         organization={resolvedShell.organization}
         activeWorkspace={resolvedShell.activeWorkspace}

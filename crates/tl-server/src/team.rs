@@ -102,6 +102,13 @@ pub trait TeamStore: Send + Sync {
         user_id: Uuid,
     ) -> Result<Vec<MyWorkspace>, TeamStoreError>;
 
+    /// Whether the user has platform-level access across every workspace.
+    async fn is_platform_admin(&self, user_id: Uuid) -> Result<bool, TeamStoreError>;
+
+    /// Every active workspace. Callers must verify `is_platform_admin`
+    /// before using this method for a signed-in user.
+    async fn list_all_workspaces(&self) -> Result<Vec<MyWorkspace>, TeamStoreError>;
+
     /// Create a fresh org+workspace pair owned by `user_id`. Used by
     /// the `/welcome` page so a self-serve signup can bootstrap
     /// without an admin invite.

@@ -20,11 +20,21 @@ struct MemoryTeamState {
     members: Vec<(String, WorkspaceMember)>,
     invites: Vec<WorkspaceInvite>,
     deleted_workspaces: HashSet<String>,
+    platform_admins: HashSet<Uuid>,
 }
 
 impl MemoryTeamStore {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub async fn set_platform_admin_for_tests(&self, user_id: Uuid, enabled: bool) {
+        let mut guard = self.inner.write().await;
+        if enabled {
+            guard.platform_admins.insert(user_id);
+        } else {
+            guard.platform_admins.remove(&user_id);
+        }
     }
 
     /// Atomically consume a pending invite for `user_id`. Returns the
@@ -183,6 +193,35 @@ impl TeamStore for MemoryTeamStore {
                 name: ws_id.clone(),
                 organization_id: format!("org_{}", ws_id),
                 role: m.role,
+                is_knowledge_base_enabled: false,
+                is_attacks_enabled: false,
+                is_mcp_gateway_enabled: false,
+            })
+            .collect())
+    }
+
+    async fn is_platform_admin(&self, user_id: Uuid) -> Result<bool, TeamStoreError> {
+        Ok(self.inner.read().await.platform_admins.contains(&user_id))
+    }
+
+    async fn list_all_workspaces(&self) -> Result<Vec<MyWorkspace>, TeamStoreError> {
+        let guard = self.inner.read().await;
+        let mut workspace_ids = guard
+            .members
+            .iter()
+            .map(|(workspace_id, _)| workspace_id.clone())
+            .filter(|workspace_id| !guard.deleted_workspaces.contains(workspace_id))
+            .collect::<Vec<_>>();
+        workspace_ids.sort();
+        workspace_ids.dedup();
+        Ok(workspace_ids
+            .into_iter()
+            .map(|workspace_id| MyWorkspace {
+                slug: workspace_id.clone(),
+                name: workspace_id.clone(),
+                organization_id: format!("org_{workspace_id}"),
+                id: workspace_id,
+                role: WorkspaceRole::Admin,
                 is_knowledge_base_enabled: false,
                 is_attacks_enabled: false,
                 is_mcp_gateway_enabled: false,

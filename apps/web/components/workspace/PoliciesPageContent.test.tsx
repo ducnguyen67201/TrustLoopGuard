@@ -53,6 +53,7 @@ function pageData(familyPolicies: FamilyPolicyRow[]): PoliciesPageDataForTest {
 
 function shellData(): DashboardShellData {
   return {
+    isPlatformAdmin: false,
     user: {
       id: 'user_1',
       name: 'Duc',

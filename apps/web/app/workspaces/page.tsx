@@ -12,7 +12,7 @@ export default async function WorkspacesPage({
   const data = await getWorkspacesPageData(workspaceSlug);
 
   return (
-    <AppLayout title="Workspaces" workspaceSlug={workspaceSlug}>
+    <AppLayout title="Workspaces" workspaceSlug={workspaceSlug} shell={data}>
       <WorkspacesPageContent data={data} />
     </AppLayout>
   );

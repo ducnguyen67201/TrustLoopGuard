@@ -13,6 +13,7 @@ import {
   type RunDetailSnapshot,
 } from '@/lib/run-detail-live';
 import { readTraceAgent, type AgentTracePayload } from '@/lib/trace-payload';
+import { selectAuthorizedWorkspaceId } from '@/lib/workspace-access';
 import type {
   ApiKeyListResponse,
   GatewayProviderConnection,
@@ -31,9 +32,11 @@ import {
   rustApiForUser,
   rustApiForUserWorkspace,
   rustApiForWorkspace,
+  WorkspaceAccessError,
 } from './tl-client';
 
 export interface DashboardShellData {
+  isPlatformAdmin: boolean;
   user: {
     id: string;
     name: string;
@@ -1121,7 +1124,25 @@ interface MyWorkspaceWire {
 }
 
 interface MyWorkspacesWire {
+  is_platform_admin: boolean;
   workspaces: MyWorkspaceWire[];
+}
+
+async function getMyWorkspaceAccess(
+  user: CurrentUser,
+  opts: { throwOnApprovalRequired?: boolean } = {},
+): Promise<MyWorkspacesWire> {
+  try {
+    return await rustApiForUser<MyWorkspacesWire>(
+      { id: user.id, email: user.email },
+      '/v1/team/my-workspaces',
+    );
+  } catch (err) {
+    if (isUserApprovalRequiredError(err)) {
+      if (opts.throwOnApprovalRequired === true) throw new UserApprovalRequiredError();
+    }
+    return { is_platform_admin: false, workspaces: [] };
+  }
 }
 
 /// Membership lookup with auto-bind for pending invites. Returns an
@@ -1132,28 +1153,21 @@ export async function getMyWorkspaces(
   user: CurrentUser,
   opts: { throwOnApprovalRequired?: boolean } = {},
 ): Promise<MyWorkspaceWire[]> {
-  try {
-    const data = await rustApiForUser<MyWorkspacesWire>(
-      { id: user.id, email: user.email },
-      '/v1/team/my-workspaces',
-    );
-    return data.workspaces;
-  } catch (err) {
-    if (isUserApprovalRequiredError(err)) {
-      if (opts.throwOnApprovalRequired === true) throw new UserApprovalRequiredError();
-      return [];
-    }
-    return [];
-  }
+  return (await getMyWorkspaceAccess(user, opts)).workspaces;
 }
 
 export async function getWorkspaceAccessState(
   user: CurrentUser,
-): Promise<{ kind: 'ready'; workspaces: MyWorkspaceWire[] } | { kind: 'pending_approval' }> {
+): Promise<
+  | { kind: 'ready'; isPlatformAdmin: boolean; workspaces: MyWorkspaceWire[] }
+  | { kind: 'pending_approval' }
+> {
   try {
+    const access = await getMyWorkspaceAccess(user, { throwOnApprovalRequired: true });
     return {
       kind: 'ready',
-      workspaces: await getMyWorkspaces(user, { throwOnApprovalRequired: true }),
+      isPlatformAdmin: access.is_platform_admin,
+      workspaces: access.workspaces,
     };
   } catch (err) {
     if (err instanceof UserApprovalRequiredError) return { kind: 'pending_approval' };
@@ -1185,10 +1199,11 @@ async function buildDashboardShell(
   }
 
   const requested = workspaceSlug?.trim();
-  const active =
-    (requested !== undefined && requested !== ''
-      ? memberships.find((m) => m.slug === requested)
-      : undefined) ?? memberships[0]!;
+  const activeWorkspaceId = selectAuthorizedWorkspaceId(memberships, requested);
+  const active = memberships.find((membership) => membership.id === activeWorkspaceId);
+  if (active === undefined) {
+    throw new WorkspaceAccessError(403, 'workspace access denied');
+  }
 
   const summary = await buildWorkspaceSummary(active.slug, active);
   const all = await Promise.all(
@@ -1208,6 +1223,7 @@ async function buildDashboardShell(
   }));
 
   return {
+    isPlatformAdmin: access.isPlatformAdmin,
     user: {
       id: user.id,
       name: user.name,

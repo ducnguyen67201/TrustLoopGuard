@@ -92,6 +92,14 @@ impl TeamStore for TeamRepoAdapter {
             .map_err(map_err)
     }
 
+    async fn is_platform_admin(&self, user_id: Uuid) -> Result<bool, TeamStoreError> {
+        self.repo.is_platform_admin(user_id).await.map_err(map_err)
+    }
+
+    async fn list_all_workspaces(&self) -> Result<Vec<MyWorkspace>, TeamStoreError> {
+        self.repo.list_all_workspaces().await.map_err(map_err)
+    }
+
     async fn create_workspace(
         &self,
         user_id: Uuid,

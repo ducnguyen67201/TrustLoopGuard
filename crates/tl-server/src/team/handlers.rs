@@ -165,8 +165,25 @@ pub async fn list_my_workspaces(
         }
     }
 
-    match state.store.list_workspaces_for_user(user_id).await {
-        Ok(workspaces) => Json(MyWorkspacesResponse { workspaces }).into_response(),
+    let is_platform_admin = match state.store.is_platform_admin(user_id).await {
+        Ok(is_platform_admin) => is_platform_admin,
+        Err(e) => return internal_error(e),
+    };
+    let workspaces = if is_platform_admin {
+        tracing::info!(
+            user_id = %user_id,
+            "platform administrator listed all active workspaces"
+        );
+        state.store.list_all_workspaces().await
+    } else {
+        state.store.list_workspaces_for_user(user_id).await
+    };
+    match workspaces {
+        Ok(workspaces) => Json(MyWorkspacesResponse {
+            is_platform_admin,
+            workspaces,
+        })
+        .into_response(),
         Err(e) => internal_error(e),
     }
 }

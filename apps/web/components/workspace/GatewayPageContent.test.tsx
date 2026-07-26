@@ -12,6 +12,7 @@ type GatewayPageContentData = Parameters<typeof GatewayPageContent>[0]['data'];
 
 const shell: Pick<
   GatewayPageContentData,
+  | 'isPlatformAdmin'
   | 'user'
   | 'organization'
   | 'activeWorkspace'
@@ -20,6 +21,7 @@ const shell: Pick<
   | 'environments'
   | 'agents'
 > = {
+  isPlatformAdmin: false,
   user: {
     id: 'user_1',
     name: 'Duc',
