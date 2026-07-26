@@ -5,7 +5,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { AuthorizationReceiptContent } from '@/components/workspace/AuthorizationReceiptContent';
 import { readParam, readWorkspaceSlug } from '@/lib/search-params';
 import { getDashboardShell } from '@/lib/server/dashboard-data';
-import { rustApiForWorkspace } from '@/lib/server/tl-client';
+import { RustApiError, rustApiForUserWorkspace } from '@/lib/server/tl-client';
 
 export default async function AuthorizationReceiptPage({
   params,
@@ -18,16 +18,22 @@ export default async function AuthorizationReceiptPage({
   const workspaceSlug = readWorkspaceSlug(query);
   const environmentId = readParam(query.environment);
   const shell = await getDashboardShell(workspaceSlug, environmentId);
+  const path = `/v1/authorization/receipts/${encodeURIComponent(id)}`;
   let receipt: AuthorizationReceipt;
   try {
-    receipt = await rustApiForWorkspace<AuthorizationReceipt>(
+    receipt = await rustApiForUserWorkspace<AuthorizationReceipt>(
+      shell.user,
       shell.activeWorkspace.id,
-      `/v1/authorization/receipts/${encodeURIComponent(id)}`,
+      path,
       { method: 'GET' },
       shell.activeEnvironment.id,
     );
-  } catch {
-    notFound();
+  } catch (error) {
+    if (error instanceof RustApiError && error.status === 404) {
+      notFound();
+    }
+    console.error('[authorization receipt] failed to load', path, error);
+    throw error;
   }
 
   return (
