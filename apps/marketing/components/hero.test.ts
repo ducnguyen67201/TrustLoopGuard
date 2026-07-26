@@ -2,70 +2,34 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-test('the homepage hero leads with policy approvals and the live demo', () => {
+test('the homepage hero is concise and leads directly to install and demo', () => {
   const hero = readFileSync(new URL('./hero.tsx', import.meta.url), 'utf8');
+  const home = readFileSync(new URL('./marketing-home.tsx', import.meta.url), 'utf8');
 
-  assert.match(hero, /Approval infrastructure for AI agents/i);
-  assert.match(hero, /Your agent asks/i);
-  assert.match(hero, /Policy decides/i);
-  assert.match(hero, /Approve a payment, a hospital request/i);
-  assert.match(hero, /href=\{locale === 'vi' \? '\/vi\/demo' : '\/demo'\}/);
-  assert.match(hero, /event="demo_click"/);
-  assert.match(hero, /Try a live approval/i);
-  assert.match(hero, /href="#how"/);
-  assert.match(hero, /Action value/i);
-  assert.match(hero, /Auto-approve limit/i);
-  assert.match(hero, /Held for finance approval/i);
-  assert.match(hero, /hospital scheduling request/i);
+  assert.match(hero, /titleBefore: 'Policy'/);
+  assert.match(hero, /titleAccent: 'approvals'/);
+  assert.match(hero, /titleAfter: 'for AI agents\.'/);
+  assert.match(hero, /returns a decision before anything happens/i);
+  assert.match(hero, /former engineer at YC \/ a16z-backed companies/i);
+  assert.match(hero, /<QuickInstall locale=\{locale\} \/>/);
+  assert.match(hero, /href="#demo"/);
+  assert.match(hero, /Try the demo/i);
+  assert.match(hero, /Get started/i);
+  assert.doesNotMatch(hero, /ApprovalPreview|proof-strip|hero-signal|See the control flow/i);
+  assert.ok(home.indexOf('<Hero') < home.indexOf('<HomeDemo'));
+  assert.ok(home.indexOf('<HomeDemo') < home.indexOf('<ControlLoop'));
+  assert.doesNotMatch(home, /<Sdk/);
 });
 
-test('the approval preview is one continuous decision record, not nested cards', () => {
+test('the hero keeps precise founder credibility marks', () => {
   const hero = readFileSync(new URL('./hero.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
 
-  assert.match(hero, /quote-rate-primary/);
-  assert.match(hero, /quote-terms/);
-  assert.match(hero, /quote-flow/);
-  assert.doesNotMatch(hero, /control-proposal|control-pricing|control-decision/);
-  assert.doesNotMatch(styles, /\.control-proposal|\.control-pricing|\.control-decision/);
-});
-
-test('the hero keeps source inspection as tertiary proof', () => {
-  const hero = readFileSync(new URL('./hero.tsx', import.meta.url), 'utf8');
-
-  assert.match(hero, /Inspect the source/i);
-  assert.match(hero, /hero-source-link/);
-});
-
-test('the hero puts the tracked app entry between the demo and control-flow actions', () => {
-  const hero = readFileSync(new URL('./hero.tsx', import.meta.url), 'utf8');
-  const demoIndex = hero.indexOf('event="demo_click"');
-  const appIndex = hero.indexOf('event="app_click"');
-  const controlFlowIndex = hero.indexOf('label: copy.controlFlow');
-
-  assert.match(hero, /href=\{APP_URL\}/);
-  assert.match(hero, /hero-app-link/);
-  assert.match(hero, /Go to the app/);
-  assert.ok(demoIndex >= 0 && demoIndex < appIndex);
-  assert.ok(appIndex < controlFlowIndex);
-});
-
-test('the hero states the founder credibility precisely', () => {
-  const hero = readFileSync(new URL('./hero.tsx', import.meta.url), 'utf8');
-  const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
-
-  assert.match(hero, /former engineer at a company backed by/i);
   assert.match(hero, /hero-backing-logos/);
-  assert.match(hero, /hero-backing-chip hero-backing-chip-yc/);
-  assert.match(hero, /hero-backing-chip hero-backing-chip-a16z/);
   assert.match(hero, /src="\/yc-logo\.svg"/);
   assert.match(hero, /alt="Y Combinator"/);
   assert.match(hero, /aria-label="a16z"/);
   assert.match(styles, /\.hero-backing-chip\s*\{[^}]*border:/s);
-  assert.doesNotMatch(styles, /\.hero-backing-logos\s*\{[^}]*border:/s);
-  assert.doesNotMatch(hero, /hero-backing-logo-plus/);
-  assert.doesNotMatch(hero, /hero-founder-proof/);
-  assert.doesNotMatch(hero, /former (YC|a16z) engineer/i);
 });
 
 test('the homepage keeps the acquisition viewport free of the back-to-top control', () => {

@@ -9,25 +9,19 @@ const COPY = {
   en: {
     navigationLabel: 'Main navigation',
     homeLabel: 'TrustLoopGuard home',
-    product: 'Product',
     demo: 'Demo',
     demoEventLabel: 'Live demo',
     links: [
-      { hash: '#trust', label: 'Why trust us' },
       { hash: '#how', label: 'How it works' },
-      { hash: '#developers', label: 'Developers' },
     ],
   },
   vi: {
     navigationLabel: 'Điều hướng chính',
     homeLabel: 'Trang chủ TrustLoopGuard',
-    product: 'Sản phẩm',
     demo: 'Dùng thử',
     demoEventLabel: 'Bản demo trực tiếp',
     links: [
-      { hash: '#trust', label: 'Vì sao tin tưởng' },
       { hash: '#how', label: 'Cách hoạt động' },
-      { hash: '#developers', label: 'Nhà phát triển' },
     ],
   },
 } as const;
@@ -45,9 +39,6 @@ export async function Nav({ locale = 'en' }: { locale?: MarketingLocale }) {
           <span>TrustLoopGuard</span>
         </Link>
         <ul className="site-nav-links">
-          <li>
-            <a href={localizedHomeHref(locale, '#product')}>{copy.product}</a>
-          </li>
           <UseCaseNav locale={locale} />
           <li>
             <MarketingEventLink

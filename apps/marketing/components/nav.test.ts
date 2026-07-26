@@ -24,9 +24,19 @@ test('the marketing header exposes a tracked app entry action', () => {
 
   assert.match(actions, /href=\{APP_URL\}/);
   assert.match(actions, /event="app_click"/);
-  assert.match(actions, /Go to the app/);
+  assert.match(actions, /Get started/);
+  assert.match(actions, /Talk to founder/);
   assert.match(actions, /nav-talk/);
   assert.match(styles, /\.site-nav \.nav-talk\s*{[^}]*display:\s*none/);
+});
+
+test('the marketing header keeps only the essential navigation links', () => {
+  const nav = readFileSync(new URL('./nav.tsx', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(nav, /Product|Why trust us|Developers/);
+  assert.match(nav, /UseCaseNav/);
+  assert.match(nav, /How it works/);
+  assert.match(nav, /\{copy\.demo\}/);
 });
 
 test('the marketing header does not expose a manual language switch', () => {

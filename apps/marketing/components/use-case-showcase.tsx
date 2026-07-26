@@ -88,9 +88,16 @@ export function UseCaseShowcase({
                 }
               }}
             >
-              <span>{useCase.number}</span>
-              <strong>{tabLabels[useCase.demo.kind]}</strong>
-              <small>{useCase.result}</small>
+              <span className="use-case-showcase-icon" aria-hidden="true">
+                <UseCaseIcon kind={useCase.demo.kind} />
+              </span>
+              <span className="use-case-showcase-tab-copy">
+                <strong>{tabLabels[useCase.demo.kind]}</strong>
+                <small>{useCase.result}</small>
+              </span>
+              <span className="use-case-showcase-tab-arrow" aria-hidden="true">
+                →
+              </span>
             </button>
           );
         })}
@@ -117,5 +124,29 @@ export function UseCaseShowcase({
         <UseCaseFlowDemo demo={active.demo} locale={locale} />
       </section>
     </div>
+  );
+}
+
+function UseCaseIcon({ kind }: { kind: UseCaseDemo['kind'] }) {
+  if (kind === 'shell') {
+    return (
+      <svg viewBox="0 0 24 24">
+        <path d="m5 7 4 5-4 5M11 17h8" />
+      </svg>
+    );
+  }
+
+  if (kind === 'email') {
+    return (
+      <svg viewBox="0 0 24 24">
+        <path d="M3 6h18v12H3zM3 7l9 7 9-7" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24">
+      <path d="M12 3v18M17 7.5c0-2-2-3-5-3s-5 1.2-5 3 1.5 2.7 5 3.5 5 1.8 5 3.8-2 3.7-5 3.7-5-1.3-5-3.5" />
+    </svg>
   );
 }
