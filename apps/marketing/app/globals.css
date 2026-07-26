@@ -873,11 +873,11 @@ input {
 
 .quote-ready {
   width: fit-content;
-  border: 1px solid rgb(103 208 165 / 0.35);
+  border: 1px solid rgb(242 184 75 / 0.4);
   border-radius: 999px;
   padding: 0.3rem 0.58rem;
-  background: rgb(103 208 165 / 0.08);
-  color: #77dcaf;
+  background: rgb(242 184 75 / 0.1);
+  color: #f2c66d;
   font-family: var(--font-mono), monospace;
   font-size: 0.54rem;
   font-weight: 700;
@@ -903,7 +903,7 @@ input {
 
 .quote-rate-primary > strong {
   margin-top: 0.18rem;
-  color: #77dcaf;
+  color: #f2c66d;
   font-family: var(--font-mono), monospace;
   font-size: clamp(2.3rem, 4vw, 3.25rem);
   font-weight: 600;
@@ -1005,7 +1005,7 @@ input {
   gap: 0.8rem;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid rgb(255 255 255 / 0.12);
-  background: rgb(103 208 165 / 0.07);
+  background: rgb(242 184 75 / 0.08);
 }
 
 .quote-authorization-icon {
@@ -1013,9 +1013,9 @@ input {
   width: 1.8rem;
   height: 1.8rem;
   place-items: center;
-  border: 1px solid rgb(103 208 165 / 0.4);
+  border: 1px solid rgb(242 184 75 / 0.42);
   border-radius: 50%;
-  color: #77dcaf;
+  color: #f2c66d;
 }
 
 .quote-authorization > div {
@@ -1026,20 +1026,20 @@ input {
 
 .quote-authorization p {
   margin: 0;
-  color: #e4f8ee;
+  color: #fff4d6;
   font-size: 0.78rem;
   font-weight: 650;
 }
 
 .quote-authorization code {
   min-width: 0;
-  color: #7fa090;
+  color: #b8a16e;
   font-size: 0.54rem;
   overflow-wrap: anywhere;
 }
 
 .quote-authorization > strong {
-  color: #77dcaf;
+  color: #f2c66d;
   font-family: var(--font-mono), monospace;
   font-size: 0.58rem;
   text-align: right;

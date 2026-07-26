@@ -23,7 +23,7 @@ const spaceGrotesk = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: {
-    default: 'TrustLoopGuard — Underwriting for AI agent actions',
+    default: 'TrustLoopGuard — Approval infrastructure for AI agents',
     template: `%s | ${SITE_NAME}`,
   },
   description: DEFAULT_DESCRIPTION,
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: 'TrustLoopGuard — Underwriting for AI agent actions',
+    title: 'TrustLoopGuard — Approval infrastructure for AI agents',
     description: DEFAULT_DESCRIPTION,
     url: SITE_URL,
     siteName: SITE_NAME,
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'TrustLoopGuard — Underwriting for AI agent actions',
+    title: 'TrustLoopGuard — Approval infrastructure for AI agents',
     description: DEFAULT_DESCRIPTION,
   },
   icons: {

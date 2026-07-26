@@ -3,21 +3,21 @@ import { GITHUB_URL } from '@/lib/github';
 import type { MarketingLocale } from '@/lib/marketing-locale';
 import { MarketingEventLink } from './marketing-event-link';
 
-const FINANCIAL_CONTRACT_URL = `${GITHUB_URL}/blob/main/docs/concept/financial-authorization.md`;
+const APPROVAL_CONTRACT_URL = `${GITHUB_URL}/blob/main/docs/concept/financial-authorization.md`;
 
 const COPY = {
   en: {
     statusLabel: 'TrustLoopGuard product status',
-    status: 'Agent risk infrastructure',
-    statusDetail: 'Price the action. Set the terms. Authorize execution. Track the outcome.',
-    eyebrow: 'Financial accountability for production AI agents',
-    title: 'We underwrite',
-    titleDetail: 'your agent.',
+    status: 'Approval infrastructure for AI agents',
+    statusDetail: 'Propose. Check policy. Approve. Execute.',
+    eyebrow: 'Policy approvals for consequential agent actions',
+    title: 'Your agent asks.',
+    titleDetail: 'Policy decides.',
     intro:
-      'Every consequential action gets a price before it runs. TrustLoopGuard evaluates the proposed action, returns the terms, and lets your runtime decide whether it should proceed.',
-    coverage: 'Where coverage is available, eligible losses are paid under the agreed terms.',
+      'Put a policy approval step between an AI agent and the real world. TrustLoopGuard checks each proposed action, routes exceptions to the right person, and returns a decision before anything happens.',
+    coverage: 'Approve a payment, a hospital request, or any action that needs accountable sign-off.',
     founderProof: 'Built by a former engineer at a company backed by',
-    demo: 'Try the live refund demo',
+    demo: 'Try a live approval',
     app: 'Go to the app',
     controlFlow: 'See the control flow',
     demoProof: 'No card. No signup. Runs against the real authorization path.',
@@ -26,47 +26,46 @@ const COPY = {
     proofPoints: [
       { label: 'Apache-2.0', detail: 'Inspect every decision path' },
       { label: 'Self-hostable', detail: 'Rust runtime in your infrastructure' },
-      { label: 'TypeScript · Python · Rust', detail: 'One generated decision contract' },
-      { label: 'Outcome-linked receipts', detail: 'Authorization before, proof after' },
+      { label: 'Policy-native', detail: 'Permit, deny, or require approval' },
+      { label: 'Auditable receipts', detail: 'Who approved what—and why' },
     ],
     previewLabel:
-      'Illustrative action terms for a 75 dollar refund: the action is priced at 42 cents, authorized to execute, and linked to a 75 dollar coverage limit.',
-    liveBoundary: 'Action underwriting',
-    quoteId: 'QUOTE / REFUND-7F3A',
+      'Approval request for a 75 dollar refund. Authority and refund policy pass, the amount exceeds the automatic limit, and finance approval is required before execution.',
+    liveBoundary: 'Live policy decision',
+    quoteId: 'REQUEST / REFUND-7F3A',
     proposes: 'Agent proposes',
-    proposed: 'Quote ready',
+    proposed: 'Awaiting decision',
     actionValue: 'Action value',
-    riskPrice: 'Risk price',
-    coverageLimit: 'Coverage limit',
-    priceDetail: 'Per authorized execution',
-    boundedTerms: 'Bounded terms',
-    authorityPolicy: 'Authority + policy',
-    evidenceRecovery: 'Evidence + recoverability',
-    outcomeReceipt: 'Outcome receipt',
-    verified: 'Verified',
-    reserved: 'Reserved',
-    termsLocked: 'Locked before execution',
-    authorizedToExecute: 'Authorized to execute',
-    limit: 'Coverage limit: $75.00',
+    riskPrice: 'Decision',
+    coverageLimit: 'Auto-approve limit',
+    priceDetail: 'Finance approval required',
+    boundedTerms: 'Policy evaluation',
+    authorityPolicy: 'Agent authority',
+    evidenceRecovery: 'Refund evidence',
+    outcomeReceipt: 'Amount threshold',
+    verified: 'Passed',
+    reserved: 'Approval required',
+    termsLocked: 'Evaluated before execution',
+    authorizedToExecute: 'Held for finance approval',
+    limit: 'No payment has moved',
     flowLabel: 'Action lifecycle',
-    flowSteps: ['Price', 'Authorize', 'Execute', 'Outcome'],
+    flowSteps: ['Propose', 'Evaluate', 'Approve', 'Execute'],
     coverageDisclosure:
-      'Coverage is available only under separate agreed terms; it is not included with the open-source runtime.',
+      'Next in queue: hospital scheduling request · requires clinical operations approval.',
   },
   vi: {
     statusLabel: 'Trạng thái sản phẩm TrustLoopGuard',
-    status: 'Hạ tầng rủi ro cho tác nhân AI',
-    statusDetail:
-      'Định giá hành động. Đặt điều khoản. Cho phép thực thi. Theo dõi kết quả.',
-    eyebrow: 'Trách nhiệm tài chính cho tác nhân AI trong production',
-    title: 'Chúng tôi thẩm định',
-    titleDetail: 'tác nhân của bạn.',
+    status: 'Hạ tầng phê duyệt cho tác nhân AI',
+    statusDetail: 'Đề xuất. Kiểm tra chính sách. Phê duyệt. Thực thi.',
+    eyebrow: 'Phê duyệt theo chính sách cho hành động quan trọng',
+    title: 'Tác nhân yêu cầu.',
+    titleDetail: 'Chính sách quyết định.',
     intro:
-      'Mỗi hành động quan trọng đều được định giá trước khi chạy. TrustLoopGuard đánh giá hành động đề xuất, trả về điều khoản và để hệ thống của bạn quyết định có nên tiếp tục hay không.',
+      'Đặt một bước phê duyệt theo chính sách giữa tác nhân AI và thế giới thực. TrustLoopGuard kiểm tra từng hành động, chuyển ngoại lệ đến đúng người và trả về quyết định trước khi bất kỳ điều gì xảy ra.',
     coverage:
-      'Khi có phạm vi bảo vệ, tổn thất đủ điều kiện sẽ được chi trả theo điều khoản đã thỏa thuận.',
+      'Phê duyệt khoản thanh toán, yêu cầu bệnh viện hoặc bất kỳ hành động nào cần ký duyệt có trách nhiệm.',
     founderProof: 'Được xây dựng bởi cựu kỹ sư tại một công ty được hậu thuẫn bởi',
-    demo: 'Thử bản demo hoàn tiền trực tiếp',
+    demo: 'Thử phê duyệt trực tiếp',
     app: 'Vào ứng dụng',
     controlFlow: 'Xem luồng kiểm soát',
     demoProof: 'Không cần thẻ. Không cần đăng ký. Chạy trên luồng cấp quyền thực tế.',
@@ -75,32 +74,32 @@ const COPY = {
     proofPoints: [
       { label: 'Apache-2.0', detail: 'Kiểm tra mọi đường dẫn quyết định' },
       { label: 'Tự lưu trữ', detail: 'Runtime Rust trong hạ tầng của bạn' },
-      { label: 'TypeScript · Python · Rust', detail: 'Một hợp đồng quyết định được sinh tự động' },
-      { label: 'Biên nhận gắn với kết quả', detail: 'Cấp quyền trước, bằng chứng sau' },
+      { label: 'Theo chính sách', detail: 'Cho phép, từ chối hoặc yêu cầu phê duyệt' },
+      { label: 'Biên nhận kiểm toán', detail: 'Ai phê duyệt điều gì—và vì sao' },
     ],
     previewLabel:
-      'Điều khoản minh họa cho khoản hoàn tiền 75 đô la: hành động được định giá 42 xu, được phép thực thi và gắn với giới hạn bảo vệ 75 đô la.',
-    liveBoundary: 'Thẩm định hành động',
-    quoteId: 'BÁO GIÁ / REFUND-7F3A',
+      'Yêu cầu phê duyệt khoản hoàn tiền 75 đô la. Thẩm quyền và chính sách hoàn tiền đạt yêu cầu, số tiền vượt giới hạn tự động và cần phê duyệt tài chính trước khi thực thi.',
+    liveBoundary: 'Quyết định chính sách trực tiếp',
+    quoteId: 'YÊU CẦU / REFUND-7F3A',
     proposes: 'Tác nhân đề xuất',
-    proposed: 'Báo giá sẵn sàng',
+    proposed: 'Đang chờ quyết định',
     actionValue: 'Giá trị hành động',
-    riskPrice: 'Giá rủi ro',
-    coverageLimit: 'Giới hạn bảo vệ',
-    priceDetail: 'Mỗi lần thực thi được cấp quyền',
-    boundedTerms: 'Điều khoản giới hạn',
-    authorityPolicy: 'Thẩm quyền + chính sách',
-    evidenceRecovery: 'Bằng chứng + khả năng phục hồi',
-    outcomeReceipt: 'Biên nhận kết quả',
-    verified: 'Đã xác minh',
-    reserved: 'Đã dành',
-    termsLocked: 'Khóa trước khi thực thi',
-    authorizedToExecute: 'Được phép thực thi',
-    limit: 'Giới hạn bảo vệ: $75.00',
+    riskPrice: 'Quyết định',
+    coverageLimit: 'Giới hạn tự động',
+    priceDetail: 'Cần phê duyệt tài chính',
+    boundedTerms: 'Đánh giá chính sách',
+    authorityPolicy: 'Thẩm quyền tác nhân',
+    evidenceRecovery: 'Bằng chứng hoàn tiền',
+    outcomeReceipt: 'Ngưỡng số tiền',
+    verified: 'Đạt',
+    reserved: 'Cần phê duyệt',
+    termsLocked: 'Đánh giá trước khi thực thi',
+    authorizedToExecute: 'Giữ để tài chính phê duyệt',
+    limit: 'Chưa có tiền được chuyển',
     flowLabel: 'Vòng đời hành động',
-    flowSteps: ['Định giá', 'Cấp quyền', 'Thực thi', 'Kết quả'],
+    flowSteps: ['Đề xuất', 'Đánh giá', 'Phê duyệt', 'Thực thi'],
     coverageDisclosure:
-      'Phạm vi bảo vệ chỉ có theo thỏa thuận riêng; không đi kèm với runtime mã nguồn mở.',
+      'Tiếp theo: yêu cầu đặt lịch bệnh viện · cần bộ phận vận hành lâm sàng phê duyệt.',
   },
 } as const;
 
@@ -110,7 +109,7 @@ export function Hero({ locale = 'en' }: { locale?: MarketingLocale }) {
     `${GITHUB_URL}/blob/main/LICENSE`,
     `${GITHUB_URL}#quickstart`,
     `${GITHUB_URL}#sdk-quickstarts`,
-    FINANCIAL_CONTRACT_URL,
+    APPROVAL_CONTRACT_URL,
   ] as const;
 
   return (
@@ -207,7 +206,7 @@ export function Hero({ locale = 'en' }: { locale?: MarketingLocale }) {
           </div>
         </div>
 
-        <UnderwritingPreview locale={locale} />
+        <ApprovalPreview locale={locale} />
       </div>
 
       <div className="proof-strip" aria-label={copy.proofLabel}>
@@ -234,7 +233,7 @@ export function Hero({ locale = 'en' }: { locale?: MarketingLocale }) {
   );
 }
 
-function UnderwritingPreview({ locale }: { locale: MarketingLocale }) {
+function ApprovalPreview({ locale }: { locale: MarketingLocale }) {
   const copy = COPY[locale];
 
   return (
@@ -264,15 +263,13 @@ function UnderwritingPreview({ locale }: { locale: MarketingLocale }) {
       <section className="quote-rate" aria-labelledby="quote-rate-heading">
         <div className="quote-rate-primary">
           <p id="quote-rate-heading">{copy.riskPrice}</p>
-          <strong>
-            $0.42 <small>USD</small>
-          </strong>
+          <strong>REVIEW</strong>
           <span>{copy.priceDetail}</span>
         </div>
         <dl className="quote-exposure">
           <div>
             <dt>{copy.actionValue}</dt>
-            <dd>$75.00</dd>
+            <dd>$50.00</dd>
           </div>
           <div>
             <dt>{copy.coverageLimit}</dt>

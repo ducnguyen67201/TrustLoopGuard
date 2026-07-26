@@ -3,21 +3,21 @@ import type { MarketingLocale } from '@/lib/marketing-locale';
 
 const COPY = {
   en: {
-    eyebrow: 'The authorization journey',
-    title: 'One proposed action. One controlled path to the real world.',
+    eyebrow: 'The approval journey',
+    title: 'Every agent action earns its way to execution.',
     intro:
-      'Follow the blue route. The agent can propose an action, but it cannot cross the control boundary until TrustLoopGuard returns an actionable decision.',
+      'The agent makes a request. Policy can approve it automatically, route it to a named person, or deny it. Nothing crosses the execution boundary without a decision.',
     proposalLabel: 'Agent proposes',
     proposalTitle: 'The action has not happened yet.',
     proposalBody:
       'Your runtime submits the intended action and its context before any side effect reaches a user, tool, or payment rail.',
-    boundaryLabel: 'Control boundary',
-    boundaryTitle: 'TrustLoopGuard holds the action at the gate.',
+    boundaryLabel: 'Policy boundary',
+    boundaryTitle: 'Policy decides who can approve what.',
     boundaryBody:
       'Checks run against durable runtime context—not just another instruction in the prompt.',
     checks: ['Grant & authority', 'Trusted evidence', 'Financial policy', 'Spend window'],
     decisionLabel: 'Decision point',
-    decisionTitle: 'Every route is explicit.',
+    decisionTitle: 'Automatic or human, every approval is explicit.',
     decisionBody: 'The response tells the caller exactly what may happen next—and why.',
     outcomes: [
       {
