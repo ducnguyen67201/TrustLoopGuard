@@ -8,9 +8,21 @@ import type { MarketingLocale } from '@/lib/marketing-locale';
 import { UseCaseShowcase } from './use-case-showcase';
 
 const FEATURED_USE_CASES = [
-  AGENT_SPENDING_CAPS_USE_CASE,
-  SHELL_COMMAND_USE_CASE,
-  EMAIL_USE_CASE,
+  {
+    ...AGENT_SPENDING_CAPS_USE_CASE,
+    title: 'Control spend before payment.',
+    summary: 'Permit routine spend, hold exceptions, and block hard-cap breaches.',
+  },
+  {
+    ...SHELL_COMMAND_USE_CASE,
+    title: 'Stop dangerous commands.',
+    summary: 'Deny or approve exact shell actions before execution.',
+  },
+  {
+    ...EMAIL_USE_CASE,
+    title: 'Rewrite risky email.',
+    summary: 'Permit safe drafts and transform risky promises before sending.',
+  },
 ] as const;
 
 const FEATURED_USE_CASES_VI = [
@@ -130,14 +142,14 @@ export function Why({ locale = 'en' }: { locale?: MarketingLocale }) {
           <p className="eyebrow">{isVietnamese ? 'Phê duyệt thực tế' : 'Approval patterns'}</p>
           <h2 id="use-cases-heading" className="section-title">
             {isVietnamese
-              ? 'Bắt đầu với một hành động bạn dễ nhận biết.'
-              : 'One approval layer. Every consequential action.'}
+              ? 'Một lớp phê duyệt. Mọi hành động quan trọng.'
+              : 'One layer. Any action.'}
           </h2>
         </div>
         <p className="section-copy">
           {isVietnamese
-            ? 'Chọn một hành động thực tế và theo dõi nó qua cùng một vòng kiểm soát: ghi nhận đề xuất, đánh giá chính sách bên ngoài prompt, trả về quyết định rõ ràng, rồi để runtime hiện có thực thi.'
-            : 'Payments, hospital workflows, data access, and tool calls all follow the same contract: the agent proposes, policy evaluates, the right person approves when needed, and only then can execution begin.'}
+            ? 'Chọn một tình huống để xem luồng kiểm soát.'
+            : 'Choose a use case to see the control flow.'}
         </p>
       </div>
 

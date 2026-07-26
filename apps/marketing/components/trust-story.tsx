@@ -4,9 +4,9 @@ import type { MarketingLocale } from '@/lib/marketing-locale';
 const COPY = {
   en: {
     eyebrow: 'Why this exists',
-    title: 'Built after watching agents fail in production.',
+    title: 'Built for production reality.',
     quote:
-      '“At an AI voice-testing company, I watched production find the failures demos missed. I built TrustLoopGuard around that lesson: assume the edge case is coming, put policy before action, and leave evidence behind.”',
+      '“Production finds what demos miss. Put policy before action—and leave proof behind.”',
     founder: 'Founder, TrustLoopGuard',
     principlesLabel: 'TrustLoopGuard design principles',
     trustIsEvidence: 'Trust is evidence',
@@ -15,25 +15,25 @@ const COPY = {
       {
         number: '01',
         title: 'Policy before action',
-        body: 'The check runs on the proposed output or action—not after the side effect has already happened.',
+        body: 'Check before side effects.',
       },
       {
         number: '02',
-        title: 'A reason, not a mystery',
-        body: 'Every decision returns the effect, the policies that fired, and a human-readable reason.',
+        title: 'Explain every decision',
+        body: 'Return the effect and reason.',
       },
       {
         number: '03',
         title: 'Inspectable by default',
-        body: 'The runtime is open source. The wire contract, policy engine, and SDK behavior are available to review.',
+        body: 'Review the open-source runtime.',
       },
     ],
   },
   vi: {
     eyebrow: 'Vì sao sản phẩm này tồn tại',
-    title: 'Được xây dựng sau khi chứng kiến tác nhân gặp lỗi trong production.',
+    title: 'Được xây dựng cho thực tế production.',
     quote:
-      '“Tại một công ty kiểm thử giọng nói AI, tôi đã thấy môi trường production tìm ra những lỗi mà bản demo bỏ sót. Tôi xây dựng TrustLoopGuard từ bài học đó: giả định tình huống biên sẽ xảy ra, đặt chính sách trước hành động và luôn để lại bằng chứng.”',
+      '“Production tìm ra điều bản demo bỏ sót. Đặt chính sách trước hành động—và luôn để lại bằng chứng.”',
     founder: 'Nhà sáng lập, TrustLoopGuard',
     principlesLabel: 'Nguyên tắc thiết kế của TrustLoopGuard',
     trustIsEvidence: 'Niềm tin cần bằng chứng',
@@ -42,17 +42,17 @@ const COPY = {
       {
         number: '01',
         title: 'Chính sách trước hành động',
-        body: 'Việc kiểm tra diễn ra trên đầu ra hoặc hành động được đề xuất—không phải sau khi tác dụng phụ đã xảy ra.',
+        body: 'Kiểm tra trước tác dụng phụ.',
       },
       {
         number: '02',
-        title: 'Có lý do, không bí ẩn',
-        body: 'Mỗi quyết định trả về hiệu lực, các chính sách đã kích hoạt và lý do con người có thể đọc được.',
+        title: 'Giải thích mọi quyết định',
+        body: 'Trả về hiệu lực và lý do.',
       },
       {
         number: '03',
         title: 'Mặc định có thể kiểm chứng',
-        body: 'Runtime là mã nguồn mở. Bạn có thể xem xét hợp đồng truyền dữ liệu, bộ máy chính sách và hành vi của SDK.',
+        body: 'Xem xét runtime mã nguồn mở.',
       },
     ],
   },

@@ -14,49 +14,47 @@ const DECISION_FIELDS = [
 const COPY = {
   en: {
     eyebrow: 'The evidence',
-    title: 'Every authorization leaves a record.',
-    intro:
-      'See what was requested, what passed, why approval is needed, and whether execution started.',
+    title: 'Every decision leaves proof.',
+    intro: 'See what was requested, decided, and executed.',
     receiptLabel: 'Example financial action decision receipt',
     receiptTitle: 'Example decision receipt',
     approvalRequired: 'Approval required',
     viewTypes: 'View types ↗',
     notes: [
       {
-        title: 'Authority is checked before policy',
-        body: 'Grant scope proves what this principal may do for this specific action.',
+        title: 'Authority first',
+        body: 'Verify who may act.',
       },
       {
-        title: 'Execution is a separate state',
-        body: 'An approval-required action cannot execute until a matching grant and current policy produce permit.',
+        title: 'Execution waits',
+        body: 'Approval must arrive first.',
       },
       {
-        title: 'Proof exists on both sides',
-        body: 'A decision receipt explains authorization before execution; an execution receipt records what moved.',
+        title: 'Receipts remain',
+        body: 'Record the decision and result.',
       },
     ],
   },
   vi: {
     eyebrow: 'Bằng chứng',
-    title: 'Mỗi lần cấp quyền đều để lại bản ghi.',
-    intro:
-      'Xem yêu cầu ban đầu, bước nào đã đạt, vì sao cần phê duyệt và việc thực thi đã bắt đầu hay chưa.',
+    title: 'Mọi quyết định đều để lại bằng chứng.',
+    intro: 'Xem yêu cầu, quyết định và kết quả thực thi.',
     receiptLabel: 'Ví dụ biên nhận quyết định cho hành động tài chính',
     receiptTitle: 'Biên nhận quyết định mẫu',
     approvalRequired: 'Cần phê duyệt',
     viewTypes: 'Xem kiểu dữ liệu ↗',
     notes: [
       {
-        title: 'Thẩm quyền được kiểm tra trước chính sách',
-        body: 'Phạm vi ủy quyền chứng minh chủ thể này được phép làm gì đối với hành động cụ thể.',
+        title: 'Thẩm quyền trước',
+        body: 'Xác minh ai được phép hành động.',
       },
       {
-        title: 'Thực thi là một trạng thái riêng biệt',
-        body: 'Hành động cần phê duyệt không thể thực thi cho đến khi ủy quyền phù hợp và chính sách hiện hành trả về permit.',
+        title: 'Thực thi chờ',
+        body: 'Phê duyệt phải đến trước.',
       },
       {
-        title: 'Có bằng chứng ở cả hai phía',
-        body: 'Biên nhận quyết định giải thích việc cấp quyền trước khi thực thi; biên nhận thực thi ghi lại điều đã diễn ra.',
+        title: 'Biên nhận còn lại',
+        body: 'Ghi lại quyết định và kết quả.',
       },
     ],
   },
