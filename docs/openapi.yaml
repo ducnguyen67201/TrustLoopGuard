@@ -8363,8 +8363,8 @@ components:
     MyWorkspace:
       type: object
       description: |-
-        A workspace the signed-in user belongs to. Drives the dashboard's
-        workspace switcher and the "no workspace yet" redirect.
+        A workspace the signed-in user can access. Normally this comes from
+        membership; platform administrators receive every active workspace.
       required:
       - id
       - slug
@@ -8394,8 +8394,12 @@ components:
     MyWorkspacesResponse:
       type: object
       required:
+      - is_platform_admin
       - workspaces
       properties:
+        is_platform_admin:
+          type: boolean
+          description: Whether the signed-in user has cross-workspace platform access.
         workspaces:
           type: array
           items:

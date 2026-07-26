@@ -2237,6 +2237,10 @@ class MyWorkspace(BaseModel):
 
 
 class MyWorkspacesResponse(BaseModel):
+    is_platform_admin: bool = Field(
+        ...,
+        description='Whether the signed-in user has cross-workspace platform access.',
+    )
     workspaces: list[MyWorkspace]
 
 

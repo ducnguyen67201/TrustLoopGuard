@@ -156,8 +156,8 @@ pub struct InviteListResponse {
     pub invites: Vec<WorkspaceInvite>,
 }
 
-/// A workspace the signed-in user belongs to. Drives the dashboard's
-/// workspace switcher and the "no workspace yet" redirect.
+/// A workspace the signed-in user can access. Normally this comes from
+/// membership; platform administrators receive every active workspace.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -180,6 +180,8 @@ pub struct MyWorkspace {
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct MyWorkspacesResponse {
+    /// Whether the signed-in user has cross-workspace platform access.
+    pub is_platform_admin: bool,
     pub workspaces: Vec<MyWorkspace>,
 }
 

@@ -10,13 +10,14 @@ use super::{
 };
 use crate::{
     schema::{
-        organization_members, organizations, workspace_api_keys, workspace_environments,
+        organization_members, organizations, users, workspace_api_keys, workspace_environments,
         workspace_invites, workspace_members, workspaces,
     },
     StorageError,
 };
 
 type WorkspaceMembershipRow = (String, String, String, String, String, bool, bool, bool);
+type WorkspaceRow = (String, String, String, String, bool, bool, bool);
 
 impl TeamRepo {
     /// Create a fresh organization + workspace pair, with `user_id`
@@ -164,6 +165,62 @@ impl TeamRepo {
                         is_attacks_enabled,
                         is_mcp_gateway_enabled,
                     }
+                },
+            )
+            .collect())
+    }
+
+    pub async fn is_platform_admin(&self, user_id: Uuid) -> Result<bool, StorageError> {
+        let mut conn = self.connection().await?;
+        users::table
+            .filter(users::id.eq(user_id))
+            .select(users::is_platform_admin)
+            .first(&mut conn)
+            .await
+            .optional()
+            .map_err(|error| {
+                StorageError::Internal(format!("platform admin lookup failed: {error}"))
+            })?
+            .ok_or(StorageError::NotFound)
+    }
+
+    pub async fn list_all_workspaces(&self) -> Result<Vec<MyWorkspace>, StorageError> {
+        let mut conn = self.connection().await?;
+        let rows = workspaces::table
+            .filter(workspaces::deleted_at.is_null())
+            .order(workspaces::name.asc())
+            .select((
+                workspaces::id,
+                workspaces::slug,
+                workspaces::name,
+                workspaces::organization_id,
+                workspaces::is_knowledge_base_enabled,
+                workspaces::is_attacks_enabled,
+                workspaces::is_mcp_gateway_enabled,
+            ))
+            .load::<WorkspaceRow>(&mut conn)
+            .await
+            .map_err(|error| StorageError::Internal(format!("list all workspaces: {error}")))?;
+        Ok(rows
+            .into_iter()
+            .map(
+                |(
+                    id,
+                    slug,
+                    name,
+                    organization_id,
+                    is_knowledge_base_enabled,
+                    is_attacks_enabled,
+                    is_mcp_gateway_enabled,
+                )| MyWorkspace {
+                    id,
+                    slug,
+                    name,
+                    role: WorkspaceRole::Admin,
+                    organization_id,
+                    is_knowledge_base_enabled,
+                    is_attacks_enabled,
+                    is_mcp_gateway_enabled,
                 },
             )
             .collect())

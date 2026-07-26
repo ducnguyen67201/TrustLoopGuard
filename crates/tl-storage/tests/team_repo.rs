@@ -129,6 +129,83 @@ async fn create_workspace_seeds_enabled_starter_policies() {
 }
 
 #[tokio::test]
+async fn platform_admin_lookup_and_all_workspace_listing_are_database_authoritative() {
+    let (team_repo, policy_repo, _dashboard_admin_repo, _container) = fresh_repos().await;
+    let operator_id = Uuid::new_v4();
+    let first_owner_id = Uuid::new_v4();
+    let second_owner_id = Uuid::new_v4();
+    {
+        let mut conn = policy_repo.pool().get().await.expect("connection");
+        diesel::insert_into(users::table)
+            .values(vec![
+                (
+                    users::id.eq(operator_id),
+                    users::username.eq("operator@example.com"),
+                    users::password_hash.eq("hash"),
+                ),
+                (
+                    users::id.eq(first_owner_id),
+                    users::username.eq("first-owner@example.com"),
+                    users::password_hash.eq("hash"),
+                ),
+                (
+                    users::id.eq(second_owner_id),
+                    users::username.eq("second-owner@example.com"),
+                    users::password_hash.eq("hash"),
+                ),
+            ])
+            .execute(&mut conn)
+            .await
+            .expect("insert users");
+    }
+
+    let first = team_repo
+        .create_workspace(first_owner_id, "First Customer")
+        .await
+        .expect("first workspace");
+    let second = team_repo
+        .create_workspace(second_owner_id, "Second Customer")
+        .await
+        .expect("second workspace");
+
+    assert!(!team_repo
+        .is_platform_admin(operator_id)
+        .await
+        .expect("default platform admin state"));
+    assert!(team_repo
+        .list_workspaces_for_user(operator_id)
+        .await
+        .expect("operator memberships")
+        .is_empty());
+
+    {
+        let mut conn = policy_repo.pool().get().await.expect("connection");
+        diesel::update(users::table.filter(users::id.eq(operator_id)))
+            .set(users::is_platform_admin.eq(true))
+            .execute(&mut conn)
+            .await
+            .expect("grant platform admin");
+    }
+    assert!(team_repo
+        .is_platform_admin(operator_id)
+        .await
+        .expect("granted platform admin state"));
+    let all = team_repo
+        .list_all_workspaces()
+        .await
+        .expect("all active workspaces");
+    assert_eq!(
+        all.iter()
+            .map(|workspace| workspace.id.as_str())
+            .collect::<Vec<_>>(),
+        vec![first.id.as_str(), second.id.as_str()]
+    );
+    assert!(all
+        .iter()
+        .all(|workspace| workspace.role == WorkspaceRole::Admin));
+}
+
+#[tokio::test]
 async fn delete_workspace_revokes_access_and_retains_history() {
     let (team_repo, policy_repo, dashboard_admin_repo, _container) = fresh_repos().await;
     let owner_id = Uuid::new_v4();

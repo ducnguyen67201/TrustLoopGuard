@@ -83,6 +83,25 @@ do not see first-run onboarding or self-service workspace creation. Once approve
 workspace is sent to first-run onboarding (`/onboarding/workspace`), and a user whose workspace has
 no agents yet is sent to `/onboarding/connect`; users with an agent land on the dashboard.
 
+Platform support access is a separate, default-deny capability. The Rust-owned
+`users.is_platform_admin` field defaults to `false`. When it is `true`,
+`GET /v1/team/my-workspaces` returns every active workspace and
+`is_platform_admin: true`; Rust workspace admin gates also recognize the platform administrator.
+The dashboard shows the cross-workspace switcher state only from this response. A workspace role
+such as `owner` or `admin` does not grant platform access.
+
+There is no public or dashboard endpoint that can grant this capability. An operator with write
+access to the product database grants or revokes it explicitly:
+
+```sql
+UPDATE users
+SET is_platform_admin = TRUE, updated_at = NOW()
+WHERE LOWER(username) = LOWER('<operator-email>');
+```
+
+Use `FALSE` to revoke it. Cross-workspace listing and workspace-admin authorization emit structured
+server logs with the acting user, selected workspace when applicable, and action.
+
 ## Dashboard Data Boundary
 
 Dashboard pages call Rust API routes for runtime and workspace data. The web app must not import
@@ -103,9 +122,10 @@ Rust-owned tables currently include:
 The web app treats the `workspace` query parameter as a requested workspace, not an authority. Before
 server-rendered dashboard pages or `apps/web/app/api/*` proxy routes attach `TL_API_KEY` and
 `x-tlg-workspace-id`, they resolve the signed-in user's memberships through Rust
-`GET /v1/team/my-workspaces`. If the requested workspace is not in that membership list, the proxy
-returns 403 instead of forwarding the request. When no workspace is requested, the first membership
-is used.
+`GET /v1/team/my-workspaces`. For ordinary users, if the requested workspace is not in that
+membership list, the proxy returns 403 instead of forwarding the request. Platform administrators
+receive the complete active-workspace list from Rust, so the same check permits their
+cross-workspace selection. When no workspace is requested, the first authorized workspace is used.
 
 ## Acceptance Criteria
 
@@ -117,7 +137,9 @@ is used.
 - A local development user can sign up, sign in, and reach the dashboard with Rust-backed
   credentials.
 - Anonymous users cannot access dashboard routes.
-- Authenticated users cannot steer the web proxy into a workspace outside their Rust membership list.
+- Ordinary authenticated users cannot steer the web proxy into a workspace outside their Rust
+  membership list.
+- Only users with `users.is_platform_admin=true` receive cross-workspace dashboard access.
 - Approved users self-serve workspace creation via first-run onboarding on every deployment.
 - Dashboard policy, agent, trace, and knowledge-source data comes from `tl-server`.
 - `apps/web` has no direct DB dependencies, config, schema, or client code.

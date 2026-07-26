@@ -17,6 +17,7 @@ interface MyWorkspace {
 }
 
 interface MyWorkspacesResponse {
+  is_platform_admin: boolean;
   workspaces: MyWorkspace[];
 }
 
@@ -43,7 +44,7 @@ export async function GET() {
     const session = await auth();
     const user = userFromSession(session?.user as never);
     if (user === null) {
-      return NextResponse.json({ workspaces: [] }, { status: 401 });
+      return NextResponse.json({ is_platform_admin: false, workspaces: [] }, { status: 401 });
     }
     const data = await rustApiForUser<MyWorkspacesResponse>(
       user,
@@ -53,12 +54,15 @@ export async function GET() {
   } catch (err) {
     if (err instanceof RustApiError) {
       return NextResponse.json(
-        { error: err.body, workspaces: [] },
+        { error: err.body, is_platform_admin: false, workspaces: [] },
         { status: err.status },
       );
     }
     const message = err instanceof Error ? err.message : 'unknown error';
-    return NextResponse.json({ error: message, workspaces: [] }, { status: 502 });
+    return NextResponse.json(
+      { error: message, is_platform_admin: false, workspaces: [] },
+      { status: 502 },
+    );
   }
 }
 

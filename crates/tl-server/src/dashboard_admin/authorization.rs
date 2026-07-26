@@ -168,9 +168,28 @@ pub(crate) async fn authorize_workspace_member(
             )
         })?,
     };
-    team_store
-        .list_workspaces_for_user(user_id)
+    let is_platform_admin = team_store
+        .is_platform_admin(user_id)
         .await
+        .map_err(|error| {
+            api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                error.to_string(),
+            )
+        })?;
+    let workspaces = if is_platform_admin {
+        tracing::info!(
+            user_id = %user_id,
+            workspace_id = %workspace_id,
+            action,
+            "platform administrator used cross-workspace member access"
+        );
+        team_store.list_all_workspaces().await
+    } else {
+        team_store.list_workspaces_for_user(user_id).await
+    };
+    workspaces
         .map_err(|error| {
             api_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -195,6 +214,26 @@ async fn require_admin_role(
     user_id: Uuid,
     action: &str,
 ) -> Result<(), Response> {
+    if team_store
+        .is_platform_admin(user_id)
+        .await
+        .map_err(|error| {
+            api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                error.to_string(),
+            )
+        })?
+    {
+        tracing::info!(
+            user_id = %user_id,
+            workspace_id,
+            action,
+            "platform administrator passed workspace admin gate"
+        );
+        return Ok(());
+    }
+
     let members = team_store
         .list_members(workspace_id)
         .await
@@ -227,4 +266,49 @@ fn forwarded_user_id(headers: &HeaderMap) -> Option<Uuid> {
         .get("x-tlg-user-id")
         .and_then(|value| value.to_str().ok())
         .and_then(|value| Uuid::parse_str(value.trim()).ok())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::team::{MemoryTeamStore, TeamStoreError};
+
+    #[tokio::test]
+    async fn platform_admin_passes_admin_gate_without_becoming_workspace_owner() {
+        let store = Arc::new(MemoryTeamStore::new());
+        let owner_id = Uuid::new_v4();
+        let platform_admin_id = Uuid::new_v4();
+        let workspace = store
+            .create_workspace(owner_id, "Customer Workspace")
+            .await
+            .expect("workspace");
+        let team_store: Arc<dyn TeamStore> = store.clone();
+
+        assert!(require_admin_role(
+            &team_store,
+            &workspace.id,
+            platform_admin_id,
+            "inspect workspace"
+        )
+        .await
+        .is_err());
+
+        store
+            .set_platform_admin_for_tests(platform_admin_id, true)
+            .await;
+        assert!(require_admin_role(
+            &team_store,
+            &workspace.id,
+            platform_admin_id,
+            "inspect workspace"
+        )
+        .await
+        .is_ok());
+        assert!(matches!(
+            store
+                .delete_workspace(platform_admin_id, &workspace.id)
+                .await,
+            Err(TeamStoreError::Forbidden)
+        ));
+    }
 }

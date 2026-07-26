@@ -2,7 +2,7 @@
 import type { WorkspaceRole } from "./WorkspaceRole.js";
 
 /**
- * A workspace the signed-in user belongs to. Drives the dashboard's
- * workspace switcher and the "no workspace yet" redirect.
+ * A workspace the signed-in user can access. Normally this comes from
+ * membership; platform administrators receive every active workspace.
  */
 export type MyWorkspace = { id: string, slug: string, name: string, role: WorkspaceRole, organization_id: string, is_knowledge_base_enabled: boolean, is_attacks_enabled: boolean, is_mcp_gateway_enabled: boolean, };

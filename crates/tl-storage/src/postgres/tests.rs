@@ -233,6 +233,49 @@ async fn migrate_repairs_recorded_human_review_schema_drift_and_is_idempotent() 
 }
 
 #[tokio::test]
+async fn platform_admin_migration_is_default_deny_and_explicitly_grantable() {
+    use crate::schema::users;
+    use diesel::RunQueryDsl as SyncRunQueryDsl;
+
+    let (database_url, _container) = fresh_database_url().await;
+    migrate(&database_url).await.expect("migrate");
+    let mut conn = establish(&database_url);
+    let user_id = Uuid::parse_str("00000000-0000-4000-8000-000000000059").expect("user id");
+    SyncRunQueryDsl::execute(
+        diesel::insert_into(users::table).values((
+            users::id.eq(user_id),
+            users::username.eq("operator@example.com"),
+            users::password_hash.eq("test"),
+        )),
+        &mut conn,
+    )
+    .expect("insert operator");
+    let is_platform_admin = SyncRunQueryDsl::first::<bool>(
+        users::table
+            .filter(users::id.eq(user_id))
+            .select(users::is_platform_admin),
+        &mut conn,
+    )
+    .expect("default platform admin state");
+    assert!(!is_platform_admin);
+
+    SyncRunQueryDsl::execute(
+        diesel::update(users::table.filter(users::id.eq(user_id)))
+            .set(users::is_platform_admin.eq(true)),
+        &mut conn,
+    )
+    .expect("grant platform admin");
+    let is_platform_admin = SyncRunQueryDsl::first::<bool>(
+        users::table
+            .filter(users::id.eq(user_id))
+            .select(users::is_platform_admin),
+        &mut conn,
+    )
+    .expect("granted platform admin state");
+    assert!(is_platform_admin);
+}
+
+#[tokio::test]
 async fn gateway_profile_removal_preserves_existing_routes() {
     use crate::schema::{gateway_provider_connections, gateway_routes, organizations, workspaces};
     use diesel::RunQueryDsl as SyncRunQueryDsl;

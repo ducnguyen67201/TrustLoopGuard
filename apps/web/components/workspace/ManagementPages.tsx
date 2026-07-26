@@ -78,6 +78,12 @@ export function WorkspacesPageContent({ data }: { data: DashboardShellData }) {
       actionHref="/onboarding/workspace"
       actionIcon={IconPlus}
     >
+      {data.isPlatformAdmin ? (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border bg-muted/40 p-4 text-sm">
+          <Badge variant="secondary">Platform admin</Badge>
+          You can open every active workspace for support and debugging.
+        </div>
+      ) : null}
       {data.workspaces.length === 0 ? (
         <EmptyState
           icon={<IconLayoutGrid />}

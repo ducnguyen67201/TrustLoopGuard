@@ -495,6 +495,13 @@ A policy or checker that evaluates but does not enforce. It records hypothetical
 
 A user with current access to a workspace. Backed by `workspace_members` (workspace_id + user_id + role). Lifecycle owned by Rust (`crates/tl-storage/src/team_repo.rs`); the dashboard reads through `/v1/team/members`. See [team-and-invites.md](team-and-invites.md).
 
+### Platform administrator
+
+A user with support and debugging access across every active workspace. Backed by the default-false
+`users.is_platform_admin` flag and enforced by Rust; it is distinct from the per-workspace
+`admin` role and does not create workspace membership. See
+[web dashboard authentication](web-dashboard-authentication.md).
+
 ### OAuth identity
 
 A Google or GitHub account linked to one local TrustLoopGuard user. Backed by `oauth_identities` (`provider`, `provider_subject`, `user_id`). Google/GitHub authenticate the browser user; Rust uses the link only to resolve the local app user that owns workspace memberships. See [authorization.md](authorization.md#oauth-users-google--github).

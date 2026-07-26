@@ -9,7 +9,10 @@ use axum::{
 use http_body_util::BodyExt;
 use tl_core::{ApiError, WorkspaceRole};
 use tl_engine::Engine;
-use tl_server::{jwt::JwtSigner, memory_app_state, router, AuthConfig, MemoryUserStore, TeamStore};
+use tl_server::{
+    jwt::JwtSigner, memory_app_state, router, AuthConfig, MemoryTeamStore, MemoryUserStore,
+    TeamStore,
+};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -23,6 +26,7 @@ struct TeamFixture {
     editor_token: String,
     viewer_token: String,
     outsider_token: String,
+    platform_admin_token: String,
 }
 
 async fn team_fixture() -> TeamFixture {
@@ -48,12 +52,20 @@ async fn team_fixture() -> TeamFixture {
         .create_approved_for_tests("outsider@example.com")
         .await
         .expect("outsider");
+    let platform_admin = user_store
+        .create_approved_for_tests("platform-admin@example.com")
+        .await
+        .expect("platform admin");
 
-    let store = state.team_store.clone();
+    let store = Arc::new(MemoryTeamStore::new());
+    state.team_store = store.clone();
     let workspace = store
         .create_workspace(owner.id, "Delete Team")
         .await
         .expect("create workspace");
+    store
+        .set_platform_admin_for_tests(platform_admin.id, true)
+        .await;
     for (user_id, email, role) in [
         (admin.id, admin.username.as_str(), WorkspaceRole::Admin),
         (editor.id, editor.username.as_str(), WorkspaceRole::Editor),
@@ -93,6 +105,9 @@ async fn team_fixture() -> TeamFixture {
     let outsider_token = signer
         .mint(outsider.id, &outsider.username)
         .expect("outsider token");
+    let platform_admin_token = signer
+        .mint(platform_admin.id, &platform_admin.username)
+        .expect("platform admin token");
 
     state.user_store = user_store;
     state.jwt_signer = Some(signer);
@@ -108,6 +123,7 @@ async fn team_fixture() -> TeamFixture {
         editor_token,
         viewer_token,
         outsider_token,
+        platform_admin_token,
     }
 }
 
@@ -209,6 +225,7 @@ async fn non_owners_and_outsider_cannot_delete_workspace() {
         &fixture.editor_token,
         &fixture.viewer_token,
         &fixture.outsider_token,
+        &fixture.platform_admin_token,
     ] {
         let response = fixture
             .app
@@ -250,6 +267,43 @@ async fn non_owners_and_outsider_cannot_delete_workspace() {
         .await
         .expect("unknown delete response");
     assert_eq!(unknown.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn only_platform_admins_receive_cross_workspace_access() {
+    let fixture = team_fixture().await;
+
+    let outsider = fixture
+        .app
+        .clone()
+        .oneshot(list_workspaces_request(&fixture.outsider_token))
+        .await
+        .expect("outsider list response");
+    assert_eq!(outsider.status(), StatusCode::OK);
+    let outsider_body = response_json(outsider).await;
+    assert_eq!(outsider_body["is_platform_admin"], false);
+    assert_eq!(
+        outsider_body["workspaces"].as_array().map(Vec::len),
+        Some(0)
+    );
+
+    let platform_admin = fixture
+        .app
+        .oneshot(list_workspaces_request(&fixture.platform_admin_token))
+        .await
+        .expect("platform admin list response");
+    assert_eq!(platform_admin.status(), StatusCode::OK);
+    let platform_admin_body = response_json(platform_admin).await;
+    assert_eq!(platform_admin_body["is_platform_admin"], true);
+    assert_eq!(
+        platform_admin_body["workspaces"].as_array().map(Vec::len),
+        Some(1)
+    );
+    assert_eq!(
+        platform_admin_body["workspaces"][0]["id"],
+        fixture.workspace_id
+    );
+    assert_eq!(platform_admin_body["workspaces"][0]["role"], "admin");
 }
 
 #[tokio::test]

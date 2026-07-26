@@ -8,7 +8,7 @@ How users join a workspace.
 
 Rust owns the durable state. Tables, repository, and HTTP endpoints all live in the Rust stack:
 
-- Tables: `workspaces`, `workspace_members`, `workspace_invites`, and `workspace_api_keys` (created by migration `00000000000006_workspace_admin`; workspace feature flags added by `00000000000044_workspace_feature_flags`).
+- Tables: `workspaces`, `workspace_members`, `workspace_invites`, and `workspace_api_keys` (created by migration `00000000000006_workspace_admin`; workspace feature flags added by `00000000000044_workspace_feature_flags`). Platform-wide support access is the default-false `users.is_platform_admin` flag.
 - Repository: `crates/tl-storage/src/team_repo.rs`.
 - HTTP handlers: `crates/tl-server/src/team.rs`.
 - Wire types: `crates/tl-core/src/team.rs`.
@@ -50,13 +50,20 @@ All team endpoints sit behind the existing shared-bearer middleware.
 | `GET`    | `/v1/team/invites`         | — | `InviteListResponse` (pending only) |
 | `POST`   | `/v1/team/invites`         | `{ email, role }` | `CreateInviteResponse` tagged by `kind` (`invited` with `invite`, or `added` with `member`) |
 | `DELETE` | `/v1/team/invites/:id`     | — | 204 |
-| `GET`    | `/v1/team/my-workspaces`   | — | `MyWorkspacesResponse` *(user-scoped, auto-binds pending invites)* |
+| `GET`    | `/v1/team/my-workspaces`   | — | `MyWorkspacesResponse` *(user-scoped, auto-binds pending invites, returns `is_platform_admin`)* |
 | `POST`   | `/v1/team/my-workspaces`   | `{ name }` | `MyWorkspace` *(self-service bootstrap for approved users)* |
 | `DELETE` | `/v1/team/my-workspaces/{id}` | — | 204 *(owner-only soft delete)* |
 
 Active-workspace team operations read context from `X-TLG-Workspace-Id`. The optional `X-TLG-User-Id` header (UUID) is captured on `POST /v1/team/invites` and persisted to `invited_by_user_id` so the audit trail survives.
 
 The `GET`, `POST`, and `DELETE` operations under `/v1/team/my-workspaces` are user-scoped instead. They derive the signed-in user from the Rust JWT context or the trusted dashboard-forwarded user id; they do not authorize from the currently selected workspace. `GET` also reads `X-TLG-User-Email` when present and bulk-accepts pending invites addressed to it *before* querying memberships. This is the auto-bind mechanism: a user invited before or after signup sees the workspace on their next page load without clicking an accept link.
+
+For an ordinary user, `GET /v1/team/my-workspaces` returns only active workspace memberships and
+`is_platform_admin: false`. When `users.is_platform_admin` is true, it returns every active
+workspace with an effective `admin` role and `is_platform_admin: true`. Platform administrators
+therefore pass the same server-side workspace and owner/admin gates as a workspace administrator.
+They do not receive an inserted membership row, and owner-only workspace deletion remains
+membership-bound.
 
 Each returned `MyWorkspace` also includes `is_knowledge_base_enabled` and `is_attacks_enabled`. Both columns are `NOT NULL DEFAULT false` on `workspaces`, so those dashboard features remain unavailable until a workspace is explicitly enrolled. The dashboard maps them to camel-case shell fields, omits the corresponding navigation items, and returns not found for direct page requests when disabled. These are product-availability flags; they do not replace authorization on any Rust endpoint.
 
@@ -72,12 +79,15 @@ After success, deleting an inactive workspace retains the current selection. Del
 
 ## Enforcement
 
-The dashboard refuses to render when the signed-in user has zero memberships.
+The dashboard refuses to render when the signed-in user has zero authorized workspaces.
 
 - **Server-side**: `getDashboardShell` (in `apps/web/lib/server/dashboard-data.ts`) calls `/v1/team/my-workspaces` first, and redirects to `/onboarding/workspace` if the list is empty.
 - **`/welcome`**: re-queries `getMyWorkspaces` on every render. If a workspace has appeared since the last visit (via auto-bind), the page redirects to it immediately; otherwise it shows the user's email and a Refresh button.
 
-The combined effect: a new user without memberships enters workspace onboarding. If an admin invites them, their next workspace lookup auto-binds the pending invite and the dashboard can open that workspace.
+The combined effect: a new ordinary user without memberships enters workspace onboarding. If an
+admin invites them, their next workspace lookup auto-binds the pending invite and the dashboard can
+open that workspace. A platform administrator can instead open any active workspace returned by
+Rust.
 
 Unapproved users remain on `/welcome` until an operator approves their user row — approval is the
 only gate. Once approved, users self-serve through first-run onboarding: the

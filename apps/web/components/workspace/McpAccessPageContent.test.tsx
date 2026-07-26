@@ -8,6 +8,7 @@ import { McpAccessPageContent } from './McpAccessPageContent';
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 const base: McpAccessPageData = {
+  isPlatformAdmin: false,
   user: { id: 'user', name: 'Member', email: 'member@example.com', avatar: '' },
   organization: { id: 'org', name: 'Org', slug: 'org' },
   activeWorkspace: {

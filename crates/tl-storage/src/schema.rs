@@ -175,6 +175,7 @@ diesel::table! {
         username -> Text,
         password_hash -> Text,
         is_approved -> Bool,
+        is_platform_admin -> Bool,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
