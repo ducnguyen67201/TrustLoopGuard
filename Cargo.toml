@@ -81,7 +81,7 @@ url = "2"
 # Auth
 argon2 = "0.5"
 rand = "0.10"
-base64 = "0.22"
+base64 = "0.23"
 jsonwebtoken = { version = "10", default-features = false, features = ["aws_lc_rs"] }
 ring = "0.17"
 
