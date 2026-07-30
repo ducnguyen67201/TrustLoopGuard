@@ -87,7 +87,7 @@ pub(super) async fn validate_target_binding(
                 "agent_id `{agent_id}` is not registered in this workspace"
             )),
             AgentStoreError::Validation(message) => RedteamJobStoreError::Validation(message),
-            AgentStoreError::Internal(message) => RedteamJobStoreError::Internal(message),
+            AgentStoreError::Internal(message) => RedteamJobStoreError::Unavailable(message),
         })?;
     let registered_target = agent.target_url.as_deref().ok_or_else(|| {
         RedteamJobStoreError::Validation(format!("agent `{agent_id}` has no registered target_url"))

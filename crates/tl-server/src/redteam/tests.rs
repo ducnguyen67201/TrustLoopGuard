@@ -31,7 +31,7 @@ use super::{
     RedteamState,
 };
 use super::{PublicReportState, ReportRateLimiter};
-use crate::agents::{AgentStore, MemoryAgentStore};
+use crate::agents::{AgentStore, AgentStoreError, MemoryAgentStore};
 use crate::environments::MemoryEnvironmentStore;
 use crate::policies::{workspace_id_from_headers, MemoryPolicyStore, PolicyStore};
 use tl_llm::LlmRouter;
@@ -861,6 +861,36 @@ async fn registered_agent_store(target_url: &str) -> Arc<MemoryAgentStore> {
     store
 }
 
+struct UnavailableAgentStore;
+
+#[async_trait]
+impl AgentStore for UnavailableAgentStore {
+    async fn upsert(
+        &self,
+        _workspace_id: &str,
+        _profile: &AgentProfile,
+        _source_yaml: &str,
+    ) -> Result<(), AgentStoreError> {
+        Err(AgentStoreError::Internal("database unavailable".into()))
+    }
+
+    async fn get(
+        &self,
+        _workspace_id: &str,
+        _agent_id: &str,
+    ) -> Result<Arc<AgentProfile>, AgentStoreError> {
+        Err(AgentStoreError::Internal("database unavailable".into()))
+    }
+
+    async fn delete(&self, _workspace_id: &str, _agent_id: &str) -> Result<(), AgentStoreError> {
+        Err(AgentStoreError::Internal("database unavailable".into()))
+    }
+
+    async fn list(&self, _workspace_id: &str) -> Result<Vec<Arc<AgentProfile>>, AgentStoreError> {
+        Err(AgentStoreError::Internal("database unavailable".into()))
+    }
+}
+
 #[tokio::test]
 async fn dispatch_returns_201_and_queues_job() {
     let (tx, mut rx) = mpsc::channel(4);
@@ -944,6 +974,18 @@ async fn dispatch_rejects_target_that_does_not_match_registered_agent() {
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert!(rx.try_recv().is_err(), "rejected job must not be queued");
+}
+
+#[tokio::test]
+async fn dispatch_reports_registered_agent_lookup_outage_as_unavailable() {
+    let error = validate_target_binding(Some(&UnavailableAgentStore), "ws", &dispatch_req())
+        .await
+        .expect_err("agent lookup outage must reject dispatch");
+
+    assert!(matches!(
+        error,
+        RedteamJobStoreError::Unavailable(message) if message == "database unavailable"
+    ));
 }
 
 #[tokio::test]
