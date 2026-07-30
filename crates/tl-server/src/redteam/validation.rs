@@ -2,6 +2,8 @@ use base64::Engine as _;
 use tl_core::{RedteamAttackSurface, RedteamDispatchRequest, RedteamDocumentTemplate};
 use url::Url;
 
+use crate::agents::{AgentStore, AgentStoreError};
+
 use super::RedteamJobStoreError;
 
 /// Valid attack profiles understood by the runner.
@@ -13,6 +15,9 @@ const PROFILES: [&str; 3] = ["fast", "full", "max"];
 /// fetched, and a direct API caller (workspace key) bypasses the web edge, so
 /// the allowlist must live here too — deny-by-default.
 const ALLOWED_TARGET_HOSTS: [&str; 3] = ["127.0.0.1", "localhost", "::1"];
+/// The only unregistered target retained for the local demo flow. All other
+/// dispatch targets must be bound to a workspace agent profile.
+const LOCAL_DEMO_TARGET: &str = "http://127.0.0.1:9102";
 const MAX_DOCUMENT_TEMPLATE_BYTES: usize = 10 * 1024 * 1024;
 /// Caps on the planned seeds a single dispatch may carry. Mirrors the web edge
 /// (`dispatch/route.ts`); enforced here too because a direct API caller bypasses
@@ -41,6 +46,62 @@ pub(super) fn validate_dispatch(
     }
     validate_document_template(input)?;
     validate_attack_vectors(input)?;
+    Ok(())
+}
+
+/// Bind a dispatch target to durable workspace-owned agent configuration.
+///
+/// A loopback host check alone is not an SSRF boundary because it exposes every
+/// local port and path. Registered runs must exactly match the selected agent's
+/// stored target. The fixed demo adapter remains available without an agent.
+pub(super) async fn validate_target_binding(
+    agent_store: Option<&dyn AgentStore>,
+    workspace_id: &str,
+    input: &RedteamDispatchRequest,
+) -> Result<(), RedteamJobStoreError> {
+    let Some(agent_id) = input
+        .agent_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|agent_id| !agent_id.is_empty())
+    else {
+        return if targets_match(&input.target_url, LOCAL_DEMO_TARGET) {
+            Ok(())
+        } else {
+            Err(RedteamJobStoreError::Validation(format!(
+                "agent_id is required unless target_url is the local demo adapter {LOCAL_DEMO_TARGET}"
+            )))
+        };
+    };
+
+    let store = agent_store.ok_or_else(|| {
+        RedteamJobStoreError::Unavailable(
+            "registered agent target validation is not configured".into(),
+        )
+    })?;
+    let agent = store
+        .get(workspace_id, agent_id)
+        .await
+        .map_err(|error| match error {
+            AgentStoreError::NotFound => RedteamJobStoreError::Validation(format!(
+                "agent_id `{agent_id}` is not registered in this workspace"
+            )),
+            AgentStoreError::Validation(message) => RedteamJobStoreError::Validation(message),
+            AgentStoreError::Internal(message) => RedteamJobStoreError::Unavailable(message),
+        })?;
+    let registered_target = agent.target_url.as_deref().ok_or_else(|| {
+        RedteamJobStoreError::Validation(format!("agent `{agent_id}` has no registered target_url"))
+    })?;
+    if !is_loopback_target(registered_target) {
+        return Err(RedteamJobStoreError::Validation(format!(
+            "agent `{agent_id}` has an invalid registered target_url"
+        )));
+    }
+    if !targets_match(&input.target_url, registered_target) {
+        return Err(RedteamJobStoreError::Validation(format!(
+            "target_url must exactly match the registered target for agent `{agent_id}`"
+        )));
+    }
     Ok(())
 }
 
@@ -152,6 +213,13 @@ fn is_loopback_target(raw: &str) -> bool {
             ALLOWED_TARGET_HOSTS.contains(&host.as_str())
         }
         None => false,
+    }
+}
+
+fn targets_match(left: &str, right: &str) -> bool {
+    match (Url::parse(left.trim()), Url::parse(right.trim())) {
+        (Ok(left), Ok(right)) => left == right,
+        _ => false,
     }
 }
 
