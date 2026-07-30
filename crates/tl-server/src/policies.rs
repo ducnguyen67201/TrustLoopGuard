@@ -8,6 +8,7 @@ use tl_llm::LlmClient;
 use tl_policy::{FamilyPolicy, Policy};
 
 use crate::environments::EnvironmentStore;
+use crate::team::TeamStore;
 
 mod ai_edit;
 pub(crate) mod authoring;
@@ -145,6 +146,7 @@ pub trait PolicyStore: Send + Sync {
 pub struct PolicyState {
     pub store: Arc<dyn PolicyStore>,
     pub environment_store: Arc<dyn EnvironmentStore>,
+    pub team_store: Arc<dyn TeamStore>,
     /// LLM used by `POST /v1/policies/draft`. `None` when no provider
     /// key is configured — the handler returns 503 in that case.
     pub draft_llm: Option<Arc<dyn LlmClient>>,

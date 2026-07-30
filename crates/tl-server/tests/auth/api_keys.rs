@@ -65,6 +65,8 @@ async fn internal_bearer_with_forwarded_user_can_issue_workspace_key_used_by_sdk
     );
     assert!(!listed.to_string().contains(plaintext));
 
+    let other_workspace_id =
+        create_workspace_for_user(app.clone(), user_id, "Wrong Workspace").await;
     let other_workspace_policy = r#"
 id: wrong-workspace-block
 description: Would block if caller-controlled workspace won
@@ -82,7 +84,8 @@ action: deny
                 .uri("/v1/policies")
                 .header(header::CONTENT_TYPE, "application/x-yaml")
                 .header(header::AUTHORIZATION, "Bearer sk-internal")
-                .header("x-tlg-workspace-id", "ws_wrong")
+                .header("x-tlg-workspace-id", &other_workspace_id)
+                .header("x-tlg-user-id", user_id.to_string())
                 .body(Body::from(other_workspace_policy))
                 .unwrap(),
         )
@@ -93,7 +96,7 @@ action: deny
     let event_body = serde_json::json!({
         "kind": "output.proposed",
         "principal": {
-            "workspace_id": "ws_wrong",
+            "workspace_id": other_workspace_id,
             "environment_id": "production",
             "agent_id": "a"
         },
@@ -113,7 +116,7 @@ action: deny
                 .uri("/v1/events")
                 .header(header::CONTENT_TYPE, "application/json")
                 .header(header::AUTHORIZATION, format!("Bearer {plaintext}"))
-                .header("x-tlg-workspace-id", "ws_wrong")
+                .header("x-tlg-workspace-id", &other_workspace_id)
                 .body(Body::from(event_body.to_string()))
                 .unwrap(),
         )
