@@ -50,7 +50,11 @@ than a configurable checker. The pipeline records `resolution_failed`, discards
 the collector-supplied side-effect class, and returns `defer` before the caller
 may execute the action. This applies even when all checker rollout modes are
 `off`; an outage cannot substitute untrusted collector semantics for the
-workspace registry.
+workspace registry. Because resolved side-effect metadata is part of an
+executable subject's fingerprint, the deferred attempt does not create a
+durable authorization intent. Retrying the same `invocation_id` after recovery
+creates the intent from the authoritative metadata instead of conflicting with
+an outage-time placeholder.
 
 ## Checker semantics
 

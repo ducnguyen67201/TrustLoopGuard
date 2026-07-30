@@ -5,7 +5,14 @@
 //! compose into the returned decision. The retired `/v1/check` route is
 //! intentionally absent.
 
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
 use async_trait::async_trait;
 use axum::{
@@ -13,8 +20,10 @@ use axum::{
     http::{header, Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use tl_core::{AuthorizationDecision, AuthorizationEffect, DEFAULT_WORKSPACE_ID};
-use tl_engine::Engine;
+use tl_core::{
+    AuthorizationDecision, AuthorizationEffect, SideEffectClass, ToolMetadata, DEFAULT_WORKSPACE_ID,
+};
+use tl_engine::{Engine, EventPipelineCtx, ToolMetadataProvider, ToolMetadataUnavailable};
 use tl_llm::{
     JsonSchema, JudgeKind, LlmClient, LlmError, LlmOutput, LlmRouter, ProviderTarget,
     ResolvedRoute, TokenBudget,
@@ -86,6 +95,31 @@ fn send_email_event() -> serde_json::Value {
 
 fn app() -> axum::Router {
     router(memory_app_state(Arc::new(Engine::empty())), None, [0u8; 32])
+}
+
+struct RecoveringToolMetadataProvider {
+    available: Arc<AtomicBool>,
+}
+
+#[async_trait]
+impl ToolMetadataProvider for RecoveringToolMetadataProvider {
+    async fn get(
+        &self,
+        _workspace_id: &str,
+        operation: &str,
+    ) -> Result<Option<ToolMetadata>, ToolMetadataUnavailable> {
+        if !self.available.load(Ordering::SeqCst) {
+            return Err(ToolMetadataUnavailable);
+        }
+        Ok(Some(ToolMetadata {
+            tool: operation.to_string(),
+            side_effect: SideEffectClass::ExternalCommunication,
+            reversible: false,
+            params: vec![],
+            approval: None,
+            sandbox_hint: None,
+        }))
+    }
 }
 
 enum CannedLlmResponse {
@@ -203,6 +237,50 @@ async fn submit_event_returns_default_allow_when_nothing_matches() {
     assert_eq!(decision.reason, DEFAULT_EVENT_ALLOW_REASON);
     assert!(!decision.trace_id.is_empty());
     assert!(decision.findings.is_empty());
+}
+
+#[tokio::test]
+async fn metadata_outage_retry_creates_intent_only_after_resolution_recovers() {
+    let available = Arc::new(AtomicBool::new(false));
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    state.event_pipeline = Arc::new(EventPipelineCtx {
+        tool_metadata: Arc::new(RecoveringToolMetadataProvider {
+            available: available.clone(),
+        }),
+        ..EventPipelineCtx::no_op()
+    });
+    let app = router(state, None, [0u8; 32]);
+    let event = send_email_event();
+
+    let first = app
+        .clone()
+        .oneshot(submit_request(&event, Some(DEFAULT_WORKSPACE_ID)))
+        .await
+        .unwrap();
+    let first_status = first.status();
+    let first: AuthorizationDecision = serde_json::from_value(read_body(first).await).unwrap();
+
+    assert_eq!(first_status, StatusCode::OK);
+    assert_eq!(first.effect, AuthorizationEffect::Defer);
+    assert!(
+        first.intent_id.is_none(),
+        "unstable metadata must not create an authorization intent"
+    );
+
+    available.store(true, Ordering::SeqCst);
+    let second = app
+        .oneshot(submit_request(&event, Some(DEFAULT_WORKSPACE_ID)))
+        .await
+        .unwrap();
+    let second_status = second.status();
+    let second: AuthorizationDecision = serde_json::from_value(read_body(second).await).unwrap();
+
+    assert_eq!(second_status, StatusCode::OK);
+    assert_eq!(second.effect, AuthorizationEffect::Permit);
+    assert!(
+        second.intent_id.is_some(),
+        "the recovered attempt should create the stable intent"
+    );
 }
 
 #[tokio::test]
