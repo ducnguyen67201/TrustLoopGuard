@@ -13,6 +13,7 @@ use base64::Engine;
 use chrono::Utc;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
+use tl_core::{AuthorizeRequest, AuthorizeResponse};
 use uuid::Uuid;
 
 use crate::jwt::ACCESS_TOKEN_TTL_MINUTES;
@@ -335,21 +336,21 @@ async fn client_redirect_uris(
     }
 }
 
-#[derive(Deserialize)]
-struct AuthorizeRequest {
-    client_id: String,
-    redirect_uri: String,
-    code_challenge: String,
-    #[serde(default)]
-    code_challenge_method: Option<String>,
-    #[serde(default)]
-    resource: Option<String>,
-    #[serde(default)]
-    scope: Option<String>,
-    agent_id: Option<String>,
-}
-
-async fn authorize(
+/// `POST /v1/oauth/authorize` — mint a PKCE-bound code for a trusted dashboard identity.
+#[utoipa::path(
+    post,
+    path = "/v1/oauth/authorize",
+    tag = "oauth",
+    request_body = AuthorizeRequest,
+    responses(
+        (status = 200, description = "Authorization code issued", body = AuthorizeResponse),
+        (status = 400, description = "Invalid OAuth request"),
+        (status = 401, description = "Internal dashboard authentication required"),
+        (status = 403, description = "User is not a workspace member"),
+        (status = 500, description = "Authorization code issuance failed"),
+    ),
+)]
+pub(crate) async fn authorize(
     State(app): State<AppState>,
     headers: HeaderMap,
     Json(req): Json<AuthorizeRequest>,
@@ -488,7 +489,7 @@ async fn authorize(
             "authorization code issuance failed",
         );
     }
-    Json(json!({ "code": code })).into_response()
+    Json(AuthorizeResponse { code }).into_response()
 }
 
 #[derive(Deserialize)]

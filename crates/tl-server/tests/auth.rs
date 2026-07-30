@@ -233,6 +233,27 @@ fn oauth_session_request(
     b.body(Body::from(body.to_string())).unwrap()
 }
 
+fn oauth_authorize_request(token: &str, workspace_id: &str, user_id: Uuid) -> Request<Body> {
+    Request::builder()
+        .method("POST")
+        .uri("/v1/oauth/authorize")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .header("x-tlg-workspace-id", workspace_id)
+        .header("x-tlg-user-id", user_id.to_string())
+        .body(Body::from(
+            serde_json::json!({
+                "client_id": "attacker-client",
+                "redirect_uri": "https://attacker.example/callback",
+                "code_challenge": "attacker-challenge",
+                "code_challenge_method": "S256",
+                "agent_id": "attacker-agent",
+            })
+            .to_string(),
+        ))
+        .unwrap()
+}
+
 fn my_workspaces_request(token: &str, user_id: Uuid) -> Request<Body> {
     Request::builder()
         .method("GET")
