@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use serde_json::json;
+use tokio::sync::Notify;
 
 use crate::budget::TokenBudget;
 use crate::client::{JsonSchema, LlmClient, LlmError, LlmOutput};
@@ -75,6 +76,32 @@ impl LlmClient for MockClient {
             });
         }
         Ok(self.out.clone().expect("mock out"))
+    }
+}
+
+struct BlockingClient {
+    calls: Arc<AtomicUsize>,
+    entered: Arc<Notify>,
+    release: Arc<Notify>,
+}
+
+#[async_trait]
+impl LlmClient for BlockingClient {
+    async fn complete(
+        &self,
+        _model: &str,
+        _prompt: &str,
+        _schema: &JsonSchema,
+        _deadline: Duration,
+    ) -> Result<LlmOutput, LlmError> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        self.entered.notify_one();
+        self.release.notified().await;
+        Ok(LlmOutput {
+            json: json!({"ok": true}),
+            prompt_tokens: 1,
+            completion_tokens: 0,
+        })
     }
 }
 
@@ -189,6 +216,59 @@ async fn over_budget_blocks_request_before_calling_provider() {
         0,
         "provider must not be called"
     );
+}
+
+#[tokio::test]
+async fn concurrent_requests_cannot_claim_the_same_remaining_budget() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let entered = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let mut providers: HashMap<String, Arc<dyn LlmClient>> = HashMap::new();
+    providers.insert(
+        "p".into(),
+        Arc::new(BlockingClient {
+            calls: calls.clone(),
+            entered: entered.clone(),
+            release: release.clone(),
+        }),
+    );
+    let mut routes = HashMap::new();
+    routes.insert(
+        JudgeKind::Hallucination,
+        ResolvedRoute {
+            primary: target("p", "m1"),
+            fallback: None,
+        },
+    );
+    let budget = TokenBudget::new(10);
+    budget.record("acme", 9);
+    let router = Arc::new(LlmRouter::new(providers, routes, Arc::new(budget)));
+
+    let first_router = router.clone();
+    let first = tokio::spawn(async move {
+        first_router
+            .judge(JudgeKind::Hallucination, "acme", "first", &schema())
+            .await
+    });
+    entered.notified().await;
+
+    let second = tokio::time::timeout(
+        Duration::from_millis(100),
+        router.judge(JudgeKind::Hallucination, "acme", "second", &schema()),
+    )
+    .await
+    .expect("budget rejection must not wait for the provider")
+    .unwrap_err();
+    assert!(matches!(second, LlmError::BudgetExceeded));
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "only the admitted request may reach the provider"
+    );
+
+    release.notify_one();
+    first.await.expect("first task").expect("first request");
+    assert_eq!(router.budget().used("acme"), 10);
 }
 
 #[tokio::test]
