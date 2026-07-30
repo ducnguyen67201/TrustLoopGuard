@@ -28,9 +28,10 @@ mod request_context;
 mod response;
 
 pub use handlers::{
-    __path_create_my_workspace, __path_delete_my_workspace, __path_list_my_workspaces,
-    create_invite, create_my_workspace, delete_my_workspace, list_invites, list_members,
-    list_my_workspaces, revoke_invite,
+    __path_create_invite, __path_create_my_workspace, __path_delete_my_workspace,
+    __path_list_invites, __path_list_my_workspaces, __path_revoke_invite, create_invite,
+    create_my_workspace, delete_my_workspace, list_invites, list_members, list_my_workspaces,
+    revoke_invite,
 };
 pub use memory_store::MemoryTeamStore;
 #[cfg(feature = "postgres")]
