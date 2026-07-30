@@ -25,6 +25,9 @@ describe('PolicyCreateDialog', () => {
     expect(screen.getByRole('heading', { name: /create policy/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /protection policy/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /financial authorization/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /read the policy authoring guide/i }),
+    ).toHaveAttribute('href', '/docs/guides/policy-authoring');
 
     await userEvent.click(screen.getByRole('button', { name: /financial authorization/i }));
 
