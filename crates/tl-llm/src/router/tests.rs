@@ -252,22 +252,23 @@ async fn concurrent_requests_cannot_claim_the_same_remaining_budget() {
     });
     entered.notified().await;
 
-    let second = tokio::time::timeout(
-        Duration::from_millis(100),
-        router.judge(JudgeKind::Hallucination, "acme", "second", &schema()),
-    )
-    .await
-    .expect("budget rejection must not wait for the provider")
-    .unwrap_err();
-    assert!(matches!(second, LlmError::BudgetExceeded));
+    let second_router = router.clone();
+    let second = tokio::spawn(async move {
+        second_router
+            .judge(JudgeKind::Hallucination, "acme", "second", &schema())
+            .await
+    });
+    tokio::task::yield_now().await;
     assert_eq!(
         calls.load(Ordering::SeqCst),
         1,
-        "only the admitted request may reach the provider"
+        "the queued request must not reach the provider"
     );
 
     release.notify_one();
     first.await.expect("first task").expect("first request");
+    let second = second.await.expect("second task").unwrap_err();
+    assert!(matches!(second, LlmError::BudgetExceeded));
     assert_eq!(router.budget().used("acme"), 10);
 }
 

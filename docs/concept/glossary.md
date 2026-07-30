@@ -438,7 +438,7 @@ One LLM-backed check inside Tier 3. v0 ships three: `Hallucination` (is the draf
 
 ### LlmRouter
 
-The single chokepoint for all outbound LLM traffic. Lives in `tl-llm`. Routes each `JudgeKind` to a configured primary provider (OpenAI / OpenRouter), retries on the fallback when the primary 5xx's or times out, charges the call to a per-tenant `TokenBudget`, and records `llm.provider` / `llm.model` / `llm.fallback_used` / token counts on the current `tracing` span. Budget admission is atomic: because actual token usage is available only after the provider responds, capped tenants allow one judge call in flight while unlimited tenants remain concurrent. Failed or cancelled calls release admission without charging usage. Configured via `config/llm-routing.toml`. Engine code never touches a provider directly — always through the router.
+The single chokepoint for all outbound LLM traffic. Lives in `tl-llm`. Routes each `JudgeKind` to a configured primary provider (OpenAI / OpenRouter), retries on the fallback when the primary 5xx's or times out, charges the call to a per-tenant `TokenBudget`, and records `llm.provider` / `llm.model` / `llm.fallback_used` / token counts on the current `tracing` span. Budget admission is atomic: because actual token usage is available only after the provider responds, capped tenants allow one evaluation session in flight while the judges within that session still fan out concurrently; unlimited tenants remain concurrent. Failed or cancelled sessions release admission and only completed calls charge usage. Configured via `config/llm-routing.toml`. Engine code never touches a provider directly — always through the router.
 
 ### Cache key
 
