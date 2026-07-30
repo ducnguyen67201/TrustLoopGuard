@@ -10798,7 +10798,7 @@ tags:
 - name: traces
   description: Persisted guard decision traces
 - name: analytics
-  description: Custom analytics queries and saved dashboard views
+  description: Workspace analytics queries and saved dashboard views for members and platform administrators
 - name: human-review
   description: Human review outcomes and analytics
 - name: budget-alerts

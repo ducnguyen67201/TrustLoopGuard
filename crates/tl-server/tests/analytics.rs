@@ -6,7 +6,9 @@ use axum::{
 };
 use http_body_util::BodyExt;
 use tl_engine::Engine;
-use tl_server::{memory_app_state, router, AuthConfig, MemoryUserStore};
+use tl_server::{
+    memory_app_state, router, AuthConfig, MemoryTeamStore, MemoryUserStore, TeamStore,
+};
 use tower::ServiceExt;
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
@@ -137,7 +139,7 @@ async fn analytics_endpoints_are_protected_by_bearer_auth() {
 }
 
 #[tokio::test]
-async fn internal_bearer_analytics_requires_forwarded_workspace_member() {
+async fn internal_bearer_analytics_authorizes_members_and_platform_admins() {
     let mut state = memory_app_state(Arc::new(Engine::empty()));
     let user_store = Arc::new(MemoryUserStore::new());
     let owner_id = user_store
@@ -150,12 +152,21 @@ async fn internal_bearer_analytics_requires_forwarded_workspace_member() {
         .await
         .unwrap()
         .id;
+    let platform_admin_id = user_store
+        .create_approved_for_tests("analytics-platform-admin@example.com")
+        .await
+        .unwrap()
+        .id;
     state.user_store = user_store;
-    let workspace = state
-        .team_store
+    let team_store = Arc::new(MemoryTeamStore::new());
+    state.team_store = team_store.clone();
+    let workspace = team_store
         .create_workspace(owner_id, "Analytics Security")
         .await
         .unwrap();
+    team_store
+        .set_platform_admin_for_tests(platform_admin_id, true)
+        .await;
     let app = router(state, Some(AuthConfig::new("sk-internal")), [0u8; 32]);
 
     let outsider_resp = app
@@ -175,6 +186,7 @@ async fn internal_bearer_analytics_requires_forwarded_workspace_member() {
     assert_eq!(outsider_resp.status(), StatusCode::FORBIDDEN);
 
     let owner_resp = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method("GET")
@@ -188,4 +200,19 @@ async fn internal_bearer_analytics_requires_forwarded_workspace_member() {
         .await
         .unwrap();
     assert_eq!(owner_resp.status(), StatusCode::OK);
+
+    let platform_admin_resp = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/v1/analytics/catalog")
+                .header(header::AUTHORIZATION, "Bearer sk-internal")
+                .header("x-tlg-workspace-id", workspace.id.as_str())
+                .header("x-tlg-user-id", platform_admin_id.to_string())
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(platform_admin_resp.status(), StatusCode::OK);
 }
