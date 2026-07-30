@@ -11,7 +11,7 @@ use axum::{Form, Json, Router};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use chrono::Utc;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use uuid::Uuid;
 
@@ -335,8 +335,8 @@ async fn client_redirect_uris(
     }
 }
 
-#[derive(Deserialize)]
-struct AuthorizeRequest {
+#[derive(Deserialize, utoipa::ToSchema)]
+pub(crate) struct AuthorizeRequest {
     client_id: String,
     redirect_uri: String,
     code_challenge: String,
@@ -349,7 +349,26 @@ struct AuthorizeRequest {
     agent_id: Option<String>,
 }
 
-async fn authorize(
+#[derive(Serialize, utoipa::ToSchema)]
+struct AuthorizeResponse {
+    code: String,
+}
+
+/// `POST /v1/oauth/authorize` — mint a PKCE-bound code for a trusted dashboard identity.
+#[utoipa::path(
+    post,
+    path = "/v1/oauth/authorize",
+    tag = "oauth",
+    request_body = AuthorizeRequest,
+    responses(
+        (status = 200, description = "Authorization code issued", body = AuthorizeResponse),
+        (status = 400, description = "Invalid OAuth request"),
+        (status = 401, description = "Internal dashboard authentication required"),
+        (status = 403, description = "User is not a workspace member"),
+        (status = 500, description = "Authorization code issuance failed"),
+    ),
+)]
+pub(crate) async fn authorize(
     State(app): State<AppState>,
     headers: HeaderMap,
     Json(req): Json<AuthorizeRequest>,
@@ -488,7 +507,7 @@ async fn authorize(
             "authorization code issuance failed",
         );
     }
-    Json(json!({ "code": code })).into_response()
+    Json(AuthorizeResponse { code }).into_response()
 }
 
 #[derive(Deserialize)]

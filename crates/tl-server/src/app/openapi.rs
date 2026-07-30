@@ -4,7 +4,7 @@ use crate::{
     agents, analytics, api::events::__path_submit_event, api::guard::__path_health, auth_user,
     authorization, budget_alerts, dashboard_admin, environments, financial, gateway,
     github_integration, human_review, knowledge_sources, label_policy, llm_pricing, llm_usage,
-    mcp_gateway, policies, redteam, runs, team, tool_metadata, traces,
+    mcp_gateway, oauth, policies, redteam, runs, team, tool_metadata, traces,
 };
 
 #[derive(OpenApi)]
@@ -136,6 +136,7 @@ use crate::{
         auth_user::login,
         auth_user::change_password,
         auth_user::oauth::oauth_session,
+        oauth::authorize,
         team::list_my_workspaces,
         team::create_my_workspace,
         team::delete_my_workspace,

@@ -41,6 +41,10 @@ Required web environment variables:
 
 The hosted MCP endpoint uses a separate OAuth resource-server lane. Consent
 requires the member to choose a workspace and an existing registered agent.
+The consent proxy calls `POST /v1/oauth/authorize` with the internal
+`TL_API_KEY` and trusted forwarded user/workspace identity; Rust rejects user
+JWTs, OAuth access tokens, and workspace runtime keys on that code-issuance
+route before reading the forwarded identity.
 Access and rotating refresh tokens retain that binding; deleting the agent or
 using a legacy unbound token requires reauthorization. Access tokens are minted
 for the exact `$TL_PUBLIC_URL/mcp` audience and `mcp:tools` scope. The `/mcp`

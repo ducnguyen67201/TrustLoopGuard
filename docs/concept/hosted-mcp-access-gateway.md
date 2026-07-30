@@ -60,9 +60,12 @@ without contacting an upstream server.
 OAuth discovery is served by the Rust public origin. Token and dynamic client
 registration endpoints stay on `$TL_PUBLIC_URL`; the authorization endpoint
 points to `$TL_DASHBOARD_URL/oauth/authorize`, where the existing dashboard
-session renders consent. Dynamic registration has bounded per-instance rate
-and capacity controls. Production ingress must also apply a distributed rate
-limit.
+session renders consent. The dashboard proxy is the only caller allowed to
+exchange that consent for a code: `POST /v1/oauth/authorize` requires the
+internal service bearer and derives the member from its trusted forwarded
+identity. User JWTs, OAuth access tokens, and workspace runtime keys cannot
+issue codes. Dynamic registration has bounded per-instance rate and capacity
+controls. Production ingress must also apply a distributed rate limit.
 
 ## Safe remote servers and catalogs
 
