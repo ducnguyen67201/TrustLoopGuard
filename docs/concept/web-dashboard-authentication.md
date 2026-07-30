@@ -132,6 +132,11 @@ membership list, the proxy returns 403 instead of forwarding the request. Platfo
 receive the complete active-workspace list from Rust, so the same check permits their
 cross-workspace selection. When no workspace is requested, the first authorized workspace is used.
 
+Membership selection does not grant mutation authority. Server actions that change shared
+workspace configuration, including knowledge-source creation, require an Owner/Admin role and
+forward the signed-in user identity to the Rust endpoint. Rust repeats the role check before durable
+storage is called.
+
 ## Acceptance Criteria
 
 - A staging or production user can sign in and reach the dashboard with Google or GitHub.
