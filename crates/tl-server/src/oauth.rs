@@ -11,8 +11,9 @@ use axum::{Form, Json, Router};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{json, Map, Value};
+use tl_core::{AuthorizeRequest, AuthorizeResponse};
 use uuid::Uuid;
 
 use crate::jwt::ACCESS_TOKEN_TTL_MINUTES;
@@ -333,25 +334,6 @@ async fn client_redirect_uris(
             )
         }
     }
-}
-
-#[derive(Deserialize, utoipa::ToSchema)]
-pub(crate) struct AuthorizeRequest {
-    client_id: String,
-    redirect_uri: String,
-    code_challenge: String,
-    #[serde(default)]
-    code_challenge_method: Option<String>,
-    #[serde(default)]
-    resource: Option<String>,
-    #[serde(default)]
-    scope: Option<String>,
-    agent_id: Option<String>,
-}
-
-#[derive(Serialize, utoipa::ToSchema)]
-struct AuthorizeResponse {
-    code: String,
 }
 
 /// `POST /v1/oauth/authorize` — mint a PKCE-bound code for a trusted dashboard identity.
