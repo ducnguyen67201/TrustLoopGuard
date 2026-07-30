@@ -15,6 +15,68 @@ You can write a useful policy in five minutes:
 4. Choose the `action`.
 5. Validate the file.
 
+## Create A Policy In The Dashboard
+
+Open **Policies**, select **New policy**, and choose the family that matches the
+thing you need to control:
+
+| Family | Use It For |
+| --- | --- |
+| **Protection policy** | Content, requests, or tool traffic that should be denied, transformed, or held for approval. |
+| **Financial authorization** | Money-moving actions or Gateway LLM spend that needs caps, evidence, or approval. |
+
+Every policy is saved in the same Rust-owned registry. The selected workspace
+owns the definition, and the selected environment controls whether the policy
+is on. Start with a test environment when a new rule could deny production
+traffic.
+
+### Protection Policy Fields
+
+| Field | What To Enter |
+| --- | --- |
+| **Description** | A short sentence teammates will recognize in the policy list. |
+| **Rule ID** | A stable lowercase identifier such as `refund-guarantee`. Keep it unchanged after clients or logs reference it. |
+| **Applies to** | One assistant, or **All assistants (global)** when every assistant in the environment should be checked. |
+| **Turn on now** | On evaluates matching traffic as soon as the policy is saved. Off saves a draft for later review. |
+| **What to look for** | **Exact words** for a known phrase or **Pattern (regex)** for controlled variations. |
+| **Words / pattern to match** | The phrase or Rust-compatible regular expression that triggers the policy. |
+| **The guardrail will…** | Deny the request, return safe transformed text, or require approval. |
+| **Severity** | The risk level shown to operators and traces. It does not replace the selected action. |
+| **Replace it with** | The safe text returned by a transform policy. This field appears only for transforms. |
+
+Use **Draft for me** when you can describe the goal more easily than the rule.
+Review every generated field before saving. The guided form covers common
+literal and regex policies; use **Advanced (YAML)** for semantic matchers,
+multiple matchers, tool policies, or other typed fields.
+
+### Financial Authorization Fields
+
+| Field | What To Enter |
+| --- | --- |
+| **Applies to** | Choose **Financial actions** for refunds, payments, and payouts, or **LLM usage (gateway)** for provider-spend budgets. |
+| **Control ID** | A stable lowercase identifier used in the registry, logs, and API responses. |
+| **Agent** | The exact agent ID sent with a financial action. |
+| **Principal** | For LLM budgets, one runtime-key principal. Leave it blank to apply the policy to every principal while metering each principal separately. |
+| **Description** | A short explanation of what the control protects. |
+| **Operation** | The exact integration operation, such as `issue_refund`. Leave it blank when the action kind and other selectors are enough. |
+| **Currency** | A three-letter code such as `USD`. Dashboard cap values use this currency. |
+| **Action kind** | The typed action: refund, payment, or payout. |
+| **Rail** | How money moves, such as payment HTTP, x402, card, ACH, or wire. |
+| **Per-action cap** | The amount threshold checked for each action. **Cap breach** decides whether exceeding it denies the action or requires approval. |
+| **Require approval above** | Amounts above this threshold require approval, but approval never overrides a hard cap or failed eligibility check. |
+| **Daily / weekly / monthly cap** | The cumulative threshold in each UTC window. Blank skips that window. LLM budgets meter each matching principal separately. |
+| **Require user intent proof** | Require the caller to present an active grant derived from verified user intent. |
+| **Cap breach** | The effect returned when an amount or accumulated spend exceeds a configured cap. |
+| **Missing evidence** | The effect returned when required evidence was not supplied. |
+| **Failed evidence** | The effect returned when supplied evidence says a required condition is false. |
+| **Required refund evidence** | Facts such as order existence, captured payment, refundable balance, and refund-window status that must be supplied and satisfied. |
+
+Financial policy fields are selectors and controls for typed financial actions;
+they do not execute the payment. See
+[Financial authorization](../concept/financial-authorization.md) for grants,
+leases, evidence, and execution boundaries. For Gateway LLM budgets, follow
+[Set AI usage cost caps](../../apps/docs/content/docs/guides/llm-spending-caps.mdx).
+
 ## Copy This Rule
 
 ```yaml
