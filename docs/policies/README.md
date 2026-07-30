@@ -168,9 +168,9 @@ For most first policies, use `transform` or `deny`.
 | `semantic` | You need meaning-based matching and have a `semantic_policy` LLM route configured. |
 
 Start with `literal`. Add `regex` only when exact text is not enough. Use
-`semantic` for concepts that need model judgment; if no semantic judge route is
-configured, semantic matchers are skipped while literal and regex matchers still
-run.
+`semantic` for concepts that need model judgment. If no semantic judge route is
+configured, high/critical semantic candidates return `defer`; lower-severity
+semantic candidates remain advisory while literal and regex matchers still run.
 
 ## Local And Cloud Mode
 

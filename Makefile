@@ -64,7 +64,7 @@ sdk-all: sdk-rust sdk-python sdk-typescript ## Build + test all three SDKs
 
 .PHONY: dev-db
 dev-db: ## Run only Postgres for host-based dev (server/web run outside Docker)
-	docker compose up -d db
+	POSTGRES_PASSWORD=trustloop TL_API_KEY=trustloopguard-local-api-key docker compose up -d db
 
 .PHONY: server
 server: ## Run tl-server with secrets from Doppler (trustloopguard/dev)
@@ -82,7 +82,7 @@ web: ## Run the Next.js web app with secrets from Doppler
 
 .PHONY: db
 db: ## Bring up just Postgres (other services stay off)
-	docker compose up -d db
+	POSTGRES_PASSWORD=trustloop TL_API_KEY=trustloopguard-local-api-key docker compose up -d db
 
 .PHONY: dev
 dev: db ## Full stack: Postgres + tl-server (hot reload) + web (hot reload). Ctrl-C kills everything.
@@ -148,6 +148,10 @@ lint-web-backend-only: ## Fail if apps/web browser code calls tl-server / extern
 		exit 1; \
 	fi
 
+.PHONY: lint-write-workflows
+lint-write-workflows: ## Enforce immutable, no-installer contents-write workflow jobs
+	@bash scripts/lint-write-workflows.sh
+
 .PHONY: check-schema-drift
 check-schema-drift: ## Diff crates/tl-storage/src/schema.rs against the live database
 	@bash scripts/check-schema-drift.sh
@@ -188,7 +192,7 @@ ci-codegen: codegen-check ## What .github/workflows/codegen-check.yml runs
 ci-sdk-build: sdk-all ## What .github/workflows/sdk-build.yml runs
 
 .PHONY: ci-lint
-ci-lint: lint-no-internal-imports lint-api-contracts lint-web-backend-only ## What the lint workflow runs
+ci-lint: lint-no-internal-imports lint-api-contracts lint-web-backend-only lint-write-workflows ## What the lint workflow runs
 
 .PHONY: ci
 ci: ci-codegen ci-lint ci-sdk-build ## Run every CI gate locally

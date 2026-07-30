@@ -58,8 +58,8 @@ Domain endpoints can stay as ergonomic wrappers. For example, `POST /v1/financia
 
 ## Runtime Boundaries
 
-The generic guard pipeline evaluates `family: content` policies for content observations. Executable tool subjects pass enabled `family: tool` policies through the Tool authorization adapter. Shell commands can use deterministic analyzer facts or explicit JSON-parameter matching; [command-safety.md](command-safety.md) is the canonical contract.
+The generic guard pipeline evaluates `family: content` policies for content observations. Literal and regex candidates stay deterministic; semantic candidates are judged in one bounded batch. If the semantic judge is absent or disabled, high/critical candidates produce `defer` while lower-severity candidates remain advisory. Executable tool subjects pass enabled `family: tool` policies through the Tool authorization adapter. Shell commands can use deterministic analyzer facts or explicit JSON-parameter matching; [command-safety.md](command-safety.md) is the canonical contract.
 
 The financial adapter loads `family: financial` policies for `FinancialAction` subjects, emits typed findings and authority requirements, and passes them to the common authorization coordinator. Ledger windows, eligibility evidence, and current policy ceilings are still financial-domain inputs; grants, approvals, leases, and authorization receipts are common kernel concepts. Provider execution and the financial execution receipt remain separate downstream concerns.
 
-Source-label resolution reads `family: source_label` policies through the label-policy provider. The `/v1/label-policies` route remains for compatibility, but it is a wrapper over the same registry rather than a separate policy store.
+Source-label resolution reads `family: source_label` policies through the label-policy provider. The `/v1/label-policies` route remains for compatibility, but it is a wrapper over the same registry rather than a separate policy store. Its mutation methods reject workspace runtime keys.

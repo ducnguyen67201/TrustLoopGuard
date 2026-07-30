@@ -72,6 +72,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Workspace runtime keys cannot manage agents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '422':
           description: Profile failed validation
           content:
@@ -127,6 +133,12 @@ paths:
           description: Profile deleted
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Workspace runtime keys cannot manage agents
           content:
             application/json:
               schema:
@@ -2351,6 +2363,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Workspace runtime keys cannot manage label policies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '422':
           description: Label policy failed validation
           content:
@@ -2412,6 +2430,12 @@ paths:
           description: Label policy deleted
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Workspace runtime keys cannot manage label policies
           content:
             application/json:
               schema:

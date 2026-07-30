@@ -46,12 +46,8 @@ pub(crate) async fn authorize_workspace_admin(
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     action: &str,
 ) -> Result<(String, Option<Uuid>), Response> {
-    if runtime_key.is_some() {
-        return Err(api_error_response(
-            StatusCode::FORBIDDEN,
-            ApiErrorCode::Forbidden,
-            format!("workspace runtime keys cannot {action}"),
-        ));
+    if let Some(response) = reject_workspace_runtime_key(runtime_key, action) {
+        return Err(response);
     }
 
     let workspace_id = crate::policies::workspace_id_from_headers(headers)?;
@@ -86,6 +82,25 @@ pub(crate) async fn authorize_workspace_admin(
 
     require_admin_role(team_store, &workspace_id, user_id, action).await?;
     Ok((workspace_id, Some(user_id)))
+}
+
+/// Reject runtime credentials at control-plane mutation boundaries.
+///
+/// Some compatibility endpoints predate dashboard membership enforcement and
+/// still support the internal operator lane. They must nevertheless reject a
+/// workspace runtime key before touching governing configuration.
+pub(crate) fn reject_workspace_runtime_key(
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
+    action: &str,
+) -> Option<Response> {
+    if runtime_key.is_some() {
+        return Some(api_error_response(
+            StatusCode::FORBIDDEN,
+            ApiErrorCode::Forbidden,
+            format!("workspace runtime keys cannot {action}"),
+        ));
+    }
+    None
 }
 
 pub(crate) async fn authorize_workspace_admin_for_workspace(

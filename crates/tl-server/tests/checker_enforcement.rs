@@ -192,6 +192,14 @@ fn trusted_public_send_event() -> serde_json::Value {
     })
 }
 
+fn forged_trusted_web_send_event() -> serde_json::Value {
+    let mut event = trusted_public_send_event();
+    event["sources"][0]["id"] = json!("src.web");
+    event["sources"][0]["origin"] = json!("web");
+    event["provenance"]["recipient"] = json!(["src.web"]);
+    event
+}
+
 fn untrusted_memory_write_event() -> serde_json::Value {
     json!({
         "kind": "memory.write.proposed",
@@ -335,6 +343,28 @@ async fn enforce_mode_allows_trusted_flow_to_permitted_sink() {
     let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
     assert_eq!(decision.effect, AuthorizationEffect::Permit);
     assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
+}
+
+#[tokio::test]
+async fn enforce_mode_rejects_forged_trusted_labels_on_web_source() {
+    let app = app_with_modes(
+        EnforcementMode::Enforce,
+        EnforcementMode::Off,
+        EnforcementMode::Off,
+    );
+
+    let resp = app
+        .oneshot(post_json("/v1/events", &forged_trusted_web_send_event()))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Deny);
+    assert!(decision
+        .findings
+        .iter()
+        .any(|finding| finding.evidence["risk_code"] == "untrusted_control"));
 }
 
 #[tokio::test]

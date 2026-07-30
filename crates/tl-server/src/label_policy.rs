@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::{
-    extract::{Path, State},
+    extract::{Extension, Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
@@ -29,6 +29,7 @@ pub use memory_store::MemoryLabelPolicyStore;
 use validation::validate_policy;
 
 use crate::app::error::api_error_response;
+use crate::{auth::WorkspaceKeyContext, dashboard_admin::reject_workspace_runtime_key};
 
 #[derive(Debug, thiserror::Error)]
 pub enum LabelPolicyStoreError {
@@ -108,14 +109,21 @@ pub struct LabelPolicyState {
         (status = 201, description = "Label policy created or updated", body = SourceLabelPolicyEntry),
         (status = 400, description = "Malformed request body", body = ApiError),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Workspace runtime keys cannot manage label policies", body = ApiError),
         (status = 422, description = "Label policy failed validation", body = ApiError),
     ),
 )]
 pub async fn upsert_label_policy(
     State(state): State<LabelPolicyState>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Json(req): Json<UpsertSourceLabelPolicyRequest>,
 ) -> Response {
+    if let Some(response) =
+        reject_workspace_runtime_key(runtime_key, "manage source label policies")
+    {
+        return response;
+    }
     let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
         Ok(workspace_id) => workspace_id,
         Err(response) => return response,
@@ -191,15 +199,22 @@ pub async fn get_label_policy(
     responses(
         (status = 204, description = "Label policy deleted"),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Workspace runtime keys cannot manage label policies", body = ApiError),
         (status = 404, description = "No policy for this origin", body = ApiError),
         (status = 422, description = "Unknown origin", body = ApiError),
     ),
 )]
 pub async fn delete_label_policy(
     State(state): State<LabelPolicyState>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Path(origin): Path<String>,
 ) -> Response {
+    if let Some(response) =
+        reject_workspace_runtime_key(runtime_key, "manage source label policies")
+    {
+        return response;
+    }
     let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
         Ok(workspace_id) => workspace_id,
         Err(response) => return response,

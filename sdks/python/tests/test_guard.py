@@ -163,7 +163,7 @@ def test_guard_passes_on_allow_when_supplied() -> None:
 
 
 @respx.mock
-def test_guard_fails_open_on_transport_error_by_default() -> None:
+def test_guard_fails_closed_on_transport_error_by_default() -> None:
     respx.post("https://t.test/v1/events").mock(
         side_effect=httpx.ConnectError("econnrefused")
     )
@@ -178,6 +178,27 @@ def test_guard_fails_open_on_transport_error_by_default() -> None:
             draft="ORIGINAL",
             on_block=lambda _: "BLOCKED",
             on_require_approval=lambda _: "ESC",
+        )
+    assert out == "I can't help with that request."
+
+
+@respx.mock
+def test_guard_supports_explicit_fail_open_on_transport_error() -> None:
+    respx.post("https://t.test/v1/events").mock(
+        side_effect=httpx.ConnectError("econnrefused")
+    )
+    with Client(
+        base_url="https://t.test",
+        retry=RetryConfig(max_attempts=1, base_delay_s=0, max_delay_s=0, total_budget_s=0),
+    ) as c:
+        out = guard(
+            client=c,
+            agent_id="a",
+            input="hi",
+            draft="ORIGINAL",
+            on_block=lambda _: "BLOCKED",
+            on_require_approval=lambda _: "ESC",
+            fail_closed=False,
         )
     assert out == "ORIGINAL"
 
@@ -348,7 +369,7 @@ async def test_guard_async_block_runs_callback() -> None:
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_guard_async_fails_open_by_default() -> None:
+async def test_guard_async_fails_closed_by_default() -> None:
     respx.post("https://t.test/v1/events").mock(
         side_effect=httpx.ConnectError("econnrefused")
     )
@@ -370,6 +391,35 @@ async def test_guard_async_fails_open_by_default() -> None:
             draft="ORIGINAL",
             on_block=on_block,
             on_require_approval=on_require_approval,
+        )
+    assert out == "I can't help with that request."
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guard_async_supports_explicit_fail_open() -> None:
+    respx.post("https://t.test/v1/events").mock(
+        side_effect=httpx.ConnectError("econnrefused")
+    )
+
+    async def on_block(_d: AuthorizationDecision) -> str:
+        return "BLOCKED"
+
+    async def on_require_approval(_d: AuthorizationDecision) -> str:
+        return "ESC"
+
+    async with AsyncClient(
+        base_url="https://t.test",
+        retry=RetryConfig(max_attempts=1, base_delay_s=0, max_delay_s=0, total_budget_s=0),
+    ) as c:
+        out = await guard_async(
+            client=c,
+            agent_id="a",
+            input="hi",
+            draft="ORIGINAL",
+            on_block=on_block,
+            on_require_approval=on_require_approval,
+            fail_closed=False,
         )
     assert out == "ORIGINAL"
 
@@ -394,6 +444,28 @@ async def test_guard_factory_returns_async_callable_that_allows() -> None:
     import json
 
     assert json.loads(body)["principal"]["agent_id"] == "factory-agent"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guard_factory_fails_closed_by_default_and_can_opt_out() -> None:
+    respx.post("https://t.test/v1/events").mock(
+        side_effect=httpx.ConnectError("econnrefused")
+    )
+    retry = RetryConfig(max_attempts=1, base_delay_s=0, max_delay_s=0, total_budget_s=0)
+
+    guarded = guard(agent_id="factory-agent", base_url="https://t.test", retry=retry)
+    assert await guarded(input="hello", draft="ORIGINAL") == "I can't help with that request."
+    await guarded.aclose()
+
+    fail_open = guard(
+        agent_id="factory-agent",
+        base_url="https://t.test",
+        retry=retry,
+        fail_closed=False,
+    )
+    assert await fail_open(input="hello", draft="ORIGINAL") == "ORIGINAL"
+    await fail_open.aclose()
 
 
 @pytest.mark.asyncio

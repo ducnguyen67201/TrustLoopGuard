@@ -340,6 +340,10 @@ const reply = await protect({
 });
 ```
 
+Standalone guards fail closed on transport and decode errors by default. Set
+`failClosed: false` on the guard factory only when the integration explicitly
+prefers returning the unchecked draft during an outage.
+
 ## Guard modes
 
 | Mode | Behavior |

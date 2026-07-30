@@ -78,19 +78,23 @@ pub fn origin_default_labels(origin: Origin) -> Labels {
     }
 }
 
-/// Resolve one source's labels. Per family, independently:
-/// producer-declared (non-`Unknown`) > enabled workspace override
-/// (`Some`) > built-in origin default. A declared family value of
-/// `Unknown` — the serde default — means "not declared".
+/// Resolve one source's labels. Runtime callers cannot promote labels on
+/// externally controlled origins: those values come from an enabled workspace
+/// override (`Some`) or the conservative built-in origin default. User/system
+/// sources retain the existing producer-declared precedence because those
+/// origins are the trusted input channels.
 pub fn resolve_source_labels(
     source: &Source,
     policies: &[SourceLabelPolicy],
 ) -> (Labels, LabelBasisSet) {
     let defaults = origin_default_labels(source.origin);
     let policy = policies.iter().find(|p| p.origin == source.origin);
+    let accepts_declared = matches!(source.origin, Origin::User | Origin::System);
 
     let (trust, trust_basis) = match (source.labels.trust, policy.and_then(|p| p.trust)) {
-        (declared, _) if declared != Trust::Unknown => (declared, LabelBasis::Declared),
+        (declared, _) if accepts_declared && declared != Trust::Unknown => {
+            (declared, LabelBasis::Declared)
+        }
         (_, Some(overridden)) => (overridden, LabelBasis::WorkspaceOverride),
         _ => (defaults.trust, LabelBasis::OriginDefault),
     };
@@ -98,13 +102,17 @@ pub fn resolve_source_labels(
         source.labels.confidentiality,
         policy.and_then(|p| p.confidentiality),
     ) {
-        (declared, _) if declared != Confidentiality::Unknown => (declared, LabelBasis::Declared),
+        (declared, _) if accepts_declared && declared != Confidentiality::Unknown => {
+            (declared, LabelBasis::Declared)
+        }
         (_, Some(overridden)) => (overridden, LabelBasis::WorkspaceOverride),
         _ => (defaults.confidentiality, LabelBasis::OriginDefault),
     };
     let (integrity, integrity_basis) =
         match (source.labels.integrity, policy.and_then(|p| p.integrity)) {
-            (declared, _) if declared != Integrity::Unknown => (declared, LabelBasis::Declared),
+            (declared, _) if accepts_declared && declared != Integrity::Unknown => {
+                (declared, LabelBasis::Declared)
+            }
             (_, Some(overridden)) => (overridden, LabelBasis::WorkspaceOverride),
             _ => (defaults.integrity, LabelBasis::OriginDefault),
         };
@@ -396,18 +404,32 @@ mod tests {
     }
 
     #[test]
-    fn declared_label_wins_over_override_and_default() {
-        let policies = [web_policy(Some(Trust::Untrusted), None, None)];
+    fn externally_controlled_origin_cannot_promote_declared_labels() {
         let src = source(
             "src.web",
             Origin::Web,
-            labels(Trust::Trusted, Confidentiality::Unknown, Integrity::Unknown),
+            labels(Trust::Trusted, Confidentiality::Public, Integrity::High),
         );
 
-        let (resolved, basis) = resolve_source_labels(&src, &policies);
+        let (resolved, basis) = resolve_source_labels(&src, &[]);
 
-        assert_eq!(resolved.trust, Trust::Trusted);
-        assert_eq!(basis.trust, LabelBasis::Declared);
+        assert_eq!(resolved, origin_default_labels(Origin::Web));
+        assert_eq!(basis.trust, LabelBasis::OriginDefault);
+        assert_eq!(basis.integrity, LabelBasis::OriginDefault);
+    }
+
+    #[test]
+    fn trusted_channel_declared_label_keeps_precedence() {
+        let src = source(
+            "src.user",
+            Origin::User,
+            labels(Trust::Trusted, Confidentiality::Public, Integrity::High),
+        );
+
+        let (resolved, basis) = resolve_source_labels(&src, &[]);
+
+        assert_eq!(resolved.confidentiality, Confidentiality::Public);
+        assert_eq!(basis.confidentiality, LabelBasis::Declared);
     }
 
     #[test]

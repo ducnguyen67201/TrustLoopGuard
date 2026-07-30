@@ -6,9 +6,13 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use axum::{
     body::Body,
     http::{header, Request, StatusCode},
+    middleware,
+    routing::{get, post},
+    Router,
 };
 use http_body_util::BodyExt;
 use tl_core::{
@@ -16,8 +20,29 @@ use tl_core::{
     SourceLabelPolicyListResponse,
 };
 use tl_engine::Engine;
-use tl_server::{memory_app_state, router};
+use tl_server::{
+    auth::{WorkspaceApiKeyVerifier, WorkspaceApiKeyVerifyError, WorkspaceKeyContext},
+    label_policy::{self, LabelPolicyState},
+    memory_app_state, router, AuthConfig, MemoryLabelPolicyStore,
+};
 use tower::ServiceExt;
+
+struct RuntimeKeyVerifier;
+
+#[async_trait]
+impl WorkspaceApiKeyVerifier for RuntimeKeyVerifier {
+    async fn verify_workspace_api_key(
+        &self,
+        _key_hash: &str,
+    ) -> Result<Option<WorkspaceKeyContext>, WorkspaceApiKeyVerifyError> {
+        Ok(Some(WorkspaceKeyContext {
+            api_key_id: "runtime-key".into(),
+            workspace_id: "ws".into(),
+            environment_id: "production".into(),
+            principal_id: Some("agent:runtime".into()),
+        }))
+    }
+}
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
@@ -52,6 +77,35 @@ fn upsert_request(body: &serde_json::Value, workspace_id: Option<&str>) -> Reque
 
 fn app() -> axum::Router {
     router(memory_app_state(Arc::new(Engine::empty())), None, [0u8; 32])
+}
+
+fn protected_app() -> axum::Router {
+    let auth = AuthConfig::new("internal-test-key")
+        .with_workspace_keys(Some(Arc::new(RuntimeKeyVerifier)));
+    Router::new()
+        .route(
+            "/v1/label-policies",
+            post(label_policy::upsert_label_policy).get(label_policy::list_label_policies),
+        )
+        .route(
+            "/v1/label-policies/{origin}",
+            get(label_policy::get_label_policy).delete(label_policy::delete_label_policy),
+        )
+        .with_state(LabelPolicyState {
+            store: Arc::new(MemoryLabelPolicyStore::new()),
+        })
+        .layer(middleware::from_fn_with_state(
+            auth,
+            tl_server::auth::require_bearer,
+        ))
+}
+
+fn with_bearer(mut request: Request<Body>, token: &str) -> Request<Body> {
+    request.headers_mut().insert(
+        header::AUTHORIZATION,
+        format!("Bearer {token}").parse().unwrap(),
+    );
+    request
 }
 
 #[tokio::test]
@@ -184,6 +238,54 @@ async fn delete_then_get_returns_not_found() {
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn runtime_key_cannot_upsert_or_delete_label_policies() {
+    let app = protected_app();
+
+    let resp = app
+        .clone()
+        .oneshot(with_bearer(
+            upsert_request(&policy_body("web"), None),
+            "tl_live_runtime",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
+    let resp = app
+        .clone()
+        .oneshot(with_bearer(
+            upsert_request(&policy_body("web"), None),
+            "internal-test-key",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let delete = json_request("DELETE", "/v1/label-policies/web", None)
+        .body(Body::empty())
+        .unwrap();
+    let resp = app
+        .clone()
+        .oneshot(with_bearer(delete, "tl_live_runtime"))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
+    let get = json_request("GET", "/v1/label-policies/web", None)
+        .body(Body::empty())
+        .unwrap();
+    let resp = app
+        .oneshot(with_bearer(get, "internal-test-key"))
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        StatusCode::OK,
+        "runtime-key delete must not mutate policy state"
+    );
 }
 
 #[tokio::test]

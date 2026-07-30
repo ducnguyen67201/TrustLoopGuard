@@ -273,16 +273,22 @@ async fn evaluate_semantic_policies(
     }
 
     let Some(judge) = ctx.semantic_judge else {
-        tracing::debug!(
+        tracing::warn!(
             policy_count = policies.len(),
-            "semantic policies skipped: no judge configured"
+            "semantic policies unavailable: no judge configured"
         );
+        defer_high_severity_semantic_policies(policies, "no semantic judge configured", outcome);
         return;
     };
     if !judge.is_enabled() {
-        tracing::debug!(
+        tracing::warn!(
             policy_count = policies.len(),
-            "semantic policies skipped: no judge route configured"
+            "semantic policies unavailable: no judge route configured"
+        );
+        defer_high_severity_semantic_policies(
+            policies,
+            "semantic judge route is disabled",
+            outcome,
         );
         return;
     }
@@ -305,6 +311,29 @@ async fn evaluate_semantic_policies(
             continue;
         };
         apply_semantic_policy_result(policy, result, outcome);
+    }
+}
+
+fn defer_high_severity_semantic_policies(
+    policies: &[&Policy],
+    unavailable_reason: &str,
+    outcome: &mut EventPolicyOutcome,
+) {
+    for policy in policies
+        .iter()
+        .copied()
+        .filter(|policy| high_or_critical(policy.severity))
+    {
+        record_trigger_with_effect(
+            outcome,
+            policy,
+            AuthorizationEffect::Defer,
+            format!(
+                "semantic policy judge unavailable for `{}`: {unavailable_reason}",
+                policy.id
+            ),
+            None,
+        );
     }
 }
 
@@ -1052,7 +1081,7 @@ severity: high
     }
 
     #[tokio::test]
-    async fn semantic_policy_without_judge_route_does_not_trigger() {
+    async fn high_severity_semantic_policy_without_judge_defers() {
         let policy = load_str(
             r#"
 id: respectful-tone
@@ -1066,6 +1095,57 @@ severity: high
 
         let outcome =
             evaluate_event_policies(&output_event("you are dumb"), &[policy], eval_ctx(None)).await;
+
+        assert_eq!(outcome.effect, Some(AuthorizationEffect::Defer));
+        assert_eq!(outcome.triggered[0].id, "respectful-tone");
+        assert!(outcome
+            .reason
+            .unwrap()
+            .contains("no semantic judge configured"));
+    }
+
+    #[tokio::test]
+    async fn high_severity_semantic_policy_with_disabled_judge_defers() {
+        let policy = load_str(
+            r#"
+id: respectful-tone
+match:
+  semantic: "the agent insults or demeans the user"
+action: deny
+severity: critical
+"#,
+        )
+        .unwrap();
+        let judge = RecordingJudge::default();
+
+        let outcome = evaluate_event_policies(
+            &output_event("you are dumb"),
+            &[policy],
+            eval_ctx(Some(&judge)),
+        )
+        .await;
+
+        assert_eq!(outcome.effect, Some(AuthorizationEffect::Defer));
+        assert_eq!(outcome.triggered[0].id, "respectful-tone");
+        assert!(outcome.reason.unwrap().contains("route is disabled"));
+        assert_eq!(judge.calls(), 0);
+    }
+
+    #[tokio::test]
+    async fn low_severity_semantic_policy_without_judge_remains_advisory() {
+        let policy = load_str(
+            r#"
+id: friendly-tone
+match:
+  semantic: "the agent sounds curt"
+action: transform
+rewrite: "Please try again."
+severity: low
+"#,
+        )
+        .unwrap();
+
+        let outcome = evaluate_event_policies(&output_event("no"), &[policy], eval_ctx(None)).await;
 
         assert!(outcome.triggered.is_empty());
         assert_eq!(outcome.effect, None);

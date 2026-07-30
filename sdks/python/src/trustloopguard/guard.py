@@ -29,9 +29,9 @@ Factory-mode presets::
     rewrite               → use transformed output, deny when none exists
     rewrite_or_regenerate → use transformed output, otherwise regenerate and check again
 
-Transport / decode / retry-exhausted errors route to ``on_error``,
-**default fail-open** (return original draft). Pass an explicit
-handler for fail-closed behaviour.
+Transport / decode / retry-exhausted errors route to ``on_error`` and fail
+closed with the SDK safe message by default. Set ``fail_closed=False`` only
+when returning the unchecked draft during an outage is an explicit choice.
 
 Low-level example::
 
@@ -174,7 +174,7 @@ class OutputGuard:
         mode: GuardModeInput = GuardMode.REWRITE,
         regenerate: RegenerateHandler | None = None,
         max_regenerations: int = 1,
-        fail_closed: bool = False,
+        fail_closed: bool = True,
         log: Callable[[GuardLogEvent], None] | None = None,
     ) -> None:
         self.agent_id = agent_id
@@ -308,6 +308,7 @@ class OutputGuard:
                 on_defer=defer_handler,
                 on_revise=on_revise,
                 on_error=error_handler,
+                fail_closed=self.fail_closed,
                 log=selected_log,
             )
 
@@ -511,8 +512,9 @@ def guarded(
     argument. The decorated function must receive a string input and return a
     string draft.
 
-    Decorators fail closed on SDK transport errors by default. The existing
-    :func:`guard` helper keeps its fail-open default for compatibility.
+    Decorators and standalone guards fail closed on SDK transport errors by
+    default. Set ``fail_closed=False`` only for an explicit availability-first
+    integration.
     """
 
     def decorate(func: Callable[P, Awaitable[str]]) -> Callable[P, Awaitable[str]]:
@@ -627,7 +629,7 @@ def guard(
     mode: GuardModeInput = GuardMode.REWRITE,
     regenerate: RegenerateHandler | None = None,
     max_regenerations: int = 1,
-    fail_closed: bool = False,
+    fail_closed: bool = True,
     log: Callable[[GuardLogEvent], None] | None = None,
 ) -> OutputGuard: ...
 
@@ -652,6 +654,7 @@ def guard(
     log: Callable[[GuardLogEvent], None] | None = None,
     run_id: str | None = None,
     run_event_id: str | None = None,
+    fail_closed: bool = True,
 ) -> str: ...
 
 
@@ -681,7 +684,7 @@ def guard(
     api_key: str | None = None,
     timeout: float = 5.0,
     retry: RetryConfig | None = None,
-    fail_closed: bool = False,
+    fail_closed: bool = True,
 ) -> str | OutputGuard:
     """Create a simple async guard or run the legacy sync guard.
 
@@ -738,6 +741,7 @@ def guard(
         on_allow=on_allow,
         on_revise=on_revise,
         on_error=on_error if callable(on_error) else None,
+        fail_closed=fail_closed,
         channel=channel,
         domain=domain,
         context=context,
@@ -760,6 +764,7 @@ def _guard_sync(
     on_allow: OnAllowSync | None = None,
     on_revise: OnReviseSync | None = None,
     on_error: OnErrorSync | None = None,
+    fail_closed: bool = True,
     channel: Channel | None = None,
     domain: str | None = None,
     context: dict[str, Any] | None = None,
@@ -789,7 +794,10 @@ def _guard_sync(
     try:
         decision = client.submit_event(event)
     except SdkError as e:
-        result = on_error(e, draft) if on_error else draft  # fail-open default
+        if on_error:
+            result = on_error(e, draft)
+        else:
+            result = DEFAULT_BLOCK_MESSAGE if fail_closed else draft
         _emit_log(log, trace_id or "", "permit", "error", start)
         return result
 
@@ -835,6 +843,7 @@ async def guard_async(
     on_allow: OnAllowAsync | None = None,
     on_revise: OnReviseAsync | None = None,
     on_error: OnErrorAsync | None = None,
+    fail_closed: bool = True,
     channel: Channel | None = None,
     domain: str | None = None,
     context: dict[str, Any] | None = None,
@@ -860,7 +869,10 @@ async def guard_async(
     try:
         decision = await client.submit_event(event)
     except SdkError as e:
-        result = await on_error(e, draft) if on_error else draft
+        if on_error:
+            result = await on_error(e, draft)
+        else:
+            result = DEFAULT_BLOCK_MESSAGE if fail_closed else draft
         _emit_log(log, trace_id or "", "permit", "error", start)
         return result
 
