@@ -24,14 +24,30 @@ pub(super) async fn run_judges(
     do_auth: bool,
     auth_prompt: &str,
 ) -> JudgeOutcomes {
+    let session = match router.start_session(tenant).await {
+        Ok(session) => session,
+        Err(error) => {
+            tracing::warn!(
+                tenant,
+                used = error.used,
+                limit = error.limit,
+                "tenant token budget exceeded"
+            );
+            return JudgeOutcomes {
+                hallu: budget_result(do_hallu),
+                tone: budget_result(do_tone),
+                auth: budget_result(do_auth),
+            };
+        }
+    };
+
     let h = async {
         if !do_hallu {
             return JudgeResult::Skipped;
         }
-        match router
+        match session
             .judge(
                 JudgeKind::Hallucination,
-                tenant,
                 hallu_prompt,
                 &hallucination::schema(),
             )
@@ -46,8 +62,8 @@ pub(super) async fn run_judges(
         if !do_tone {
             return JudgeResult::Skipped;
         }
-        match router
-            .judge(JudgeKind::Tone, tenant, tone_prompt, &tone::schema())
+        match session
+            .judge(JudgeKind::Tone, tone_prompt, &tone::schema())
             .await
         {
             Ok(output) => JudgeResult::Ok(output),
@@ -59,13 +75,8 @@ pub(super) async fn run_judges(
         if !do_auth {
             return JudgeResult::Skipped;
         }
-        match router
-            .judge(
-                JudgeKind::Authority,
-                tenant,
-                auth_prompt,
-                &authority::schema(),
-            )
+        match session
+            .judge(JudgeKind::Authority, auth_prompt, &authority::schema())
             .await
         {
             Ok(output) => JudgeResult::Ok(output),
@@ -75,4 +86,12 @@ pub(super) async fn run_judges(
 
     let (hallu, tone, auth) = tokio::join!(h, t, a);
     JudgeOutcomes { hallu, tone, auth }
+}
+
+fn budget_result(enabled: bool) -> JudgeResult {
+    if enabled {
+        JudgeResult::Err(LlmError::BudgetExceeded)
+    } else {
+        JudgeResult::Skipped
+    }
 }

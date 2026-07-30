@@ -18,7 +18,7 @@ use std::time::Instant;
 
 use tracing::Span;
 
-use crate::budget::TokenBudget;
+use crate::budget::{BudgetExceeded, TokenBudget, TokenBudgetReservation};
 use crate::client::{JsonSchema, LlmClient, LlmError, LlmOutput};
 use crate::config::ProviderTarget;
 
@@ -53,6 +53,16 @@ pub struct LlmRouter {
     providers: HashMap<String, Arc<dyn LlmClient>>,
     routes: HashMap<JudgeKind, ResolvedRoute>,
     budget: Arc<TokenBudget>,
+}
+
+/// One atomically admitted tenant evaluation.
+///
+/// Tier 3 shares this session across its configured judges so they can fan out
+/// concurrently while other evaluations for the same capped tenant wait.
+pub struct LlmRouterSession<'a> {
+    router: &'a LlmRouter,
+    tenant: String,
+    reservation: TokenBudgetReservation<'a>,
 }
 
 #[derive(Debug, Clone)]
@@ -112,6 +122,19 @@ impl LlmRouter {
         self.routes.contains_key(&kind)
     }
 
+    /// Atomically admit one tenant evaluation.
+    pub async fn start_session(
+        &self,
+        tenant: &str,
+    ) -> Result<LlmRouterSession<'_>, BudgetExceeded> {
+        let reservation = self.budget.reserve(tenant).await?;
+        Ok(LlmRouterSession {
+            router: self,
+            tenant: tenant.to_string(),
+            reservation,
+        })
+    }
+
     /// Empty router with no providers, no routes, and an unlimited
     /// budget. Used by `HandlerCtx::no_op()` and tests that don't
     /// exercise Tier 3.
@@ -124,11 +147,11 @@ impl LlmRouter {
     }
 
     /// Issue one judge call. Steps:
-    ///   1. Check `tenant`'s budget. Over → `LlmError::BudgetExceeded`.
+    ///   1. Atomically reserve `tenant`'s budget. Over → `LlmError::BudgetExceeded`.
     ///   2. Resolve route for `kind`. Missing → wrapped as Http error.
     ///   3. Call primary provider with its model + deadline.
     ///   4. On error/timeout, try fallback if configured; else return err.
-    ///   5. Record token usage to budget + emit a `tracing` event with
+    ///   5. Settle token usage to budget + emit a `tracing` event with
     ///      `llm.provider`, `llm.model`, `llm.judge`, `llm.prompt_tokens`,
     ///      `llm.completion_tokens`, `llm.fallback_used`.
     pub async fn judge(
@@ -152,19 +175,32 @@ impl LlmRouter {
         schema: &JsonSchema,
     ) -> Result<AuditedLlmOutput, AuditedLlmError> {
         let started = Instant::now();
-        if let Err(b) = self.budget.check(tenant) {
+        let reservation = self.budget.reserve(tenant).await.map_err(|b| {
             tracing::warn!(
                 tenant = tenant,
                 used = b.used,
                 limit = b.limit,
                 "tenant token budget exceeded"
             );
-            return Err(AuditedLlmError {
+            AuditedLlmError {
                 error: LlmError::BudgetExceeded,
                 audit: failed_audit(kind, None, false, started.elapsed(), "budget_exceeded"),
-            });
-        }
+            }
+        })?;
 
+        self.judge_with_audit_in_session(kind, tenant, prompt, schema, &reservation, started)
+            .await
+    }
+
+    async fn judge_with_audit_in_session(
+        &self,
+        kind: JudgeKind,
+        tenant: &str,
+        prompt: &str,
+        schema: &JsonSchema,
+        reservation: &TokenBudgetReservation<'_>,
+        started: Instant,
+    ) -> Result<AuditedLlmOutput, AuditedLlmError> {
         let route = self.routes.get(&kind).ok_or_else(|| AuditedLlmError {
             error: LlmError::Http(format!("no route configured for judge `{}`", kind.as_str())),
             audit: failed_audit(kind, None, false, started.elapsed(), "route_missing"),
@@ -173,7 +209,7 @@ impl LlmRouter {
         // Try primary.
         match self.call_target(&route.primary, prompt, schema).await {
             Ok(out) => {
-                self.record(tenant, kind, &route.primary, &out, false);
+                self.record(reservation, tenant, kind, &route.primary, &out, false);
                 Ok(AuditedLlmOutput {
                     audit: successful_audit(kind, &route.primary, &out, false, started.elapsed()),
                     output: out,
@@ -189,7 +225,7 @@ impl LlmRouter {
                     );
                     match self.call_target(fallback, prompt, schema).await {
                         Ok(out) => {
-                            self.record(tenant, kind, fallback, &out, true);
+                            self.record(reservation, tenant, kind, fallback, &out, true);
                             Ok(AuditedLlmOutput {
                                 audit: successful_audit(
                                     kind,
@@ -256,6 +292,7 @@ impl LlmRouter {
 
     fn record(
         &self,
+        reservation: &TokenBudgetReservation<'_>,
         tenant: &str,
         kind: JudgeKind,
         target: &ProviderTarget,
@@ -263,7 +300,7 @@ impl LlmRouter {
         fallback_used: bool,
     ) {
         let total = out.prompt_tokens as u64 + out.completion_tokens as u64;
-        self.budget.record(tenant, total);
+        reservation.record(total);
         let span = Span::current();
         // Attach structured fields. Consumers query these in tracing logs.
         span.record("llm.provider", target.provider.as_str());
@@ -282,6 +319,28 @@ impl LlmRouter {
             fallback_used,
             "llm judge completed"
         );
+    }
+}
+
+impl LlmRouterSession<'_> {
+    pub async fn judge(
+        &self,
+        kind: JudgeKind,
+        prompt: &str,
+        schema: &JsonSchema,
+    ) -> Result<LlmOutput, LlmError> {
+        self.router
+            .judge_with_audit_in_session(
+                kind,
+                &self.tenant,
+                prompt,
+                schema,
+                &self.reservation,
+                Instant::now(),
+            )
+            .await
+            .map(|result| result.output)
+            .map_err(|error| error.error)
     }
 }
 
