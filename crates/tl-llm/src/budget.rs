@@ -6,7 +6,10 @@
 //! and audits both see the same numbers.
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
+
+use tokio::sync::{Mutex as AsyncMutex, OwnedMutexGuard};
 
 /// Records prompt+completion tokens consumed per tenant and enforces
 /// configured limits. Cheap reads/writes (HashMap behind a Mutex);
@@ -18,7 +21,21 @@ pub struct TokenBudget {
 struct BudgetState {
     spent: HashMap<String, u64>,
     limits: HashMap<String, u64>,
+    admission: HashMap<String, Arc<AsyncMutex<()>>>,
     default_limit: u64,
+}
+
+/// Exclusive admission for one capped tenant evaluation.
+///
+/// Provider usage is only known after responses arrive, so a capped tenant may
+/// have at most one budget session in flight. Multiple judges in the same Tier
+/// 3 evaluation share a reservation and settle their combined usage when it
+/// drops.
+pub(crate) struct TokenBudgetReservation<'a> {
+    budget: &'a TokenBudget,
+    tenant: String,
+    pending: AtomicU64,
+    _admission: Option<OwnedMutexGuard<()>>,
 }
 
 impl TokenBudget {
@@ -29,6 +46,7 @@ impl TokenBudget {
             state: Mutex::new(BudgetState {
                 spent: HashMap::new(),
                 limits: HashMap::new(),
+                admission: HashMap::new(),
                 default_limit,
             }),
         }
@@ -56,9 +74,52 @@ impl TokenBudget {
         }
     }
 
-    /// Record that `tokens` were consumed for `tenant`. Does not enforce
-    /// the limit (the call already happened); call `check` *before* the
-    /// LLM request to gate it.
+    /// Atomically admit one evaluation for `tenant`.
+    ///
+    /// Concurrent evaluations for a capped tenant queue behind the active
+    /// reservation, then re-check committed usage before reaching a provider.
+    /// Unlimited tenants are not serialized.
+    pub(crate) async fn reserve(
+        &self,
+        tenant: &str,
+    ) -> Result<TokenBudgetReservation<'_>, BudgetExceeded> {
+        let admission = {
+            let mut s = self.state.lock().expect("budget poisoned");
+            let limit = *s.limits.get(tenant).unwrap_or(&s.default_limit);
+            if limit == 0 {
+                None
+            } else {
+                Some(
+                    s.admission
+                        .entry(tenant.to_string())
+                        .or_insert_with(|| Arc::new(AsyncMutex::new(())))
+                        .clone(),
+                )
+            }
+        };
+        let admission = match admission {
+            Some(gate) => Some(gate.lock_owned().await),
+            None => None,
+        };
+
+        let s = self.state.lock().expect("budget poisoned");
+        let limit = *s.limits.get(tenant).unwrap_or(&s.default_limit);
+        let used = *s.spent.get(tenant).unwrap_or(&0);
+        if limit != 0 && used >= limit {
+            return Err(BudgetExceeded { used, limit });
+        }
+        drop(s);
+
+        Ok(TokenBudgetReservation {
+            budget: self,
+            tenant: tenant.to_string(),
+            pending: AtomicU64::new(0),
+            _admission: admission,
+        })
+    }
+
+    /// Record externally accounted usage for `tenant` without admission.
+    /// Router calls must use `reserve` and settle their reservation instead.
     pub fn record(&self, tenant: impl Into<String>, tokens: u64) {
         let mut s = self.state.lock().expect("budget poisoned");
         *s.spent.entry(tenant.into()).or_insert(0) += tokens;
@@ -68,6 +129,32 @@ impl TokenBudget {
     pub fn used(&self, tenant: &str) -> u64 {
         let s = self.state.lock().expect("budget poisoned");
         *s.spent.get(tenant).unwrap_or(&0)
+    }
+}
+
+impl TokenBudgetReservation<'_> {
+    pub(crate) fn record(&self, tokens: u64) {
+        let _ = self
+            .pending
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
+                Some(current.saturating_add(tokens))
+            });
+    }
+}
+
+impl Drop for TokenBudgetReservation<'_> {
+    fn drop(&mut self) {
+        let tokens = self.pending.load(Ordering::Acquire);
+        if tokens == 0 {
+            return;
+        }
+        let mut s = self
+            .budget
+            .state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let spent = s.spent.entry(self.tenant.clone()).or_insert(0);
+        *spent = spent.saturating_add(tokens);
     }
 }
 
@@ -119,5 +206,39 @@ mod tests {
         b.record("acme", 7);
         b.record("acme", 3);
         assert_eq!(b.used("acme"), 10);
+    }
+
+    #[tokio::test]
+    async fn capped_tenant_queues_atomic_in_flight_reservations() {
+        let b = TokenBudget::new(10);
+        let reservation = b.reserve("acme").await.expect("first reservation");
+        let second = b.reserve("acme");
+        tokio::pin!(second);
+
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(10), &mut second)
+                .await
+                .is_err(),
+            "second reservation must wait for the first"
+        );
+
+        drop(reservation);
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(100), &mut second)
+                .await
+                .expect("second reservation should resume")
+                .is_ok()
+        );
+    }
+
+    #[tokio::test]
+    async fn dropping_reservation_records_usage_and_releases_admission() {
+        let b = TokenBudget::new(10);
+        let reservation = b.reserve("acme").await.expect("reservation");
+        reservation.record(4);
+        drop(reservation);
+
+        assert_eq!(b.used("acme"), 4);
+        assert!(b.reserve("acme").await.is_ok());
     }
 }

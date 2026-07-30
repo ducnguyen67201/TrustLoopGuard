@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use serde_json::json;
@@ -11,6 +13,7 @@ use tl_llm::{
     JsonSchema, JudgeKind, LlmClient, LlmOutput, LlmRouter, ProviderTarget, ResolvedRoute,
     TokenBudget,
 };
+use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
 use super::prompt_context::summarise_profile;
@@ -23,6 +26,12 @@ struct CannedClient {
 
 struct FailingClient;
 
+struct FanoutClient {
+    out: serde_json::Value,
+    entered: Arc<AtomicUsize>,
+    all_entered: Arc<Notify>,
+}
+
 #[async_trait]
 impl LlmClient for CannedClient {
     async fn complete(
@@ -32,6 +41,7 @@ impl LlmClient for CannedClient {
         _schema: &JsonSchema,
         _deadline: std::time::Duration,
     ) -> Result<LlmOutput, tl_llm::LlmError> {
+        tokio::task::yield_now().await;
         Ok(LlmOutput {
             json: self.out.clone(),
             prompt_tokens: 5,
@@ -53,9 +63,51 @@ impl LlmClient for FailingClient {
     }
 }
 
+#[async_trait]
+impl LlmClient for FanoutClient {
+    async fn complete(
+        &self,
+        _model: &str,
+        _prompt: &str,
+        _schema: &JsonSchema,
+        _deadline: Duration,
+    ) -> Result<LlmOutput, tl_llm::LlmError> {
+        let entered = self.entered.fetch_add(1, Ordering::SeqCst) + 1;
+        if entered == 3 {
+            self.all_entered.notify_waiters();
+        } else {
+            tokio::time::timeout(Duration::from_millis(100), self.all_entered.notified())
+                .await
+                .map_err(|_| tl_llm::LlmError::Timeout(Duration::from_millis(100)))?;
+        }
+        Ok(LlmOutput {
+            json: self.out.clone(),
+            prompt_tokens: 5,
+            completion_tokens: 5,
+        })
+    }
+}
+
 fn router_returning(json: serde_json::Value) -> LlmRouter {
+    router_with_client(Arc::new(CannedClient { out: json }), 0)
+}
+
+fn capped_fanout_router(
+    json: serde_json::Value,
+    budget_limit: u64,
+) -> (LlmRouter, Arc<AtomicUsize>) {
+    let entered = Arc::new(AtomicUsize::new(0));
+    let client = FanoutClient {
+        out: json,
+        entered: entered.clone(),
+        all_entered: Arc::new(Notify::new()),
+    };
+    (router_with_client(Arc::new(client), budget_limit), entered)
+}
+
+fn router_with_client(client: Arc<dyn LlmClient>, budget_limit: u64) -> LlmRouter {
     let mut providers: HashMap<String, Arc<dyn LlmClient>> = HashMap::new();
-    providers.insert("p".into(), Arc::new(CannedClient { out: json }));
+    providers.insert("p".into(), client);
     let target = ProviderTarget {
         provider: "p".into(),
         model: "m".into(),
@@ -75,7 +127,7 @@ fn router_returning(json: serde_json::Value) -> LlmRouter {
             },
         );
     }
-    LlmRouter::new(providers, routes, Arc::new(TokenBudget::new(0)))
+    LlmRouter::new(providers, routes, Arc::new(TokenBudget::new(budget_limit)))
 }
 
 fn failing_router() -> LlmRouter {
@@ -226,6 +278,28 @@ async fn three_clean_verdicts_yield_completed_with_no_block() {
     assert_eq!(out.result.status, TierStatus::Completed);
     assert!(out.block.is_none(), "no judge fired, block should be None");
     assert!(out.result.reasons.is_empty());
+}
+
+#[tokio::test]
+async fn capped_budget_preserves_three_clean_verdicts() {
+    let json = json!({
+        "grounded": true,
+        "violations": [],
+        "matches_target": true,
+        "detected_tone": "warm-professional",
+        "issues": [],
+        "within_authority": true,
+        "forbidden_promises": []
+    });
+    let (router, entered) = capped_fanout_router(json, 100);
+    let context = ctx_with(router);
+
+    let out = run(&sample_req(), &context, CancellationToken::new()).await;
+
+    assert_eq!(out.result.status, TierStatus::Completed);
+    assert!(out.block.is_none(), "all three judges should complete");
+    assert_eq!(entered.load(Ordering::SeqCst), 3);
+    assert_eq!(context.llm.budget().used("ws"), 30);
 }
 
 #[tokio::test]
