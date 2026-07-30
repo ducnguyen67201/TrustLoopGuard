@@ -109,6 +109,16 @@ export function PolicyCreateDialog({
               </span>
             </button>
           </div>
+          <p className="text-sm text-muted-foreground">
+            Not sure which fields to use?{' '}
+            <a
+              href="/docs/guides/policy-authoring"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              Read the policy authoring guide
+            </a>
+            .
+          </p>
         </DialogContent>
       </Dialog>
       <PolicyEditorDialog
