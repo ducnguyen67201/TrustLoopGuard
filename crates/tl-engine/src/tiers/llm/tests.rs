@@ -228,6 +228,53 @@ async fn three_clean_verdicts_yield_completed_with_no_block() {
     assert!(out.result.reasons.is_empty());
 }
 
+#[tokio::test]
+async fn malformed_required_booleans_defer_for_every_judge() {
+    let cases = [
+        ("grounded", "tl:hallucination_unavailable"),
+        ("within_authority", "tl:authority_unavailable"),
+        ("matches_target", "tl:tone_unavailable"),
+    ];
+
+    for (field, expected_reason_id) in cases {
+        for malformed in [None, Some(serde_json::Value::Null), Some(json!("true"))] {
+            let mut verdict = json!({
+                "grounded": true,
+                "violations": [],
+                "matches_target": true,
+                "detected_tone": "warm-professional",
+                "issues": [],
+                "within_authority": true,
+                "forbidden_promises": []
+            });
+            let fields = verdict
+                .as_object_mut()
+                .expect("test verdict must be a JSON object");
+            match malformed {
+                Some(value) => {
+                    fields.insert(field.to_string(), value);
+                }
+                None => {
+                    fields.remove(field);
+                }
+            }
+
+            let context = ctx_with(router_returning(verdict));
+            let out = run(&sample_req(), &context, CancellationToken::new()).await;
+
+            let block = out.block.expect("malformed verdict must stop delivery");
+            assert_eq!(block.effect, AuthorizationEffect::Defer);
+            assert!(
+                out.result
+                    .reasons
+                    .iter()
+                    .any(|reason| reason.id == expected_reason_id),
+                "{field} should defer through {expected_reason_id}"
+            );
+        }
+    }
+}
+
 #[test]
 fn profile_summary_includes_web_knowledge_source_metadata() {
     let mut profile = (*sample_profile()).clone();
