@@ -358,13 +358,20 @@ export function KnowledgeSourcesPageContent({
 }: {
   data: DashboardShellData & { knowledgeSources: KnowledgeSourceRow[] };
 }) {
+  const role = data.activeWorkspace.role.toLowerCase();
+  const canCreate = role === 'owner' || role === 'admin';
+
   return (
     <PageShell
       eyebrow={data.activeWorkspace.name}
       title="Knowledge"
       help={<InfoHint term="knowledgeSource" />}
       description="The documents and links you've approved as trusted content. Add a source here so the guardrail can lean on your own material when it makes a decision."
-      action={<KnowledgeSourceCreateDialog workspaceSlug={data.activeWorkspace.slug} />}
+      action={
+        canCreate ? (
+          <KnowledgeSourceCreateDialog workspaceSlug={data.activeWorkspace.slug} />
+        ) : undefined
+      }
     >
       <SectionCard
         icon={IconBook2}
@@ -377,7 +384,11 @@ export function KnowledgeSourcesPageContent({
             icon={<IconBook2 />}
             title="Add your first knowledge source"
             description="Knowledge sources are documents and links you approve as trusted content. Add one so the guardrail can check requests against your own material instead of guessing."
-            action={<KnowledgeSourceCreateDialog workspaceSlug={data.activeWorkspace.slug} />}
+            action={
+              canCreate ? (
+                <KnowledgeSourceCreateDialog workspaceSlug={data.activeWorkspace.slug} />
+              ) : undefined
+            }
           />
         ) : (
           <DataTable

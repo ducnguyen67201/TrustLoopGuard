@@ -46,4 +46,5 @@ pub trait KnowledgeStore: Send + Sync {
 #[derive(Clone)]
 pub struct KnowledgeState {
     pub store: Arc<dyn KnowledgeStore>,
+    pub team_store: Arc<dyn crate::team::TeamStore>,
 }

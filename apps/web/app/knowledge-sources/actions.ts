@@ -5,13 +5,20 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
 import { getDashboardShell } from '@/lib/server/dashboard-data';
-import { rustApiForWorkspace } from '@/lib/server/tl-client';
+import { rustApiForUserWorkspace, WorkspaceAccessError } from '@/lib/server/tl-client';
 
 const MAX_KNOWLEDGE_FILE_BYTES = 10 * 1024 * 1024;
 
 export async function createKnowledgeSource(formData: FormData) {
   const workspaceSlug = readOptionalString(formData, 'workspaceSlug');
   const shell = await getDashboardShell(workspaceSlug);
+  const role = shell.activeWorkspace.role.toLowerCase();
+  if (role !== 'owner' && role !== 'admin') {
+    throw new WorkspaceAccessError(
+      403,
+      'workspace owner or admin role is required to create knowledge sources',
+    );
+  }
   const title = readRequiredString(formData, 'title');
   const kind = readEnum(formData, 'kind', ['url', 'file', 'note'] as const);
   const location = readOptionalString(formData, 'location');
@@ -26,7 +33,7 @@ export async function createKnowledgeSource(formData: FormData) {
   }
   const sourceLocation = kind === 'file' && file ? file.name : location;
 
-  await rustApiForWorkspace(shell.activeWorkspace.id, '/v1/knowledge-sources', {
+  await rustApiForUserWorkspace(shell.user, shell.activeWorkspace.id, '/v1/knowledge-sources', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
