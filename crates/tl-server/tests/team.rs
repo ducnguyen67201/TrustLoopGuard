@@ -96,7 +96,7 @@ async fn team_fixture() -> TeamFixture {
         .await
         .expect("pending invite");
 
-    let runtime_key = "tl_live_workspace_delete_test".to_string();
+    let runtime_key = "tl_live_team_security_test".to_string();
     let key_hash = Sha256::digest(runtime_key.as_bytes())
         .iter()
         .map(|byte| format!("{byte:02x}"))
@@ -104,11 +104,11 @@ async fn team_fixture() -> TeamFixture {
     state
         .api_key_store
         .create(NewApiKey {
-            id: "key_workspace_delete_test".into(),
+            id: "key_team_security_test".into(),
             workspace_id: workspace.id.clone(),
             environment_id: "production".into(),
-            name: "Workspace delete test".into(),
-            key_prefix: "tl_live_work".into(),
+            name: "Team security test".into(),
+            key_prefix: "tl_live_team".into(),
             key_hash,
             created_by_user_id: Some(owner.id),
             principal_id: Some("agent:test".into()),
@@ -168,6 +168,28 @@ fn list_workspaces_request(token: &str) -> Request<Body> {
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .body(Body::empty())
         .expect("list request")
+}
+
+fn create_invite_request(
+    workspace_id: &str,
+    token: &str,
+    email: &str,
+    role: WorkspaceRole,
+) -> Request<Body> {
+    Request::builder()
+        .method("POST")
+        .uri("/v1/team/invites")
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .header(header::CONTENT_TYPE, "application/json")
+        .header("x-tlg-workspace-id", workspace_id)
+        .body(Body::from(
+            serde_json::json!({
+                "email": email,
+                "role": role,
+            })
+            .to_string(),
+        ))
+        .expect("invite request")
 }
 
 async fn response_json(response: axum::response::Response) -> serde_json::Value {
@@ -381,4 +403,158 @@ async fn runtime_key_cannot_delete_workspace_with_forged_owner_identity() {
         .expect("owner workspaces");
     assert_eq!(workspaces.len(), 1);
     assert_eq!(workspaces[0].id, fixture.workspace_id);
+}
+
+#[tokio::test]
+async fn runtime_key_cannot_create_or_revoke_team_invites() {
+    let fixture = team_fixture().await;
+    let pending = fixture
+        .store
+        .list_pending_invites(&fixture.workspace_id)
+        .await
+        .expect("pending invites");
+    let pending_id = pending[0].id.clone();
+
+    let list_response = fixture
+        .app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/v1/team/invites")
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", fixture.runtime_key),
+                )
+                .header("x-tlg-user-id", fixture.owner_id.to_string())
+                .body(Body::empty())
+                .expect("runtime list request"),
+        )
+        .await
+        .expect("runtime list response");
+    assert_eq!(list_response.status(), StatusCode::FORBIDDEN);
+
+    let create_response = fixture
+        .app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/team/invites")
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", fixture.runtime_key),
+                )
+                .header(header::CONTENT_TYPE, "application/json")
+                .header("x-tlg-user-id", fixture.owner_id.to_string())
+                .body(Body::from(
+                    serde_json::json!({
+                        "email": "attacker@example.com",
+                        "role": "owner",
+                    })
+                    .to_string(),
+                ))
+                .expect("runtime invite request"),
+        )
+        .await
+        .expect("runtime invite response");
+    assert_eq!(create_response.status(), StatusCode::FORBIDDEN);
+
+    let revoke_response = fixture
+        .app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/v1/team/invites/{pending_id}"))
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", fixture.runtime_key),
+                )
+                .header("x-tlg-user-id", fixture.owner_id.to_string())
+                .body(Body::empty())
+                .expect("runtime revoke request"),
+        )
+        .await
+        .expect("runtime revoke response");
+    assert_eq!(revoke_response.status(), StatusCode::FORBIDDEN);
+
+    let remaining = fixture
+        .store
+        .list_pending_invites(&fixture.workspace_id)
+        .await
+        .expect("remaining invites");
+    assert_eq!(remaining.len(), pending.len());
+    assert!(remaining.iter().any(|invite| invite.id == pending_id));
+}
+
+#[tokio::test]
+async fn only_owner_or_admin_can_create_invites() {
+    let fixture = team_fixture().await;
+
+    for token in [
+        &fixture.editor_token,
+        &fixture.viewer_token,
+        &fixture.outsider_token,
+    ] {
+        let response = fixture
+            .app
+            .clone()
+            .oneshot(create_invite_request(
+                &fixture.workspace_id,
+                token,
+                "forbidden@example.com",
+                WorkspaceRole::Viewer,
+            ))
+            .await
+            .expect("forbidden invite response");
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    }
+
+    for (token, email) in [
+        (&fixture.owner_token, "owner-created@example.com"),
+        (&fixture.admin_token, "admin-created@example.com"),
+    ] {
+        let response = fixture
+            .app
+            .clone()
+            .oneshot(create_invite_request(
+                &fixture.workspace_id,
+                token,
+                email,
+                WorkspaceRole::Viewer,
+            ))
+            .await
+            .expect("authorized invite response");
+        assert_eq!(response.status(), StatusCode::CREATED);
+    }
+}
+
+#[tokio::test]
+async fn owner_role_cannot_be_assigned_through_invites() {
+    let fixture = team_fixture().await;
+    let before = fixture
+        .store
+        .list_pending_invites(&fixture.workspace_id)
+        .await
+        .expect("pending invites");
+
+    let response = fixture
+        .app
+        .clone()
+        .oneshot(create_invite_request(
+            &fixture.workspace_id,
+            &fixture.owner_token,
+            "owner-role@example.com",
+            WorkspaceRole::Owner,
+        ))
+        .await
+        .expect("owner-role invite response");
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    let after = fixture
+        .store
+        .list_pending_invites(&fixture.workspace_id)
+        .await
+        .expect("pending invites");
+    assert_eq!(after.len(), before.len());
 }

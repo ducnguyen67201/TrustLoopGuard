@@ -135,9 +135,17 @@ When the invitee later signs in or signs up with that email, the dashboard's fir
 
 ## Authorization model
 
-The web dashboard is a trusted first-party service: its same-origin proxy calls Rust with either the
-user's Rust JWT or `TL_API_KEY` plus `X-TLG-User-Id` and `X-TLG-User-Email` headers. See
-[authorization.md](authorization.md) for the full bearer model and approval gate.
+The web dashboard is a trusted first-party service: its same-origin proxy calls Rust with the
+user's Rust JWT or with `TL_API_KEY` plus trusted `X-TLG-User-Id` and `X-TLG-User-Email` headers.
+Rust derives invite attribution from that authenticated user identity rather than accepting an
+untrusted caller-supplied user id. See [authorization.md](authorization.md) for the full bearer model
+and approval gate.
+
+Listing, creating, and revoking pending invites requires an authenticated workspace Owner or Admin
+(or a platform administrator). Workspace runtime keys are rejected before the invite store is
+called, even if they send a forged user-id header. The invite API accepts `admin`, `editor`, and
+`viewer`; it rejects `owner` because ownership transfer requires a dedicated lifecycle rather than
+an invite role assignment.
 
 ## Memory mode
 
