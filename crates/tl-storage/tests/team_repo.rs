@@ -129,7 +129,7 @@ async fn create_workspace_seeds_enabled_starter_policies() {
 }
 
 #[tokio::test]
-async fn platform_admin_lookup_and_all_workspace_listing_are_database_authoritative() {
+async fn platform_admin_lookup_and_workspace_reads_are_database_authoritative() {
     let (team_repo, policy_repo, _dashboard_admin_repo, _container) = fresh_repos().await;
     let operator_id = Uuid::new_v4();
     let first_owner_id = Uuid::new_v4();
@@ -203,6 +203,16 @@ async fn platform_admin_lookup_and_all_workspace_listing_are_database_authoritat
     assert!(all
         .iter()
         .all(|workspace| workspace.role == WorkspaceRole::Admin));
+    let targeted = team_repo
+        .get_workspace(&first.id)
+        .await
+        .expect("targeted active workspace");
+    assert_eq!(targeted.id, first.id);
+    assert_eq!(targeted.role, WorkspaceRole::Admin);
+    assert!(matches!(
+        team_repo.get_workspace("ws_missing").await,
+        Err(StorageError::NotFound)
+    ));
 }
 
 #[tokio::test]
@@ -338,6 +348,10 @@ async fn delete_workspace_revokes_access_and_retains_history() {
         .await
         .expect("pending invites after delete")
         .is_empty());
+    assert!(matches!(
+        team_repo.get_workspace(&workspace.id).await,
+        Err(StorageError::NotFound)
+    ));
     assert!(dashboard_admin_repo
         .verify_api_key_hash("delete-workspace-key-hash")
         .await

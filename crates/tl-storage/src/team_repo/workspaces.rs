@@ -19,6 +19,29 @@ use crate::{
 type WorkspaceMembershipRow = (String, String, String, String, String, bool, bool, bool);
 type WorkspaceRow = (String, String, String, String, bool, bool, bool);
 
+fn admin_workspace(
+    (
+        id,
+        slug,
+        name,
+        organization_id,
+        is_knowledge_base_enabled,
+        is_attacks_enabled,
+        is_mcp_gateway_enabled,
+    ): WorkspaceRow,
+) -> MyWorkspace {
+    MyWorkspace {
+        id,
+        slug,
+        name,
+        role: WorkspaceRole::Admin,
+        organization_id,
+        is_knowledge_base_enabled,
+        is_attacks_enabled,
+        is_mcp_gateway_enabled,
+    }
+}
+
 impl TeamRepo {
     /// Create a fresh organization + workspace pair, with `user_id`
     /// as `owner` on both. Used by the `/welcome` "create your own
@@ -201,29 +224,29 @@ impl TeamRepo {
             .load::<WorkspaceRow>(&mut conn)
             .await
             .map_err(|error| StorageError::Internal(format!("list all workspaces: {error}")))?;
-        Ok(rows
-            .into_iter()
-            .map(
-                |(
-                    id,
-                    slug,
-                    name,
-                    organization_id,
-                    is_knowledge_base_enabled,
-                    is_attacks_enabled,
-                    is_mcp_gateway_enabled,
-                )| MyWorkspace {
-                    id,
-                    slug,
-                    name,
-                    role: WorkspaceRole::Admin,
-                    organization_id,
-                    is_knowledge_base_enabled,
-                    is_attacks_enabled,
-                    is_mcp_gateway_enabled,
-                },
-            )
-            .collect())
+        Ok(rows.into_iter().map(admin_workspace).collect())
+    }
+
+    pub async fn get_workspace(&self, workspace_id: &str) -> Result<MyWorkspace, StorageError> {
+        let mut conn = self.connection().await?;
+        let row = workspaces::table
+            .filter(workspaces::id.eq(workspace_id))
+            .filter(workspaces::deleted_at.is_null())
+            .select((
+                workspaces::id,
+                workspaces::slug,
+                workspaces::name,
+                workspaces::organization_id,
+                workspaces::is_knowledge_base_enabled,
+                workspaces::is_attacks_enabled,
+                workspaces::is_mcp_gateway_enabled,
+            ))
+            .first::<WorkspaceRow>(&mut conn)
+            .await
+            .optional()
+            .map_err(|error| StorageError::Internal(format!("get workspace: {error}")))?
+            .ok_or(StorageError::NotFound)?;
+        Ok(admin_workspace(row))
     }
 
     /// Soft-delete an active workspace owned by `user_id` and revoke

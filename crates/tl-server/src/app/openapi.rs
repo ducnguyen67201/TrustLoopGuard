@@ -482,7 +482,7 @@ use crate::{
         (name = "redteam", description = "Red-team attack dispatch jobs and results"),
         (name = "github-integration", description = "GitHub-assisted agent installation jobs"),
         (name = "traces", description = "Persisted guard decision traces"),
-        (name = "analytics", description = "Custom analytics queries and saved dashboard views"),
+        (name = "analytics", description = "Workspace analytics queries and saved dashboard views for members and platform administrators"),
         (name = "human-review", description = "Human review outcomes and analytics"),
         (name = "budget-alerts", description = "Budget alert thresholds and firing history"),
         (name = "llm-usage", description = "Metered LLM gateway usage events and rollups"),

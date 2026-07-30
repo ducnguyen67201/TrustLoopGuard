@@ -109,6 +109,10 @@ pub trait TeamStore: Send + Sync {
     /// before using this method for a signed-in user.
     async fn list_all_workspaces(&self) -> Result<Vec<MyWorkspace>, TeamStoreError>;
 
+    /// One active workspace. Callers must verify platform-level access
+    /// before using this method for a signed-in non-member.
+    async fn get_workspace(&self, workspace_id: &str) -> Result<MyWorkspace, TeamStoreError>;
+
     /// Create a fresh org+workspace pair owned by `user_id`. Used by
     /// the `/welcome` page so a self-serve signup can bootstrap
     /// without an admin invite.

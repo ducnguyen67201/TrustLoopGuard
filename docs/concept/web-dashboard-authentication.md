@@ -86,9 +86,10 @@ no agents yet is sent to `/onboarding/connect`; users with an agent land on the 
 Platform support access is a separate, default-deny capability. The Rust-owned
 `users.is_platform_admin` field defaults to `false`. When it is `true`,
 `GET /v1/team/my-workspaces` returns every active workspace and
-`is_platform_admin: true`; Rust workspace admin gates also recognize the platform administrator.
-The dashboard shows the cross-workspace switcher state only from this response. A workspace role
-such as `owner` or `admin` does not grant platform access.
+`is_platform_admin: true`; Rust workspace member and admin gates, including workspace analytics,
+also recognize the platform administrator. Owner-only destructive operations such as workspace
+deletion remain membership-bound. The dashboard shows the cross-workspace switcher state only from
+this response. A workspace role such as `owner` or `admin` does not grant platform access.
 
 There is no public or dashboard endpoint that can grant this capability. An operator with write
 access to the product database grants or revokes it explicitly:
