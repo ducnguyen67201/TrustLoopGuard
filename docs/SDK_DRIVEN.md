@@ -151,6 +151,17 @@ TypeScript exposes `withAuthorizedAction`; Python exposes sync and async `with_a
 
 Host cancellation stops polling and prevents later execution.
 
+## Red-team dispatch target migration
+
+SDK callers of `POST /v1/redteam/dispatch` must supply `agent_id` for product
+runs. The id must name an agent registered in the same workspace, and
+`target_url` must exactly match that profile's stored `target_url`. Dispatches
+that omit `agent_id` or use another loopback port or path now return `400`.
+
+The only unregistered exception is the fixed local demo adapter at
+`http://127.0.0.1:9102`. It may omit `agent_id`; it is not a configurable or
+general-purpose loopback escape hatch.
+
 ## Authorization management
 
 All SDKs expose the same control-plane operations:

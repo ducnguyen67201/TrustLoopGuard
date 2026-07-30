@@ -15,7 +15,7 @@ use super::context::resolve_environment_id;
 use super::report::build_report;
 use super::response::job_error_response;
 use super::share::{generate_share_token, NewReportShare};
-use super::validation::{clean_optional, validate_dispatch};
+use super::validation::{clean_optional, validate_dispatch, validate_target_binding};
 use super::{
     DispatchJob, PublicReportState, RedteamAttackRecordFilter, RedteamJobListFilter,
     RedteamJobStoreError, RedteamState,
@@ -26,6 +26,9 @@ const DEFAULT_REPORT_TTL_DAYS: u32 = 30;
 const MAX_REPORT_TTL_DAYS: u32 = 90;
 
 /// `POST /v1/redteam/dispatch` — create a job and hand it to the worker.
+///
+/// Registered runs must exactly match the selected workspace agent's stored
+/// target. Without `agent_id`, only the fixed local demo adapter is accepted.
 #[utoipa::path(
     post,
     path = "/v1/redteam/dispatch",
@@ -33,9 +36,9 @@ const MAX_REPORT_TTL_DAYS: u32 = 90;
     request_body = RedteamDispatchRequest,
     responses(
         (status = 201, description = "Job dispatched", body = RedteamJobSummary),
-        (status = 400, description = "Malformed or invalid request", body = ApiError),
+        (status = 400, description = "Malformed request, unregistered target, or target that does not match the selected agent", body = ApiError),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
-        (status = 503, description = "Dispatch worker unavailable", body = ApiError),
+        (status = 503, description = "Dispatch worker or registered-agent validation unavailable", body = ApiError),
     ),
 )]
 pub async fn dispatch_job(
@@ -50,6 +53,11 @@ pub async fn dispatch_job(
         Ok(workspace_id) => workspace_id,
         Err(response) => return response,
     };
+    if let Err(e) =
+        validate_target_binding(state.agent_store.as_deref(), &workspace_id, &input).await
+    {
+        return job_error_response(e);
+    }
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,

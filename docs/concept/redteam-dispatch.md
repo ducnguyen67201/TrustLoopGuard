@@ -15,7 +15,8 @@ Rust owns the job, attack sessions, and ordered session events. The runner owns
 no durable product state.
 
 - **Rust (`crates/tl-server/src/redteam`)** is the source of truth. It validates
-  dispatch input, persists the job and per-attack sessions, drives execution
+  dispatch input and binds its target to the selected workspace agent, persists
+  the job and per-attack sessions, drives execution
   through an in-process worker, and exposes `/v1/redteam/*`. Durable state lives
   in `crates/tl-storage` (`RedteamJobRepo`).
 - **A compatible private runner** is a stateless executor. Rust reaches it over
@@ -34,6 +35,7 @@ Browser (Attacks tab)
   |   Next proxy: auth -> loopback allowlist -> snake_case body
   v
 Next API route -> POST /v1/redteam/dispatch -> tl-server
+                                                   | exact registered-agent target check
                                                    | persist job (queued)
                                                    | dispatch_tx.try_send(job)
                                                    | return 201 job summary
@@ -80,6 +82,12 @@ before starting and between runner polls.
 ## API
 
 All routes are workspace-scoped and authenticated like the rest of `/v1/*`.
+For registered runs, `agent_id` must resolve in the active workspace and
+`target_url` must exactly match that agent profile's stored endpoint. This
+prevents a caller from turning the runner into an arbitrary loopback HTTP
+client. The only unregistered target is the fixed local demo adapter
+`http://127.0.0.1:9102`; other loopback ports and paths are rejected before a
+job is persisted or queued.
 
 | Method and path | Purpose |
 |---|---|

@@ -74,6 +74,7 @@ export type RedteamReport = z.infer<typeof redteamReportSchema>;
 // internal hosts, external exfil). An allowlist is deny-by-default and immune to the
 // DNS-rebinding gap a loopback *denylist* would have.
 const ALLOWED_AGENT_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
+const LOCAL_DEMO_AGENT_TARGET = 'http://127.0.0.1:9102/';
 
 /** True only for http(s) URLs pointing at a loopback agent. */
 export function isAllowedAgentTargetUrl(raw: string): boolean {
@@ -86,4 +87,13 @@ export function isAllowedAgentTargetUrl(raw: string): boolean {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
   const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
   return ALLOWED_AGENT_HOSTS.has(host);
+}
+
+/** True only for the fixed unregistered adapter used by the local demo. */
+export function isLocalDemoAgentTargetUrl(raw: string): boolean {
+  try {
+    return new URL(raw).href === LOCAL_DEMO_AGENT_TARGET;
+  } catch {
+    return false;
+  }
 }

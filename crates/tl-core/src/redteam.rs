@@ -90,7 +90,9 @@ pub struct RedteamDocumentTemplate {
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct RedteamDispatchRequest {
-    /// Loopback agent endpoint to attack (arena adapter contract).
+    /// Loopback agent endpoint to attack. Must exactly match the selected
+    /// registered agent's stored endpoint; without `agent_id`, only the fixed
+    /// local demo adapter is accepted.
     pub target_url: String,
     /// `fast` | `full` | `max`.
     pub profile: String,
@@ -101,7 +103,8 @@ pub struct RedteamDispatchRequest {
     /// Target surface to attack. `chat` is the default for backward compatibility.
     #[serde(default)]
     pub attack_surface: RedteamAttackSurface,
-    /// Optional registered agent this job is associated with (for history).
+    /// Registered agent that owns `target_url`. Optional only for the fixed
+    /// local demo adapter.
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub agent_id: Option<String>,

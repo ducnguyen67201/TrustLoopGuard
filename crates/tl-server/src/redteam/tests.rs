@@ -24,13 +24,14 @@ use super::runner_client::{
     RedteamRunner, RedteamRunnerClient, RunnerAttackSession, RunnerAttackSurface, RunnerDispatch,
     RunnerError, RunnerHandle, RunnerReport, RunnerRunMode, RunnerStatus,
 };
-use super::validation::validate_dispatch;
+use super::validation::{validate_dispatch, validate_target_binding};
 use super::{
     DispatchConfig, DispatchJob, JobCounts, MemoryRedteamJobStore, MemoryRedteamReportShareStore,
-    RedteamAttackRecordFilter, RedteamJobListFilter, RedteamJobStore, RedteamState,
+    RedteamAttackRecordFilter, RedteamJobListFilter, RedteamJobStore, RedteamJobStoreError,
+    RedteamState,
 };
 use super::{PublicReportState, ReportRateLimiter};
-use crate::agents::{AgentStore, MemoryAgentStore};
+use crate::agents::{AgentStore, AgentStoreError, MemoryAgentStore};
 use crate::environments::MemoryEnvironmentStore;
 use crate::policies::{workspace_id_from_headers, MemoryPolicyStore, PolicyStore};
 use tl_llm::LlmRouter;
@@ -849,12 +850,53 @@ async fn orchestrator_stops_when_cancelled_mid_poll() {
 
 // ---- dispatch handler ----------------------------------------------------
 
+async fn registered_agent_store(target_url: &str) -> Arc<MemoryAgentStore> {
+    let store = Arc::new(MemoryAgentStore::new());
+    let mut profile = account_workflow_profile();
+    profile.target_url = Some(target_url.into());
+    store
+        .upsert("ws", &profile, "agent yaml")
+        .await
+        .expect("register dispatch agent");
+    store
+}
+
+struct UnavailableAgentStore;
+
+#[async_trait]
+impl AgentStore for UnavailableAgentStore {
+    async fn upsert(
+        &self,
+        _workspace_id: &str,
+        _profile: &AgentProfile,
+        _source_yaml: &str,
+    ) -> Result<(), AgentStoreError> {
+        Err(AgentStoreError::Internal("database unavailable".into()))
+    }
+
+    async fn get(
+        &self,
+        _workspace_id: &str,
+        _agent_id: &str,
+    ) -> Result<Arc<AgentProfile>, AgentStoreError> {
+        Err(AgentStoreError::Internal("database unavailable".into()))
+    }
+
+    async fn delete(&self, _workspace_id: &str, _agent_id: &str) -> Result<(), AgentStoreError> {
+        Err(AgentStoreError::Internal("database unavailable".into()))
+    }
+
+    async fn list(&self, _workspace_id: &str) -> Result<Vec<Arc<AgentProfile>>, AgentStoreError> {
+        Err(AgentStoreError::Internal("database unavailable".into()))
+    }
+}
+
 #[tokio::test]
 async fn dispatch_returns_201_and_queues_job() {
     let (tx, mut rx) = mpsc::channel(4);
     let state = RedteamState {
         store: Arc::new(MemoryRedteamJobStore::new()),
-        agent_store: None,
+        agent_store: Some(registered_agent_store("http://127.0.0.1:9102").await),
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: Some(tx),
@@ -873,7 +915,7 @@ async fn dispatch_returns_201_and_queues_job() {
 async fn dispatch_returns_503_when_worker_disabled() {
     let state = RedteamState {
         store: Arc::new(MemoryRedteamJobStore::new()),
-        agent_store: None,
+        agent_store: Some(registered_agent_store("http://127.0.0.1:9102").await),
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: None,
@@ -911,6 +953,59 @@ async fn dispatch_rejects_invalid_target() {
     )
     .await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn dispatch_rejects_target_that_does_not_match_registered_agent() {
+    let (tx, mut rx) = mpsc::channel(4);
+    let state = RedteamState {
+        store: Arc::new(MemoryRedteamJobStore::new()),
+        agent_store: Some(registered_agent_store("http://127.0.0.1:9102").await),
+        environment_store: Arc::new(MemoryEnvironmentStore::new()),
+        report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
+        dispatch_tx: Some(tx),
+        policy_store: Arc::new(MemoryPolicyStore::new()),
+        llm: Arc::new(LlmRouter::empty()),
+    };
+    let mut request = dispatch_req();
+    request.target_url = "http://127.0.0.1:5432/admin".into();
+
+    let response = dispatch_job(State(state), workspace_headers(), Json(request)).await;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert!(rx.try_recv().is_err(), "rejected job must not be queued");
+}
+
+#[tokio::test]
+async fn dispatch_reports_registered_agent_lookup_outage_as_unavailable() {
+    let error = validate_target_binding(Some(&UnavailableAgentStore), "ws", &dispatch_req())
+        .await
+        .expect_err("agent lookup outage must reject dispatch");
+
+    assert!(matches!(
+        error,
+        RedteamJobStoreError::Unavailable(message) if message == "database unavailable"
+    ));
+}
+
+#[tokio::test]
+async fn dispatch_rejects_arbitrary_loopback_target_without_agent() {
+    let request = req_with("http://127.0.0.1:5432/admin", "fast");
+
+    let error = validate_target_binding(None, "ws", &request)
+        .await
+        .expect_err("arbitrary local service must be rejected");
+
+    assert!(matches!(error, RedteamJobStoreError::Validation(_)));
+}
+
+#[tokio::test]
+async fn dispatch_allows_fixed_local_demo_target_without_agent() {
+    let request = req_with("http://127.0.0.1:9102", "fast");
+
+    validate_target_binding(None, "ws", &request)
+        .await
+        .expect("fixed demo adapter remains available");
 }
 
 // ---- report handler ------------------------------------------------------

@@ -183,10 +183,10 @@ export function AttacksPanel({ initialJobId = null }: { initialJobId?: string | 
       setStaticCount(null);
       setPlanName('');
       setSavedPlans([]);
-      // Agent-first: derive the target from the agent's saved connection so the
-      // user never re-types it. No agent (generic) → the loopback default.
+      // Agent-first: derive the target from durable agent configuration. The
+      // only unregistered option is the fixed local demo adapter.
       const agent = agents.find((a) => a.agentId === id);
-      setTargetUrl(agent?.targetUrl ?? DEFAULT_TARGET);
+      setTargetUrl(id === null ? DEFAULT_TARGET : (agent?.targetUrl ?? ''));
       // ...and derive the surface too: a workflow agent is attacked via the
       // document-workflow surface (PDF upload to /arena/workflow), a chat agent
       // via /v1. Without this the runner pings /v1 on a workflow target → 404.
@@ -328,8 +328,8 @@ export function AttacksPanel({ initialJobId = null }: { initialJobId?: string | 
 
     let summary: RedteamJobSummary;
     try {
-      // Associate the agent (so harden attaches its verified policies to it) and
-      // seed the run with the planned vectors (so the attack is tailored).
+      // Bind registered runs to the selected agent and seed them with planned
+      // vectors. Rust verifies the target against the stored agent profile.
       const dispatchInput = {
         targetUrl: target,
         profile,
@@ -426,10 +426,6 @@ export function AttacksPanel({ initialJobId = null }: { initialJobId?: string | 
               agents.find((a) => a.agentId === selectedAgentId)?.displayName ?? null
             }
             targetUrl={targetUrl}
-            onTargetChange={(value) => {
-              setTargetUrl(value);
-              clearStaleRun();
-            }}
             planName={planName}
             onPlanNameChange={setPlanName}
             plan={plan}
@@ -532,7 +528,6 @@ interface AttackFlowProps {
   onSelectAgent: (id: string | null) => void;
   connectedAgentName: string | null;
   targetUrl: string;
-  onTargetChange: (value: string) => void;
   planName: string;
   onPlanNameChange: (value: string) => void;
   plan: RedteamPlan | null;
@@ -573,7 +568,6 @@ function AttackFlow({
   onSelectAgent,
   connectedAgentName,
   targetUrl,
-  onTargetChange,
   planName,
   onPlanNameChange,
   plan,
@@ -651,8 +645,8 @@ function AttackFlow({
           connectorFilled={agentSelected}
           hint={
             generic
-              ? 'No saved agent? Type the web address of the agent you want to test.'
-              : 'We filled in its web address for you from its saved settings.'
+              ? 'No saved agent? The fixed local demo adapter remains available.'
+              : 'The endpoint is bound to this agent’s saved settings.'
           }
         >
           <div className="grid gap-2">
@@ -683,11 +677,9 @@ function AttackFlow({
                 >
                   Agent URL
                 </Label>
-                {generic ? null : (
-                  <span className="text-[11px] text-muted-foreground/80 normal-case">
-                    you can change it
-                  </span>
-                )}
+                <span className="text-[11px] text-muted-foreground/80 normal-case">
+                  {generic ? 'fixed demo adapter' : 'registered endpoint'}
+                </span>
               </div>
               <div className="relative min-w-0">
                 <Target
@@ -697,10 +689,10 @@ function AttackFlow({
                 <Input
                   id="target-url"
                   value={targetUrl}
-                  onChange={(e) => onTargetChange(e.target.value)}
                   placeholder="e.g. http://127.0.0.1:9102"
                   className="h-8 pl-8 font-mono text-xs"
                   disabled={busy}
+                  readOnly
                   inputMode="url"
                   aria-describedby="target-url-hint"
                 />
@@ -718,9 +710,11 @@ function AttackFlow({
                 )}
               >
                 {!targetReady
-                  ? 'The web address where your agent is running. It usually starts with http:// or https://.'
+                  ? 'Add an endpoint to this agent’s saved settings before running an attack.'
                   : targetLooksLikeUrl
-                    ? 'Looks good — this is where we will send the test prompts.'
+                    ? generic
+                      ? 'The local demo adapter is the only unregistered target.'
+                      : 'Rust will verify this endpoint against the selected agent before dispatch.'
                     : 'This does not look like a web address yet. It should start with http:// or https://.'}
               </p>
             </div>
