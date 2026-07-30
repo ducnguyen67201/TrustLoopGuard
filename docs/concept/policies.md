@@ -43,8 +43,9 @@ Policy reads and validation retain their existing authenticated access. Policy m
 an authenticated workspace Owner or Admin (or a platform administrator acting through the trusted
 user/internal-service lane). Workspace runtime keys are rejected before parsing or storage access,
 because a governed runtime principal must not change the policies that constrain it.
-The `/policies/new` server action also checks the selected membership role before forwarding the
-signed-in user identity; the Rust endpoint repeats the Owner/Admin check as the durable boundary.
+The dashboard's `/policies/new` server action and `/api/workspace-policies` proxy both require the
+selected membership to be Owner or Admin and forward that signed-in identity; the Rust endpoint
+repeats the role check as the durable boundary.
 
 - `POST /v1/policies` creates or updates content and family policies from YAML or JSON.
 - `GET /v1/policies` lists policies visible in the selected environment.

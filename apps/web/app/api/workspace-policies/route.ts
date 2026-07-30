@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { draftToYaml, policyDraftSchema } from '@/lib/policy-draft';
 import { getDashboardShell } from '@/lib/server/dashboard-data';
-import { rustApiForWorkspace } from '@/lib/server/tl-client';
+import { rustApiForUserWorkspace } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
@@ -31,6 +31,13 @@ export async function POST(req: Request) {
   }
 
   const shell = await getDashboardShell(parsed.data.workspace);
+  const role = shell.activeWorkspace.role.toLowerCase();
+  if (role !== 'owner' && role !== 'admin') {
+    return NextResponse.json(
+      { error: 'workspace owner or admin role is required to create policies' },
+      { status: 403 },
+    );
+  }
   const { draft } = parsed.data;
   const agentId =
     parsed.data.agentId === undefined || parsed.data.agentId === null || parsed.data.agentId === ''
@@ -38,13 +45,14 @@ export async function POST(req: Request) {
       : parsed.data.agentId;
   const enabled = parsed.data.enabled ?? true;
   const sourceYaml = withOwnerAgent(draftToYaml(draft), agentId);
-  await rustApiForWorkspace(shell.activeWorkspace.id, '/v1/policies', {
+  await rustApiForUserWorkspace(shell.user, shell.activeWorkspace.id, '/v1/policies', {
     method: 'POST',
     headers: { 'content-type': 'application/yaml' },
     body: sourceYaml,
   });
   if (!enabled) {
-    await rustApiForWorkspace(
+    await rustApiForUserWorkspace(
+      shell.user,
       shell.activeWorkspace.id,
       `/v1/policies/${encodeURIComponent(draft.id)}/enabled`,
       {
