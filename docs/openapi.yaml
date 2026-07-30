@@ -2257,6 +2257,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Owner or Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/knowledge-sources/{id}/file:
     get:
       tags:

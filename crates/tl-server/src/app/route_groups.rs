@@ -570,6 +570,7 @@ pub(super) fn knowledge_routes(state: &AppState) -> Router {
         )
         .with_state(knowledge_sources::KnowledgeState {
             store: state.knowledge_store.clone(),
+            team_store: state.team_store.clone(),
         })
 }
 
