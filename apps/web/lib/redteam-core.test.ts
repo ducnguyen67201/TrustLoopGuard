@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   isAllowedAgentTargetUrl,
+  isLocalDemoAgentTargetUrl,
   redteamReportSchema,
   type RedteamCase,
   type RedteamReport,
@@ -65,6 +66,15 @@ describe('redteamReportSchema', () => {
       cases: [{ ...firstCase, raw: { ...firstCase.raw, outcome: 'exploded' } }],
     };
     expect(redteamReportSchema.safeParse(broken).success).toBe(false);
+  });
+});
+
+describe('isLocalDemoAgentTargetUrl', () => {
+  it('allows only the exact fixed local demo adapter', () => {
+    expect(isLocalDemoAgentTargetUrl('http://127.0.0.1:9102')).toBe(true);
+    expect(isLocalDemoAgentTargetUrl('http://127.0.0.1:9102/admin')).toBe(false);
+    expect(isLocalDemoAgentTargetUrl('http://127.0.0.1:5432')).toBe(false);
+    expect(isLocalDemoAgentTargetUrl('http://localhost:9102')).toBe(false);
   });
 });
 

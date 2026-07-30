@@ -9,7 +9,9 @@ import type { RedteamRunMode } from "./RedteamRunMode.js";
  */
 export type RedteamDispatchRequest = {
 /**
- * Loopback agent endpoint to attack (arena adapter contract).
+ * Loopback agent endpoint to attack. Must exactly match the selected
+ * registered agent's stored endpoint; without `agent_id`, only the fixed
+ * local demo adapter is accepted.
  */
 target_url: string,
 /**
@@ -26,7 +28,8 @@ mode: RedteamRunMode,
  */
 attack_surface: RedteamAttackSurface,
 /**
- * Optional registered agent this job is associated with (for history).
+ * Registered agent that owns `target_url`. Optional only for the fixed
+ * local demo adapter.
  */
 agent_id?: string,
 /**

@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { proxyRustJson } from '@/app/api/_shared';
-import { isAllowedAgentTargetUrl } from '@/lib/redteam-core';
+import { isAllowedAgentTargetUrl, isLocalDemoAgentTargetUrl } from '@/lib/redteam-core';
 import {
   redteamAttackSurfaceSchema,
   redteamJobProfileSchema,
@@ -75,6 +75,18 @@ export async function POST(req: Request): Promise<NextResponse> {
   if (!isAllowedAgentTargetUrl(parsed.data.target_url)) {
     return NextResponse.json(
       { error: 'target_url must target a loopback agent (127.0.0.1 or localhost)' },
+      { status: 400 },
+    );
+  }
+  if (
+    parsed.data.agent_id === undefined &&
+    !isLocalDemoAgentTargetUrl(parsed.data.target_url)
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          'agent_id is required unless target_url is the local demo adapter http://127.0.0.1:9102',
+      },
       { status: 400 },
     );
   }

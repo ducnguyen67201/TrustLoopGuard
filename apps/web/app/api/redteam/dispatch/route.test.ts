@@ -223,6 +223,34 @@ describe('POST /api/redteam/dispatch', () => {
     expect(proxyMock).not.toHaveBeenCalled();
   });
 
+  it('rejects an arbitrary loopback service without a registered agent', async () => {
+    const res = await POST(
+      postRequest({ target_url: 'http://127.0.0.1:5432/admin', profile: 'fast' }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(proxyMock).not.toHaveBeenCalled();
+  });
+
+  it('forwards a registered agent target for authoritative Rust binding', async () => {
+    proxyMock.mockResolvedValue({ data: SUMMARY, status: 201 });
+
+    const res = await POST(
+      postRequest({
+        target_url: 'http://127.0.0.1:9202',
+        profile: 'fast',
+        agent_id: 'agent-1',
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    const [, , init] = proxyMock.mock.calls[0] ?? [];
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      target_url: 'http://127.0.0.1:9202',
+      agent_id: 'agent-1',
+    });
+  });
+
   it('rejects an invalid profile', async () => {
     const res = await POST(postRequest({ target_url: 'http://127.0.0.1:9102', profile: 'turbo' }));
 

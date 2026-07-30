@@ -144,16 +144,11 @@ describe('AttacksPanel — stale result clearing', () => {
     vi.clearAllMocks();
   });
 
-  it('clears the finished report when the target URL is edited', async () => {
-    const user = userEvent.setup();
+  it('keeps the unregistered target fixed to the local demo adapter', async () => {
     render(<AttacksPanel />);
 
-    await runToCompletion(user);
-
-    await user.type(screen.getByLabelText('Agent URL'), '0');
-
-    await waitFor(() => expect(screen.queryByText(GOAL)).not.toBeInTheDocument());
-    expect(screen.queryByText(/attacks succeeded/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Agent URL')).toHaveValue('http://127.0.0.1:9102');
+    expect(screen.getByLabelText('Agent URL')).toHaveAttribute('readonly');
   });
 
   it('clears the finished report when the profile is switched', async () => {

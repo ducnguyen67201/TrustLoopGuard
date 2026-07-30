@@ -2329,7 +2329,7 @@ class RedteamAttackSession(BaseModel):
 class RedteamDispatchRequest(BaseModel):
     agent_id: str | None = Field(
         None,
-        description='Optional registered agent this job is associated with (for history).',
+        description='Registered agent that owns `target_url`. Optional only for the fixed\nlocal demo adapter.',
     )
     attack_surface: RedteamAttackSurface | None = Field(
         None,
@@ -2346,7 +2346,8 @@ class RedteamDispatchRequest(BaseModel):
     )
     profile: str = Field(..., description='`fast` | `full` | `max`.')
     target_url: str = Field(
-        ..., description='Loopback agent endpoint to attack (arena adapter contract).'
+        ...,
+        description="Loopback agent endpoint to attack. Must exactly match the selected\nregistered agent's stored endpoint; without `agent_id`, only the fixed\nlocal demo adapter is accepted.",
     )
 
 

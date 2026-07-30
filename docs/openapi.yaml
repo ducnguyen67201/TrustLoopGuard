@@ -3094,6 +3094,9 @@ paths:
       tags:
       - redteam
       summary: '`POST /v1/redteam/dispatch` — create a job and hand it to the worker.'
+      description: |-
+        Registered runs must exactly match the selected workspace agent's stored
+        target. Without `agent_id`, only the fixed local demo adapter is accepted.
       operationId: dispatch_job
       requestBody:
         content:
@@ -3109,7 +3112,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RedteamJobSummary'
         '400':
-          description: Malformed or invalid request
+          description: Malformed request, unregistered target, or target that does not match the selected agent
           content:
             application/json:
               schema:
@@ -3121,7 +3124,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
         '503':
-          description: Dispatch worker unavailable
+          description: Dispatch worker or registered-agent validation unavailable
           content:
             application/json:
               schema:
@@ -9101,7 +9104,9 @@ components:
           type:
           - string
           - 'null'
-          description: Optional registered agent this job is associated with (for history).
+          description: |-
+            Registered agent that owns `target_url`. Optional only for the fixed
+            local demo adapter.
         attack_surface:
           $ref: '#/components/schemas/RedteamAttackSurface'
           description: Target surface to attack. `chat` is the default for backward compatibility.
@@ -9130,7 +9135,10 @@ components:
           description: '`fast` | `full` | `max`.'
         target_url:
           type: string
-          description: Loopback agent endpoint to attack (arena adapter contract).
+          description: |-
+            Loopback agent endpoint to attack. Must exactly match the selected
+            registered agent's stored endpoint; without `agent_id`, only the fixed
+            local demo adapter is accepted.
     RedteamDocumentTemplate:
       type: object
       description: Optional PDF form template for document workflow attacks.
