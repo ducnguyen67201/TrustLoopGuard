@@ -33,7 +33,8 @@ pub fn router(
 
     let public = route_groups::public_routes(&state, jwt_signer.clone())
         .merge(crate::oauth::oauth_public_routes(state.clone()));
-    let auth_identity_routes = route_groups::auth_identity_routes(&state, jwt_signer.clone());
+    let trusted_identity_routes = route_groups::auth_identity_routes(&state, jwt_signer.clone())
+        .merge(crate::oauth::oauth_protected_routes(state.clone()));
 
     let draft_llm = build_policy_draft_llm();
     let draft_model =
@@ -82,10 +83,7 @@ pub fn router(
         .merge(route_groups::gateway_routes(&state, gateway_seal_key))
         .merge(route_groups::mcp_gateway_routes(&state, gateway_seal_key))
         .merge(route_groups::knowledge_routes(&state))
-        .merge(route_groups::team_routes(&state))
-        // OAuth code issuance — called by the web consent page with the
-        // internal key + forwarded user/workspace; needs the bearer layer.
-        .merge(crate::oauth::oauth_protected_routes(state.clone()));
+        .merge(route_groups::team_routes(&state));
 
     if let Some(cfg) = auth {
         let cfg = cfg.with_jwt(jwt_signer);
@@ -93,11 +91,11 @@ pub fn router(
         let cfg = cfg.with_user_approval(Some(user_store));
         protected = protected.layer(from_fn_with_state(cfg.clone(), auth::require_bearer));
 
-        let auth_identity_routes =
-            auth_identity_routes.layer(from_fn_with_state(cfg, auth::require_internal_bearer));
-        protected = protected.merge(auth_identity_routes);
+        let trusted_identity_routes =
+            trusted_identity_routes.layer(from_fn_with_state(cfg, auth::require_internal_bearer));
+        protected = protected.merge(trusted_identity_routes);
     } else {
-        protected = protected.merge(auth_identity_routes);
+        protected = protected.merge(trusted_identity_routes);
     }
 
     let mut app = public.merge(protected);
