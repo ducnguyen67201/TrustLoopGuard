@@ -275,6 +275,20 @@ class Domain5(Enum):
     financial = 'financial'
 
 
+class AuthorizeRequest(BaseModel):
+    agent_id: str | None = None
+    client_id: str
+    code_challenge: str
+    code_challenge_method: str | None = None
+    redirect_uri: str
+    resource: str | None = None
+    scope: str | None = None
+
+
+class AuthorizeResponse(BaseModel):
+    code: str
+
+
 class BudgetAlertThresholdType(Enum):
     percent = 'percent'
     absolute = 'absolute'
