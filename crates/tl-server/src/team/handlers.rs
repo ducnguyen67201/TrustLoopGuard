@@ -1,3 +1,13 @@
+use super::{
+    request_context::{request_user_id, X_USER_EMAIL_HEADER},
+    response::{api_error, internal_error},
+    AddMemberOutcome, TeamState, TeamStoreError,
+};
+use crate::{
+    auth::{InternalServiceContext, WorkspaceKeyContext},
+    dashboard_admin::authorize_workspace_admin,
+    jwt::UserContext,
+};
 use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
@@ -10,16 +20,8 @@ use tl_core::ApiError;
 use tl_core::MyWorkspace;
 use tl_core::{
     ApiErrorCode, CreateInviteRequest, CreateInviteResponse, CreateWorkspaceRequest,
-    InviteListResponse, MemberListResponse, MyWorkspacesResponse,
+    InviteListResponse, MemberListResponse, MyWorkspacesResponse, WorkspaceRole,
 };
-use uuid::Uuid;
-
-use super::{
-    request_context::{request_user_id, X_USER_EMAIL_HEADER, X_USER_HEADER},
-    response::{api_error, internal_error},
-    AddMemberOutcome, TeamState, TeamStoreError,
-};
-use crate::jwt::UserContext;
 
 /// GET /v1/team/members
 pub async fn list_members(State(state): State<TeamState>, headers: HeaderMap) -> Response {
@@ -33,10 +35,36 @@ pub async fn list_members(State(state): State<TeamState>, headers: HeaderMap) ->
     }
 }
 
-/// GET /v1/team/invites
-pub async fn list_invites(State(state): State<TeamState>, headers: HeaderMap) -> Response {
-    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
-        Ok(workspace_id) => workspace_id,
+/// `GET /v1/team/invites` — list pending workspace invites.
+#[utoipa::path(
+    get,
+    path = "/v1/team/invites",
+    tag = "team",
+    responses(
+        (status = 200, description = "Pending invites returned", body = InviteListResponse),
+        (status = 401, description = "Missing or invalid bearer token", body = ApiError),
+        (status = 403, description = "Owner or Admin role required", body = ApiError),
+        (status = 500, description = "Internal error", body = ApiError),
+    ),
+)]
+pub async fn list_invites(
+    State(state): State<TeamState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
+    headers: HeaderMap,
+) -> Response {
+    let (workspace_id, _) = match authorize_workspace_admin(
+        &state.store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+        "manage team invites",
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
         Err(response) => return response,
     };
     match state.store.list_pending_invites(&workspace_id).await {
@@ -45,14 +73,41 @@ pub async fn list_invites(State(state): State<TeamState>, headers: HeaderMap) ->
     }
 }
 
-/// POST /v1/team/invites
+/// `POST /v1/team/invites` — add a member or create a pending invite.
+#[utoipa::path(
+    post,
+    path = "/v1/team/invites",
+    tag = "team",
+    request_body = CreateInviteRequest,
+    responses(
+        (status = 201, description = "Member added or invite created", body = CreateInviteResponse),
+        (status = 400, description = "Invalid email", body = ApiError),
+        (status = 401, description = "Missing or invalid bearer token", body = ApiError),
+        (status = 403, description = "Owner or Admin role required", body = ApiError),
+        (status = 409, description = "Pending invite already exists", body = ApiError),
+        (status = 422, description = "Owner role cannot be assigned through invites", body = ApiError),
+        (status = 500, description = "Internal error", body = ApiError),
+    ),
+)]
 pub async fn create_invite(
     State(state): State<TeamState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Json(req): Json<CreateInviteRequest>,
 ) -> Response {
-    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
-        Ok(workspace_id) => workspace_id,
+    let (workspace_id, invited_by) = match authorize_workspace_admin(
+        &state.store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+        "manage team invites",
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
         Err(response) => return response,
     };
     let email = req.email.trim();
@@ -63,10 +118,13 @@ pub async fn create_invite(
             "email is required".into(),
         );
     }
-    let invited_by = headers
-        .get(X_USER_HEADER)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| Uuid::parse_str(s.trim()).ok());
+    if req.role == WorkspaceRole::Owner {
+        return api_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ApiErrorCode::Invalid,
+            "owner role cannot be assigned through invites".into(),
+        );
+    }
 
     match state
         .store
@@ -92,14 +150,39 @@ pub async fn create_invite(
     }
 }
 
-/// DELETE /v1/team/invites/:id
+/// `DELETE /v1/team/invites/:id` — revoke a pending invite.
+#[utoipa::path(
+    delete,
+    path = "/v1/team/invites/{id}",
+    tag = "team",
+    params(("id" = String, Path, description = "Invite id")),
+    responses(
+        (status = 204, description = "Invite revoked"),
+        (status = 401, description = "Missing or invalid bearer token", body = ApiError),
+        (status = 403, description = "Owner or Admin role required", body = ApiError),
+        (status = 404, description = "Invite not found", body = ApiError),
+        (status = 500, description = "Internal error", body = ApiError),
+    ),
+)]
 pub async fn revoke_invite(
     State(state): State<TeamState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Path(invite_id): Path<String>,
 ) -> Response {
-    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
-        Ok(workspace_id) => workspace_id,
+    let (workspace_id, _) = match authorize_workspace_admin(
+        &state.store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+        "manage team invites",
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
         Err(response) => return response,
     };
     match state.store.revoke_invite(&workspace_id, &invite_id).await {
