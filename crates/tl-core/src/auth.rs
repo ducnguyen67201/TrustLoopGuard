@@ -71,6 +71,35 @@ pub struct OAuthIdentityRequest {
     pub name: Option<String>,
 }
 
+/// PKCE authorization-code request submitted by the trusted dashboard service.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct AuthorizeRequest {
+    pub client_id: String,
+    pub redirect_uri: String,
+    pub code_challenge: String,
+    #[serde(default)]
+    pub code_challenge_method: Option<String>,
+    #[serde(default)]
+    pub resource: Option<String>,
+    #[serde(default)]
+    pub scope: Option<String>,
+    pub agent_id: Option<String>,
+}
+
+/// PKCE-bound OAuth authorization code issued to the trusted dashboard.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct AuthorizeResponse {
+    pub code: String,
+}
+
 /// Change-password request body. The caller demonstrates knowledge of
 /// the current password by hashing it the same way as a login.
 #[derive(Debug, Clone, Serialize, Deserialize)]
