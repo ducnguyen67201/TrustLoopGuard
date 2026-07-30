@@ -19,7 +19,10 @@ use super::{
     response::{api_error, internal_error},
     AddMemberOutcome, TeamState, TeamStoreError,
 };
-use crate::jwt::UserContext;
+use crate::{
+    auth::{InternalServiceContext, WorkspaceKeyContext},
+    jwt::UserContext,
+};
 
 /// GET /v1/team/members
 pub async fn list_members(State(state): State<TeamState>, headers: HeaderMap) -> Response {
@@ -256,7 +259,7 @@ pub async fn create_my_workspace(
         (status = 204, description = "Workspace deleted"),
         (status = 400, description = "Missing or invalid user id", body = ApiError),
         (status = 401, description = "Missing or invalid bearer token", body = ApiError),
-        (status = 403, description = "Caller is not the workspace owner", body = ApiError),
+        (status = 403, description = "Runtime key rejected or caller is not the workspace owner", body = ApiError),
         (status = 404, description = "Workspace not found", body = ApiError),
         (status = 500, description = "Internal error", body = ApiError),
     ),
@@ -265,8 +268,18 @@ pub async fn delete_my_workspace(
     State(state): State<TeamState>,
     headers: HeaderMap,
     user: Option<Extension<UserContext>>,
+    _internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     Path(workspace_id): Path<String>,
 ) -> Response {
+    if runtime_key.is_some() {
+        return api_error(
+            StatusCode::FORBIDDEN,
+            ApiErrorCode::Forbidden,
+            "workspace runtime keys cannot delete workspaces".into(),
+        );
+    }
+
     let Some(user_id) = request_user_id(&headers, user) else {
         return api_error(
             StatusCode::BAD_REQUEST,

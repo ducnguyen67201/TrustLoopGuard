@@ -3907,7 +3907,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
         '403':
-          description: Caller is not the workspace owner
+          description: Runtime key rejected or caller is not the workspace owner
           content:
             application/json:
               schema:
