@@ -28,6 +28,39 @@ afterEach(() => {
 });
 
 describe('FinancialPolicyCreateDialog', () => {
+  it('explains every visible financial-action field in plain language', () => {
+    render(
+      <FinancialPolicyCreateDialog
+        open
+        onOpenChange={vi.fn()}
+        contextQuery="?workspace=demo&environment=production"
+      />,
+    );
+
+    const expectedGuidance = [
+      'Choose whether this policy governs money-moving actions or Gateway LLM spend.',
+      'Use a stable lowercase identifier that will appear in policy lists, logs, and API responses.',
+      'Only actions from this agent id match. Use the same id your SDK sends.',
+      'Explain what this control protects so teammates can recognize it later.',
+      'Optional operation name sent by the integration, such as issue_refund. It must match exactly.',
+      'Use a three-letter currency code, such as USD. The amount fields use this currency.',
+      'Select the typed action this policy evaluates: refund, payment, or payout.',
+      'Select how the money moves. The action must report the same rail to match.',
+      'Threshold checked against each action. Cap breach decides what happens when it is exceeded.',
+      'Actions above this amount require approval. A hard cap can still deny the action.',
+      'Cumulative threshold per UTC day across matching actions. Leave blank to skip this window.',
+      'Cumulative threshold per UTC week across matching actions. Leave blank to skip this window.',
+      'Cumulative threshold per UTC month across matching actions. Leave blank to skip this window.',
+      'Effect returned when an action exceeds one of the configured caps.',
+      'Effect returned when required evidence was not provided.',
+      'Effect returned when supplied evidence says a required precondition is false.',
+    ];
+
+    for (const guidance of expectedGuidance) {
+      expect(screen.getByText(guidance)).toBeInTheDocument();
+    }
+  });
+
   it('creates an LLM usage budget without financial-action selectors', async () => {
     const fetchMock = vi.fn<typeof fetch>(
       async () =>
@@ -58,6 +91,16 @@ describe('FinancialPolicyCreateDialog', () => {
     await userEvent.click(await screen.findByText('LLM usage (gateway)'));
     expect(
       screen.getByText(/requests with max_tokens get strict preflight enforcement/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Limit this budget to one runtime principal. Leave blank to meter every principal separately.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Estimated LLM spend threshold per principal per UTC week. Leave blank to skip this window.',
+      ),
     ).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Create financial policy' }));
 
@@ -119,6 +162,34 @@ describe('FinancialPolicyCreateDialog', () => {
     expect(body.required_preconditions).toEqual([]);
     expect(body.when?.rails).toEqual(['x402']);
     expect(body.when?.action_kinds).toEqual(['payment']);
+  });
+
+  it('explains the evidence choices shown for refund policies', () => {
+    const policy = x402MandatePolicy();
+
+    render(
+      <FinancialPolicyCreateDialog
+        open
+        onOpenChange={vi.fn()}
+        contextQuery="?workspace=demo&environment=production"
+        initialPolicy={{
+          ...policy,
+          id: 'refund-evidence-policy',
+          when: {
+            ...policy.when,
+            action_kinds: ['refund'],
+            rails: ['payment_http'],
+          },
+          required_preconditions: ['order_exists'],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        'Select the facts the caller must provide and satisfy before a refund can be authorized.',
+      ),
+    ).toBeInTheDocument();
   });
 });
 

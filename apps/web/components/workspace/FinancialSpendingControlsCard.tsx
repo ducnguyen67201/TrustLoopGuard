@@ -180,7 +180,10 @@ export function FinancialPolicyCreateDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid max-h-[70vh] gap-4 overflow-y-auto pr-1">
-          <Field label="Applies to">
+          <Field
+            label="Applies to"
+            hint="Choose whether this policy governs money-moving actions or Gateway LLM spend."
+          >
             <Select
               value={form.meter}
               disabled={meter !== undefined}
@@ -198,20 +201,33 @@ export function FinancialPolicyCreateDialog({
             </Select>
           </Field>
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label="Control id">
+            <Field
+              label="Control id"
+              hint="Use a stable lowercase identifier that will appear in policy lists, logs, and API responses."
+            >
               <Input
                 value={form.id}
                 disabled={editing}
                 onChange={(event) => setFormValue(setForm, 'id', event.target.value)}
               />
             </Field>
-            <Field label={form.meter === 'llm_usage' ? 'Principal (optional)' : 'Agent'}>
+            <Field
+              label={form.meter === 'llm_usage' ? 'Principal (optional)' : 'Agent'}
+              hint={
+                form.meter === 'llm_usage'
+                  ? 'Limit this budget to one runtime principal. Leave blank to meter every principal separately.'
+                  : 'Only actions from this agent id match. Use the same id your SDK sends.'
+              }
+            >
               <Input
                 value={form.agent}
                 onChange={(event) => setFormValue(setForm, 'agent', event.target.value)}
               />
             </Field>
-            <Field label="Description">
+            <Field
+              label="Description"
+              hint="Explain what this control protects so teammates can recognize it later."
+            >
               <Input
                 value={form.description}
                 onChange={(event) => setFormValue(setForm, 'description', event.target.value)}
@@ -219,19 +235,28 @@ export function FinancialPolicyCreateDialog({
             </Field>
             {form.meter === 'actions' ? (
               <>
-                <Field label="Operation">
+                <Field
+                  label="Operation"
+                  hint="Optional operation name sent by the integration, such as issue_refund. It must match exactly."
+                >
                   <Input
                     value={form.operation}
                     onChange={(event) => setFormValue(setForm, 'operation', event.target.value)}
                   />
                 </Field>
-                <Field label="Currency">
+                <Field
+                  label="Currency"
+                  hint="Use a three-letter currency code, such as USD. The amount fields use this currency."
+                >
                   <Input
                     value={form.currency}
                     onChange={(event) => setFormValue(setForm, 'currency', event.target.value)}
                   />
                 </Field>
-                <Field label="Action kind">
+                <Field
+                  label="Action kind"
+                  hint="Select the typed action this policy evaluates: refund, payment, or payout."
+                >
                   <Select
                     value={form.actionKind}
                     onValueChange={(value) =>
@@ -252,7 +277,10 @@ export function FinancialPolicyCreateDialog({
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label="Rail">
+                <Field
+                  label="Rail"
+                  hint="Select how the money moves. The action must report the same rail to match."
+                >
                   <Select
                     value={form.rail}
                     onValueChange={(value) =>
@@ -281,21 +309,53 @@ export function FinancialPolicyCreateDialog({
               <>
                 <MoneyField
                   label="Per-action cap"
+                  hint="Threshold checked against each action. Cap breach decides what happens when it is exceeded."
                   valueKey="perAction"
                   form={form}
                   setForm={setForm}
                 />
                 <MoneyField
                   label="Require approval above"
+                  hint="Actions above this amount require approval. A hard cap can still deny the action."
                   valueKey="approvalAbove"
                   form={form}
                   setForm={setForm}
                 />
               </>
             ) : null}
-            <MoneyField label="Daily cap" valueKey="daily" form={form} setForm={setForm} />
-            <MoneyField label="Weekly cap" valueKey="weekly" form={form} setForm={setForm} />
-            <MoneyField label="Monthly cap" valueKey="monthly" form={form} setForm={setForm} />
+            <MoneyField
+              label="Daily cap"
+              hint={
+                form.meter === 'llm_usage'
+                  ? 'Estimated LLM spend threshold per principal per UTC day. Leave blank to skip this window.'
+                  : 'Cumulative threshold per UTC day across matching actions. Leave blank to skip this window.'
+              }
+              valueKey="daily"
+              form={form}
+              setForm={setForm}
+            />
+            <MoneyField
+              label="Weekly cap"
+              hint={
+                form.meter === 'llm_usage'
+                  ? 'Estimated LLM spend threshold per principal per UTC week. Leave blank to skip this window.'
+                  : 'Cumulative threshold per UTC week across matching actions. Leave blank to skip this window.'
+              }
+              valueKey="weekly"
+              form={form}
+              setForm={setForm}
+            />
+            <MoneyField
+              label="Monthly cap"
+              hint={
+                form.meter === 'llm_usage'
+                  ? 'Estimated LLM spend threshold per principal per UTC month. Leave blank to skip this window.'
+                  : 'Cumulative threshold per UTC month across matching actions. Leave blank to skip this window.'
+              }
+              valueKey="monthly"
+              form={form}
+              setForm={setForm}
+            />
           </div>
           {form.meter === 'actions' ? (
             <div className="rounded-md border p-3">
@@ -334,6 +394,11 @@ export function FinancialPolicyCreateDialog({
           <div className="grid gap-3 md:grid-cols-3">
             <ActionField
               label="Cap breach"
+              hint={
+                form.meter === 'llm_usage'
+                  ? 'Effect returned when estimated LLM spend exceeds one of the configured caps.'
+                  : 'Effect returned when an action exceeds one of the configured caps.'
+              }
               value={form.onBreach}
               onValueChange={(value) => setFormValue(setForm, 'onBreach', value)}
             />
@@ -341,11 +406,13 @@ export function FinancialPolicyCreateDialog({
               <>
                 <ActionField
                   label="Missing evidence"
+                  hint="Effect returned when required evidence was not provided."
                   value={form.missingEvidenceEffect}
                   onValueChange={(value) => setFormValue(setForm, 'missingEvidenceEffect', value)}
                 />
                 <ActionField
                   label="Failed evidence"
+                  hint="Effect returned when supplied evidence says a required precondition is false."
                   value={form.failedPreconditionEffect}
                   onValueChange={(value) =>
                     setFormValue(setForm, 'failedPreconditionEffect', value)
@@ -357,6 +424,10 @@ export function FinancialPolicyCreateDialog({
           {form.meter === 'actions' && form.actionKind === 'refund' ? (
             <div className="grid gap-2">
               <Label>Required refund evidence</Label>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Select the facts the caller must provide and satisfy before a refund can be
+                authorized.
+              </p>
               <div className="grid gap-2 md:grid-cols-2">
                 {REFUND_PRECONDITIONS.map((item) => (
                   <label
@@ -493,28 +564,31 @@ function pick<T extends string>(
   return allowed.includes(value as T) ? (value as T) : fallback;
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
   return (
     <div className="grid gap-1.5">
       <Label>{label}</Label>
       {children}
+      <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>
     </div>
   );
 }
 
 function MoneyField({
   label,
+  hint,
   valueKey,
   form,
   setForm,
 }: {
   label: string;
+  hint: string;
   valueKey: 'perAction' | 'approvalAbove' | 'daily' | 'weekly' | 'monthly';
   form: FinancialControlForm;
   setForm: Dispatch<SetStateAction<FinancialControlForm>>;
 }) {
   return (
-    <Field label={label}>
+    <Field label={label} hint={hint}>
       <Input
         inputMode="decimal"
         value={form[valueKey]}
@@ -526,15 +600,17 @@ function MoneyField({
 
 function ActionField({
   label,
+  hint,
   value,
   onValueChange,
 }: {
   label: string;
+  hint: string;
   value: 'deny' | 'require_approval';
   onValueChange: (value: 'deny' | 'require_approval') => void;
 }) {
   return (
-    <Field label={label}>
+    <Field label={label} hint={hint}>
       <Select
         value={value}
         onValueChange={(next) => onValueChange(next as 'deny' | 'require_approval')}
