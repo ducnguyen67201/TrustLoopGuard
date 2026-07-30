@@ -1,6 +1,6 @@
 #[tokio::test]
 async fn validate_policy_yaml_returns_valid_true() {
-    let app = build_app();
+    let app = build_app().await;
     let resp = app
         .oneshot(
             Request::builder()
@@ -29,7 +29,7 @@ action: deny
 
 #[tokio::test]
 async fn create_invalid_policy_returns_422_with_validation_details() {
-    let app = build_app();
+    let app = build_app().await;
     let resp = request(
         app,
         Method::POST,
@@ -52,7 +52,7 @@ action: transform
 
 #[tokio::test]
 async fn validate_policy_yaml_returns_structured_errors() {
-    let app = build_app();
+    let app = build_app().await;
     let resp = app
         .oneshot(
             Request::builder()
@@ -88,7 +88,7 @@ action: transform
 
 #[tokio::test]
 async fn validate_policy_json_works() {
-    let app = build_app();
+    let app = build_app().await;
     let resp = app
         .oneshot(
             Request::builder()
@@ -111,7 +111,7 @@ async fn validate_policy_json_works() {
 
 #[tokio::test]
 async fn validate_policy_rejects_non_utf8_body() {
-    let app = build_app();
+    let app = build_app().await;
     let resp = app
         .oneshot(
             Request::builder()
@@ -131,7 +131,7 @@ async fn validate_policy_rejects_non_utf8_body() {
 
 #[tokio::test]
 async fn validate_tool_policy_returns_family_and_path_addressed_errors() {
-    let app = build_app();
+    let app = build_app().await;
     let valid = app
         .clone()
         .oneshot(

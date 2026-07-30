@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Extension, Path, State},
     http::{HeaderMap, StatusCode, Uri},
     response::{IntoResponse, Response},
     Json,
@@ -15,6 +15,11 @@ use super::mapping::normalize_policy_ids;
 use super::response::{api_error_response, policy_store_error_response};
 use super::validation::{parse_policy_body, policy_validation_error_response, validate_raw_policy};
 use super::PolicyState;
+use crate::{
+    auth::{InternalServiceContext, WorkspaceKeyContext},
+    dashboard_admin::authorize_workspace_admin,
+    jwt::UserContext,
+};
 
 /// `POST /v1/policies` — create or update a policy from YAML or JSON.
 #[utoipa::path(
@@ -30,16 +35,29 @@ use super::PolicyState;
         (status = 201, description = "Policy created or updated", body = PolicyDocument),
         (status = 400, description = "Malformed request body", body = ApiError),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Owner or Admin role required", body = ApiError),
         (status = 422, description = "Policy failed validation", body = ApiError),
     ),
 )]
 pub async fn upsert_policy(
     State(state): State<PolicyState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     body: bytes::Bytes,
 ) -> Response {
-    let workspace_id = match workspace_id_from_headers(&headers) {
-        Ok(workspace_id) => workspace_id,
+    let (workspace_id, _) = match authorize_workspace_admin(
+        &state.team_store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+        "modify policies",
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
         Err(response) => return response,
     };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
@@ -188,17 +206,30 @@ pub async fn get_policy(
         (status = 200, description = "Updated policy", body = PolicyDocument),
         (status = 400, description = "Malformed request body", body = ApiError),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Owner or Admin role required", body = ApiError),
         (status = 404, description = "Policy not found", body = ApiError),
     ),
 )]
 pub async fn set_policy_enabled(
     State(state): State<PolicyState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Path(id): Path<String>,
     body: bytes::Bytes,
 ) -> Response {
-    let workspace_id = match workspace_id_from_headers(&headers) {
-        Ok(workspace_id) => workspace_id,
+    let (workspace_id, _) = match authorize_workspace_admin(
+        &state.team_store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+        "modify policies",
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
         Err(response) => return response,
     };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
@@ -235,16 +266,29 @@ pub async fn set_policy_enabled(
         (status = 200, description = "Updated policies", body = PolicyBatchSetEnabledResponse),
         (status = 400, description = "Malformed request body", body = ApiError),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Owner or Admin role required", body = ApiError),
         (status = 404, description = "One or more policies were not found", body = ApiError),
     ),
 )]
 pub async fn batch_set_policy_enabled(
     State(state): State<PolicyState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     body: bytes::Bytes,
 ) -> Response {
-    let workspace_id = match workspace_id_from_headers(&headers) {
-        Ok(workspace_id) => workspace_id,
+    let (workspace_id, _) = match authorize_workspace_admin(
+        &state.team_store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+        "modify policies",
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
         Err(response) => return response,
     };
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
@@ -286,16 +330,29 @@ pub async fn batch_set_policy_enabled(
     responses(
         (status = 204, description = "Policy deleted"),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Owner or Admin role required", body = ApiError),
         (status = 404, description = "Policy not found", body = ApiError),
     ),
 )]
 pub async fn delete_policy(
     State(state): State<PolicyState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    let workspace_id = match workspace_id_from_headers(&headers) {
-        Ok(workspace_id) => workspace_id,
+    let (workspace_id, _) = match authorize_workspace_admin(
+        &state.team_store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+        "modify policies",
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
         Err(response) => return response,
     };
     match state.store.delete(&workspace_id, &id).await {

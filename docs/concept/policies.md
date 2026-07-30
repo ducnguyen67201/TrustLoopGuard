@@ -39,6 +39,11 @@ Policy definitions are workspace-level. Runtime enablement is environment-level 
 
 ## API
 
+Policy reads and validation retain their existing authenticated access. Policy mutations require
+an authenticated workspace Owner or Admin (or a platform administrator acting through the trusted
+user/internal-service lane). Workspace runtime keys are rejected before parsing or storage access,
+because a governed runtime principal must not change the policies that constrain it.
+
 - `POST /v1/policies` creates or updates content and family policies from YAML or JSON.
 - `GET /v1/policies` lists policies visible in the selected environment.
 - `GET /v1/policies?family=financial` filters the registry by family.

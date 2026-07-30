@@ -7,7 +7,7 @@ use axum::{
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tl_engine::Engine;
-use tl_server::{memory_app_state, router, AuthConfig, MemoryUserStore};
+use tl_server::{memory_app_state, router, AuthConfig, MemoryTeamStore, MemoryUserStore};
 use tower::ServiceExt;
 use uuid::Uuid;
 use wiremock::matchers::{header as wire_header, method, path};
@@ -24,7 +24,12 @@ async fn build_app() -> axum::Router {
         .insert_approved_for_tests(gateway_owner_id(), "gateway-owner@example.com")
         .await
         .unwrap();
+    let team_store = Arc::new(MemoryTeamStore::new());
+    team_store
+        .set_platform_admin_for_tests(gateway_owner_id(), true)
+        .await;
     state.user_store = user_store;
+    state.team_store = team_store;
     router(state, Some(AuthConfig::new("sk-internal")), [0u8; 32])
 }
 
@@ -173,6 +178,7 @@ action: deny
                 .header(header::CONTENT_TYPE, "application/x-yaml")
                 .header(header::AUTHORIZATION, "Bearer sk-internal")
                 .header("x-tlg-workspace-id", workspace)
+                .header("x-tlg-user-id", gateway_owner_id().to_string())
                 .body(Body::from(policy))
                 .unwrap(),
         )

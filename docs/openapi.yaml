@@ -2802,6 +2802,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Owner or Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '422':
           description: Policy failed validation
           content:
@@ -2835,6 +2841,12 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Owner or Admin role required
           content:
             application/json:
               schema:
@@ -2976,6 +2988,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Owner or Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Policy not found
           content:
@@ -3016,6 +3034,12 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Owner or Admin role required
           content:
             application/json:
               schema:

@@ -5,7 +5,10 @@
 use std::time::Duration;
 
 use tl_core::{AuthorizationDecision, AuthorizationEffect, Decision};
-use tl_server::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
+use tl_server::{
+    spawn_escalation_worker, EscalationConfig, EscalationPayload, MemoryTeamStore, RetryPolicy,
+};
+use uuid::Uuid;
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -262,6 +265,12 @@ async fn event_handler_fires_escalation_on_defer_effect() {
 
     let mut state = memory_app_state(Arc::new(Engine::empty()));
     state.escalation_tx = Some(esc_tx);
+    let policy_admin_id = Uuid::new_v4();
+    let team_store = Arc::new(MemoryTeamStore::new());
+    team_store
+        .set_platform_admin_for_tests(policy_admin_id, true)
+        .await;
+    state.team_store = team_store;
     let app = router(state, None, [0u8; 32]);
 
     // First register a profile so Tier 3 doesn't pre-empt with a
@@ -302,6 +311,7 @@ severity: high
                 .uri("/v1/policies")
                 .header(header::CONTENT_TYPE, "application/yaml")
                 .header("x-tlg-workspace-id", "ws")
+                .header("x-tlg-user-id", policy_admin_id.to_string())
                 .body(Body::from(policy_yaml))
                 .unwrap(),
         )

@@ -1,6 +1,6 @@
 #[tokio::test]
 async fn disable_policy_updates_document_but_get_still_works() {
-    let app = build_app();
+    let app = build_app().await;
     let resp = request(
         app.clone(),
         Method::POST,
@@ -40,7 +40,7 @@ async fn disable_policy_updates_document_but_get_still_works() {
 
 #[tokio::test]
 async fn batch_disable_updates_multiple_policies() {
-    let app = build_app();
+    let app = build_app().await;
     for id in ["refund-guarantee", "refund-promise"] {
         let yaml = SAMPLE_POLICY_YAML.replace("refund-guarantee", id);
         let resp = request(app.clone(), Method::POST, "/v1/policies", Body::from(yaml)).await;
@@ -82,7 +82,7 @@ async fn batch_disable_updates_multiple_policies() {
 
 #[tokio::test]
 async fn batch_disable_missing_policy_does_not_partially_update() {
-    let app = build_app();
+    let app = build_app().await;
     let resp = request(
         app.clone(),
         Method::POST,
@@ -122,7 +122,7 @@ async fn batch_disable_missing_policy_does_not_partially_update() {
 
 #[tokio::test]
 async fn disable_policy_with_malformed_json_returns_api_error() {
-    let app = build_app();
+    let app = build_app().await;
     let resp = request(
         app.clone(),
         Method::POST,
@@ -151,7 +151,7 @@ async fn disable_policy_with_malformed_json_returns_api_error() {
 
 #[tokio::test]
 async fn delete_policy_makes_get_return_404() {
-    let app = build_app();
+    let app = build_app().await;
     let resp = request(
         app.clone(),
         Method::POST,

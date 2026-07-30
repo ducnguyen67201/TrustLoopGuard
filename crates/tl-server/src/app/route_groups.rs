@@ -200,6 +200,7 @@ pub(super) fn policy_routes(
         .with_state(PolicyState {
             store: state.policy_store.clone(),
             environment_store: state.environment_store.clone(),
+            team_store: state.team_store.clone(),
             draft_llm,
             draft_model,
         })

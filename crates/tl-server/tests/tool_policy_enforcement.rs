@@ -9,7 +9,7 @@ use axum::{
 use http_body_util::BodyExt;
 use tl_core::{AuthorizationDecision, AuthorizationEffect, DEFAULT_WORKSPACE_ID};
 use tl_engine::Engine;
-use tl_server::{memory_app_state, router};
+use tl_server::{memory_app_state, router, MemoryTeamStore};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -44,8 +44,18 @@ approver_roles: [owner, admin]
 max_grant_ttl_seconds: 600
 "#;
 
-fn app() -> axum::Router {
-    router(memory_app_state(Arc::new(Engine::empty())), None, [0u8; 32])
+fn test_admin_id() -> Uuid {
+    Uuid::from_u128(2)
+}
+
+async fn app() -> axum::Router {
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    let team_store = Arc::new(MemoryTeamStore::new());
+    team_store
+        .set_platform_admin_for_tests(test_admin_id(), true)
+        .await;
+    state.team_store = team_store;
+    router(state, None, [0u8; 32])
 }
 
 async fn app_with_owner() -> (axum::Router, String, Uuid) {
@@ -115,8 +125,10 @@ async fn request_in_workspace(
 }
 
 async fn install_policy(app: &axum::Router, yaml: &str) {
-    let (status, body) = request(
+    let (status, body) = request_in_workspace(
         app,
+        DEFAULT_WORKSPACE_ID,
+        Some(test_admin_id()),
         Method::POST,
         "/v1/policies",
         "application/yaml",
@@ -126,11 +138,16 @@ async fn install_policy(app: &axum::Router, yaml: &str) {
     assert_eq!(status, StatusCode::CREATED, "policy response: {body}");
 }
 
-async fn install_policy_in_workspace(app: &axum::Router, workspace_id: &str, yaml: &str) {
+async fn install_policy_in_workspace(
+    app: &axum::Router,
+    workspace_id: &str,
+    owner_id: Uuid,
+    yaml: &str,
+) {
     let (status, body) = request_in_workspace(
         app,
         workspace_id,
-        None,
+        Some(owner_id),
         Method::POST,
         "/v1/policies",
         "application/yaml",
@@ -206,7 +223,7 @@ async fn submit_in_workspace(
 
 #[tokio::test]
 async fn no_policy_retains_permit_and_shell_parameters_are_validated() {
-    let app = app();
+    let app = app().await;
     let decision = submit(&app, &shell_event("rm -rf /", "tool-no-policy")).await;
     assert_eq!(decision.effect, AuthorizationEffect::Permit);
 
@@ -225,7 +242,7 @@ async fn no_policy_retains_permit_and_shell_parameters_are_validated() {
 
 #[tokio::test]
 async fn enabled_policy_denies_nested_root_delete_but_not_quoted_lookalikes() {
-    let app = app();
+    let app = app().await;
     install_policy(&app, ROOT_DELETE_DENY).await;
 
     let direct = submit(&app, &shell_event("rm -rf /", "tool-direct")).await;
@@ -268,7 +285,7 @@ async fn enabled_policy_denies_nested_root_delete_but_not_quoted_lookalikes() {
 
 #[tokio::test]
 async fn parameter_policy_and_partial_fact_analysis_are_enforced() {
-    let app = app();
+    let app = app().await;
     install_policy(
         &app,
         r#"
@@ -313,7 +330,7 @@ reason: Device writes are prohibited.
 #[tokio::test]
 async fn exact_approval_resumes_once_and_completes_the_lease() {
     let (app, workspace_id, owner_id) = app_with_owner().await;
-    install_policy_in_workspace(&app, &workspace_id, APPROVAL_POLICY).await;
+    install_policy_in_workspace(&app, &workspace_id, owner_id, APPROVAL_POLICY).await;
     let event = shell_event("rm -rf ./build", "tool-approved");
 
     let pending = submit_in_workspace(&app, &workspace_id, &event).await;
@@ -392,10 +409,12 @@ async fn exact_approval_resumes_once_and_completes_the_lease() {
 
 #[tokio::test]
 async fn disabled_tool_policy_does_not_enforce() {
-    let app = app();
+    let app = app().await;
     install_policy(&app, ROOT_DELETE_DENY).await;
-    let (status, body) = request(
+    let (status, body) = request_in_workspace(
         &app,
+        DEFAULT_WORKSPACE_ID,
+        Some(test_admin_id()),
         Method::PATCH,
         "/v1/policies/block-system-delete/enabled",
         "application/json",

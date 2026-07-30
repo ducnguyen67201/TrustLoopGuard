@@ -7,6 +7,7 @@ async fn upsert_gateway_policy(app: axum::Router, workspace: &str, policy: &str)
                 .header(header::CONTENT_TYPE, "application/x-yaml")
                 .header(header::AUTHORIZATION, "Bearer sk-internal")
                 .header("x-tlg-workspace-id", workspace)
+                .header("x-tlg-user-id", gateway_owner_id().to_string())
                 .body(Body::from(policy.to_string()))
                 .unwrap(),
         )
