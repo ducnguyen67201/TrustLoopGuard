@@ -18,6 +18,8 @@ export default async function NewKnowledgeSourcePage({
   const workspaceSlug = readWorkspaceSlug(await searchParams);
   const data = await getDashboardShell(workspaceSlug);
   if (!isWorkspaceFeatureEnabled(data.activeWorkspace, 'knowledgeBase')) notFound();
+  const role = data.activeWorkspace.role.toLowerCase();
+  if (role !== 'owner' && role !== 'admin') notFound();
   const knowledgeHref = `/knowledge-sources?workspace=${data.activeWorkspace.slug}`;
 
   return (
