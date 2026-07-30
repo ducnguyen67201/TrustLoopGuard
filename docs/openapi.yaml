@@ -2257,6 +2257,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Owner or Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/knowledge-sources/{id}/file:
     get:
       tags:
@@ -2752,6 +2758,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/McpGatewayToolAssignmentsResponse'
+  /v1/oauth/authorize:
+    post:
+      tags:
+      - oauth
+      summary: '`POST /v1/oauth/authorize` — mint a PKCE-bound code for a trusted dashboard identity.'
+      operationId: authorize
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizeRequest'
+        required: true
+      responses:
+        '200':
+          description: Authorization code issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizeResponse'
+        '400':
+          description: Invalid OAuth request
+        '401':
+          description: Internal dashboard authentication required
+        '403':
+          description: User is not a workspace member
+        '500':
+          description: Authorization code issuance failed
   /v1/policies:
     get:
       tags:
@@ -4035,7 +4068,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
         '403':
-          description: Caller is not the workspace owner
+          description: Runtime key rejected or caller is not the workspace owner
           content:
             application/json:
               schema:
@@ -5670,6 +5703,44 @@ components:
             type: string
             enum:
             - financial
+    AuthorizeRequest:
+      type: object
+      description: PKCE authorization-code request submitted by the trusted dashboard service.
+      required:
+      - client_id
+      - redirect_uri
+      - code_challenge
+      properties:
+        agent_id:
+          type:
+          - string
+          - 'null'
+        client_id:
+          type: string
+        code_challenge:
+          type: string
+        code_challenge_method:
+          type:
+          - string
+          - 'null'
+        redirect_uri:
+          type: string
+        resource:
+          type:
+          - string
+          - 'null'
+        scope:
+          type:
+          - string
+          - 'null'
+    AuthorizeResponse:
+      type: object
+      description: PKCE-bound OAuth authorization code issued to the trusted dashboard.
+      required:
+      - code
+      properties:
+        code:
+          type: string
     BudgetAlertConfig:
       type: object
       description: One configured alert threshold.

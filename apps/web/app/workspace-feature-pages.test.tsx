@@ -37,6 +37,7 @@ const disabledShell = {
     isAttacksEnabled: false,
     isKnowledgeBaseEnabled: false,
     isMcpGatewayEnabled: false,
+    role: 'viewer',
   },
 };
 
@@ -93,6 +94,37 @@ describe('workspace feature pages', () => {
     await expect(
       NewKnowledgeSourcePage({ searchParams: Promise.resolve({ workspace: 'acme' }) }),
     ).rejects.toThrow('NOT_FOUND');
+  });
+
+  it('returns not found for a non-admin new knowledge-source page', async () => {
+    mocks.getDashboardShell.mockResolvedValue({
+      activeWorkspace: {
+        ...disabledShell.activeWorkspace,
+        isKnowledgeBaseEnabled: true,
+        role: 'viewer',
+      },
+    });
+
+    await expect(
+      NewKnowledgeSourcePage({ searchParams: Promise.resolve({ workspace: 'acme' }) }),
+    ).rejects.toThrow('NOT_FOUND');
+  });
+
+  it.each(['owner', 'admin'])('renders the new knowledge-source page for %s', async (role) => {
+    mocks.getDashboardShell.mockResolvedValue({
+      activeWorkspace: {
+        ...disabledShell.activeWorkspace,
+        id: 'ws-1',
+        name: 'Acme',
+        slug: 'acme',
+        isKnowledgeBaseEnabled: true,
+        role,
+      },
+    });
+
+    await expect(
+      NewKnowledgeSourcePage({ searchParams: Promise.resolve({ workspace: 'acme' }) }),
+    ).resolves.toBeDefined();
   });
 
   it('returns not found for disabled MCP access', async () => {
