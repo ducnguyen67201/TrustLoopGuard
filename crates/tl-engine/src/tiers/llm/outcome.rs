@@ -161,7 +161,10 @@ fn interpret_hallucination(judge: &JudgeResult) -> Option<JudgeEffect> {
             Some(JudgeEffect::Defer(format!("hallucination judge: {error}")))
         }
         JudgeResult::Ok(out) => {
-            let grounded = out.json["grounded"].as_bool().unwrap_or(true);
+            let grounded = match required_bool(&out.json, "grounded", "hallucination") {
+                Ok(grounded) => grounded,
+                Err(reason) => return Some(JudgeEffect::Defer(reason)),
+            };
             if grounded {
                 Some(JudgeEffect::Permit)
             } else {
@@ -178,7 +181,10 @@ fn interpret_authority(judge: &JudgeResult) -> Option<JudgeEffect> {
         JudgeResult::Skipped => None,
         JudgeResult::Err(error) => Some(JudgeEffect::Defer(format!("authority judge: {error}"))),
         JudgeResult::Ok(out) => {
-            let within = out.json["within_authority"].as_bool().unwrap_or(true);
+            let within = match required_bool(&out.json, "within_authority", "authority") {
+                Ok(within) => within,
+                Err(reason) => return Some(JudgeEffect::Defer(reason)),
+            };
             if within {
                 Some(JudgeEffect::Permit)
             } else {
@@ -195,7 +201,10 @@ fn interpret_tone(judge: &JudgeResult, _profile: &AgentProfile) -> Option<JudgeE
         JudgeResult::Skipped => None,
         JudgeResult::Err(error) => Some(JudgeEffect::Defer(format!("tone judge: {error}"))),
         JudgeResult::Ok(out) => {
-            let matches = out.json["matches_target"].as_bool().unwrap_or(true);
+            let matches = match required_bool(&out.json, "matches_target", "tone") {
+                Ok(matches) => matches,
+                Err(reason) => return Some(JudgeEffect::Defer(reason)),
+            };
             if matches {
                 return Some(JudgeEffect::Permit);
             }
@@ -216,6 +225,12 @@ fn interpret_tone(judge: &JudgeResult, _profile: &AgentProfile) -> Option<JudgeE
             Some(JudgeEffect::Transform(reason, None))
         }
     }
+}
+
+fn required_bool(json: &serde_json::Value, field: &str, judge_name: &str) -> Result<bool, String> {
+    json.get(field)
+        .and_then(serde_json::Value::as_bool)
+        .ok_or_else(|| format!("{judge_name} judge returned invalid `{field}` verdict"))
 }
 
 fn json_string_array(value: &serde_json::Value) -> Vec<String> {
