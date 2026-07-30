@@ -45,6 +45,13 @@ Runtime authentication overwrites workspace and environment from a workspace key
 
 Effect precedence is `deny > defer > require_approval > transform > permit`. Shadow-mode checkers retain hypothetical evidence but do not contribute an enforcing effect.
 
+Tool-metadata lookup failure is an always-enforced pipeline invariant rather
+than a configurable checker. The pipeline records `resolution_failed`, discards
+the collector-supplied side-effect class, and returns `defer` before the caller
+may execute the action. This applies even when all checker rollout modes are
+`off`; an outage cannot substitute untrusted collector semantics for the
+workspace registry.
+
 ## Checker semantics
 
 - Approval requirement: `require_approval` with a stable capability and requirement ID.

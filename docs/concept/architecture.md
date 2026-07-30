@@ -100,7 +100,7 @@ Decision {
 }
 ```
 
-The event-engine seams in `tl-engine::event_pipeline` normalize, resolve principals, resolve tool metadata from the workspace registry (a cached read that fails open), attach labels, provenance, checker findings, advisory signals, compose decisions, and enqueue traces. Tool metadata resolution, label resolution, provenance propagation, deterministic checkers, and mode-aware decision composition are live. Checker enforcement is opt-in per workspace via enforcement modes (`off`/`shadow`/`enforce`, default `off`), so customer-visible behavior is unchanged until a workspace opts in; see [event-engine.md](event-engine.md) for checker rules, modes, and evidence shape.
+The event-engine seams in `tl-engine::event_pipeline` normalize, resolve principals, resolve tool metadata from the workspace registry, attach labels, provenance, checker findings, advisory signals, compose decisions, and enqueue traces. A tool-metadata lookup outage fails closed with `defer` and discards collector-supplied action semantics; this invariant is independent of checker rollout modes. Tool metadata resolution, label resolution, provenance propagation, deterministic checkers, and mode-aware decision composition are live. Checker enforcement is otherwise opt-in per workspace via enforcement modes (`off`/`shadow`/`enforce`, default `off`), so customer-visible behavior is unchanged until a workspace opts in; see [event-engine.md](event-engine.md) for checker rules, modes, and evidence shape.
 
 ## Request lifecycle (HTTP path)
 

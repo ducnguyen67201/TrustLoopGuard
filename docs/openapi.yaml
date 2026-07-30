@@ -1236,6 +1236,11 @@ paths:
     post:
       tags:
       - events
+      summary: Evaluate one proposed agent event.
+      description: |-
+        Tool-metadata lookup failure returns a successful authorization response
+        with effect `defer`; callers must not execute the proposed action and may
+        retry after the registry recovers.
       operationId: submit_event
       requestBody:
         content:
@@ -10176,8 +10181,8 @@ components:
         description: |-
           The registry could not be consulted (e.g. storage failure).
           Distinguishes degraded resolution from genuine absence so traces
-          stay accurate forensic evidence; the collector-claimed side
-          effect is left untouched and the decision is unaffected.
+          stay accurate forensic evidence. Collector-claimed action semantics
+          are discarded and execution is deferred until metadata is available.
         required:
         - status
         properties:
@@ -10187,8 +10192,9 @@ components:
             - resolution_failed
       description: |-
         Outcome of resolving an event's `action.operation` against the
-        workspace tool-metadata registry. Resolution is evidence; checkers and
-        policies decide whether that evidence changes the decision.
+        workspace tool-metadata registry. Resolved and unregistered outcomes are
+        evidence for checkers and policies; resolution failure is a fail-closed
+        pipeline condition that defers execution.
     TraceListResponse:
       type: object
       required:

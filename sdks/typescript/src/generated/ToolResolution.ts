@@ -3,7 +3,8 @@ import type { ToolMetadata } from "./ToolMetadata.js";
 
 /**
  * Outcome of resolving an event's `action.operation` against the
- * workspace tool-metadata registry. Resolution is evidence; checkers and
- * policies decide whether that evidence changes the decision.
+ * workspace tool-metadata registry. Resolved and unregistered outcomes are
+ * evidence for checkers and policies; resolution failure is a fail-closed
+ * pipeline condition that defers execution.
  */
 export type ToolResolution = { "status": "resolved", metadata: ToolMetadata, } | { "status": "unregistered" } | { "status": "resolution_failed" };

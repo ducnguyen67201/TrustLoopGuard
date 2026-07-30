@@ -15,6 +15,11 @@ use crate::{
     AppState,
 };
 
+/// Evaluate one proposed agent event.
+///
+/// Tool-metadata lookup failure returns a successful authorization response
+/// with effect `defer`; callers must not execute the proposed action and may
+/// retry after the registry recovers.
 #[utoipa::path(
     post,
     path = "/v1/events",
