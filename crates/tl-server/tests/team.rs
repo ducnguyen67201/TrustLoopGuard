@@ -96,7 +96,7 @@ async fn team_fixture() -> TeamFixture {
         .await
         .expect("pending invite");
 
-    let runtime_key = "tl_live_team_invite_test".to_string();
+    let runtime_key = "tl_live_team_security_test".to_string();
     let key_hash = Sha256::digest(runtime_key.as_bytes())
         .iter()
         .map(|byte| format!("{byte:02x}"))
@@ -104,10 +104,10 @@ async fn team_fixture() -> TeamFixture {
     state
         .api_key_store
         .create(NewApiKey {
-            id: "key_team_invite_test".into(),
+            id: "key_team_security_test".into(),
             workspace_id: workspace.id.clone(),
             environment_id: "production".into(),
-            name: "Team invite test".into(),
+            name: "Team security test".into(),
             key_prefix: "tl_live_team".into(),
             key_hash,
             created_by_user_id: Some(owner.id),
@@ -372,6 +372,37 @@ async fn delete_workspace_requires_authentication_and_user_identity() {
         .await
         .expect("missing identity response");
     assert_eq!(missing_identity.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn runtime_key_cannot_delete_workspace_with_forged_owner_identity() {
+    let fixture = team_fixture().await;
+    let response = fixture
+        .app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/v1/team/my-workspaces/{}", fixture.workspace_id))
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", fixture.runtime_key),
+                )
+                .header("x-tlg-user-id", fixture.owner_id.to_string())
+                .body(Body::empty())
+                .expect("runtime delete request"),
+        )
+        .await
+        .expect("runtime delete response");
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+
+    let workspaces = fixture
+        .store
+        .list_workspaces_for_user(fixture.owner_id)
+        .await
+        .expect("owner workspaces");
+    assert_eq!(workspaces.len(), 1);
+    assert_eq!(workspaces[0].id, fixture.workspace_id);
 }
 
 #[tokio::test]
