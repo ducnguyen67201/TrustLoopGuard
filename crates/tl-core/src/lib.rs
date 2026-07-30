@@ -59,7 +59,10 @@ pub use analytics::{
     AnalyticsWidgetLayout, CreateAnalyticsDashboardViewRequest,
     UpdateAnalyticsDashboardViewRequest,
 };
-pub use auth::{AuthRequest, AuthResponse, ChangePasswordRequest, OAuthIdentityRequest};
+pub use auth::{
+    AuthRequest, AuthResponse, AuthorizeRequest, AuthorizeResponse, ChangePasswordRequest,
+    OAuthIdentityRequest,
+};
 pub use authorization::{
     ActionGrantScope, ApprovalDecision, ApprovalEnvelope, ApprovalStatus, AuthorityRequirement,
     AuthorizationApproval, AuthorizationApprovalListResponse, AuthorizationApprovalSummary,
