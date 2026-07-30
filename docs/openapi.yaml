@@ -2752,6 +2752,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/McpGatewayToolAssignmentsResponse'
+  /v1/oauth/authorize:
+    post:
+      tags:
+      - oauth
+      summary: '`POST /v1/oauth/authorize` — mint a PKCE-bound code for a trusted dashboard identity.'
+      operationId: authorize
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizeRequest'
+        required: true
+      responses:
+        '200':
+          description: Authorization code issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizeResponse'
+        '400':
+          description: Invalid OAuth request
+        '401':
+          description: Internal dashboard authentication required
+        '403':
+          description: User is not a workspace member
+        '500':
+          description: Authorization code issuance failed
   /v1/policies:
     get:
       tags:
@@ -3788,6 +3815,131 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/team/invites:
+    get:
+      tags:
+      - team
+      summary: '`GET /v1/team/invites` — list pending workspace invites.'
+      operationId: list_invites
+      responses:
+        '200':
+          description: Pending invites returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteListResponse'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Owner or Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - team
+      summary: '`POST /v1/team/invites` — add a member or create a pending invite.'
+      operationId: create_invite
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInviteRequest'
+        required: true
+      responses:
+        '201':
+          description: Member added or invite created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateInviteResponse'
+        '400':
+          description: Invalid email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Owner or Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Pending invite already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Owner role cannot be assigned through invites
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/team/invites/{id}:
+    delete:
+      tags:
+      - team
+      summary: '`DELETE /v1/team/invites/:id` — revoke a pending invite.'
+      operationId: revoke_invite
+      parameters:
+      - name: id
+        in: path
+        description: Invite id
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Invite revoked
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Owner or Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Invite not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/team/my-workspaces:
     get:
       tags:
@@ -3907,7 +4059,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
         '403':
-          description: Caller is not the workspace owner
+          description: Runtime key rejected or caller is not the workspace owner
           content:
             application/json:
               schema:
@@ -5542,6 +5694,44 @@ components:
             type: string
             enum:
             - financial
+    AuthorizeRequest:
+      type: object
+      description: PKCE authorization-code request submitted by the trusted dashboard service.
+      required:
+      - client_id
+      - redirect_uri
+      - code_challenge
+      properties:
+        agent_id:
+          type:
+          - string
+          - 'null'
+        client_id:
+          type: string
+        code_challenge:
+          type: string
+        code_challenge_method:
+          type:
+          - string
+          - 'null'
+        redirect_uri:
+          type: string
+        resource:
+          type:
+          - string
+          - 'null'
+        scope:
+          type:
+          - string
+          - 'null'
+    AuthorizeResponse:
+      type: object
+      description: PKCE-bound OAuth authorization code issued to the trusted dashboard.
+      required:
+      - code
+      properties:
+        code:
+          type: string
     BudgetAlertConfig:
       type: object
       description: One configured alert threshold.

@@ -841,7 +841,11 @@ export async function getTeamPageData(
     rustApiForWorkspace<{ members: RustMember[] }>(workspaceId, '/v1/team/members').catch(() => ({
       members: [] as RustMember[],
     })),
-    rustApiForWorkspace<{ invites: RustInvite[] }>(workspaceId, '/v1/team/invites').catch(() => ({
+    rustApiForUserWorkspace<{ invites: RustInvite[] }>(
+      shell.user,
+      workspaceId,
+      '/v1/team/invites',
+    ).catch(() => ({
       invites: [] as RustInvite[],
     })),
   ]);

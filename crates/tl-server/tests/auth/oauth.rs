@@ -98,3 +98,34 @@ async fn oauth_session_rejects_workspace_runtime_api_key() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
+
+#[tokio::test]
+async fn oauth_authorization_rejects_workspace_runtime_api_key_before_forwarded_identity() {
+    let (app, user_id) = build_app_with_approved_user(Some(AuthConfig::new("sk-internal"))).await;
+    let workspace_id =
+        create_workspace_for_user(app.clone(), user_id, "OAuth Authorization Workspace").await;
+
+    let create_resp = app
+        .clone()
+        .oneshot(create_api_key_request_with_user(
+            "sk-internal",
+            &workspace_id,
+            "Runtime key",
+            user_id,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+    let created = read_body(create_resp).await;
+    let runtime_key = created["plaintext_key"].as_str().expect("runtime key");
+
+    let response = app
+        .oneshot(oauth_authorize_request(
+            runtime_key,
+            &workspace_id,
+            user_id,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}

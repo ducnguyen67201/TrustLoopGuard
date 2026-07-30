@@ -1,6 +1,7 @@
 use sha2::{Digest, Sha256};
 
-const JWT_ALLOWED_PREFIXES: &[&str] = &["/v1/team/my-workspaces", "/v1/api-keys"];
+const JWT_ALLOWED_PREFIXES: &[&str] =
+    &["/v1/team/my-workspaces", "/v1/team/invites", "/v1/api-keys"];
 
 pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);

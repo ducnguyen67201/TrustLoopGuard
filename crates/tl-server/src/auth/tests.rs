@@ -20,10 +20,13 @@ fn subtle_eq_rejects_byte_mismatch() {
 fn jwt_path_allows_exact_paths_and_subpaths_only() {
     assert!(token::jwt_path_allowed("/v1/team/my-workspaces"));
     assert!(token::jwt_path_allowed("/v1/team/my-workspaces/ws_acme"));
+    assert!(token::jwt_path_allowed("/v1/team/invites"));
+    assert!(token::jwt_path_allowed("/v1/team/invites/invite_123"));
     assert!(token::jwt_path_allowed("/v1/api-keys"));
     assert!(token::jwt_path_allowed("/v1/api-keys/batch/revoke"));
 
     assert!(!token::jwt_path_allowed("/v1/team/my-workspaces-admin"));
+    assert!(!token::jwt_path_allowed("/v1/team/invites-admin"));
     assert!(!token::jwt_path_allowed("/v1/api-keys-admin"));
     assert!(!token::jwt_path_allowed("/v1/team/members"));
 }
