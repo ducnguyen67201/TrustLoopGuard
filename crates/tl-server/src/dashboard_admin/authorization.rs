@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::{
     auth::{InternalServiceContext, WorkspaceKeyContext},
     jwt::UserContext,
-    team::TeamStore,
+    team::{TeamStore, TeamStoreError},
 };
 
 use super::response::api_error_response;
@@ -178,18 +178,26 @@ pub(crate) async fn authorize_workspace_member(
                 error.to_string(),
             )
         })?;
-    let workspaces = if is_platform_admin {
+    if is_platform_admin {
         tracing::info!(
             user_id = %user_id,
             workspace_id = %workspace_id,
             action,
             "platform administrator used cross-workspace member access"
         );
-        team_store.list_all_workspaces().await
-    } else {
-        team_store.list_workspaces_for_user(user_id).await
-    };
-    workspaces
+        return match team_store.get_workspace(&workspace_id).await {
+            Ok(workspace) => Ok(workspace),
+            Err(TeamStoreError::NotFound) => Err(workspace_membership_required(action)),
+            Err(error) => Err(api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                error.to_string(),
+            )),
+        };
+    }
+    team_store
+        .list_workspaces_for_user(user_id)
+        .await
         .map_err(|error| {
             api_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -199,13 +207,15 @@ pub(crate) async fn authorize_workspace_member(
         })?
         .into_iter()
         .find(|workspace| workspace.id == workspace_id)
-        .ok_or_else(|| {
-            api_error_response(
-                StatusCode::FORBIDDEN,
-                ApiErrorCode::Forbidden,
-                format!("workspace membership is required to {action}"),
-            )
-        })
+        .ok_or_else(|| workspace_membership_required(action))
+}
+
+fn workspace_membership_required(action: &str) -> Response {
+    api_error_response(
+        StatusCode::FORBIDDEN,
+        ApiErrorCode::Forbidden,
+        format!("workspace membership is required to {action}"),
+    )
 }
 
 async fn require_admin_role(

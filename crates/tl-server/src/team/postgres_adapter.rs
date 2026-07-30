@@ -100,6 +100,10 @@ impl TeamStore for TeamRepoAdapter {
         self.repo.list_all_workspaces().await.map_err(map_err)
     }
 
+    async fn get_workspace(&self, workspace_id: &str) -> Result<MyWorkspace, TeamStoreError> {
+        self.repo.get_workspace(workspace_id).await.map_err(map_err)
+    }
+
     async fn create_workspace(
         &self,
         user_id: Uuid,

@@ -229,6 +229,25 @@ impl TeamStore for MemoryTeamStore {
             .collect())
     }
 
+    async fn get_workspace(&self, workspace_id: &str) -> Result<MyWorkspace, TeamStoreError> {
+        let guard = self.inner.read().await;
+        if guard.deleted_workspaces.contains(workspace_id)
+            || !guard.members.iter().any(|(id, _)| id == workspace_id)
+        {
+            return Err(TeamStoreError::NotFound);
+        }
+        Ok(MyWorkspace {
+            id: workspace_id.to_string(),
+            slug: workspace_id.to_string(),
+            name: workspace_id.to_string(),
+            organization_id: format!("org_{workspace_id}"),
+            role: WorkspaceRole::Admin,
+            is_knowledge_base_enabled: false,
+            is_attacks_enabled: false,
+            is_mcp_gateway_enabled: false,
+        })
+    }
+
     async fn create_workspace(
         &self,
         user_id: Uuid,
