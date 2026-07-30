@@ -56,7 +56,7 @@ Static metadata about a tool or host operation: side-effect class, whether the a
 
 ### Tool resolution
 
-The evidence the event pipeline attaches after looking up an event's `action.operation` in the tool metadata registry: `resolved` carries the matched metadata and makes the registry's side-effect class authoritative for the event; `unregistered` is the conservative default for unknown or disabled tools; `resolution_failed` records that the registry itself could not be consulted (e.g. a storage outage), so degraded resolution is never mistaken for absence. Resolution is evidence; checkers and policies decide whether that evidence changes the decision.
+The evidence the event pipeline attaches after looking up an event's `action.operation` in the tool metadata registry: `resolved` carries the matched metadata and makes the registry's side-effect class authoritative for the event; `unregistered` is the conservative default for unknown or disabled tools; `resolution_failed` records that the registry itself could not be consulted (e.g. a storage outage), discards the collector-supplied side-effect class, and always defers execution. Resolved and unregistered outcomes are evidence for checkers and policies; resolution failure is a fail-closed pipeline invariant.
 
 ### Label resolution
 

@@ -2543,7 +2543,7 @@ class ToolResolution1(BaseModel):
 class ToolResolution(RootModel[ToolResolution1 | ToolResolution2 | ToolResolution3]):
     root: ToolResolution1 | ToolResolution2 | ToolResolution3 = Field(
         ...,
-        description="Outcome of resolving an event's `action.operation` against the\nworkspace tool-metadata registry. Resolution is evidence; checkers and\npolicies decide whether that evidence changes the decision.",
+        description="Outcome of resolving an event's `action.operation` against the\nworkspace tool-metadata registry. Resolved and unregistered outcomes are\nevidence for checkers and policies; resolution failure is a fail-closed\npipeline condition that defers execution.",
     )
 
 

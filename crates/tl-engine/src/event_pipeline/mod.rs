@@ -41,8 +41,8 @@ pub trait PrincipalResolver: Send + Sync {
 
 /// Marker error: the registry could not be consulted (e.g. storage
 /// failure). Implementations log the details; the pipeline records
-/// `resolution_failed` evidence, leaves the event otherwise untouched,
-/// and never lets the failure reach the decision (fail open).
+/// `resolution_failed` evidence, clears collector-claimed action semantics,
+/// and defers execution until authoritative metadata is available.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ToolMetadataUnavailable;
 
@@ -197,7 +197,9 @@ impl DecisionComposer for NoOpDecisionComposer {
 
 /// Per-checker rollout modes resolved by the service layer from workspace
 /// settings before the pipeline runs. Defaults to all `off`, so the
-/// pipeline stays observe-only for any caller that does not opt in.
+/// pipeline stays observe-only for any caller that does not opt in. Tool
+/// metadata resolution failure is a pipeline invariant and always defers,
+/// independent of these rollout modes.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CheckerModes {
     pub information_flow: EnforcementMode,
@@ -297,6 +299,9 @@ impl TracePersister for NoOpTracePersister {
 /// continues without signals so the deterministic core stays available
 /// under overload.
 pub const DEFAULT_SIGNAL_BUDGET: std::time::Duration = std::time::Duration::from_millis(250);
+const TOOL_RESOLUTION_CHECKER_ID: &str = "tool_resolution";
+const TOOL_RESOLUTION_FAILURE_RULE: &str = "tool.metadata_available";
+const TOOL_RESOLUTION_FAILURE_RISK_CODE: &str = "tool_metadata_unavailable";
 
 #[derive(Clone)]
 pub struct EventPipelineCtx {
@@ -334,8 +339,9 @@ impl EventPipelineCtx {
     /// (observe-only), the returned decision is the unchanged
     /// `current_decision`; the returned event carries the collected
     /// evidence for trace enrichment. No stage performs blocking I/O:
-    /// tool-metadata and label-policy reads go through cached providers
-    /// that fail open.
+    /// tool-metadata and label-policy reads go through cached providers.
+    /// Tool-metadata unavailability defers execution; unavailable label
+    /// policy evidence keeps its documented conservative defaults.
     ///
     /// The pipeline always overwrites the event principal's
     /// workspace/environment with the server-resolved values — after
@@ -361,9 +367,9 @@ impl EventPipelineCtx {
         // registry side effect is authoritative when the tool is registered
         // and overwrites the collector-claimed value — checkers and signal
         // providers below see the resolved event, so a checker observes the
-        // registry value on resolution and the claimed value when
-        // resolution did not succeed.
-        match self
+        // registry value on resolution. If the registry is unavailable,
+        // caller semantics are discarded and the action is deferred below.
+        let metadata_resolution_failed = match self
             .tool_metadata
             .get(&event.principal.workspace_id, &event.action.operation)
             .await
@@ -371,14 +377,23 @@ impl EventPipelineCtx {
             Ok(Some(metadata)) => {
                 event.action.side_effect = Some(metadata.side_effect);
                 event.resolution = Some(ToolResolution::Resolved { metadata });
+                false
             }
             Ok(None) => {
                 event.resolution = Some(ToolResolution::Unregistered);
+                false
             }
             Err(ToolMetadataUnavailable) => {
+                tracing::warn!(
+                    workspace_id = %event.principal.workspace_id,
+                    operation = %event.action.operation,
+                    "tool metadata unavailable; deferring action"
+                );
+                event.action.side_effect = None;
                 event.resolution = Some(ToolResolution::ResolutionFailed);
+                true
             }
-        }
+        };
         self.label_resolver.resolve(&mut event).await;
         self.provenance_resolver.resolve(&mut event);
 
@@ -388,6 +403,16 @@ impl EventPipelineCtx {
         event.checks = Vec::new();
         event.signals = Vec::new();
         let mut findings = Vec::new();
+        let resolution_failure_finding = metadata_resolution_failed
+            .then(|| tool_resolution_failure_finding(&event.action.operation));
+        if let Some(finding) = &resolution_failure_finding {
+            event.checks.push(checker_run_evidence(
+                TOOL_RESOLUTION_CHECKER_ID,
+                EnforcementMode::Enforce,
+                std::slice::from_ref(finding),
+            ));
+            findings.push(finding.clone());
+        }
         for checker in &self.checkers {
             let mode = modes.for_checker(checker.id());
             if mode == EnforcementMode::Off {
@@ -432,9 +457,33 @@ impl EventPipelineCtx {
                 severity: signal.severity,
             })
             .collect();
-        let decision = self.composer.compose(current_decision, &findings, &signals);
+        let mut decision = self.composer.compose(current_decision, &findings, &signals);
+        if let Some(finding) = &resolution_failure_finding {
+            // Metadata availability is a pipeline invariant rather than a
+            // configurable checker. Re-apply it with the monotonic composer so
+            // an injected composer cannot accidentally turn an outage into an
+            // executable result.
+            decision =
+                ModeAwareDecisionComposer.compose(decision, std::slice::from_ref(finding), &[]);
+        }
         self.traces.enqueue(&event, &decision);
         (event, decision)
+    }
+}
+
+fn tool_resolution_failure_finding(operation: &str) -> CheckerFinding {
+    CheckerFinding {
+        checker_id: TOOL_RESOLUTION_CHECKER_ID.to_string(),
+        effect: Some(AuthorizationEffect::Defer),
+        reason: format!("authoritative metadata for tool '{operation}' is temporarily unavailable"),
+        violated_rule: Some(TOOL_RESOLUTION_FAILURE_RULE.to_string()),
+        remediation: Some(
+            "retry after the workspace tool-metadata registry is available".to_string(),
+        ),
+        source_chain: vec![],
+        risk_source: None,
+        risk_code: Some(TOOL_RESOLUTION_FAILURE_RISK_CODE.to_string()),
+        harm_class: Some("authorization".to_string()),
     }
 }
 
@@ -887,32 +936,102 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn provider_failure_marks_resolution_failed_and_decision_unchanged() {
+    async fn provider_failure_clears_claimed_semantics_and_defers_all_checker_paths() {
+        let ctx = EventPipelineCtx {
+            tool_metadata: Arc::new(FailingToolMetadataProvider),
+            checkers: vec![
+                Arc::new(InformationFlowChecker),
+                Arc::new(ParameterAuthChecker),
+                Arc::new(ValueLimitChecker),
+                Arc::new(ApprovalChecker),
+            ],
+            composer: Arc::new(ModeAwareDecisionComposer),
+            ..EventPipelineCtx::no_op()
+        };
+        let modes = CheckerModes {
+            information_flow: EnforcementMode::Enforce,
+            parameter_auth: EnforcementMode::Enforce,
+            approval: EnforcementMode::Enforce,
+            ..CheckerModes::default()
+        };
+
+        for claimed_side_effect in [
+            None,
+            Some(SideEffectClass::None),
+            Some(SideEffectClass::Read),
+        ] {
+            let mut input = high_fidelity_event();
+            input.action.side_effect = claimed_side_effect;
+
+            let (event, decision) = ctx
+                .process(
+                    input,
+                    "ws_1",
+                    "production",
+                    modes,
+                    Decision::allow("trace-1"),
+                )
+                .await;
+
+            assert_eq!(event.resolution, Some(ToolResolution::ResolutionFailed));
+            assert_eq!(
+                event.action.side_effect, None,
+                "collector classification must not survive an outage"
+            );
+            assert_eq!(decision.effect, AuthorizationEffect::Defer);
+            assert_eq!(
+                decision.violated_rule.as_deref(),
+                Some(TOOL_RESOLUTION_FAILURE_RULE)
+            );
+            assert_eq!(
+                decision.risk_code.as_deref(),
+                Some(TOOL_RESOLUTION_FAILURE_RISK_CODE)
+            );
+            let resolution_run = &event.checks[0];
+            assert_eq!(resolution_run.checker_id, TOOL_RESOLUTION_CHECKER_ID);
+            assert_eq!(resolution_run.mode, EnforcementMode::Enforce);
+            assert_eq!(
+                resolution_run.findings[0].recommended_effect,
+                Some(AuthorizationEffect::Defer)
+            );
+            for checker_id in [
+                "information_flow",
+                "parameter_auth",
+                "value_limit",
+                "approval",
+            ] {
+                assert!(
+                    event.checks.iter().any(|run| run.checker_id == checker_id),
+                    "{checker_id} coverage must remain present during an outage"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn provider_failure_defers_when_all_checker_modes_are_off() {
         let ctx = EventPipelineCtx {
             tool_metadata: Arc::new(FailingToolMetadataProvider),
             ..EventPipelineCtx::no_op()
         };
-        let decision = Decision::allow("trace-1");
-        let before = serde_json::to_value(&decision).unwrap();
+        let mut input = high_fidelity_event();
+        input.action.side_effect = Some(SideEffectClass::Read);
 
-        let (event, after) = ctx
+        let (event, decision) = ctx
             .process(
-                high_fidelity_event(),
+                input,
                 "ws_1",
                 "production",
                 CheckerModes::default(),
-                decision,
+                Decision::allow("trace-1"),
             )
             .await;
 
-        // A registry outage is recorded as distinct evidence — never as
-        // genuine absence — and the claimed side effect survives.
-        assert_eq!(event.resolution, Some(ToolResolution::ResolutionFailed));
-        assert_eq!(
-            event.action.side_effect,
-            Some(SideEffectClass::ExternalCommunication)
-        );
-        assert_eq!(serde_json::to_value(after).unwrap(), before);
+        assert_eq!(decision.effect, AuthorizationEffect::Defer);
+        assert_eq!(event.action.side_effect, None);
+        assert_eq!(event.checks.len(), 1);
+        assert_eq!(event.checks[0].checker_id, TOOL_RESOLUTION_CHECKER_ID);
+        assert_eq!(event.checks[0].mode, EnforcementMode::Enforce);
     }
 
     #[tokio::test]

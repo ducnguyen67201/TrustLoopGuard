@@ -54,6 +54,9 @@ pub struct AuthorizationEvaluationRequest {
     pub run_id: Option<String>,
     pub transformed_value: Option<serde_json::Value>,
     pub intent_expires_at: Option<DateTime<Utc>>,
+    /// False when upstream evidence is temporarily unavailable and cannot
+    /// produce a stable executable-subject fingerprint.
+    pub persist_intent: bool,
 }
 
 #[derive(Clone)]
@@ -129,7 +132,7 @@ impl AuthorizationCoordinator {
 
         let executable = subject.domain() != tl_core::AuthorizationDomain::Content;
         let subject_id = subject_id(&subject);
-        let intent_id = if executable {
+        let intent_id = if executable && request.persist_intent {
             let suggested_id = deterministic_intent_id(
                 &request.workspace_id,
                 &request.environment_id,
@@ -245,7 +248,9 @@ impl AuthorizationCoordinator {
                 .map(|finding| finding.reason.clone())
                 .unwrap_or_else(|| "authorization requirements were not satisfied".into())
         };
-        let status = executable.then_some(intent_status(composition.effect));
+        let status = intent_id
+            .as_ref()
+            .map(|_| intent_status(composition.effect));
         let applied_grant = composition
             .applied_grant_id
             .as_deref()

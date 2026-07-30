@@ -394,6 +394,7 @@ impl FinancialAuthorizationService {
                 run_id: None,
                 transformed_value: None,
                 intent_expires_at: Some(Utc::now() + Duration::minutes(15)),
+                persist_intent: true,
             })
             .await
             .map_err(authorization_error)

@@ -318,6 +318,10 @@ async fn execute_event_submission_inner(
             run_id: event.principal.run_id.clone(),
             transformed_value: decision.safe_output.clone().map(serde_json::Value::String),
             intent_expires_at: None,
+            persist_intent: !matches!(
+                event.resolution.as_ref(),
+                Some(ToolResolution::ResolutionFailed)
+            ),
         })
         .await
         .map_err(authorization_error)?;

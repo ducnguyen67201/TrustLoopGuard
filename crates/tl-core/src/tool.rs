@@ -41,8 +41,9 @@ pub struct ToolMetadata {
 }
 
 /// Outcome of resolving an event's `action.operation` against the
-/// workspace tool-metadata registry. Resolution is evidence; checkers and
-/// policies decide whether that evidence changes the decision.
+/// workspace tool-metadata registry. Resolved and unregistered outcomes are
+/// evidence for checkers and policies; resolution failure is a fail-closed
+/// pipeline condition that defers execution.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -58,8 +59,8 @@ pub enum ToolResolution {
     Unregistered,
     /// The registry could not be consulted (e.g. storage failure).
     /// Distinguishes degraded resolution from genuine absence so traces
-    /// stay accurate forensic evidence; the collector-claimed side
-    /// effect is left untouched and the decision is unaffected.
+    /// stay accurate forensic evidence. Collector-claimed action semantics
+    /// are discarded and execution is deferred until metadata is available.
     ResolutionFailed,
 }
 

@@ -204,8 +204,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         handler_ctx,
         // Live tool-metadata resolution (action semantics), label
         // resolution, provenance propagation, and deterministic checkers.
-        // Checker enforcement modes default to off per workspace, so the
-        // decision is untouched unless a workspace opts in.
+        // Checker enforcement modes default to off per workspace. Tool-metadata
+        // lookup failure remains an always-enforced defer invariant.
         event_pipeline: Arc::new(EventPipelineCtx {
             tool_metadata: tool_metadata_provider,
             label_resolver: Arc::new(tl_engine::PolicyLabelResolver::new(label_policy_provider)),
