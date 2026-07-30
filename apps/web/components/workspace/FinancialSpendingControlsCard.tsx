@@ -309,7 +309,7 @@ export function FinancialPolicyCreateDialog({
               <>
                 <MoneyField
                   label="Per-action cap"
-                  hint="Maximum amount allowed for one action. Leave blank for no per-action cap."
+                  hint="Threshold checked against each action. Cap breach decides what happens when it is exceeded."
                   valueKey="perAction"
                   form={form}
                   setForm={setForm}
@@ -327,8 +327,8 @@ export function FinancialPolicyCreateDialog({
               label="Daily cap"
               hint={
                 form.meter === 'llm_usage'
-                  ? 'Maximum estimated LLM spend per principal per UTC day. Leave blank for no daily cap.'
-                  : 'Maximum total action amount per UTC day. Leave blank for no daily cap.'
+                  ? 'Estimated LLM spend threshold per principal per UTC day. Leave blank to skip this window.'
+                  : 'Cumulative threshold per UTC day across matching actions. Leave blank to skip this window.'
               }
               valueKey="daily"
               form={form}
@@ -338,8 +338,8 @@ export function FinancialPolicyCreateDialog({
               label="Weekly cap"
               hint={
                 form.meter === 'llm_usage'
-                  ? 'Maximum estimated LLM spend per principal per UTC week. Leave blank for no weekly cap.'
-                  : 'Maximum total action amount per UTC week. Leave blank for no weekly cap.'
+                  ? 'Estimated LLM spend threshold per principal per UTC week. Leave blank to skip this window.'
+                  : 'Cumulative threshold per UTC week across matching actions. Leave blank to skip this window.'
               }
               valueKey="weekly"
               form={form}
@@ -349,8 +349,8 @@ export function FinancialPolicyCreateDialog({
               label="Monthly cap"
               hint={
                 form.meter === 'llm_usage'
-                  ? 'Maximum estimated LLM spend per principal per UTC month. Leave blank for no monthly cap.'
-                  : 'Maximum total action amount per UTC month. Leave blank for no monthly cap.'
+                  ? 'Estimated LLM spend threshold per principal per UTC month. Leave blank to skip this window.'
+                  : 'Cumulative threshold per UTC month across matching actions. Leave blank to skip this window.'
               }
               valueKey="monthly"
               form={form}
@@ -564,15 +564,7 @@ function pick<T extends string>(
   return allowed.includes(value as T) ? (value as T) : fallback;
 }
 
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint: string;
-  children: ReactNode;
-}) {
+function Field({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
   return (
     <div className="grid gap-1.5">
       <Label>{label}</Label>
