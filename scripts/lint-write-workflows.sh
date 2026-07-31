@@ -65,4 +65,49 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
   )
 done
 
+graphify_workflow=".github/workflows/graphify.yml"
+graphify_requirements=".github/graphify-requirements.txt"
+graphify_hashes=".github/graphify-wheels.sha256"
+
+if [[ -f "$graphify_workflow" ]]; then
+  if [[ ! -f "$graphify_requirements" || ! -f "$graphify_hashes" ]]; then
+    report "$graphify_workflow must keep its exact requirements and wheel hash manifest"
+  else
+    if awk '
+      /^[[:space:]]*(#|$)/ { next }
+      !/^[A-Za-z0-9_.-]+==[A-Za-z0-9_.+!-]+$/ { invalid = 1 }
+      END { exit invalid ? 0 : 1 }
+    ' "$graphify_requirements"; then
+      report "$graphify_requirements contains a dependency without an exact version"
+    fi
+
+    requirement_count="$(
+      awk '/^[A-Za-z0-9_.-]+==[A-Za-z0-9_.+!-]+$/ { count += 1 } END { print count + 0 }' \
+        "$graphify_requirements"
+    )"
+    manifest_count=0
+    while read -r hash wheel extra; do
+      [[ -n "$hash" ]] || continue
+      manifest_count=$((manifest_count + 1))
+      if [[ ! "$hash" =~ ^[0-9a-f]{64}$ || ! "$wheel" =~ \.whl$ || -n "${extra:-}" ]]; then
+        report "$graphify_hashes contains an invalid wheel hash entry"
+      fi
+    done < "$graphify_hashes"
+    if [[ "$manifest_count" -ne "$requirement_count" ]]; then
+      report "$graphify_hashes must contain one wheel for every exact Graphify requirement"
+    fi
+
+    for required_token in \
+      "sha256sum --check" \
+      "--no-index" \
+      "--no-deps" \
+      ".github/graphify-requirements.txt" \
+      ".github/graphify-wheels.sha256"; do
+      if ! grep -Fq -- "$required_token" "$graphify_workflow"; then
+        report "$graphify_workflow is missing verified offline install token '$required_token'"
+      fi
+    done
+  fi
+fi
+
 exit "$status"

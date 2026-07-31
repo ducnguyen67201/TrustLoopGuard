@@ -33,25 +33,40 @@ jobs:
           python-version: '3.11'
 
       - name: install graphifyy
-        env:
-          GRAPHIFY_WHEEL_SHA256: b0d47f823f924e7f89acfee390b9f18dc3410917617c5f6f2731bd2642abf16f
         run: |
           set -euo pipefail
           python -m pip download \
             --disable-pip-version-check \
             --no-deps \
             --only-binary=:all: \
+            --platform manylinux_2_28_x86_64 \
+            --platform manylinux2014_x86_64 \
+            --platform manylinux_2_17_x86_64 \
+            --platform manylinux1_x86_64 \
+            --python-version 3.11 \
+            --implementation cp \
             --dest "$RUNNER_TEMP/graphify" \
-            "graphifyy==0.9.31"
-          wheel="$RUNNER_TEMP/graphify/graphifyy-0.9.31-py3-none-any.whl"
-          printf '%s  %s\n' "$GRAPHIFY_WHEEL_SHA256" "$wheel" | sha256sum --check
-          pipx install "$wheel"
+            --requirement .github/graphify-requirements.txt
+          (
+            cd "$RUNNER_TEMP/graphify"
+            sha256sum --check "$GITHUB_WORKSPACE/.github/graphify-wheels.sha256"
+            expected="$(wc -l < "$GITHUB_WORKSPACE/.github/graphify-wheels.sha256")"
+            downloaded="$(find . -maxdepth 1 -type f -name '*.whl' | wc -l)"
+            test "$downloaded" -eq "$expected"
+          )
+          python -m venv "$RUNNER_TEMP/graphify-venv"
+          "$RUNNER_TEMP/graphify-venv/bin/python" -m pip install \
+            --disable-pip-version-check \
+            --no-index \
+            --no-deps \
+            --find-links "$RUNNER_TEMP/graphify" \
+            --requirement .github/graphify-requirements.txt
 
       - name: build graph (AST-only, no LLM)
         # --force: this job rebuilds deterministically from source with no LLM
         # chunk files to lose, so a legitimate node-count drop (code removed in a
         # PR) must not trip graphify's missing-chunks guard and fail CI.
-        run: graphify update . --force
+        run: "$RUNNER_TEMP/graphify-venv/bin/graphify" update . --force
 
       - name: upload graph artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
