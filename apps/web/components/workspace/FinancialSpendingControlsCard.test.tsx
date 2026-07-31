@@ -28,7 +28,9 @@ afterEach(() => {
 });
 
 describe('FinancialPolicyCreateDialog', () => {
-  it('explains every visible financial-action field in plain language', () => {
+  it('keeps financial-action guidance in information tooltips', async () => {
+    const user = userEvent.setup();
+
     render(
       <FinancialPolicyCreateDialog
         open
@@ -37,28 +39,48 @@ describe('FinancialPolicyCreateDialog', () => {
       />,
     );
 
-    const expectedGuidance = [
-      'Choose whether this policy governs money-moving actions or Gateway LLM spend.',
-      'Use a stable lowercase identifier that will appear in policy lists, logs, and API responses.',
-      'Only actions from this agent id match. Use the same id your SDK sends.',
-      'Explain what this control protects so teammates can recognize it later.',
-      'Optional operation name sent by the integration, such as issue_refund. It must match exactly.',
-      'Use a three-letter currency code, such as USD. The amount fields use this currency.',
-      'Select the typed action this policy evaluates: refund, payment, or payout.',
-      'Select how the money moves. The action must report the same rail to match.',
-      'Threshold checked against each action. Cap breach decides what happens when it is exceeded.',
-      'Actions above this amount require approval. A hard cap can still deny the action.',
-      'Cumulative threshold per UTC day across matching actions. Leave blank to skip this window.',
-      'Cumulative threshold per UTC week across matching actions. Leave blank to skip this window.',
-      'Cumulative threshold per UTC month across matching actions. Leave blank to skip this window.',
-      'Effect returned when an action exceeds one of the configured caps.',
-      'Effect returned when required evidence was not provided.',
-      'Effect returned when supplied evidence says a required precondition is false.',
+    const fieldsWithGuidance = [
+      'Applies to',
+      'Control id',
+      'Agent',
+      'Description',
+      'Operation',
+      'Currency',
+      'Action kind',
+      'Rail',
+      'Per-action cap',
+      'Require approval above',
+      'Daily cap',
+      'Weekly cap',
+      'Monthly cap',
+      'Require user intent proof',
+      'Cap breach',
+      'Missing evidence',
+      'Failed evidence',
     ];
 
-    for (const guidance of expectedGuidance) {
-      expect(screen.getByText(guidance)).toBeInTheDocument();
+    for (const field of fieldsWithGuidance) {
+      expect(
+        screen.getByRole('button', { name: `More information about ${field}` }),
+      ).toBeInTheDocument();
     }
+
+    const capGuidance =
+      'Threshold checked against each action. Cap breach decides what happens when it is exceeded.';
+    expect(screen.queryByText(capGuidance)).not.toBeInTheDocument();
+
+    await user.hover(
+      screen.getByRole('button', { name: 'More information about Per-action cap' }),
+    );
+
+    expect(await screen.findByText(capGuidance)).toBeInTheDocument();
+
+    const intentDetails = /Where it comes from:/i;
+    expect(screen.queryByText(intentDetails)).not.toBeInTheDocument();
+    await user.hover(
+      screen.getByRole('button', { name: 'More information about Require user intent proof' }),
+    );
+    expect(await screen.findByText(intentDetails)).toBeInTheDocument();
   });
 
   it('creates an LLM usage budget without financial-action selectors', async () => {
@@ -92,15 +114,15 @@ describe('FinancialPolicyCreateDialog', () => {
     expect(
       screen.getByText(/requests with max_tokens get strict preflight enforcement/i),
     ).toBeInTheDocument();
+    const principalGuidance =
+      'Limit this budget to one runtime principal. Leave blank to meter every principal separately.';
+    expect(screen.queryByText(principalGuidance)).not.toBeInTheDocument();
+    await userEvent.hover(
+      screen.getByRole('button', { name: 'More information about Principal (optional)' }),
+    );
+    expect(await screen.findByText(principalGuidance)).toBeInTheDocument();
     expect(
-      screen.getByText(
-        'Limit this budget to one runtime principal. Leave blank to meter every principal separately.',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'Estimated LLM spend threshold per principal per UTC week. Leave blank to skip this window.',
-      ),
+      screen.getByRole('button', { name: 'More information about Weekly cap' }),
     ).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Create financial policy' }));
 
@@ -164,8 +186,9 @@ describe('FinancialPolicyCreateDialog', () => {
     expect(body.when?.action_kinds).toEqual(['payment']);
   });
 
-  it('explains the evidence choices shown for refund policies', () => {
+  it('explains the evidence choices shown for refund policies in a tooltip', async () => {
     const policy = x402MandatePolicy();
+    const user = userEvent.setup();
 
     render(
       <FinancialPolicyCreateDialog
@@ -185,11 +208,17 @@ describe('FinancialPolicyCreateDialog', () => {
       />,
     );
 
-    expect(
-      screen.getByText(
-        'Select the facts the caller must provide and satisfy before a refund can be authorized.',
-      ),
-    ).toBeInTheDocument();
+    const evidenceGuidance =
+      'Select the facts the caller must provide and satisfy before a refund can be authorized.';
+    expect(screen.queryByText(evidenceGuidance)).not.toBeInTheDocument();
+
+    await user.hover(
+      screen.getByRole('button', {
+        name: 'More information about Required refund evidence',
+      }),
+    );
+
+    expect(await screen.findByText(evidenceGuidance)).toBeInTheDocument();
   });
 });
 
