@@ -323,7 +323,8 @@ Start the server:
 make server                          # = doppler run -- cargo run -p tl-server
 ```
 
-Wait for `Listening on 0.0.0.0:8080`. Leave it running.
+Wait for the server to report that it is listening on `127.0.0.1:8080`. Leave
+it running.
 
 `make server`, `make server-watch`, and `make dev` default to the colorized
 local backend formatter. To run the same format without Make:

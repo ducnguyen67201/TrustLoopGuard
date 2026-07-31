@@ -5,10 +5,9 @@
 #   - server — tl-server on :8080 (auto-runs migrations on boot)
 #   - web    — Next.js dashboard on :3000
 #
-# Zero env vars required for first boot. `.env.example` documents the
-# optional knobs. The DB credentials below are local-only. Postgres is
-# published to localhost so host-based dev commands like `make server`
-# and `make dev-db` use the same database as the Compose stack.
+# Set `POSTGRES_PASSWORD` and `TL_API_KEY` before first boot (or copy
+# `.env.example` to `.env` and replace the placeholders). Published ports
+# are loopback-only so the local stack is never exposed to the LAN by default.
 #
 # Stop:        docker compose down
 # Wipe data:   docker compose down -v
@@ -23,12 +22,12 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: trustloop
-      POSTGRES_PASSWORD: trustloop
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting Compose}
       POSTGRES_DB: trustloop
     volumes:
       - tl-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U trustloop -d trustloop"]
       interval: 2s
@@ -41,9 +40,10 @@ services:
       context: .
       dockerfile: crates/tl-server/Dockerfile
     environment:
-      DATABASE_URL: postgres://trustloop:trustloop@db:5432/trustloop
+      DATABASE_URL: postgres://trustloop:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting Compose}@db:5432/trustloop
       RUST_LOG: ${RUST_LOG:-info}
-      TL_API_KEY: ${TL_API_KEY:-}
+      TL_API_KEY: ${TL_API_KEY:?Set TL_API_KEY before starting Compose}
+      TL_SERVER_ADDR: 0.0.0.0:8080
       TL_PUBLIC_URL: ${TL_PUBLIC_URL:-http://localhost:8080}
       TL_DASHBOARD_URL: ${TL_DASHBOARD_URL:-http://localhost:3000}
       TL_GATEWAY_CREDENTIAL_KEY: ${TL_GATEWAY_CREDENTIAL_KEY:-trustloopguard-local-gateway-credential-key}
@@ -65,7 +65,7 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     # No HEALTHCHECK: the runtime is distroless (no shell, no wget/curl),
     # so an in-container probe isn't possible without bloating the image.
     # `web` uses depends_on: service_started below — Next retries failed
@@ -87,6 +87,7 @@ services:
       AUTH_URL: ${AUTH_URL:-http://localhost:3000}
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
       TL_SERVER_URL: http://server:8080
+      TL_API_KEY: ${TL_API_KEY:?Set TL_API_KEY before starting Compose}
       AUTH_SECRET: ${AUTH_SECRET:-trustloopguard-local-auth-secret-change-me}
       AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
       AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
@@ -96,7 +97,7 @@ services:
       server:
         condition: service_started
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     restart: unless-stopped
 
 volumes:

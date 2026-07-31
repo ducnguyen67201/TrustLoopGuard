@@ -338,9 +338,15 @@ describe('guard()', () => {
     expect(out).toBe('sanitised!');
   });
 
-  it('fails open by default on transport error', async () => {
+  it('fails closed by default on transport error', async () => {
     const client = failingClient(new Error('econnreset'));
     const out = await guard({ ...DEFAULT_OPTS, client });
+    expect(out).toBe("I can't help with that request.");
+  });
+
+  it('allows an explicit fail-open transport mode', async () => {
+    const client = failingClient(new Error('econnreset'));
+    const out = await guard({ ...DEFAULT_OPTS, client, failClosed: false });
     expect(out).toBe('hello there');
   });
 
@@ -585,14 +591,59 @@ describe('guard()', () => {
     expect(out).toBe('A human should review this.');
   });
 
-  it('factory form can fail closed on transport errors', async () => {
+  it('factory form fails closed on transport errors by default', async () => {
     const guardrail = guard({
       agentId: 'factory-agent',
       client: failingClient(new Unavailable('upstream')),
-      failClosed: true,
     });
 
     const out = await guardrail({ input: 'hi', draft: 'original' });
+    expect(out).toBe("I can't help with that request.");
+  });
+
+  it('factory form supports explicit fail-open transport behavior', async () => {
+    const guardrail = guard({
+      agentId: 'factory-agent',
+      client: failingClient(new Unavailable('upstream')),
+      failClosed: false,
+    });
+
+    const out = await guardrail({ input: 'hi', draft: 'original' });
+    expect(out).toBe('original');
+  });
+
+  it('per-call fail-open overrides the fail-closed factory default', async () => {
+    const guardrail = guard({
+      agentId: 'factory-agent',
+      client: failingClient(
+        new Unavailable({
+          code: 'unavailable',
+          message: 'upstream',
+          retriable: true,
+          details: null,
+        }),
+      ),
+    });
+
+    const out = await guardrail({ input: 'hi', draft: 'original', failClosed: false });
+    expect(out).toBe('original');
+  });
+
+  it('per-call fail-closed overrides a fail-open factory', async () => {
+    const guardrail = guard({
+      agentId: 'factory-agent',
+      client: failingClient(
+        new Unavailable({
+          code: 'unavailable',
+          message: 'upstream',
+          retriable: true,
+          details: null,
+        }),
+      ),
+      failClosed: false,
+    });
+
+    const out = await guardrail({ input: 'hi', draft: 'original', failClosed: true });
     expect(out).toBe("I can't help with that request.");
   });
 
@@ -1147,9 +1198,7 @@ describe('guardAgent()', () => {
     );
 
     await client.withRun({ agentId: 'support-agent', kind: 'workflow' }, (run) =>
-      run.withEvent({ kind: 'workflow_step', input_summary: 'hello' }, () =>
-        agent.reply('hello'),
-      ),
+      run.withEvent({ kind: 'workflow_step', input_summary: 'hello' }, () => agent.reply('hello')),
     );
 
     const runEvents = requests.filter(({ url }) =>

@@ -82,6 +82,12 @@ failure after the callback returns the captured tool result and never retries
 the tool. Output transport/decode fallback alone can be configured
 fail-open with `output_fail_closed=False`.
 
+Standalone output guards in both TypeScript and Python also fail closed on
+transport, decode, and retry-exhaustion errors by default. Availability-first
+integrations must opt in explicitly with `failClosed: false` (TypeScript) or
+`fail_closed=False` (Python); an `onError`/`on_error` handler remains the
+preferred way to supply a domain-specific safe response.
+
 These adapters use the existing `POST /v1/events` endpoint and generated wire
 contract unchanged. Their supported seams and limitations are defined in
 [sdk-agent-adapters.md](concept/sdk-agent-adapters.md).

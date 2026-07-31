@@ -22,7 +22,7 @@ A `GuardEvent` contains:
 - `kind`: dotted event taxonomy such as `output.proposed`, `tool.call.proposed`, `shell.action.proposed`, `memory.write.proposed`, or `database.mutation.proposed`;
 - `principal`: workspace, environment, agent, optional user/session/task, and optional run identity;
 - `action`: operation, full JSON parameters, tool identity, and side-effect class;
-- `sources`: influencing inputs and declared origin/labels;
+- `sources`: influencing inputs and origin/label claims. Declared labels are accepted only for the trusted user/system channels; externally controlled tool, memory, file, web, email, API, and unknown origins resolve from workspace policy or conservative origin defaults;
 - `provenance`: parameter/output paths to source IDs;
 - `context`: bounded caller context;
 - server-authored resolution, checker, and signal evidence.
@@ -65,6 +65,10 @@ an outage-time placeholder.
 - No enforcing finding: `permit`.
 
 Signals are advisory and never weaken a deterministic finding. A grant can satisfy only an explicit matching approval requirement; it cannot remove denial or deferral.
+
+High/critical semantic candidates require a working semantic judge route. An absent or disabled
+route produces `defer`; lower-severity semantic candidates remain advisory when the judge is
+unavailable. Provider errors and omitted high/critical decisions follow the same fail-closed rule.
 
 ## MCP proxy
 

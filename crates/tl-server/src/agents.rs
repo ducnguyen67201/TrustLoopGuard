@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::{
-    extract::{Path, State},
+    extract::{Extension, Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
@@ -28,6 +28,7 @@ mod response;
 mod tests;
 mod validation;
 
+use crate::{auth::WorkspaceKeyContext, dashboard_admin::reject_workspace_runtime_key};
 pub use memory_store::MemoryAgentStore;
 use response::api_error_response;
 use validation::{parse_body, validate_profile};
@@ -89,14 +90,19 @@ pub struct AgentState {
         (status = 201, description = "Profile created or updated", body = AgentProfile),
         (status = 400, description = "Malformed request body", body = ApiError),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Workspace runtime keys cannot manage agents", body = ApiError),
         (status = 422, description = "Profile failed validation", body = ApiError),
     ),
 )]
 pub async fn upsert_agent(
     State(state): State<AgentState>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     body: bytes::Bytes,
 ) -> Response {
+    if let Some(response) = reject_workspace_runtime_key(runtime_key, "manage agents") {
+        return response;
+    }
     let profile_and_source = match parse_body(&headers, &body) {
         Ok(p) => p,
         Err(e) => return e.into_response(),
@@ -175,14 +181,19 @@ pub async fn get_agent(
     responses(
         (status = 204, description = "Profile deleted"),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Workspace runtime keys cannot manage agents", body = ApiError),
         (status = 404, description = "Agent not registered", body = ApiError),
     ),
 )]
 pub async fn delete_agent(
     State(state): State<AgentState>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
+    if let Some(response) = reject_workspace_runtime_key(runtime_key, "manage agents") {
+        return response;
+    }
     let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
         Ok(workspace_id) => workspace_id,
         Err(response) => return response,

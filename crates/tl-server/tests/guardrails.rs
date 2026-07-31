@@ -18,16 +18,17 @@ use async_trait::async_trait;
 use axum::{
     body::Body,
     http::{header, Request, StatusCode},
-    Router,
+    middleware, Router,
 };
 use http_body_util::BodyExt;
 use tl_core::{GuardrailGenerateResponse, GuardrailListResponse};
 use tl_llm::{JsonSchema, LlmClient, LlmError, LlmOutput};
 use tl_server::{
     agents::{self, AgentState},
+    auth::{WorkspaceApiKeyVerifier, WorkspaceApiKeyVerifyError, WorkspaceKeyContext},
     environments::MemoryEnvironmentStore,
     policies::{self, GuardrailState, MemoryPolicyStore},
-    MemoryAgentStore,
+    AuthConfig, MemoryAgentStore,
 };
 use tower::ServiceExt;
 
@@ -66,6 +67,23 @@ tone:
 /// Stub `LlmClient` that always returns the same canned policy set —
 /// shape matches `policy_set_draft_json_schema()`.
 struct StubLlm;
+
+struct RuntimeKeyVerifier;
+
+#[async_trait]
+impl WorkspaceApiKeyVerifier for RuntimeKeyVerifier {
+    async fn verify_workspace_api_key(
+        &self,
+        _key_hash: &str,
+    ) -> Result<Option<WorkspaceKeyContext>, WorkspaceApiKeyVerifyError> {
+        Ok(Some(WorkspaceKeyContext {
+            api_key_id: "runtime-key".into(),
+            workspace_id: "ws".into(),
+            environment_id: "production".into(),
+            principal_id: Some("agent:attacker".into()),
+        }))
+    }
+}
 
 #[async_trait]
 impl LlmClient for StubLlm {
@@ -116,6 +134,16 @@ impl LlmClient for StubLlm {
 }
 
 fn build_app() -> Router {
+    build_app_with_auth(None)
+}
+
+fn build_protected_app() -> Router {
+    let auth = AuthConfig::new("internal-test-key")
+        .with_workspace_keys(Some(Arc::new(RuntimeKeyVerifier)));
+    build_app_with_auth(Some(auth))
+}
+
+fn build_app_with_auth(auth: Option<Arc<AuthConfig>>) -> Router {
     let agent_store = Arc::new(MemoryAgentStore::new());
     let policy_store = Arc::new(MemoryPolicyStore::new());
 
@@ -152,7 +180,14 @@ fn build_app() -> Router {
         )
         .with_state(guardrail_state);
 
-    Router::new().merge(agent_routes).merge(guardrail_routes)
+    let app = Router::new().merge(agent_routes).merge(guardrail_routes);
+    match auth {
+        Some(auth) => app.layer(middleware::from_fn_with_state(
+            auth,
+            tl_server::auth::require_bearer,
+        )),
+        None => app,
+    }
 }
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
@@ -166,6 +201,10 @@ async fn read_body(resp: axum::response::Response) -> serde_json::Value {
 
 fn workspace_request() -> axum::http::request::Builder {
     Request::builder().header("x-tlg-workspace-id", "ws")
+}
+
+fn protected_request(token: &str) -> axum::http::request::Builder {
+    workspace_request().header(header::AUTHORIZATION, format!("Bearer {token}"))
 }
 
 async fn upsert_agent(app: &Router, yaml: &str) {
@@ -315,6 +354,81 @@ async fn delete_agent_cascades_to_owned_policies() {
     assert!(
         body.policies.is_empty(),
         "cascade must remove owned policies"
+    );
+}
+
+#[tokio::test]
+async fn runtime_key_cannot_delete_agent_or_its_owned_policies() {
+    let app = build_protected_app();
+    let resp = app
+        .clone()
+        .oneshot(
+            protected_request("tl_live_runtime")
+                .method("POST")
+                .uri("/v1/agents")
+                .header(header::CONTENT_TYPE, "application/yaml")
+                .body(Body::from(AGENT_YAML))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
+    let resp = app
+        .clone()
+        .oneshot(
+            protected_request("internal-test-key")
+                .method("POST")
+                .uri("/v1/agents")
+                .header(header::CONTENT_TYPE, "application/yaml")
+                .body(Body::from(AGENT_YAML))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let resp = app
+        .clone()
+        .oneshot(
+            protected_request("internal-test-key")
+                .method("POST")
+                .uri("/v1/agents/baker-9000/guardrails/generate")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let resp = app
+        .clone()
+        .oneshot(
+            protected_request("tl_live_runtime")
+                .method("DELETE")
+                .uri("/v1/agents/baker-9000")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
+    let resp = app
+        .oneshot(
+            protected_request("internal-test-key")
+                .method("GET")
+                .uri("/v1/agents/baker-9000/guardrails")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let body: GuardrailListResponse = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(
+        body.policies.len(),
+        3,
+        "rejected runtime-key delete must not cascade into peer-owned policies"
     );
 }
 

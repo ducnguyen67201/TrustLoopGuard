@@ -64,7 +64,7 @@ The evidence the event pipeline attaches after resolving every source's labels: 
 
 ### Label basis
 
-Why one resolved label family value was chosen for a source: `origin_default` (built-in default for the source origin), `workspace_override` (an enabled source label policy applied), or `declared` (the producer declared the value and it was accepted).
+Why one resolved label family value was chosen for a source: `origin_default` (built-in default for the source origin), `workspace_override` (an enabled source label policy applied), or `declared` (the producer declared the value on a trusted user/system channel and it was accepted). Declarations on externally controlled origins never produce the `declared` basis.
 
 ### Derived labels
 
@@ -72,7 +72,7 @@ Labels computed for a parameter path by deterministically folding the resolved l
 
 ### Source label policy
 
-A workspace-scoped per-origin label override managed via `/v1/label-policies`. Each row may override trust, confidentiality, and/or integrity for one origin; families left unset inherit the built-in origin defaults. Disabled rows stay manageable but are skipped at runtime.
+A workspace-scoped per-origin label override managed via `/v1/label-policies`. Each row may override trust, confidentiality, and/or integrity for one origin; families left unset inherit the built-in origin defaults. Disabled rows stay manageable but are skipped at runtime. Workspace runtime keys cannot mutate these governing rows.
 
 ### Checker
 
