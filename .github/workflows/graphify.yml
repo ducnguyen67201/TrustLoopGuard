@@ -66,7 +66,7 @@ jobs:
         # --force: this job rebuilds deterministically from source with no LLM
         # chunk files to lose, so a legitimate node-count drop (code removed in a
         # PR) must not trip graphify's missing-chunks guard and fail CI.
-        run: "$RUNNER_TEMP/graphify-venv/bin/graphify" update . --force
+        run: '"$RUNNER_TEMP/graphify-venv/bin/graphify" update . --force'
 
       - name: upload graph artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
