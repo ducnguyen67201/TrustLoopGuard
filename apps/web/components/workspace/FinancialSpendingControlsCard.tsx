@@ -1,7 +1,7 @@
 'use client';
 
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -127,6 +127,7 @@ export function FinancialPolicyCreateDialog({
   onCreated?: (policy: FamilyPolicyRow) => void;
   meter?: FinancialControlForm['meter'];
 }) {
+  const dialogContentRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FinancialControlForm>(DEFAULT_FORM);
   const policyIds = useMemo(() => new Set(existingPolicyIds), [existingPolicyIds]);
@@ -172,10 +173,11 @@ export function FinancialPolicyCreateDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        ref={dialogContentRef}
         className="max-w-3xl"
         onOpenAutoFocus={(event) => {
           event.preventDefault();
-          event.currentTarget.focus();
+          dialogContentRef.current?.focus();
         }}
       >
         <DialogHeader>
