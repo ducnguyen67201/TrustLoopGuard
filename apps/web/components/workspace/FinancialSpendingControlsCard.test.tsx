@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FamilyPolicyRow } from '@/lib/server/dashboard-data';
 
@@ -19,6 +19,17 @@ beforeAll(() => {
     configurable: true,
     value: vi.fn(),
   });
+});
+
+beforeEach(() => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
 });
 
 afterEach(() => {
@@ -64,23 +75,25 @@ describe('FinancialPolicyCreateDialog', () => {
         screen.getByRole('button', { name: `More information about ${field}` }),
       ).toBeInTheDocument();
     }
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
 
     const capGuidance =
       'Threshold checked against each action. Cap breach decides what happens when it is exceeded.';
     expect(screen.queryByText(capGuidance)).not.toBeInTheDocument();
 
-    await user.hover(
-      screen.getByRole('button', { name: 'More information about Per-action cap' }),
-    );
+    const capHelp = screen.getByRole('button', {
+      name: 'More information about Per-action cap',
+    });
+    await user.hover(capHelp);
 
-    expect(await screen.findByText(capGuidance)).toBeInTheDocument();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(capGuidance);
 
     const intentDetails = /Where it comes from:/i;
     expect(screen.queryByText(intentDetails)).not.toBeInTheDocument();
     await user.hover(
       screen.getByRole('button', { name: 'More information about Require user intent proof' }),
     );
-    expect(await screen.findByText(intentDetails)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('tooltip')).toHaveTextContent(intentDetails));
   });
 
   it('creates an LLM usage budget without financial-action selectors', async () => {
@@ -120,7 +133,7 @@ describe('FinancialPolicyCreateDialog', () => {
     await userEvent.hover(
       screen.getByRole('button', { name: 'More information about Principal (optional)' }),
     );
-    expect(await screen.findByText(principalGuidance)).toBeInTheDocument();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(principalGuidance);
     expect(
       screen.getByRole('button', { name: 'More information about Weekly cap' }),
     ).toBeInTheDocument();
@@ -218,7 +231,7 @@ describe('FinancialPolicyCreateDialog', () => {
       }),
     );
 
-    expect(await screen.findByText(evidenceGuidance)).toBeInTheDocument();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(evidenceGuidance);
   });
 });
 
