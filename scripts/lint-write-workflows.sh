@@ -12,6 +12,7 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
   [[ -f "$workflow" ]] || continue
 
   if awk '
+    /^permissions:[[:space:]]*write-all([[:space:]]|$)/ { found = 1; next }
     /^permissions:/ { in_top_permissions = 1; next }
     in_top_permissions && /^[^ ]/ { in_top_permissions = 0 }
     in_top_permissions && /^  contents:[[:space:]]*write([[:space:]]|$)/ { found = 1 }
@@ -36,7 +37,14 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
 
     while IFS= read -r use; do
       [[ -n "$use" ]] || continue
-      if [[ "$use" == ./* || "$use" == docker://* ]]; then
+      if [[ "$use" == ./* ]]; then
+        continue
+      fi
+      if [[ "$use" == docker://* ]]; then
+        if [[ "$use" =~ ^docker://[^@]+@sha256:[0-9a-fA-F]{64}$ ]]; then
+          continue
+        fi
+        report "$workflow job '$job' uses mutable Docker action ref '$use'"
         continue
       fi
       ref="${use##*@}"
@@ -45,7 +53,7 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
       fi
     done < <(
       printf '%s\n' "$job_block" |
-        sed -nE 's/^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*["'\'']?([^"'\'']+@[^[:space:]#"'\'']+)["'\'']?.*$/\1/p'
+        sed -nE 's/^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*["'\'']?([^[:space:]#"'\'']+)["'\'']?.*$/\1/p'
     )
 
     if printf '%s\n' "$job_block" |
@@ -60,6 +68,7 @@ for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
         current = $1
         sub(/:$/, "", current)
       }
+      in_jobs && /^    permissions:[[:space:]]*write-all([[:space:]]|$)/ { print current }
       in_jobs && /^      contents:[[:space:]]*write([[:space:]]|$)/ { print current }
     ' "$workflow"
   )

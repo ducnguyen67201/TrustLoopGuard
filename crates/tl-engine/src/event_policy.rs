@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use async_trait::async_trait;
 use tl_core::{AuthorizationEffect, GuardEvent, Severity, TriggeredPolicy};
 use tl_llm::{prompts::semantic_policy, JudgeKind, LlmCallAudit, LlmRouter};
@@ -298,6 +300,11 @@ async fn evaluate_semantic_policies(
     if let Some(invocation) = result.invocation {
         outcome.semantic_invocations.push(invocation);
     }
+    let returned_policy_ids: HashSet<String> = result
+        .results
+        .iter()
+        .map(|(policy_id, _)| policy_id.clone())
+        .collect();
     for (policy_id, result) in result.results {
         let Some(policy) = policies
             .iter()
@@ -312,6 +319,16 @@ async fn evaluate_semantic_policies(
         };
         apply_semantic_policy_result(policy, result, outcome);
     }
+    let omitted_policies: Vec<&Policy> = policies
+        .iter()
+        .copied()
+        .filter(|policy| !returned_policy_ids.contains(&policy.id))
+        .collect();
+    defer_high_severity_semantic_policies(
+        &omitted_policies,
+        "semantic judge omitted policy decision",
+        outcome,
+    );
 }
 
 fn defer_high_severity_semantic_policies(
@@ -1078,6 +1095,51 @@ severity: high
         assert_eq!(outcome.effect, Some(AuthorizationEffect::Deny));
         assert_eq!(outcome.triggered.len(), 1);
         assert_eq!(outcome.triggered[0].id, "no-insults");
+    }
+
+    #[tokio::test]
+    async fn omitted_high_severity_batch_result_defers() {
+        let returned_policy = load_str(
+            r#"
+id: no-insults
+match:
+  semantic: "the agent insults or demeans the user"
+action: deny
+severity: high
+"#,
+        )
+        .unwrap();
+        let omitted_policy = load_str(
+            r#"
+id: no-legal-advice
+match:
+  semantic: "the agent gives legal advice"
+action: deny
+severity: critical
+"#,
+        )
+        .unwrap();
+        let judge = BatchRecordingJudge::new(vec![(
+            "no-insults".into(),
+            SemanticPolicyJudgeResult::NotMatched {
+                confidence: 0.99,
+                reason: "no insult".into(),
+                evidence: vec![],
+            },
+        )]);
+
+        let outcome = evaluate_event_policies(
+            &output_event("you should sue them"),
+            &[returned_policy, omitted_policy],
+            eval_ctx(Some(&judge)),
+        )
+        .await;
+
+        assert_eq!(judge.calls(), 1);
+        assert_eq!(outcome.effect, Some(AuthorizationEffect::Defer));
+        assert_eq!(outcome.triggered.len(), 1);
+        assert_eq!(outcome.triggered[0].id, "no-legal-advice");
+        assert!(outcome.reason.unwrap().contains("omitted policy decision"));
     }
 
     #[tokio::test]

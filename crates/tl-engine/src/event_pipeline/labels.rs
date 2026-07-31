@@ -419,6 +419,30 @@ mod tests {
     }
 
     #[test]
+    fn workspace_override_beats_forged_external_declaration() {
+        let policies = [web_policy(
+            Some(Trust::Untrusted),
+            Some(Confidentiality::Private),
+            Some(Integrity::Low),
+        )];
+        let src = source(
+            "src.web",
+            Origin::Web,
+            labels(Trust::Trusted, Confidentiality::Secret, Integrity::High),
+        );
+
+        let (resolved, basis) = resolve_source_labels(&src, &policies);
+
+        assert_eq!(
+            resolved,
+            labels(Trust::Untrusted, Confidentiality::Private, Integrity::Low)
+        );
+        assert_eq!(basis.trust, LabelBasis::WorkspaceOverride);
+        assert_eq!(basis.confidentiality, LabelBasis::WorkspaceOverride);
+        assert_eq!(basis.integrity, LabelBasis::WorkspaceOverride);
+    }
+
+    #[test]
     fn trusted_channel_declared_label_keeps_precedence() {
         let src = source(
             "src.user",

@@ -612,6 +612,27 @@ describe('guard()', () => {
     expect(out).toBe('original');
   });
 
+  it('per-call fail-open overrides the fail-closed factory default', async () => {
+    const guardrail = guard({
+      agentId: 'factory-agent',
+      client: failingClient(new Unavailable('upstream')),
+    });
+
+    const out = await guardrail({ input: 'hi', draft: 'original', failClosed: false });
+    expect(out).toBe('original');
+  });
+
+  it('per-call fail-closed overrides a fail-open factory', async () => {
+    const guardrail = guard({
+      agentId: 'factory-agent',
+      client: failingClient(new Unavailable('upstream')),
+      failClosed: false,
+    });
+
+    const out = await guardrail({ input: 'hi', draft: 'original', failClosed: true });
+    expect(out).toBe("I can't help with that request.");
+  });
+
   it('factory strict mode blocks transform effects', async () => {
     const guardrail = guard({
       agentId: 'factory-agent',

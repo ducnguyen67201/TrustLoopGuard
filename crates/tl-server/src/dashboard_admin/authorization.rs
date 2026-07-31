@@ -112,12 +112,8 @@ pub(crate) async fn authorize_workspace_admin_for_workspace(
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     action: &str,
 ) -> Result<Uuid, Response> {
-    if runtime_key.is_some() {
-        return Err(api_error_response(
-            StatusCode::FORBIDDEN,
-            ApiErrorCode::Forbidden,
-            format!("workspace runtime keys cannot {action}"),
-        ));
+    if let Some(response) = reject_workspace_runtime_key(runtime_key, action) {
+        return Err(response);
     }
 
     let user_id = match user {
@@ -158,12 +154,8 @@ pub(crate) async fn authorize_workspace_member(
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     action: &str,
 ) -> Result<MyWorkspace, Response> {
-    if runtime_key.is_some() {
-        return Err(api_error_response(
-            StatusCode::FORBIDDEN,
-            ApiErrorCode::Forbidden,
-            format!("workspace runtime keys cannot {action}"),
-        ));
+    if let Some(response) = reject_workspace_runtime_key(runtime_key, action) {
+        return Err(response);
     }
     let workspace_id = crate::policies::workspace_id_from_headers(headers)?;
     let user_id = match user {
