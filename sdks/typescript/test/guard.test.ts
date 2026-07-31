@@ -615,7 +615,14 @@ describe('guard()', () => {
   it('per-call fail-open overrides the fail-closed factory default', async () => {
     const guardrail = guard({
       agentId: 'factory-agent',
-      client: failingClient(new Unavailable('upstream')),
+      client: failingClient(
+        new Unavailable({
+          code: 'unavailable',
+          message: 'upstream',
+          retriable: true,
+          details: null,
+        }),
+      ),
     });
 
     const out = await guardrail({ input: 'hi', draft: 'original', failClosed: false });
@@ -625,7 +632,14 @@ describe('guard()', () => {
   it('per-call fail-closed overrides a fail-open factory', async () => {
     const guardrail = guard({
       agentId: 'factory-agent',
-      client: failingClient(new Unavailable('upstream')),
+      client: failingClient(
+        new Unavailable({
+          code: 'unavailable',
+          message: 'upstream',
+          retriable: true,
+          details: null,
+        }),
+      ),
       failClosed: false,
     });
 

@@ -37,7 +37,7 @@ The middleware tries them in order: API-key first (cheapest — const-time byte 
 
 A single shared static token configured per deployment.
 
-- **Where it lives**: env var on the server; `Doppler secrets set TL_API_KEY=…` for staging/prod. When unset for local development, middleware is skipped only on a loopback listener. `tl-server` refuses an unauthenticated non-loopback bind.
+- **Where it lives**: env var on the server; `Doppler secrets set TL_API_KEY=…` for staging/prod. The server defaults to `127.0.0.1:8080` whether or not the key is configured. A deployment must explicitly set `TL_SERVER_ADDR` for a non-loopback bind and terminate TLS at a trusted reverse proxy. When the key is unset for local development, middleware is skipped only on a loopback listener; `tl-server` refuses an unauthenticated non-loopback bind.
 - **Who uses it**: the Next.js dashboard's same-origin proxy (`apps/web/app/api/*`), the seed script, and any internal tooling. It is the trust anchor for "this caller is us."
 - **Workspace scoping**: there is none. A request with `TL_API_KEY` reads `X-TLG-Workspace-Id` from the headers and trusts it. Safe because only first-party code sets that header.
 - **User identity**: the web uses this lane for first-party service calls, including

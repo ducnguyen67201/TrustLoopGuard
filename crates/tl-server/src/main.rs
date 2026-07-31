@@ -18,8 +18,8 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    let addr = std::env::var("TL_SERVER_ADDR")
-        .unwrap_or_else(|_| default_listener_addr(auth.is_some()).to_owned());
+    let addr =
+        std::env::var("TL_SERVER_ADDR").unwrap_or_else(|_| default_listener_addr().to_owned());
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     validate_listener_auth(listener.local_addr()?, auth.is_some())?;
 
@@ -30,12 +30,8 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn default_listener_addr(authentication_enabled: bool) -> &'static str {
-    if authentication_enabled {
-        "0.0.0.0:8080"
-    } else {
-        "127.0.0.1:8080"
-    }
+fn default_listener_addr() -> &'static str {
+    "127.0.0.1:8080"
 }
 
 fn validate_listener_auth(
@@ -77,9 +73,8 @@ mod tests {
     use super::{default_listener_addr, validate_listener_auth};
 
     #[test]
-    fn default_listener_follows_authentication_state() {
-        assert_eq!(default_listener_addr(false), "127.0.0.1:8080");
-        assert_eq!(default_listener_addr(true), "0.0.0.0:8080");
+    fn default_listener_is_loopback() {
+        assert_eq!(default_listener_addr(), "127.0.0.1:8080");
     }
 
     #[test]

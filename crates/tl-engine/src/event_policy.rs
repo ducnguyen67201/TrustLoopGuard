@@ -1143,6 +1143,49 @@ severity: critical
     }
 
     #[tokio::test]
+    async fn omitted_lower_severity_batch_result_remains_advisory() {
+        let returned_policy = load_str(
+            r#"
+id: no-insults
+match:
+  semantic: "the agent insults or demeans the user"
+action: deny
+severity: high
+"#,
+        )
+        .unwrap();
+        let omitted_policy = load_str(
+            r#"
+id: no-rudeness
+match:
+  semantic: "the agent is rude"
+action: deny
+severity: medium
+"#,
+        )
+        .unwrap();
+        let judge = BatchRecordingJudge::new(vec![(
+            "no-insults".into(),
+            SemanticPolicyJudgeResult::NotMatched {
+                confidence: 0.99,
+                reason: "no insult".into(),
+                evidence: vec![],
+            },
+        )]);
+
+        let outcome = evaluate_event_policies(
+            &output_event("neutral response"),
+            &[returned_policy, omitted_policy],
+            eval_ctx(Some(&judge)),
+        )
+        .await;
+
+        assert_eq!(judge.calls(), 1);
+        assert_eq!(outcome.effect, None);
+        assert!(outcome.triggered.is_empty());
+    }
+
+    #[tokio::test]
     async fn high_severity_semantic_policy_without_judge_defers() {
         let policy = load_str(
             r#"

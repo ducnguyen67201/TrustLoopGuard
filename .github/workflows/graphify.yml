@@ -32,7 +32,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: install graphifyy
+      - name: install graphify
         run: |
           set -euo pipefail
           python -m pip download \
@@ -49,10 +49,23 @@ jobs:
             --requirement .github/graphify-requirements.txt
           (
             cd "$RUNNER_TEMP/graphify"
-            sha256sum --check "$GITHUB_WORKSPACE/.github/graphify-wheels.sha256"
-            expected="$(wc -l < "$GITHUB_WORKSPACE/.github/graphify-wheels.sha256")"
-            downloaded="$(find . -maxdepth 1 -type f -name '*.whl' | wc -l)"
-            test "$downloaded" -eq "$expected"
+            manifest="$GITHUB_WORKSPACE/.github/graphify-wheels.sha256"
+            manifest_names="$RUNNER_TEMP/graphify-manifest-names"
+            downloaded_names="$RUNNER_TEMP/graphify-downloaded-names"
+            awk '
+              NF != 2 ||
+              $1 !~ /^[0-9a-f]{64}$/ ||
+              $2 !~ /^[A-Za-z0-9][A-Za-z0-9_.+-]*\.whl$/ { exit 1 }
+              { print $2 }
+            ' "$manifest" | LC_ALL=C sort > "$manifest_names"
+            find . -maxdepth 1 -type f -name '*.whl' -printf '%f\n' |
+              LC_ALL=C sort > "$downloaded_names"
+            if ! cmp -s "$manifest_names" "$downloaded_names"; then
+              echo "downloaded Graphify wheels do not exactly match the hash manifest" >&2
+              diff -u "$manifest_names" "$downloaded_names" >&2 || true
+              exit 1
+            fi
+            sha256sum --check "$manifest"
           )
           python -m venv "$RUNNER_TEMP/graphify-venv"
           "$RUNNER_TEMP/graphify-venv/bin/python" -m pip install \
