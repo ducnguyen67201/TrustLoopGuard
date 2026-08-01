@@ -417,6 +417,28 @@ export function guard(opts: GuardFactoryOptions | GuardOptions): OutputGuard | P
  * before side effects run.
  */
 export function guardAgent<Agent extends object>(agent: Agent, opts: GuardAgentOptions): Agent {
+  return decorateAgent(agent, opts, false);
+}
+
+/**
+ * Decorate a LiveKit agent at its local-tool and pre-TTS text boundaries.
+ *
+ * Unlike {@link guardAgent}, this helper buffers each complete text response
+ * before the LiveKit TTS node receives it. Direct speech-to-speech realtime
+ * audio does not pass through this text boundary.
+ */
+export function guardLiveKitAgent<Agent extends object>(
+  agent: Agent,
+  opts: GuardAgentOptions,
+): Agent {
+  return decorateAgent(agent, opts, true);
+}
+
+function decorateAgent<Agent extends object>(
+  agent: Agent,
+  opts: GuardAgentOptions,
+  guardLiveKitSpeech: boolean,
+): Agent {
   const client = opts.client ?? new Client(clientOptions(opts));
   let automaticRun: AutomaticRunController | undefined;
   let toolAutomaticRun: AutomaticRunController | undefined;
@@ -466,11 +488,54 @@ export function guardAgent<Agent extends object>(agent: Agent, opts: GuardAgentO
       : automaticRun === undefined
         ? guardedOutputReply
         : wrapObservedAgentReply(reply.bind(agent), outputGuard, opts, automaticRun);
+  const onUserTurnCompleted = Reflect.get(agent, 'onUserTurnCompleted', agent);
+  const ttsNode = Reflect.get(agent, 'ttsNode', agent);
+  if (
+    guardLiveKitSpeech &&
+    (typeof onUserTurnCompleted !== 'function' || typeof ttsNode !== 'function')
+  ) {
+    throw new TypeError(
+      'guardLiveKitAgent() requires LiveKit onUserTurnCompleted() and ttsNode() methods',
+    );
+  }
+  let latestUserInput = '';
+  const guardedUserTurn =
+    !guardLiveKitSpeech || typeof onUserTurnCompleted !== 'function'
+      ? undefined
+      : async (chatContext: object, message: object, ...args: object[]) => {
+          const result = await Reflect.apply(onUserTurnCompleted, agent, [
+            chatContext,
+            message,
+            ...args,
+          ]);
+          const textContent = Reflect.get(message, 'textContent', message);
+          if (typeof textContent === 'string') latestUserInput = textContent;
+          return result;
+        };
+  const guardedTtsNode =
+    !guardLiveKitSpeech || typeof ttsNode !== 'function'
+      ? undefined
+      : async (text: AsyncIterable<string>, ...args: object[]) => {
+          const invoke = async () => {
+            const draft = await collectText(text);
+            const call: GuardCallOptions = { input: latestUserInput, draft };
+            if (opts.failClosed === undefined && opts.onError === undefined) {
+              call.onError = DEFAULT_BLOCK_MESSAGE;
+            }
+            const guardedDraft = await outputGuard(call);
+            return await Reflect.apply(ttsNode, agent, [singleTextChunk(guardedDraft), ...args]);
+          };
+          return automaticRun === undefined ? await invoke() : await automaticRun.run(invoke);
+        };
   const boundMethods = new WeakMap<object, unknown>();
 
   return new Proxy(agent, {
     get(target, property) {
       if (property === 'reply' && guardedReply !== undefined) return guardedReply;
+      if (property === 'onUserTurnCompleted' && guardedUserTurn !== undefined) {
+        return guardedUserTurn;
+      }
+      if (property === 'ttsNode' && guardedTtsNode !== undefined) return guardedTtsNode;
 
       const value = Reflect.get(target, property, target);
       if (typeof value !== 'function') return value;
@@ -486,6 +551,16 @@ export function guardAgent<Agent extends object>(agent: Agent, opts: GuardAgentO
       return Reflect.set(target, property, value, target);
     },
   });
+}
+
+async function collectText(chunks: AsyncIterable<string>): Promise<string> {
+  let result = '';
+  for await (const chunk of chunks) result += chunk;
+  return result;
+}
+
+async function* singleTextChunk(text: string): AsyncGenerator<string> {
+  yield text;
 }
 
 function wrapObservedAgentReply<Args extends unknown[]>(

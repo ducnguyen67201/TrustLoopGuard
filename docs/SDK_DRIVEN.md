@@ -115,6 +115,14 @@ agentId remains the registered agent identity and is never treated as a
 customer-session identifier. Explicit client.withRun scopes still take
 precedence for the active async boundary.
 
+LiveKit STT→LLM→TTS agents can use `guardLiveKitAgent()` to combine local-tool
+authorization with an output boundary immediately before TTS. The helper
+buffers the complete generated text, evaluates `output.proposed`, and forwards
+only permitted or safely transformed text into the original TTS node. This
+intentionally delays first audio until the complete draft is evaluated.
+Speech-to-speech realtime audio does not traverse this text boundary and is not
+covered by the helper.
+
 Provider-hosted tools, hidden closures, and remote execution surfaces that do
 not expose a local `execute()` remain explicit integration boundaries.
 

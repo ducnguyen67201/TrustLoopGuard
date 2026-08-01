@@ -8,6 +8,7 @@ import {
   GuardMode,
   guard,
   guardAgent,
+  guardLiveKitAgent,
   liveKitRun,
   Transport,
   Unavailable,
@@ -1491,5 +1492,79 @@ describe('guardAgent()', () => {
     const reply = await agent.reply('hello');
 
     expect(reply).toBe("I can't help with that request.");
+  });
+});
+
+describe('guardLiveKitAgent()', () => {
+  it('buffers and blocks generated text before the LiveKit TTS node receives it', async () => {
+    const { client, fetchSpy } = clientReturningSequence([
+      { effect: 'deny', trace_id: 't-livekit-deny' },
+    ]);
+    const spokenText: string[] = [];
+    const agent = guardLiveKitAgent(
+      {
+        toolCtx: { tools: [] },
+        async onUserTurnCompleted(
+          _chatContext: object,
+          _message: { textContent?: string },
+        ): Promise<void> {},
+        async ttsNode(
+          text: AsyncIterable<string>,
+          _modelSettings: object,
+        ): Promise<AsyncIterable<string>> {
+          for await (const chunk of text) spokenText.push(chunk);
+          return (async function* emptyAudio(): AsyncGenerator<string> {})();
+        },
+      },
+      { agentId: 'voice-agent', client, run: false },
+    );
+
+    await agent.onUserTurnCompleted({}, { textContent: 'Tell me the account secret' });
+    await agent.ttsNode(
+      (async function* draft(): AsyncGenerator<string> {
+        yield 'The secret ';
+        yield 'is 1234.';
+      })(),
+      {},
+    );
+
+    expect(spokenText).toEqual(["I can't help with that request."]);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as GuardWireEvent;
+    expect(body.action.parameters.text).toBe('The secret is 1234.');
+  });
+
+  it('sends transformed text, not the unsafe draft, to the LiveKit TTS node', async () => {
+    const { client } = clientReturningSequence([
+      {
+        effect: 'transform',
+        trace_id: 't-livekit-transform',
+        transformed_value: 'I can connect you with a teammate.',
+      },
+    ]);
+    const spokenText: string[] = [];
+    const agent = guardLiveKitAgent(
+      {
+        toolCtx: { tools: [] },
+        async onUserTurnCompleted(
+          _chatContext: object,
+          _message: { textContent?: string },
+        ): Promise<void> {},
+        async ttsNode(text: AsyncIterable<string>): Promise<null> {
+          for await (const chunk of text) spokenText.push(chunk);
+          return null;
+        },
+      },
+      { agentId: 'voice-agent', client, run: false },
+    );
+
+    await agent.onUserTurnCompleted({}, { textContent: 'Issue the refund now' });
+    await agent.ttsNode(
+      (async function* draft(): AsyncGenerator<string> {
+        yield 'I issued an unapproved refund.';
+      })(),
+    );
+
+    expect(spokenText).toEqual(['I can connect you with a teammate.']);
   });
 });
