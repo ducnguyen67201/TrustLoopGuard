@@ -64,11 +64,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Bake the v0 policy bundle into a known path. Compose mounts a host
 # volume on top of this for the dev edit loop; in pure `docker run` mode
 # the baked copy is what serves.
-COPY --chown=featherlane-ai:featherlane policies /etc/featherlane-ai/policies
+COPY --chown=featherlane:featherlane policies /etc/featherlane-ai/policies
 
 COPY --from=builder /app/target/release/tl-server /usr/local/bin/tl-server
 
-USER featherlane-ai:featherlane
+USER featherlane:featherlane
 
 ENV TL_POLICY_DIR=/etc/featherlane-ai/policies \
     RUST_LOG=info
