@@ -9,7 +9,7 @@ const mockState = vi.hoisted(() => ({
 }));
 
 vi.mock('server-only', () => ({}));
-vi.mock('@trustloopguard/sdk', () => ({
+vi.mock('@featherlane-ai/sdk', () => ({
   Client: class MockClient {},
 }));
 vi.mock('@/auth', () => ({
@@ -97,9 +97,9 @@ describe('tl-client Rust auth forwarding', () => {
     });
     const headers = headersForCall(fetchMock, 0);
     expect(headers.get('authorization')).toBe('Bearer internal-service-key');
-    expect(headers.get('x-tlg-workspace-id')).toBe('ws_acme');
-    expect(headers.get('x-tlg-user-id')).toBe('00000000-0000-0000-0000-000000000001');
-    expect(headers.get('x-tlg-user-email')).toBe('owner@example.com');
+    expect(headers.get('x-featherlane-ai-workspace-id')).toBe('ws_acme');
+    expect(headers.get('x-featherlane-ai-user-id')).toBe('00000000-0000-0000-0000-000000000001');
+    expect(headers.get('x-featherlane-ai-user-email')).toBe('owner@example.com');
   });
 
   it('uses internal auth for workspace calls even when the session has a Rust JWT', async () => {
@@ -117,9 +117,9 @@ describe('tl-client Rust auth forwarding', () => {
 
     const headers = headersForCall(fetchMock, 0);
     expect(headers.get('authorization')).toBe('Bearer internal-service-key');
-    expect(headers.get('x-tlg-workspace-id')).toBe('ws_acme');
-    expect(headers.get('x-tlg-user-id')).toBe('00000000-0000-0000-0000-000000000001');
-    expect(headers.get('x-tlg-user-email')).toBe('owner@example.com');
+    expect(headers.get('x-featherlane-ai-workspace-id')).toBe('ws_acme');
+    expect(headers.get('x-featherlane-ai-user-id')).toBe('00000000-0000-0000-0000-000000000001');
+    expect(headers.get('x-featherlane-ai-user-email')).toBe('owner@example.com');
   });
 
   it('uses the request session user when proxying an authorized workspace request', async () => {
@@ -147,9 +147,9 @@ describe('tl-client Rust auth forwarding', () => {
 
     const apiKeyHeaders = headersForCall(fetchMock, 1);
     expect(apiKeyHeaders.get('authorization')).toBe('Bearer internal-service-key');
-    expect(apiKeyHeaders.get('x-tlg-workspace-id')).toBe('ws_acme');
-    expect(apiKeyHeaders.get('x-tlg-user-id')).toBe('00000000-0000-0000-0000-000000000002');
-    expect(apiKeyHeaders.get('x-tlg-user-email')).toBe('admin@example.com');
+    expect(apiKeyHeaders.get('x-featherlane-ai-workspace-id')).toBe('ws_acme');
+    expect(apiKeyHeaders.get('x-featherlane-ai-user-id')).toBe('00000000-0000-0000-0000-000000000002');
+    expect(apiKeyHeaders.get('x-featherlane-ai-user-email')).toBe('admin@example.com');
   });
 
   it('uses internal auth when resolving workspace access even if the session JWT is stale', async () => {
@@ -178,10 +178,10 @@ describe('tl-client Rust auth forwarding', () => {
 
     const workspaceLookupHeaders = headersForCall(fetchMock, 0);
     expect(workspaceLookupHeaders.get('authorization')).toBe('Bearer internal-service-key');
-    expect(workspaceLookupHeaders.get('x-tlg-user-id')).toBe(
+    expect(workspaceLookupHeaders.get('x-featherlane-ai-user-id')).toBe(
       '00000000-0000-0000-0000-000000000002',
     );
-    expect(workspaceLookupHeaders.get('x-tlg-user-email')).toBe('admin@example.com');
+    expect(workspaceLookupHeaders.get('x-featherlane-ai-user-email')).toBe('admin@example.com');
   });
 });
 

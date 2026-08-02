@@ -4,7 +4,7 @@ import test from 'node:test';
 import type {
   HostedProcurementDemoResponse,
   HostedProcurementPolicyInventoryResponse,
-} from '@trustloopguard/demo/procurement-agent/hosted';
+} from '@featherlane-ai/demo/procurement-agent/hosted';
 
 import { createProcurementDemoHandlers } from './route';
 
@@ -227,7 +227,7 @@ function workflowPayload(): HostedProcurementDemoResponse {
         { tool: 'search_catalog', summary: 'Found one demo quote.' },
         {
           tool: 'submit_purchase_order',
-          summary: 'Purchase order submitted after TrustLoopGuard returned permit.',
+          summary: 'Purchase order submitted after Featherlane AI returned permit.',
         },
       ],
       decision: {
@@ -278,7 +278,7 @@ function workflowPayload(): HostedProcurementDemoResponse {
     logs: [{ step: 'chat_received' }],
     runtime: {
       agent: 'openai-agents-js',
-      guard: 'trustloopguard-rust-api',
+      guard: 'featherlane-ai-rust-api',
       provider: 'simulated-procurement-api',
     },
   };
@@ -301,7 +301,7 @@ function inventoryPayload(): Extract<
     source: 'rust',
     runtime: {
       agent: 'openai-agents-js',
-      guard: 'trustloopguard-rust-api',
+      guard: 'featherlane-ai-rust-api',
       provider: 'simulated-procurement-api',
     },
     workspace: {

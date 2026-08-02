@@ -59,19 +59,19 @@ jobs:
         # what `make sdk-typescript` does.
         run: pnpm install --frozen-lockfile
       - name: Typecheck
-        run: pnpm --filter @trustloopguard/sdk typecheck
+        run: pnpm --filter @featherlane-ai/sdk typecheck
       - name: Test
         # Vitest parity tests asserting the TS retry math matches Rust
         # and Python. See sdks/typescript/test/retry.test.ts.
-        run: pnpm --filter @trustloopguard/sdk test
+        run: pnpm --filter @featherlane-ai/sdk test
       - name: Build
-        run: pnpm --filter @trustloopguard/sdk build
+        run: pnpm --filter @featherlane-ai/sdk build
       - name: Verify packed npm artifact
-        run: pnpm --filter @trustloopguard/sdk test:package
+        run: pnpm --filter @featherlane-ai/sdk test:package
       - name: Upload built package
         uses: actions/upload-artifact@v7
         with:
-          name: trustloopguard-typescript-${{ github.sha }}
+          name: featherlane-ai-typescript-${{ github.sha }}
           path: sdks/typescript/dist
           if-no-files-found: error
           retention-days: 7
@@ -115,7 +115,7 @@ jobs:
         if: matrix.python == '3.12'
         uses: actions/upload-artifact@v7
         with:
-          name: trustloopguard-python-${{ github.sha }}
+          name: featherlane-ai-python-${{ github.sha }}
           path: sdks/python/dist
           if-no-files-found: error
           retention-days: 7

@@ -156,7 +156,7 @@ async fn read_body(resp: axum::response::Response) -> serde_json::Value {
 }
 
 fn workspace_request() -> axum::http::request::Builder {
-    Request::builder().header("x-tlg-workspace-id", "ws")
+    Request::builder().header("x-featherlane-ai-workspace-id", "ws")
 }
 
 async fn upsert_agent(app: &Router, yaml: &str) {

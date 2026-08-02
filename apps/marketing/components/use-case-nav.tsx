@@ -22,7 +22,7 @@ export function UseCaseNav({ locale = 'en' }: { locale?: MarketingLocale }) {
     locale === 'vi'
       ? {
           label: 'Tình huống sử dụng',
-          heading: 'Chọn nơi TrustLoopGuard kiểm soát hành động.',
+          heading: 'Chọn nơi Featherlane AI kiểm soát hành động.',
           viewAll: 'Xem tất cả tình huống',
           details: USE_CASE_NAV_GROUPS.details.map((item, index) => ({
             ...item,
@@ -31,7 +31,7 @@ export function UseCaseNav({ locale = 'en' }: { locale?: MarketingLocale }) {
         }
       : {
           label: 'Use cases',
-          heading: 'Choose where TrustLoopGuard controls the action.',
+          heading: 'Choose where Featherlane AI controls the action.',
           viewAll: 'View all use cases',
           details: USE_CASE_NAV_GROUPS.details,
         };

@@ -1,4 +1,4 @@
-# TrustLoopGuard top-level Makefile.
+# Featherlane AI top-level Makefile.
 #
 # Goal: every contributor gets the same commands. CI runs the same recipes
 # locally. If a step is hard to memorize, it goes here.
@@ -64,10 +64,10 @@ sdk-all: sdk-rust sdk-python sdk-typescript ## Build + test all three SDKs
 
 .PHONY: dev-db
 dev-db: ## Run only Postgres for host-based dev (server/web run outside Docker)
-	POSTGRES_PASSWORD=trustloop TL_API_KEY=trustloopguard-local-api-key docker compose up -d db
+	POSTGRES_PASSWORD=featherlane_ai TL_API_KEY=featherlane-ai-local-api-key docker compose up -d db
 
 .PHONY: server
-server: ## Run tl-server with secrets from Doppler (trustloopguard/dev)
+server: ## Run tl-server with secrets from Doppler (featherlane-ai/dev)
 	TL_LOG_FORMAT=$(TL_LOG_FORMAT) doppler run -- cargo run -p tl-server
 
 .PHONY: server-watch
@@ -82,7 +82,7 @@ web: ## Run the Next.js web app with secrets from Doppler
 
 .PHONY: db
 db: ## Bring up just Postgres (other services stay off)
-	POSTGRES_PASSWORD=trustloop TL_API_KEY=trustloopguard-local-api-key docker compose up -d db
+	POSTGRES_PASSWORD=featherlane_ai TL_API_KEY=featherlane-ai-local-api-key docker compose up -d db
 
 .PHONY: dev
 dev: db ## Full stack: Postgres + tl-server (hot reload) + web (hot reload). Ctrl-C kills everything.
@@ -108,8 +108,8 @@ local: db ## Full local stack WITHOUT Doppler (Postgres + tl-server + web). No a
 	@echo ""
 	@lsof -ti:8080 | xargs kill -9 2>/dev/null || true
 	@trap 'echo; echo "stopping…"; kill 0' EXIT INT TERM; \
-		(DATABASE_URL=postgres://trustloop:trustloop@localhost:5432/trustloop \
-		 TL_GATEWAY_CREDENTIAL_KEY=trustloopguard-local-gateway-credential-key \
+		(DATABASE_URL=postgres://featherlane_ai:featherlane_ai@localhost:5432/featherlane_ai \
+		 TL_GATEWAY_CREDENTIAL_KEY=featherlane-ai-local-gateway-credential-key \
 		 TL_LOG_FORMAT=text cargo run -p tl-server 2>&1 | sed 's/^/[server] /') & \
 		(cd apps/web && pnpm dev 2>&1 | sed 's/^/[web]    /') & \
 		wait

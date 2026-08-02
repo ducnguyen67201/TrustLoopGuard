@@ -15,7 +15,7 @@ use utoipa::ToSchema;
 
 /// Runtime that generated a priced LLM call. Customer inference is
 /// the only kind counted by customer spending caps; guardrail calls are
-/// TrustLoopGuard's semantic-policy overhead.
+/// Featherlane AI's semantic-policy overhead.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]

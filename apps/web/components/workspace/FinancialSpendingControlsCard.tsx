@@ -185,7 +185,7 @@ export function FinancialPolicyCreateDialog({
           <DialogDescription>
             {form.meter === 'llm_usage'
               ? 'Cap gateway LLM spend per principal. Requests with max_tokens get strict preflight enforcement; unbounded requests are allowed below the cap, settled to actual usage, and may overshoot once before future calls stop. Trusted model pricing is required.'
-              : 'Define reusable-grant requirements, caps, evidence checks, and authorization effects TrustLoopGuard evaluates before execution.'}
+              : 'Define reusable-grant requirements, caps, evidence checks, and authorization effects Featherlane AI evaluates before execution.'}
           </DialogDescription>
         </DialogHeader>
         <div className="grid max-h-[70vh] gap-4 overflow-y-auto pr-1">

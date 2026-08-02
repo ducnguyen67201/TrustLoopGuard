@@ -146,7 +146,7 @@ fn main() -> Result<()> {
     //    upsert constraint stripped. The invariant stays in
     //    docs/openapi.yaml for OpenAPI clients and is enforced
     //    server-side (422) regardless.
-    let py_out = root.join("sdks/python/src/trustloopguard/_generated/types.py");
+    let py_out = root.join("sdks/python/src/featherlane_ai/_generated/types.py");
     let mut python_spec = openapi.clone();
     strip_label_policy_upsert_constraint(&mut python_spec);
     // datamodel-codegen embeds the input file name in its generated

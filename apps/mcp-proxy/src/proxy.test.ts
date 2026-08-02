@@ -11,7 +11,7 @@ import type {
   AuthorizedActionResult,
   AuthorizationDecision,
   AuthorizationEffect,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { schemaHash } from './canonical-json';
@@ -181,7 +181,7 @@ describe('transparent MCP proxy', () => {
     },
   );
 
-  it('fails closed when TrustLoopGuard is unavailable', async () => {
+  it('fails closed when Featherlane AI is unavailable', async () => {
     const guard: AuthorizationGuard = {
       async withAuthorizedAction<T>(): Promise<AuthorizedActionResult<T>> {
         throw new Error('server unavailable');

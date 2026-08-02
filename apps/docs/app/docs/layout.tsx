@@ -6,8 +6,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <DocsLayout
       tree={source.pageTree}
-      nav={{ title: 'TrustLoopGuard' }}
-      githubUrl="https://github.com/ducnguyen67201/TrustLoopGuard"
+      nav={{ title: 'Featherlane AI' }}
+      githubUrl="https://github.com/ducnguyen67201/FeatherlaneAI"
     >
       {children}
     </DocsLayout>

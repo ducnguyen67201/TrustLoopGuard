@@ -1,15 +1,15 @@
-# @trustloopguard/sdk
+# @featherlane-ai/sdk
 
-TypeScript SDK for TrustLoopGuard runtime guardrails.
+TypeScript SDK for Featherlane AI runtime guardrails.
 
 The happy path is intentionally small:
 
 ```bash
-npm install @trustloopguard/sdk
+npm install @featherlane-ai/sdk
 ```
 
 ```ts
-import { guardAgent } from '@trustloopguard/sdk';
+import { guardAgent } from '@featherlane-ai/sdk';
 
 const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
 
@@ -22,28 +22,28 @@ leave every `agent.reply(...)` and local tool call site alone.
 
 ## Before you start
 
-Create an agent and runtime API key in the TrustLoopGuard dashboard. You need:
+Create an agent and runtime API key in the Featherlane AI dashboard. You need:
 
 - the registered agent ID;
 - the runtime API URL;
 - a runtime API key.
 
-You do not need to clone this repository, run TrustLoopGuard locally, or
+You do not need to clone this repository, run Featherlane AI locally, or
 configure a model-provider proxy.
 
 ## 1. Install One Package
 
 ```bash
-npm install @trustloopguard/sdk
+npm install @featherlane-ai/sdk
 ```
 
 ## 2. Configure
 
-Set the URL and runtime key created in the TrustLoopGuard dashboard:
+Set the URL and runtime key created in the Featherlane AI dashboard:
 
 ```bash
-export TLG_URL=https://api.gettrustloop.app
-export TLG_API_KEY=tl_live_...
+export FEATHERLANE_AI_URL=https://api.featherlane.ai
+export FEATHERLANE_AI_API_KEY=tl_live_...
 ```
 
 The SDK reads these variables automatically.
@@ -53,7 +53,7 @@ The SDK reads these variables automatically.
 Decorate the agent object once when you create it:
 
 ```ts
-import { guardAgent } from '@trustloopguard/sdk';
+import { guardAgent } from '@featherlane-ai/sdk';
 
 const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
 
@@ -115,7 +115,7 @@ const reply = await agent.reply('Can I receive a refund?');
 sendToUser(reply);
 ```
 
-Open the resulting Run and trace in the TrustLoopGuard dashboard to verify the
+Open the resulting Run and trace in the Featherlane AI dashboard to verify the
 integration.
 
 ## What happens on every wrapped call
@@ -125,7 +125,7 @@ integration.
    call is already inside `client.withRun(...)`.
 3. The SDK records a `user_turn` event, then the original agent generates a draft string.
 4. The SDK records an `assistant_turn` event and sends an authenticated `POST /v1/events` request directly to the
-   TrustLoopGuard Rust API.
+   Featherlane AI Rust API.
 5. The server evaluates the draft and persists a trace linked to the Run.
 6. The SDK completes the Run and returns the permitted draft, a transformed reply, or a safe
    fallback.
@@ -148,7 +148,7 @@ may serve many unrelated users. When the framework exposes a real session end,
 bind that lifecycle once while decorating the agent:
 
 ~~~ts
-import { guardAgent, liveKitRun } from '@trustloopguard/sdk';
+import { guardAgent, liveKitRun } from '@featherlane-ai/sdk';
 
 const session = createLiveKitAgentSession();
 const agent = guardAgent(createAgent(), {
@@ -198,7 +198,7 @@ The event is equivalent to:
 
 ```http
 POST /v1/events
-Authorization: Bearer <TLG_API_KEY>
+Authorization: Bearer <FEATHERLANE_AI_API_KEY>
 Content-Type: application/json
 ```
 
@@ -259,7 +259,7 @@ interface ReplyAgent {
 For local tools, the SDK looks for an `execute(input, ...context)` function plus
 the framework's name, description, and input schema fields. It preserves
 additional execution context arguments while replacing the proposed input with
-the exact parameters authorized by TrustLoopGuard.
+the exact parameters authorized by Featherlane AI.
 
 ```ts
 const agent = guardAgent(
@@ -284,7 +284,7 @@ registration is off by default because it writes workspace configuration.
 Enable lazy registration when the application should own that setup:
 
 ```ts
-import { ToolRegistrationMode, guardAgent } from '@trustloopguard/sdk';
+import { ToolRegistrationMode, guardAgent } from '@featherlane-ai/sdk';
 
 const agent = guardAgent(createAgent({ tools }), {
   agentId: 'support-agent',
@@ -316,7 +316,7 @@ lower-level wrapper remains available. Use this only when there is no
 agent-shaped object to decorate:
 
 ```ts
-import { guard } from '@trustloopguard/sdk';
+import { guard } from '@featherlane-ai/sdk';
 
 const guardedReply = guard({
   agentId: 'support-agent',
@@ -328,7 +328,7 @@ const guardedReply = guard({
 When input and draft are already separate values, use the callable guard:
 
 ```ts
-import { guard } from '@trustloopguard/sdk';
+import { guard } from '@featherlane-ai/sdk';
 
 const protect = guard({
   agentId: 'support-agent',
@@ -354,7 +354,7 @@ the unchecked draft during these failures.
 | `rewrite_or_regenerate` | Uses the transformed output or invokes your regeneration callback |
 
 ```ts
-import { GuardMode, guardAgent } from '@trustloopguard/sdk';
+import { GuardMode, guardAgent } from '@featherlane-ai/sdk';
 
 const agent = guardAgent(createAgent(), {
   agentId: 'support-agent',
@@ -399,7 +399,7 @@ actions remain on their dedicated helpers.
 
 ## Troubleshooting
 
-- No trace appears: check `TLG_URL`, `TLG_API_KEY`, and that `agentId` matches
+- No trace appears: check `FEATHERLANE_AI_URL`, `FEATHERLANE_AI_API_KEY`, and that `agentId` matches
   the dashboard agent.
 - `401 Unauthorized`: create or copy a runtime key for the same workspace and
   environment as the agent.

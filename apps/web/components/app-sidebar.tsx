@@ -224,7 +224,7 @@ export function AppSidebar({
             <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:p-1.5!">
               <Link href={withContext('/')}>
                 <BrandLogo className="size-5" priority />
-                <span className="text-base font-semibold">TrustLoopGuard</span>
+                <span className="text-base font-semibold">Featherlane AI</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

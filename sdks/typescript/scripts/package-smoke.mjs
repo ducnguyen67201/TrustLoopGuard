@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const sdkDirectory = dirname(dirname(fileURLToPath(import.meta.url)));
-const temporaryDirectory = await mkdtemp(join(tmpdir(), 'trustloopguard-sdk-'));
+const temporaryDirectory = await mkdtemp(join(tmpdir(), 'featherlane-ai-sdk-'));
 
 try {
   const packed = spawnSync('npm', ['pack', '--json', '--pack-destination', temporaryDirectory], {
@@ -26,7 +26,7 @@ try {
   const tarball = join(temporaryDirectory, manifest.filename);
   execFileSync('tar', ['-xzf', tarball, '-C', temporaryDirectory]);
 
-  const packageDirectory = join(temporaryDirectory, 'node_modules', '@trustloopguard', 'sdk');
+  const packageDirectory = join(temporaryDirectory, 'node_modules', '@featherlane-ai', 'sdk');
   await mkdir(dirname(packageDirectory), { recursive: true });
   await rename(join(temporaryDirectory, 'package'), packageDirectory);
 
@@ -43,7 +43,7 @@ try {
     [
       '--input-type=module',
       '--eval',
-      "const sdk = await import('@trustloopguard/sdk');" +
+      "const sdk = await import('@featherlane-ai/sdk');" +
         "if (typeof sdk.guardAgent !== 'function') process.exit(1);" +
         "if (typeof sdk.liveKitRun !== 'function') process.exit(1);" +
         "if (sdk.ToolRegistrationMode?.Strict !== 'strict') process.exit(1);" +
@@ -61,7 +61,7 @@ try {
   await writeFile(
     join(temporaryDirectory, 'consumer.ts'),
     [
-      "import { guardAgent, liveKitRun, ToolRegistrationMode, type AuthorizationDecision, type GuardToolDiscoveryWarning, type LiveKitCloseListener } from '@trustloopguard/sdk';",
+      "import { guardAgent, liveKitRun, ToolRegistrationMode, type AuthorizationDecision, type GuardToolDiscoveryWarning, type LiveKitCloseListener } from '@featherlane-ai/sdk';",
       'const listeners = new Set<LiveKitCloseListener>();',
       'const session = {',
       "  on(_event: 'close', listener: LiveKitCloseListener) { listeners.add(listener); return this; },",

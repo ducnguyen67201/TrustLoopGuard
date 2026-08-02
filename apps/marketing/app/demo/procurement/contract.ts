@@ -95,7 +95,7 @@ const previewPolicyInventorySchema = z.object({
 
 const runtimeSchema = z.object({
   agent: z.literal('openai-agents-js'),
-  guard: z.literal('trustloopguard-rust-api'),
+  guard: z.literal('featherlane-ai-rust-api'),
   provider: z.literal('simulated-procurement-api'),
 });
 

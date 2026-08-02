@@ -1,7 +1,7 @@
 {
-  "name": "@trustloopguard/sdk",
+  "name": "@featherlane-ai/sdk",
   "version": "0.0.10",
-  "description": "TypeScript SDK for TrustLoopGuard. Types are generated from Rust via tl-codegen; do not hand-edit src/generated.",
+  "description": "TypeScript SDK for Featherlane AI. Types are generated from Rust via tl-codegen; do not hand-edit src/generated.",
   "license": "Apache-2.0",
   "type": "module",
   "sideEffects": false,
@@ -10,12 +10,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ducnguyen67201/TrustLoopGuard.git",
+    "url": "git+https://github.com/ducnguyen67201/FeatherlaneAI.git",
     "directory": "sdks/typescript"
   },
-  "homepage": "https://github.com/ducnguyen67201/TrustLoopGuard/tree/main/sdks/typescript",
+  "homepage": "https://github.com/ducnguyen67201/FeatherlaneAI/tree/main/sdks/typescript",
   "bugs": {
-    "url": "https://github.com/ducnguyen67201/TrustLoopGuard/issues"
+    "url": "https://github.com/ducnguyen67201/FeatherlaneAI/issues"
   },
   "keywords": [
     "ai",

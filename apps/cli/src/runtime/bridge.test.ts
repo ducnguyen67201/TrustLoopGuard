@@ -20,7 +20,7 @@ async function fixture(): Promise<{
   project: string;
   registration: RuntimeRegistration;
 }> {
-  const root = await mkdtemp(join(tmpdir(), 'tlg-bridge-'));
+  const root = await mkdtemp(join(tmpdir(), 'featherlane-ai-bridge-'));
   directories.push(root);
   const project = join(root, 'project');
   await mkdir(project);
@@ -67,9 +67,9 @@ function options(root: string, fetchImpl: typeof fetch): BridgeOptions {
   return {
     configRoot: root,
     env: {
-      TLG_API_KEY: 'tl_live_test_only',
-      TLG_APPROVAL_POLL_MS: '1',
-      TLG_APPROVAL_TIMEOUT_MS: '20',
+      FEATHERLANE_AI_API_KEY: 'tl_live_test_only',
+      FEATHERLANE_AI_APPROVAL_POLL_MS: '1',
+      FEATHERLANE_AI_APPROVAL_TIMEOUT_MS: '20',
     },
     fetchImpl,
     sleep: () => Promise.resolve(),
@@ -163,7 +163,7 @@ describe('runtime bridge', () => {
       env: {},
       fetchImpl: fetchMock,
     });
-    expect(noKey.reason).toContain('TLG_API_KEY');
+    expect(noKey.reason).toContain('FEATHERLANE_AI_API_KEY');
     const noId = await authorizeToolCall(call(project, { callId: '' }), options(root, fetchMock));
     expect(noId.reason).toContain('tool-use id');
     const malformed = await authorizeToolCall(call(project), options(root, fetchMock));

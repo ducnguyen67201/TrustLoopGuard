@@ -3,9 +3,9 @@
 #   "No internal imports in demo/."
 #
 # Internal crates are everything in crates/ except tl-sdk-rust. Internal
-# Python is anything outside the published `trustloopguard` package.
+# Python is anything outside the published `featherlane-ai` package.
 # Internal TypeScript is anything other than the published
-# `@trustloopguard/sdk`.
+# `@featherlane-ai/sdk`.
 #
 # A failure here means: the demo reached into an internal API the SDK
 # doesn't expose. Either add the missing surface to the SDK and use it
@@ -37,8 +37,8 @@ INTERNAL_CRATES=(
 
 # Allowed crates / packages.
 RUST_ALLOW=(tl_sdk_rust)
-PY_ALLOW=(trustloopguard)
-TS_ALLOW=("@trustloopguard/sdk")
+PY_ALLOW=(featherlane-ai)
+TS_ALLOW=("@featherlane-ai/sdk")
 
 violations=()
 
@@ -77,7 +77,7 @@ scan_rust() {
 
 # ----------------------------------------------------------------------
 # Python: any `import tl_X` / `from tl_X` is internal. Also flag any
-# `from <path-outside-trustloopguard>` style sys-path manipulation.
+# `from <path-outside-featherlane-ai>` style sys-path manipulation.
 
 scan_python() {
   local dir="$1"
@@ -94,19 +94,19 @@ scan_python() {
     )
   done
 
-  # `from trustloopguard._generated` is internal — public types come
+  # `from featherlane_ai._generated` is internal — public types come
   # from the package root, not from generated/private modules.
   while IFS= read -r hit; do
     [[ -z "${hit}" ]] && continue
-    violations+=("python: ${hit} (use top-level trustloopguard imports, not _generated)")
+    violations+=("python: ${hit} (use top-level featherlane-ai imports, not _generated)")
   done < <(
     echo "${py_files}" |
-      xargs grep -nE "from[[:space:]]+trustloopguard\._" 2>/dev/null || true
+      xargs grep -nE "from[[:space:]]+featherlane-ai\._" 2>/dev/null || true
   )
 }
 
 # ----------------------------------------------------------------------
-# TypeScript: any import that doesn't resolve to @trustloopguard/sdk
+# TypeScript: any import that doesn't resolve to @featherlane-ai/sdk
 # (or relative to the example itself) is internal. Easiest mechanical
 # check: forbid relative imports that escape the example dir, and
 # forbid imports of internal generated paths.
@@ -132,7 +132,7 @@ scan_typescript() {
     violations+=("ts    : ${hit} (use the package entrypoint, not internal modules)")
   done < <(
     echo "${ts_files}" |
-      xargs grep -nE "from[[:space:]]+['\"]@trustloopguard/sdk/(src|generated)" 2>/dev/null || true
+      xargs grep -nE "from[[:space:]]+['\"]@featherlane-ai/sdk/(src|generated)" 2>/dev/null || true
   )
 }
 
@@ -150,7 +150,7 @@ done
 if [[ "${#violations[@]}" -gt 0 ]]; then
   echo "::error::Internal-crate imports detected in demo/."
   echo
-  echo "TrustLoopGuard is SDK-driven (docs/SDK_DRIVEN.md rule 2). Demos"
+  echo "Featherlane AI is SDK-driven (docs/SDK_DRIVEN.md rule 2). Demos"
   echo "must import only the published SDK surface:"
   echo "  - Rust:       ${RUST_ALLOW[*]}"
   echo "  - Python:     ${PY_ALLOW[*]} (top-level only — no _generated.*)"

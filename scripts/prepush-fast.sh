@@ -116,11 +116,11 @@ for path in "${changed_files[@]}"; do
       add_package "marketing"
       ;;
     demo/*)
-      add_package "@trustloopguard/demo"
+      add_package "@featherlane-ai/demo"
       boundary_changed=1
       ;;
     sdks/typescript/*)
-      add_package "@trustloopguard/sdk"
+      add_package "@featherlane-ai/sdk"
       sdk_ts_changed=1
       boundary_changed=1
       ;;
@@ -134,7 +134,7 @@ for path in "${changed_files[@]}"; do
   esac
 
   case "${path}" in
-    crates/tl-core/*|crates/tl-codegen/*|docs/openapi.yaml|policies/*.schema.json|sdks/typescript/src/generated/*|sdks/python/src/trustloopguard/_generated/*)
+    crates/tl-core/*|crates/tl-codegen/*|docs/openapi.yaml|policies/*.schema.json|sdks/typescript/src/generated/*|sdks/python/src/featherlane_ai/_generated/*)
       contract_changed=1
       ;;
   esac
@@ -161,7 +161,7 @@ if (( web_changed == 1 )); then
 fi
 
 if (( sdk_ts_changed == 1 )); then
-  run pnpm --filter @trustloopguard/sdk test
+  run pnpm --filter @featherlane-ai/sdk test
 fi
 
 if (( rust_changed == 1 )); then

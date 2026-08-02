@@ -7,7 +7,7 @@ import type {
   Client,
   FinancialActionRecord,
   FinancialReceipt,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 import { readRefundDemoActionStatus, type RefundDemoStatusClient } from './status';
 
 type ExecuteFinancialActionRequest = NonNullable<Parameters<Client['executeAction']>[1]>;

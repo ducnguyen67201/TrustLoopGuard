@@ -219,7 +219,7 @@ impl TraceStore for MemoryTraceStore {
                     && trace
                         .summary
                         .payload
-                        .pointer("/event/context/tlg_integration_id")
+                        .pointer("/event/context/featherlane_ai_integration_id")
                         .and_then(|value| value.as_str())
                         == Some(integration_id)
             })

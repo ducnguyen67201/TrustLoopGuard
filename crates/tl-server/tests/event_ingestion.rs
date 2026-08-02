@@ -50,7 +50,7 @@ fn json_request(
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json");
     if let Some(ws) = workspace_id {
-        builder = builder.header("x-tlg-workspace-id", ws);
+        builder = builder.header("x-featherlane-ai-workspace-id", ws);
     }
     builder
 }
@@ -883,7 +883,7 @@ mod trace_evidence {
             .clone()
             .oneshot(
                 json_request("POST", "/v1/tool-metadata", Some(&workspace.id))
-                    .header("x-tlg-user-id", owner_id.to_string())
+                    .header("x-featherlane-ai-user-id", owner_id.to_string())
                     .body(Body::from(metadata_body().to_string()))
                     .unwrap(),
             )

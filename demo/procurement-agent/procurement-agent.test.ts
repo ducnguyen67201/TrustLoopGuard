@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { AuthorizationDecision, PolicyListResponse } from '@trustloopguard/sdk';
+import type { AuthorizationDecision, PolicyListResponse } from '@featherlane-ai/sdk';
 
 import {
   runProcurementAgent,

@@ -33,8 +33,8 @@ test('accepts Railway host and port configuration', () => {
 
 test('uses a validated remote provider origin for hosted setup', () => {
   assert.equal(
-    providerBaseUrl('https://gettrustloop.app/api/demo/refund/provider/'),
-    'https://gettrustloop.app/api/demo/refund/provider',
+    providerBaseUrl('https://featherlane.ai/api/demo/refund/provider/'),
+    'https://featherlane.ai/api/demo/refund/provider',
   );
   assert.throws(
     () => providerBaseUrl('http://refund-demo.example.com'),

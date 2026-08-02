@@ -27,7 +27,7 @@ _openapi:
           post-v1teammy-workspaces--create-a-new-workspace-owned-bythe-caller-bootstraps-a-fresh-organization-too-so-a-user-whosigned-up-without-an-invite-can-self-serve
     contents:
       - content: |-
-          Reads `X-TLG-User-Id` (required, UUID) and `X-TLG-User-Email`
+          Reads `X-FEATHERLANE-AI-User-Id` (required, UUID) and `X-FEATHERLANE-AI-User-Email`
           (optional). When the email is present we first bulk-accept any
           pending invites addressed to it; the membership query then sees
           the new rows in the same response. This is the dashboard's

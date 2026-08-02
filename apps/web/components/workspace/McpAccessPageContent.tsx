@@ -8,7 +8,7 @@ import {
   IconShieldLock,
   IconTrash,
 } from '@tabler/icons-react';
-import type { McpGatewayConnection, McpGatewayTool, SideEffectClass } from '@trustloopguard/sdk';
+import type { McpGatewayConnection, McpGatewayTool, SideEffectClass } from '@featherlane-ai/sdk';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
@@ -674,7 +674,7 @@ function SideEffectSelect({
 
 function Connect({ data }: { data: McpAccessPageData }) {
   const config = JSON.stringify(
-    { mcpServers: { trustloopguard: { type: 'http', url: data.connectInfo.resource_url } } },
+    { mcpServers: { 'featherlane-ai': { type: 'http', url: data.connectInfo.resource_url } } },
     null,
     2,
   );

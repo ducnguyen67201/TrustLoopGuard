@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: UseCasePageProps): Promise<Me
   const useCase = getUseCase(slug);
   if (!useCase) return {};
 
-  const title = `${useCase.eyebrow} | TrustLoopGuard`;
+  const title = `${useCase.eyebrow} | Featherlane AI`;
   return {
     title: { absolute: title },
     description: useCase.summary,

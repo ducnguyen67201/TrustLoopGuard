@@ -92,7 +92,7 @@ const FEATURED_USE_CASES_VI = [
       executionTitle: 'Hệ thống gửi mail của khách hàng áp dụng kết quả',
       executionDetail:
         'Ứng dụng gửi bản nháp gốc đã được cho phép hoặc nội dung thay thế đã được chính sách phê duyệt.',
-      boundary: 'TrustLoopGuard đánh giá tin nhắn được đề xuất và không bao giờ tự gửi email.',
+      boundary: 'Featherlane AI đánh giá tin nhắn được đề xuất và không bao giờ tự gửi email.',
     },
   },
   {

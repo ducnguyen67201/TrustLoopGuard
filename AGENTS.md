@@ -10,7 +10,7 @@ When the user types `/graphify`, invoke the Skill tool with `skill: "graphify"` 
 
 ## Architecture: Rust Backend Is the Source of Truth
 
-The dashboard web app must not become a second backend. TrustLoopGuard has one durable/runtime backend: the Rust service in `crates/tl-server`, backed by `crates/tl-storage`. The Next.js app in `apps/web` is a UI and same-origin proxy layer only.
+The dashboard web app must not become a second backend. Featherlane AI has one durable/runtime backend: the Rust service in `crates/tl-server`, backed by `crates/tl-storage`. The Next.js app in `apps/web` is a UI and same-origin proxy layer only.
 
 Authoritative backend ownership:
 - Rust HTTP API: `crates/tl-server`
@@ -64,7 +64,7 @@ SDK runtime integration path:
 Customer / integrator runtime
 
 +----------------------+        +----------------------+
-| Customer AI agent    | -----> | TrustLoopGuard SDK   |
+| Customer AI agent    | -----> | Featherlane AI SDK   |
 | app code             |        | TS / Python / Rust   |
 +----------------------+        +----------+-----------+
                                            |
@@ -93,7 +93,7 @@ Customer / integrator runtime
                          |
                          v
 +----------------------+        +----------------------+
-| TrustLoopGuard SDK   | -----> | Customer AI agent    |
+| Featherlane AI SDK   | -----> | Customer AI agent    |
 | typed response       |        | applies decision     |
 +----------------------+        +----------------------+
 

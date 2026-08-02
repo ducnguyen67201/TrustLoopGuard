@@ -2,14 +2,14 @@
 
 The shortest integration decorates the function that produces the final reply::
 
-    @trustloopguard.guarded(agent_id="acme-support-v3")
+    @featherlane_ai.guarded(agent_id="acme-support-v3")
     async def answer(message: str) -> str:
         return await agent.reply(message)
 
 The explicit guard factory remains available when the caller already has
 separate input and draft values::
 
-    guardrail = trustloopguard.guard(agent_id="acme-support-v3")
+    guardrail = featherlane_ai.guard(agent_id="acme-support-v3")
     reply = await guardrail(input=user_message, draft=agent_draft)
 
 The lower-level sync (``guard`` with ``client=...``) and async
@@ -35,10 +35,10 @@ when returning the unchecked draft during an outage is an explicit choice.
 
 Low-level example::
 
-    from trustloopguard import Client, guard
+    from featherlane_ai import Client, guard
 
-    client = Client(base_url="https://api.trustloopguard.dev",
-                    api_key=os.environ["TLG_API_KEY"])
+    client = Client(base_url="https://api.featherlane.ai",
+                    api_key=os.environ["FEATHERLANE_AI_API_KEY"])
 
     reply = guard(
         client=client,
@@ -64,7 +64,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Awaitable, Callable, Literal, Optional, ParamSpec, Union, overload
 
-from trustloopguard._generated.types import (
+from featherlane_ai._generated.types import (
     Action,
     Channel,
     AuthorizationDecision,
@@ -78,11 +78,11 @@ from trustloopguard._generated.types import (
     Source,
     AuthorizationEffect,
 )
-from trustloopguard.client import AsyncClient, Client
-from trustloopguard.errors import SdkError
-from trustloopguard.retry import RetryConfig
+from featherlane_ai.client import AsyncClient, Client
+from featherlane_ai.errors import SdkError
+from featherlane_ai.retry import RetryConfig
 
-_logger = logging.getLogger("trustloopguard")
+_logger = logging.getLogger("featherlane-ai")
 P = ParamSpec("P")
 
 # -- Sync callback signatures ----------------------------------------------
@@ -115,7 +115,7 @@ DEFAULT_DEFER_MESSAGE = "Required evidence or system state is unavailable. Pleas
 
 
 class GuardMode(str, Enum):
-    """High-level output handling preset for ``trustloopguard.guard``."""
+    """High-level output handling preset for ``featherlane_ai.guard``."""
 
     STRICT = "strict"
     REWRITE = "rewrite"
@@ -146,9 +146,9 @@ class GuardLogEvent:
 
 
 class OutputGuard:
-    """Async callable returned by ``trustloopguard.guard(agent_id=...)``.
+    """Async callable returned by ``featherlane_ai.guard(agent_id=...)``.
 
-    It owns the SDK client by default, reads the usual TrustLoopGuard env vars,
+    It owns the SDK client by default, reads the usual Featherlane AI env vars,
     and applies safe deny/approval/defer defaults. Most integrations should create
     one guard at startup and call it at the output boundary:
 
@@ -198,18 +198,13 @@ class OutputGuard:
 
         resolved_base_url = (
             base_url
-            or _env("TLG_URL", "TL_SERVER_URL", "TRUSTLOOPGUARD_URL", "TRUSTLOOP_URL")
+            or _env("FEATHERLANE_AI_URL", "TL_SERVER_URL")
             or "http://127.0.0.1:8080"
         )
         self.client = AsyncClient(
             base_url=resolved_base_url,
             api_key=api_key
-            or _env(
-                "TLG_API_KEY",
-                "TL_API_KEY",
-                "TRUSTLOOPGUARD_API_KEY",
-                "TRUSTLOOP_API_KEY",
-            ),
+            or _env("FEATHERLANE_AI_API_KEY", "TL_API_KEY"),
             timeout=timeout,
             retry=retry,
         )
@@ -690,7 +685,7 @@ def guard(
 
     New integrations should use the factory form:
 
-        guardrail = trustloopguard.guard(agent_id="support-agent")
+        guardrail = featherlane_ai.guard(agent_id="support-agent")
         reply = await guardrail(input=user_text, draft=agent_draft)
 
     The existing sync form remains supported when ``client``, ``input``,
@@ -699,7 +694,7 @@ def guard(
     if client is None:
         if input is not None or draft is not None:
             raise TypeError(
-                "trustloopguard.guard(...) without client returns a guard; "
+                "featherlane_ai.guard(...) without client returns a guard; "
                 "call the returned guard with input=... and draft=..."
             )
         return OutputGuard(

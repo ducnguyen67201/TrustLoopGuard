@@ -105,10 +105,10 @@ pub fn is_probably_binary(bytes: &[u8]) -> bool {
 }
 
 pub fn contains_required_marker(content: &str, connection_id: &str) -> bool {
-    content.contains("tlg_integration_id")
+    content.contains("featherlane_ai_integration_id")
         && content.contains(connection_id)
-        && content.contains("TLG_API_KEY")
-        && !content.contains("sk_tlg_")
+        && content.contains("FEATHERLANE_AI_API_KEY")
+        && !content.contains("sk_featherlane_ai_")
 }
 
 #[cfg(test)]
@@ -141,13 +141,13 @@ mod tests {
     #[test]
     fn required_marker_requires_connection_env_key_and_no_plain_secret() {
         let content = r#"guard({
-            context: { tlg_integration_id: "conn_123" },
-            apiKey: process.env.TLG_API_KEY
+            context: { featherlane_ai_integration_id: "conn_123" },
+            apiKey: process.env.FEATHERLANE_AI_API_KEY
         })"#;
         assert!(contains_required_marker(content, "conn_123"));
         assert!(!contains_required_marker(content, "conn_456"));
         assert!(!contains_required_marker(
-            "tlg_integration_id conn_123 sk_tlg_live",
+            "featherlane_ai_integration_id conn_123 sk_featherlane_ai_live",
             "conn_123"
         ));
     }

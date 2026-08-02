@@ -1,4 +1,4 @@
-import type { AuthorizationDecision } from '@trustloopguard/sdk';
+import type { AuthorizationDecision } from '@featherlane-ai/sdk';
 
 export function blockedReply(decision: AuthorizationDecision): string {
   return `[DENIED] ${decision.reason}`;

@@ -8,7 +8,7 @@ Every domain term defined once. If you find yourself explaining a term in a PR r
 
 ### Agent
 
-An AI program that takes actions or produces outputs on behalf of a customer's product. Examples: customer-support chatbot, sales assistant, internal IT helper, coding agent. TrustLoopGuard does not run the agent — it sits in the agent's output path.
+An AI program that takes actions or produces outputs on behalf of a customer's product. Examples: customer-support chatbot, sales assistant, internal IT helper, coding agent. Featherlane AI does not run the agent — it sits in the agent's output path.
 
 ### Agent profile
 
@@ -20,7 +20,7 @@ The medium an agent is operating on: `chat` or `email`. Channel drives the laten
 
 ### Decision
 
-`AuthorizationDecision` is what TrustLoopGuard returns from every runtime authorization domain. It contains a trace id, domain, one canonical effect, a human reason, all findings, optional durable intent status, transformed value, approval/grant/lease references, receipt id, and latency. Findings retain the rule, source, severity, requirement, remediation, and evidence even when a stronger effect wins.
+`AuthorizationDecision` is what Featherlane AI returns from every runtime authorization domain. It contains a trace id, domain, one canonical effect, a human reason, all findings, optional durable intent status, transformed value, approval/grant/lease references, receipt id, and latency. Findings retain the rule, source, severity, requirement, remediation, and evidence even when a stronger effect wins.
 
 ### GuardEvent
 
@@ -114,7 +114,7 @@ A tool-metadata field (`ParamLimit` on a `ParamSpec`) declaring inclusive numeri
 
 ### Redaction
 
-Replacement of sensitive values in check content with typed placeholders such as `[EMAIL_1]`, `[SIN_1]`, or `[PERSON_NAME_1]`. Raw-to-token maps remain local to the redactor and are not sent to hosted TrustLoopGuard.
+Replacement of sensitive values in check content with typed placeholders such as `[EMAIL_1]`, `[SIN_1]`, or `[PERSON_NAME_1]`. Raw-to-token maps remain local to the redactor and are not sent to hosted Featherlane AI.
 
 ### Workspace Data Handling Mode
 
@@ -182,15 +182,15 @@ The dashboard-facing authoring surface for a `family: financial` policy. A spend
 ### LLM spending cap
 
 A `family: financial` policy with `meter: llm_usage`. Before an OpenAI-compatible Gateway request
-reaches its provider, TrustLoopGuard prices the bounded maximum token usage and atomically reserves
+reaches its provider, Featherlane AI prices the bounded maximum token usage and atomically reserves
 that amount against the applicable daily, weekly, and monthly caps for the runtime-key principal.
 The provider is not called when that reservation would exceed a cap. The cap counts only
-`customer_inference` usage; TrustLoopGuard's own semantic-judge overhead is accounted separately.
+`customer_inference` usage; Featherlane AI's own semantic-judge overhead is accounted separately.
 
 ### LLM usage event
 
 A durable, precisely priced model invocation in the Rust-owned usage ledger. Its `kind` is either
-`customer_inference` for the customer's Gateway provider call or `guardrail` for TrustLoopGuard's
+`customer_inference` for the customer's Gateway provider call or `guardrail` for Featherlane AI's
 semantic judge. Exact nano-USD values are serialized as decimal strings to avoid JavaScript integer
 loss; legacy minor-unit fields remain compatibility projections. Provider invoices are still the
 authoritative billing record.
@@ -237,7 +237,7 @@ The operational and risk result of a financial action after authorization or exe
 
 ### Action underwriting
 
-A separately agreed commercial service that assigns a risk price and coverage terms to a proposed agent action before execution. The open-source TrustLoopGuard runtime supplies authorization, receipts, and outcome/recovery records; it does not by itself bind coverage, issue an insurance policy, or guarantee payment.
+A separately agreed commercial service that assigns a risk price and coverage terms to a proposed agent action before execution. The open-source Featherlane AI runtime supplies authorization, receipts, and outcome/recovery records; it does not by itself bind coverage, issue an insurance policy, or guarantee payment.
 
 ### Financial action state
 
@@ -245,11 +245,11 @@ The Rust-derived product projection of a financial action's trusted evidence, au
 
 ### Agentic payment
 
-An agent-initiated typed [Financial action](#financial-action) that needs authorization before a payment credential, signature, or settlement attempt is released. In the x402 path, the agent submits the payment requirement to TrustLoopGuard first, receives an action-bound authorization/reservation, then either commits with settlement proof or rolls the reservation back before settlement.
+An agent-initiated typed [Financial action](#financial-action) that needs authorization before a payment credential, signature, or settlement attempt is released. In the x402 path, the agent submits the payment requirement to Featherlane AI first, receives an action-bound authorization/reservation, then either commits with settlement proof or rolls the reservation back before settlement.
 
 ### x402 payment requirement
 
-The x402 payment details a resource server asks the agent to satisfy: amount, payee, and optional network, asset, scheme, resource, method, host, facilitator, and raw provider payload. TrustLoopGuard normalizes those fields into a canonical hash so the later settlement proof can be checked against the exact authorized requirement.
+The x402 payment details a resource server asks the agent to satisfy: amount, payee, and optional network, asset, scheme, resource, method, host, facilitator, and raw provider payload. Featherlane AI normalizes those fields into a canonical hash so the later settlement proof can be checked against the exact authorized requirement.
 
 ### Payment session
 
@@ -261,7 +261,7 @@ An action-bound hold against a [Payment session](#payment-session), keyed by nor
 
 ### Reversal capability
 
-Provider-aware description of how an executed or pending financial action can be unwound, if at all: cancel before capture, cancel a pending refund, provider reversal, compensating charge, internal balance adjustment, manual recovery, or none. TrustLoopGuard does not promise a universal undo button.
+Provider-aware description of how an executed or pending financial action can be unwound, if at all: cancel before capture, cancel a pending refund, provider reversal, compensating charge, internal balance adjustment, manual recovery, or none. Featherlane AI does not promise a universal undo button.
 
 ### Recovery status
 
@@ -301,7 +301,7 @@ The environment-scoped, newest-first view of authorization receipts shown on the
 
 ### MCP proxy
 
-The separate `apps/mcp-proxy` process that mirrors one downstream stdio MCP server and uses durable exact-action approval before forwarding a tool call. It is not the operator-facing TrustLoopGuard MCP server.
+The separate `apps/mcp-proxy` process that mirrors one downstream stdio MCP server and uses durable exact-action approval before forwarding a tool call. It is not the operator-facing Featherlane AI MCP server.
 
 ### Hosted MCP access gateway
 
@@ -326,7 +326,7 @@ an administrator selects an agent. Assignment does not bypass runtime policy.
 
 ### Governance context
 
-The required `__trustloop` object added to each hosted MCP tool schema. It
+The required `__featherlane_ai` object added to each hosted MCP tool schema. It
 declares the latest user intent, a purpose, and an optional destination. Rust
 validates and removes it before the upstream call, then uses a normalized copy
 for policy. Standard MCP does not transport the surrounding chat prompt, so the
@@ -370,7 +370,7 @@ One execution of a customer agent after guardrails have been assigned: a chat se
 
 ### Run ID
 
-TrustLoopGuard-generated UUID string that identifies one `Run`. SDKs pass it on `GuardEvent.principal.run_id` so persisted traces can be grouped. This is distinct from `external_id`.
+Featherlane AI-generated UUID string that identifies one `Run`. SDKs pass it on `GuardEvent.principal.run_id` so persisted traces can be grouped. This is distinct from `external_id`.
 
 ### Monitoring session
 
@@ -382,7 +382,7 @@ One ordered moment inside a `Run`, such as a user turn, assistant turn, tool cal
 
 ### External ID
 
-Optional customer/platform identifier for the same run, such as a Twilio call ID, LiveKit room ID, n8n execution ID, or ticket ID. Used for correlation and support lookup only. Authorization and trace grouping use TrustLoopGuard's `run_id`.
+Optional customer/platform identifier for the same run, such as a Twilio call ID, LiveKit room ID, n8n execution ID, or ticket ID. Used for correlation and support lookup only. Authorization and trace grouping use Featherlane AI's `run_id`.
 
 ### Run kind
 
@@ -394,7 +394,7 @@ Flexible lifecycle marker for monitoring: `warming`, `running`, `completed`, `fa
 
 ### Automated intervention
 
-A TrustLoopGuard decision whose effect is `deny`, `transform`, `require_approval`, or `defer`.
+A Featherlane AI decision whose effect is `deny`, `transform`, `require_approval`, or `defer`.
 
 ### Human review event
 
@@ -504,7 +504,7 @@ A user with support and debugging access across every active workspace. Backed b
 
 ### OAuth identity
 
-A Google or GitHub account linked to one local TrustLoopGuard user. Backed by `oauth_identities` (`provider`, `provider_subject`, `user_id`). Google/GitHub authenticate the browser user; Rust uses the link only to resolve the local app user that owns workspace memberships. See [authorization.md](authorization.md#oauth-users-google--github).
+A Google or GitHub account linked to one local Featherlane AI user. Backed by `oauth_identities` (`provider`, `provider_subject`, `user_id`). Google/GitHub authenticate the browser user; Rust uses the link only to resolve the local app user that owns workspace memberships. See [authorization.md](authorization.md#oauth-users-google--github).
 
 ### Workspace invite
 
@@ -564,11 +564,11 @@ An optional machine-readable agent definition (an n8n workflow export today) imp
 
 ### GitHub installation
 
-A selected-repository TrustLoopGuard GitHub App installation linked to one workspace. It is separate from dashboard GitHub OAuth login and is used only for repository automation. See [github-assisted-installation.md](github-assisted-installation.md).
+A selected-repository Featherlane AI GitHub App installation linked to one workspace. It is separate from dashboard GitHub OAuth login and is used only for repository automation. See [github-assisted-installation.md](github-assisted-installation.md).
 
 ### Repository connection
 
-A Rust-owned mapping from one GitHub repository/root to one TrustLoopGuard agent and environment. It records the integration recipe version and is the activation marker's durable identity. See [github-assisted-installation.md](github-assisted-installation.md).
+A Rust-owned mapping from one GitHub repository/root to one Featherlane AI agent and environment. It records the integration recipe version and is the activation marker's durable identity. See [github-assisted-installation.md](github-assisted-installation.md).
 
 ### Integration job
 
@@ -580,7 +580,7 @@ A versioned set of constraints for generating repository edits. The first recipe
 
 ---
 
-## Things that are NOT TrustLoopGuard
+## Things that are NOT Featherlane AI
 
 Words you might hear that we explicitly do **not** own:
 

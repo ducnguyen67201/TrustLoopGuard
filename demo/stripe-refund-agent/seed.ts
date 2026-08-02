@@ -23,11 +23,11 @@ export async function seedLiveRefundOrder(
   const paymentIntent = await createTestPaymentIntent({
     secretKey,
     amountMinor: DEMO_ORDER_AMOUNT_MINOR,
-    idempotencyKey: `tlg-public-refund-demo:${runId}`,
+    idempotencyKey: `featherlane-ai-public-refund-demo:${runId}`,
     metadata: {
       order_id: DEMO_ORDER_ID,
       demo_run_id: runId,
-      source: 'trustloopguard_product_hunt_demo',
+      source: 'featherlane_ai_product_hunt_demo',
     },
     fetchImpl: options.fetchImpl,
   });

@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="apps/web/public/trustloop-logo.svg" alt="TrustLoopGuard" width="80" />
-  <h1>TrustLoopGuard</h1>
+  <img src="apps/web/public/featherlane-ai-logo.svg" alt="Featherlane AI" width="80" />
+  <h1>Featherlane AI</h1>
   <p><strong>The runtime firewall for AI agents.</strong><br/>
   Guard local tool calls and the final reply <em>before</em> they ship — then <code>allow</code>, <code>block</code>, <code>rewrite</code>, or <code>escalate</code>.</p>
 
@@ -8,9 +8,9 @@
   <img src="https://img.shields.io/badge/SDKs-TypeScript%20%C2%B7%20Python%20%C2%B7%20Rust-informational.svg" alt="SDKs" />
   <img src="https://img.shields.io/badge/Tier%201%20hot%20path-%E2%9A%A1%20sub--ms-success.svg" alt="Tier 1 sub-millisecond hot path" />
   <br/>
-  <img src="https://github.com/ducnguyen67201/TrustLoopGuard/actions/workflows/rust-ci.yml/badge.svg" alt="Rust CI" />
-  <img src="https://github.com/ducnguyen67201/TrustLoopGuard/actions/workflows/sdk-build.yml/badge.svg" alt="SDK Build" />
-  <a href="https://coderabbit.ai"><img src="https://img.shields.io/coderabbit/prs/github/ducnguyen67201/TrustLoopGuard?utm_source=oss&utm_medium=github&utm_campaign=ducnguyen67201%2FTrustLoopGuard&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews" alt="CodeRabbit Pull Request Reviews" /></a>
+  <img src="https://github.com/ducnguyen67201/FeatherlaneAI/actions/workflows/rust-ci.yml/badge.svg" alt="Rust CI" />
+  <img src="https://github.com/ducnguyen67201/FeatherlaneAI/actions/workflows/sdk-build.yml/badge.svg" alt="SDK Build" />
+  <a href="https://coderabbit.ai"><img src="https://img.shields.io/coderabbit/prs/github/ducnguyen67201/FeatherlaneAI?utm_source=oss&utm_medium=github&utm_campaign=ducnguyen67201%2FFeatherlaneAI&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews" alt="CodeRabbit Pull Request Reviews" /></a>
 </div>
 
 ---
@@ -19,18 +19,18 @@
 
 
 Your agent is one response away from leaking a secret, getting prompt-injected,
-or promising a refund it can't honor. **TrustLoopGuard catches it in the runtime
+or promising a refund it can't honor. **Featherlane AI catches it in the runtime
 path — before the response reaches a user or a downstream system, not after, in
 the logs.**
 
 Just look at this:
 
 ```bash
-npm install @trustloopguard/sdk
+npm install @featherlane-ai/sdk
 ```
 
 ```ts
-import { guardAgent } from '@trustloopguard/sdk';
+import { guardAgent } from '@featherlane-ai/sdk';
 
 const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
 
@@ -46,8 +46,8 @@ site, no repository clone, and no provider proxy setup.
 When Claude Code, Codex, or OpenCode itself is the agent, install the user-level tool gate:
 
 ```bash
-export TLG_API_KEY="<your workspace runtime key>"
-npx @trustloopguard/cli install --agent-id coding-agent --target claude,codex,opencode
+export FEATHERLANE_AI_API_KEY="<your workspace runtime key>"
+npx @featherlane-ai/cli install --agent-id coding-agent --target claude,codex,opencode
 ```
 
 This configures each host's blocking hook/plugin boundary. An MCP `add` command only exposes an MCP
@@ -56,7 +56,7 @@ server and cannot intercept native or third-party tool calls. See
 
 - 🛡️ **Inspect** local tool calls and agent output before they reach users or downstream systems
 - 🚫 **Enforce** — block, rewrite, or escalate risky responses instead of only logging them
-- 🔌 **Integrate** with `npm install @trustloopguard/sdk` and one `guardAgent()` call
+- 🔌 **Integrate** with `npm install @featherlane-ai/sdk` and one `guardAgent()` call
 
 ## Integration Path
 
@@ -104,7 +104,7 @@ agent.reply(message)
 
 </details>
 
-TrustLoopGuard sits in the runtime path before an agent response or local tool
+Featherlane AI sits in the runtime path before an agent response or local tool
 side effect reaches a user or downstream system. `guardAgent()` installs those
 boundaries once, so existing call sites do not add checks or extra guard calls.
 
@@ -132,7 +132,7 @@ refund guarantee is replaced with policy-approved language.
 [![Four-step outbound email policy demo](docs/concept/assets/email-policy-demo.png)](docs/policies/README.md#email-policy-demo)
 
 See [Email policy demo](docs/policies/README.md#email-policy-demo) for the
-copyable YAML and test flow. TrustLoopGuard evaluates a proposed message; it
+copyable YAML and test flow. Featherlane AI evaluates a proposed message; it
 does not send the email.
 
 ### Agent spending caps
@@ -158,7 +158,7 @@ not execute a payment.
 
 ## What it catches
 
-Threats TrustLoopGuard is built to stop at the boundary:
+Threats Featherlane AI is built to stop at the boundary:
 
 - 🔑 Secret or PII leakage before a response reaches a user
 - 💉 Prompt-injection attempts that manipulate agent behavior
@@ -196,8 +196,8 @@ Threats TrustLoopGuard is built to stop at the boundary:
 | Moderation API | Yes | Limited | No | Limited | Manual |
 | Logs/monitoring | No | No | No | Yes | Manual |
 | Offline evals | No | No | No | Partial | Manual |
-| **TrustLoopGuard SDK** | **Yes** | **Yes** | **Yes** | **Yes** | **SDK call** |
-| **TrustLoopGuard proxy** | **Yes** | **Yes** | **Yes** | **Yes** | **Provider base URL** |
+| **Featherlane AI SDK** | **Yes** | **Yes** | **Yes** | **Yes** | **SDK call** |
+| **Featherlane AI proxy** | **Yes** | **Yes** | **Yes** | **Yes** | **Provider base URL** |
 
 ## Features
 
@@ -217,21 +217,21 @@ Threats TrustLoopGuard is built to stop at the boundary:
 
 ### 1. Create an agent and runtime key
 
-In the TrustLoopGuard dashboard, create an agent and runtime API key. Copy the
+In the Featherlane AI dashboard, create an agent and runtime API key. Copy the
 agent ID, API URL, and key.
 
 ### 2. Install the SDK
 
 ```bash
-npm install @trustloopguard/sdk
-export TLG_URL=https://api.gettrustloop.app
-export TLG_API_KEY=tl_live_...
+npm install @featherlane-ai/sdk
+export FEATHERLANE_AI_URL=https://api.featherlane.ai
+export FEATHERLANE_AI_API_KEY=tl_live_...
 ```
 
 ### 3. Decorate the agent once
 
 ```ts
-import { guardAgent } from '@trustloopguard/sdk';
+import { guardAgent } from '@featherlane-ai/sdk';
 
 const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
 
@@ -240,7 +240,7 @@ sendToUser(reply);
 ```
 
 The SDK calls `POST /v1/events` with the agent ID and proposed tool call or
-draft reply, using `Authorization: Bearer <TLG_API_KEY>`. It applies the
+draft reply, using `Authorization: Bearer <FEATHERLANE_AI_API_KEY>`. It applies the
 returned decision before a local tool executes or `reply()` resolves.
 
 If your app currently has a function like this:
@@ -267,7 +267,7 @@ the same way.
 ### 4. Verify the trace
 
 Send one test message, then open the agent's trace in the dashboard. No
-TrustLoopGuard repository clone, Doppler setup, local Rust server, or provider
+Featherlane AI repository clone, Doppler setup, local Rust server, or provider
 proxy is required for the hosted SDK path.
 
 The decorator automatically guards supported local tool registries. It cannot
@@ -302,7 +302,7 @@ result before returning the reply to customer code.
 ## Contributing or self-hosting
 
 The following setup is for people working on this repository or running their
-own TrustLoopGuard server. SDK customers should use the four-step quickstart
+own Featherlane AI server. SDK customers should use the four-step quickstart
 above.
 
 Secrets live in [Doppler](https://doppler.com), not in `.env` files. The repo
@@ -343,8 +343,8 @@ server errors at `ERROR`, so normal terminals render them green/yellow/red. Add
 Start `tl-server`, then run the demo surfaces from the repo root:
 
 ```bash
-pnpm --filter @trustloopguard/demo dispute:check  # offline parser smoke test
-pnpm --filter @trustloopguard/demo dispute:serve  # raw + guarded attack targets
+pnpm --filter @featherlane-ai/demo dispute:check  # offline parser smoke test
+pnpm --filter @featherlane-ai/demo dispute:serve  # raw + guarded attack targets
 ```
 
 The LiveKit voice-agent demo lives under `demo/livekit` and uses the Python SDK
@@ -384,7 +384,7 @@ The command requires the D2 CLI. On macOS, install it with `brew install d2`.
 
 ## Contributing
 
-TrustLoopGuard is built in the open and contributions are welcome. Bug reports
+Featherlane AI is built in the open and contributions are welcome. Bug reports
 and pull requests both help — please open an issue to discuss larger changes
 before submitting a PR.
 
@@ -426,6 +426,6 @@ make backend-test-live
 
 Licensed under the [Apache License, Version 2.0](LICENSE).
 
-The TrustLoopGuard name and logos are not licensed for trademark use by third
-parties. Forks must not present themselves as the official TrustLoopGuard
+The Featherlane AI name and logos are not licensed for trademark use by third
+parties. Forks must not present themselves as the official Featherlane AI
 project.

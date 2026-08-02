@@ -1,11 +1,11 @@
-import { isContextualScenarioId } from '@trustloopguard/demo/contextual-agent/config';
+import { isContextualScenarioId } from '@featherlane-ai/demo/contextual-agent/config';
 import {
   ContextualDemoBudgetExceededError,
   readHostedContextualDemoPolicies,
   runHostedContextualDemo,
   type HostedContextualDemoResponse,
   type HostedContextualPolicyInventoryResponse,
-} from '@trustloopguard/demo/contextual-agent/hosted';
+} from '@featherlane-ai/demo/contextual-agent/hosted';
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 

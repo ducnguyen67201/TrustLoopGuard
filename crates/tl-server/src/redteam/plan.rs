@@ -1,7 +1,7 @@
 //! `POST /v1/agents/{id}/redteam/plan` — derive **tailored** attack vectors
 //! from an agent's own definition (chat system prompt and/or imported workflow
 //! graph). This is the cold-start solver: instead of generic templates,
-//! TrustLoopGuard sends structured agent context to the private runner, which
+//! Featherlane AI sends structured agent context to the private runner, which
 //! owns attack-vector generation. Rust persists the resulting named plan.
 //!
 //! `list_plans` / `delete_plan` manage the per-agent library.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { Client } from '@trustloopguard/sdk';
+import { Client } from '@featherlane-ai/sdk';
 
 describe('Client MCP support methods', () => {
   it('lists traces with optional filters', async () => {

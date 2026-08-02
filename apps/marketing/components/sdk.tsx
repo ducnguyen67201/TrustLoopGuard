@@ -8,14 +8,14 @@ const COPY = {
     eyebrow: 'For developers',
     heading: 'Install one package. Decorate one agent.',
     intro:
-      'Keep your current model provider and reply call sites. TrustLoopGuard adds one SDK decorator at the final output boundary.',
+      'Keep your current model provider and reply call sites. Featherlane AI adds one SDK decorator at the final output boundary.',
     mode: {
       label: 'Published SDK',
       summary: 'Install one package and decorate your agent',
       title: 'Keep calling the same agent.',
       copy: 'The SDK decorates your agent once, checks every final reply through the Rust runtime, and preserves the interface your application already calls.',
       facts: [
-        ['Install', 'npm install @trustloopguard/sdk'],
+        ['Install', 'npm install @featherlane-ai/sdk'],
         ['Boundary', 'Your existing reply function'],
         ['Endpoint', 'POST /v1/events'],
       ],
@@ -26,14 +26,14 @@ const COPY = {
     eyebrow: 'Dành cho nhà phát triển',
     heading: 'Cài một package. Bọc một tác nhân.',
     intro:
-      'Giữ nguyên nhà cung cấp mô hình và các điểm gọi phản hồi hiện tại. TrustLoopGuard thêm một decorator SDK tại ranh giới đầu ra cuối cùng.',
+      'Giữ nguyên nhà cung cấp mô hình và các điểm gọi phản hồi hiện tại. Featherlane AI thêm một decorator SDK tại ranh giới đầu ra cuối cùng.',
     mode: {
       label: 'SDK đã phát hành',
       summary: 'Cài một package và bọc tác nhân của bạn',
       title: 'Tiếp tục gọi chính tác nhân hiện có.',
       copy: 'SDK bọc tác nhân một lần, kiểm tra mọi phản hồi cuối qua runtime Rust và giữ nguyên giao diện mà ứng dụng của bạn đang gọi.',
       facts: [
-        ['Cài đặt', 'npm install @trustloopguard/sdk'],
+        ['Cài đặt', 'npm install @featherlane-ai/sdk'],
         ['Ranh giới', 'Hàm phản hồi hiện có của bạn'],
         ['Endpoint', 'POST /v1/events'],
       ],
@@ -43,21 +43,21 @@ const COPY = {
 } as const;
 
 const SDK_SAMPLES = {
-  ts: `import { guardAgent } from '@trustloopguard/sdk';
+  ts: `import { guardAgent } from '@featherlane-ai/sdk';
 
 const agent = guardAgent(createAgent(), {
   agentId: 'support-agent',
 });
 
 return await agent.reply(customerMessage);`,
-  python: `from trustloopguard import guarded
+  python: `from featherlane_ai import guarded
 
 @guarded(agent_id="support-agent")
 async def generate_reply(message: str) -> str:
     return await agent.reply(message)`,
   rust: `use tl_sdk_rust::{AuthorizationEffect, Client};
 
-let client = Client::new(&std::env::var("TRUSTLOOP_URL")?);
+let client = Client::new(&std::env::var("FEATHERLANE_AI_URL")?);
 let decision = client.submit_event(&event).await?;
 
 match decision.effect {

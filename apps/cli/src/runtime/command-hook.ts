@@ -44,7 +44,7 @@ export async function runCommandHook(
   } catch {
     if (await shouldFailClosed(host, cwd, configRoot)) {
       return {
-        stdout: permissionOutput('deny', 'TrustLoopGuard could not parse the host hook request.'),
+        stdout: permissionOutput('deny', 'Featherlane AI could not parse the host hook request.'),
         stderr: '',
       };
     }
@@ -60,7 +60,7 @@ export async function runCommandHook(
       return {
         stdout: permissionOutput(
           'deny',
-          `TrustLoopGuard rejected the host hook request: ${reason}.`,
+          `Featherlane AI rejected the host hook request: ${reason}.`,
         ),
         stderr: '',
       };
@@ -89,7 +89,7 @@ export async function runCommandHook(
     stderr:
       completion.retained === 0
         ? ''
-        : `TrustLoopGuard lease completion failed; ${completion.retained} state file(s) retained: ${completion.errors.join('; ')}\n`,
+        : `Featherlane AI lease completion failed; ${completion.retained} state file(s) retained: ${completion.errors.join('; ')}\n`,
   };
 }
 
@@ -118,7 +118,7 @@ async function main(): Promise<void> {
 
 if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
   main().catch((error: Error) => {
-    process.stderr.write(`TrustLoopGuard hook failed: ${error.message}\n`);
+    process.stderr.write(`Featherlane AI hook failed: ${error.message}\n`);
     process.exitCode = 1;
   });
 }

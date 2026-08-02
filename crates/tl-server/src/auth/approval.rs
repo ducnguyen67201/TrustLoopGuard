@@ -9,7 +9,7 @@ use super::{
 
 pub(super) fn forwarded_user_id(req: &Request) -> Option<uuid::Uuid> {
     req.headers()
-        .get("x-tlg-user-id")
+        .get("x-featherlane-ai-user-id")
         .and_then(|value| value.to_str().ok())
         .and_then(|value| uuid::Uuid::parse_str(value.trim()).ok())
 }

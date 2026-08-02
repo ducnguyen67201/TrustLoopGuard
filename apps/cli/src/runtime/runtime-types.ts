@@ -7,10 +7,10 @@ export interface JsonObject {
 export type HostId = 'claude' | 'codex' | 'opencode';
 
 export interface RuntimeEnvironment {
-  TLG_API_KEY?: string;
-  TLG_APPROVAL_POLL_MS?: string;
-  TLG_APPROVAL_TIMEOUT_MS?: string;
-  TLG_REQUEST_TIMEOUT_MS?: string;
+  FEATHERLANE_AI_API_KEY?: string;
+  FEATHERLANE_AI_APPROVAL_POLL_MS?: string;
+  FEATHERLANE_AI_APPROVAL_TIMEOUT_MS?: string;
+  FEATHERLANE_AI_REQUEST_TIMEOUT_MS?: string;
 }
 
 export interface RuntimeRegistration {

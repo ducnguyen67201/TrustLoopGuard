@@ -83,7 +83,7 @@ export function ControlLoop({ locale = 'en' }: { locale?: MarketingLocale }) {
       <div className="journey-canvas">
         <img
           className="journey-art"
-          src="/images/trustloop-authorization-journey.png"
+          src="/images/featherlane-ai-authorization-journey.png"
           alt=""
           width="921"
           height="1707"

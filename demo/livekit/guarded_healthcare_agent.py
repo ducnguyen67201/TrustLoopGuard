@@ -1,4 +1,4 @@
-"""LiveKit agent example protected by TrustLoopGuard.
+"""LiveKit agent example protected by Featherlane AI.
 
 This intentionally follows the shape of LiveKit's healthcare example:
 
@@ -19,10 +19,10 @@ from livekit.agents import Agent, AgentServer, AgentSession, JobContext, cli, in
 from livekit.agents.beta import Instructions
 from livekit.plugins import openai, silero
 
-import trustloopguard as trustloop
-from trustloopguard import AuthorizationDecision, Channel, GuardLogEvent, OutputGuard, RetryConfig
+import featherlane_ai
+from featherlane_ai import AuthorizationDecision, Channel, GuardLogEvent, OutputGuard, RetryConfig
 
-logger = logging.getLogger("TrustLoopGuardLiveKitDemo")
+logger = logging.getLogger("FeatherlaneAILiveKitDemo")
 load_dotenv()
 
 TL_SERVER_URL = os.getenv("TL_SERVER_URL", "http://127.0.0.1:8080")
@@ -47,7 +47,7 @@ async def deferred_reply(decision: AuthorizationDecision) -> str:
 
 def log_guardrail(event: GuardLogEvent) -> None:
     logger.info(
-        "trustloopguard decision trace=%s effect=%s branch=%s latency_ms=%s",
+        "featherlane-ai decision trace=%s effect=%s branch=%s latency_ms=%s",
         event.trace_id,
         event.effect,
         event.branch,
@@ -90,7 +90,7 @@ server = AgentServer()
 
 @server.rtc_session()
 async def entrypoint(ctx: JobContext) -> None:
-    guardrail = trustloop.guard(
+    guardrail = featherlane_ai.guard(
         agent_id=TL_AGENT_ID,
         base_url=TL_SERVER_URL,
         api_key=TL_API_KEY,

@@ -80,7 +80,7 @@ const activePolicySchema = z.object({
 
 const runtimeSchema = z.object({
   agent: z.literal('openai-responses'),
-  guard: z.literal('trustloopguard-rust-api'),
+  guard: z.literal('featherlane-ai-rust-api'),
   data: z.literal('synthetic-only'),
 });
 

@@ -144,7 +144,7 @@ describe('ConnectAgentStep', () => {
 
     for (const pre of Array.from(document.querySelectorAll('pre'))) {
       expect(pre.textContent).not.toContain(CREATED.plaintext_key);
-      expect(pre.textContent).toContain('npx @trustloopguard/cli install');
+      expect(pre.textContent).toContain('npx @featherlane-ai/cli install');
       expect(pre.textContent).toContain('https://api.example.test');
       expect(pre.textContent).toContain('support-ai');
     }

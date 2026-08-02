@@ -5,7 +5,7 @@ import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const packageDirectory = dirname(dirname(fileURLToPath(import.meta.url)));
-const temporaryDirectory = await mkdtemp(join(tmpdir(), 'trustloopguard-cli-package-'));
+const temporaryDirectory = await mkdtemp(join(tmpdir(), 'featherlane-ai-cli-package-'));
 
 try {
   const packed = spawnSync('npm', ['pack', '--json', '--pack-destination', temporaryDirectory], {
@@ -23,12 +23,12 @@ try {
     '-C',
     temporaryDirectory,
   ]);
-  const installedPackage = join(temporaryDirectory, 'node_modules', '@trustloopguard', 'cli');
+  const installedPackage = join(temporaryDirectory, 'node_modules', '@featherlane-ai', 'cli');
   await mkdir(dirname(installedPackage), { recursive: true });
   await rename(join(temporaryDirectory, 'package'), installedPackage);
 
   const packageJson = JSON.parse(await readFile(join(installedPackage, 'package.json'), 'utf8'));
-  if (packageJson.bin?.trustloopguard !== 'dist/index.js') {
+  if (packageJson.bin?.['featherlane-ai'] !== 'dist/index.js') {
     throw new Error('packed CLI bin does not point to dist/index.js');
   }
   const paths = manifest.files.map((entry) => entry.path);
@@ -64,12 +64,12 @@ try {
     HOME: home,
     XDG_CONFIG_HOME: config,
     PATH: `${bin}${delimiter}${process.env.PATH ?? ''}`,
-    TLG_API_KEY: 'tl_live_package_smoke_only',
+    FEATHERLANE_AI_API_KEY: 'tl_live_package_smoke_only',
   };
   const cli = join(installedPackage, 'dist', 'index.js');
 
   const help = spawnSync(process.execPath, [cli, '--help'], { encoding: 'utf8', env });
-  if (help.status !== 0 || !help.stdout.includes('trustloopguard install')) {
+  if (help.status !== 0 || !help.stdout.includes('featherlane-ai install')) {
     throw new Error(`packed CLI help failed:\n${help.stderr}`);
   }
   const install = spawnSync(
@@ -92,8 +92,9 @@ try {
   if (install.status !== 0) {
     throw new Error(`packed CLI install failed:\n${install.stdout}\n${install.stderr}`);
   }
-  const registryText = await readFile(join(config, 'trustloopguard', 'registry.json'), 'utf8');
-  if (registryText.includes(env.TLG_API_KEY)) throw new Error('runtime key leaked into registry');
+  const registryText = await readFile(join(config, 'featherlane-ai', 'registry.json'), 'utf8');
+  if (registryText.includes(env.FEATHERLANE_AI_API_KEY))
+    throw new Error('runtime key leaked into registry');
 
   const status = spawnSync(process.execPath, [cli, 'status', '--project', project, '--json'], {
     encoding: 'utf8',

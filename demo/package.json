@@ -1,8 +1,8 @@
 {
-  "name": "@trustloopguard/demo",
+  "name": "@featherlane-ai/demo",
   "private": true,
   "version": "0.0.1",
-  "description": "SDK-backed TrustLoopGuard demos for the dispute and LiveKit surfaces.",
+  "description": "SDK-backed Featherlane AI demos for the dispute and LiveKit surfaces.",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -19,9 +19,9 @@
     "dev": "sh -c 'trap \"kill 0\" EXIT INT TERM; pnpm run stripe-refund-agent:provider & pnpm run stripe-refund-agent:ui & wait'",
     "dispute": "pnpm run dispute:check",
     "dispute:setup": "tsx dispute/setup.ts",
-    "dispute:setup:doppler": "doppler run --project trustloopguard --config dev_demo -- pnpm run dispute:setup",
+    "dispute:setup:doppler": "doppler run --project featherlane-ai --config dev_demo -- pnpm run dispute:setup",
     "dispute:serve": "tsx dispute/serve.ts",
-    "dispute:serve:doppler": "doppler run --project trustloopguard --config dev_demo -- pnpm run dispute:serve",
+    "dispute:serve:doppler": "doppler run --project featherlane-ai --config dev_demo -- pnpm run dispute:serve",
     "dispute:check": "tsx dispute/dispute.check.ts",
     "dispute:scenarios": "tsx dispute/scenarios.ts",
     "dispute:scenarios:check": "tsx dispute/scenarios.check.ts",
@@ -38,13 +38,13 @@
     "stripe-refund-agent:provider": "tsx stripe-refund-agent/provider.ts",
     "stripe-refund-agent:ui": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/ui.ts",
     "stripe-refund-agent:check": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/check.ts",
-    "stripe-refund-agent:live": "doppler run --project trustloopguard --config dev_stripe_demo -- pnpm dev",
+    "stripe-refund-agent:live": "doppler run --project featherlane-ai --config dev_stripe_demo -- pnpm dev",
     "arena:check": "tsx arena/adapter.check.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@openai/agents": "^0.13.5",
-    "@trustloopguard/sdk": "workspace:*",
+    "@featherlane-ai/sdk": "workspace:*",
     "openai": "^6.45.0",
     "pdfjs-dist": "^4.10.38",
     "yaml": "^2.9.0",

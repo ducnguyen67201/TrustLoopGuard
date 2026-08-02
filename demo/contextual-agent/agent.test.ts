@@ -8,7 +8,7 @@ import type {
   PolicyFamily,
   PolicyListResponse,
   PolicySummary,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 import { parseDocument } from 'yaml';
 
 import {
@@ -222,8 +222,8 @@ test('runtime client uses only its workspace-bound key', async () => {
   });
   await client.listPolicies({ family: 'content' });
   assert.equal(request?.headers.get('authorization'), 'Bearer tl_live_contextual-secret');
-  assert.equal(request?.headers.get('x-tlg-workspace-id'), null);
-  assert.equal(request?.headers.get('x-tlg-user-id'), null);
+  assert.equal(request?.headers.get('x-featherlane-ai-workspace-id'), null);
+  assert.equal(request?.headers.get('x-featherlane-ai-user-id'), null);
 });
 
 class FakeContextualClient implements ContextualAgentClient {

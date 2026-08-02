@@ -1,18 +1,18 @@
-"""TrustLoopGuard Python SDK.
+"""Featherlane AI Python SDK.
 
 Public surface:
     Client          — HTTP client for GuardEvent runtime submissions
     GuardEvent      — what the agent loop submits
-    AuthorizationDecision        — what TrustLoopGuard returns
+    AuthorizationDecision        — what Featherlane AI returns
     AuthorizationEffect, Channel, Severity, TriggeredPolicy — supporting wire types
 
 Type definitions are generated from the canonical Rust types in `tl-core`
 via `cargo run -p tl-codegen`. Do not hand-edit `_generated/`.
 """
 
-from trustloopguard.client import AsyncClient, AsyncFinancialOperation, Client, FinancialOperation
-from trustloopguard.authorization import AuthorizationResult
-from trustloopguard.guard import (
+from featherlane_ai.client import AsyncClient, AsyncFinancialOperation, Client, FinancialOperation
+from featherlane_ai.authorization import AuthorizationResult
+from featherlane_ai.guard import (
     GuardLogEvent,
     GuardMode,
     OutputGuard,
@@ -21,7 +21,7 @@ from trustloopguard.guard import (
     guarded,
     guard_async,
 )
-from trustloopguard._generated.types import (
+from featherlane_ai._generated.types import (
     Action,
     ApprovalDecision,
     ApprovalEnvelope,
@@ -121,7 +121,7 @@ from trustloopguard._generated.types import (
     X402PaymentRequirement,
     X402SettlementProof,
 )
-from trustloopguard.errors import (
+from featherlane_ai.errors import (
     Decode,
     Forbidden,
     Gone,
@@ -135,7 +135,7 @@ from trustloopguard.errors import (
     Unavailable,
     Unprocessable,
 )
-from trustloopguard.retry import RetryConfig
+from featherlane_ai.retry import RetryConfig
 
 __all__ = [
     # Client

@@ -9,7 +9,7 @@ import type {
   FinancialExecutionStatus,
   FinancialOutcomeListResponse,
   FinancialReceipt,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 export interface FinancialDemoClient {
   createGrant(req: CreateAuthorizationGrantRequest): Promise<AuthorizationGrant>;

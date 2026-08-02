@@ -9,7 +9,7 @@ use tl_core::{AiEditRequest, AiEditResponse, ApiErrorCode};
 use super::{api_error_response, PolicyState};
 
 const AI_EDIT_SYSTEM_PROMPT: &str = concat!(
-    "You are a TrustLoopGuard policy YAML editor. ",
+    "You are a Featherlane AI policy YAML editor. ",
     "Given the current policy YAML and an instruction, apply the instruction and return ",
     "ONLY the modified YAML — no explanation, no markdown fences, no surrounding text. ",
     "Preserve all unmodified fields exactly. ",

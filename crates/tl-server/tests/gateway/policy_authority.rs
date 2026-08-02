@@ -6,8 +6,8 @@ async fn upsert_gateway_policy(app: axum::Router, workspace: &str, policy: &str)
                 .uri("/v1/policies")
                 .header(header::CONTENT_TYPE, "application/x-yaml")
                 .header(header::AUTHORIZATION, "Bearer sk-internal")
-                .header("x-tlg-workspace-id", workspace)
-                .header("x-tlg-user-id", gateway_owner_id().to_string())
+                .header("x-featherlane-ai-workspace-id", workspace)
+                .header("x-featherlane-ai-user-id", gateway_owner_id().to_string())
                 .body(Body::from(policy.to_string()))
                 .unwrap(),
         )
@@ -133,7 +133,7 @@ rewrite: safe replacement
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
-        response.headers().get("x-trustloopguard-effect").unwrap(),
+        response.headers().get("x-featherlane-ai-effect").unwrap(),
         "transform"
     );
     let body = read_body(response).await;
@@ -173,7 +173,7 @@ async fn gateway_returns_bad_gateway_for_provider_failure() {
     assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
     assert!(response
         .headers()
-        .get("x-trustloopguard-effect")
+        .get("x-featherlane-ai-effect")
         .is_none());
     let body = read_body(response).await;
     assert_eq!(body["message"], "upstream provider request failed");
@@ -218,13 +218,13 @@ action: defer
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
-        response.headers().get("x-trustloopguard-effect").unwrap(),
+        response.headers().get("x-featherlane-ai-effect").unwrap(),
         "defer"
     );
     let body = read_body(response).await;
     assert_eq!(
         body["choices"][0]["message"]["content"],
-        "Blocked by TrustLoopGuard."
+        "Blocked by Featherlane AI."
     );
     provider.verify().await;
 }
@@ -301,11 +301,11 @@ action: deny
         .unwrap();
     assert_eq!(gateway.status(), StatusCode::OK);
     assert_eq!(
-        gateway.headers().get("x-trustloopguard-effect").unwrap(),
+        gateway.headers().get("x-featherlane-ai-effect").unwrap(),
         "deny"
     );
     assert_eq!(
-        gateway.headers().get("x-trustloopguard-policy-id").unwrap(),
+        gateway.headers().get("x-featherlane-ai-policy-id").unwrap(),
         "parity-block"
     );
     provider.verify().await;

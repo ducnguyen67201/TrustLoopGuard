@@ -138,6 +138,6 @@ Claude Code, Codex, and OpenCode can submit this typed shell event through the u
 
 ## Clean-room boundary
 
-This implementation was designed from TrustLoopGuard's existing event, policy, and authorization contracts plus official Tree-sitter and Claude hook documentation. No source, rule list, test corpus, generated artifact, or benchmark from the externally referenced destructive-command project is copied, translated, or used as implementation material.
+This implementation was designed from Featherlane AI's existing event, policy, and authorization contracts plus official Tree-sitter and Claude hook documentation. No source, rule list, test corpus, generated artifact, or benchmark from the externally referenced destructive-command project is copied, translated, or used as implementation material.
 
 The examples under `docs/policies/examples/tool-shell-*.yaml` are documentation fixtures only. They are not seeded or enabled automatically; an operator must deliberately publish and enable the policies they want.

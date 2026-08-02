@@ -15,7 +15,7 @@ import type {
   AuthorizationEffect,
   AuthorizationReceipt,
   GrantMode,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
@@ -488,7 +488,7 @@ export function AuthorizationApprovalsContent({
               <Detail label="Envelope hash" value={selected.envelope_hash} mono />
             </div>
             <p className="text-sm text-muted-foreground">
-              TrustLoopGuard re-evaluates current policy and domain state before issuing a
+              Featherlane AI re-evaluates current policy and domain state before issuing a
               one-attempt execution lease.
             </p>
             <DialogFooter>

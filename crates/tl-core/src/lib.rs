@@ -1,4 +1,4 @@
-//! Core types for TrustLoopGuard. Stable across all other crates.
+//! Core types for Featherlane AI. Stable across all other crates.
 //!
 //! # Versioning
 //!

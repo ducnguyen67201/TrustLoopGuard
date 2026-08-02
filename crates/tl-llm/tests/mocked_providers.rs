@@ -84,7 +84,7 @@ async fn openrouter_adds_http_referer() {
     Mock::given(method("POST"))
         .and(path("/v1/chat/completions"))
         .and(header("authorization", "Bearer or-key"))
-        .and(header("http-referer", "https://example.test/tlg"))
+        .and(header("http-referer", "https://example.test/featherlane"))
         .respond_with(ok_response())
         .expect(1)
         .mount(&server)
@@ -93,7 +93,7 @@ async fn openrouter_adds_http_referer() {
     let client = OpenRouterClient::new("or-key")
         .unwrap()
         .with_base_url(server.uri())
-        .with_referer("https://example.test/tlg");
+        .with_referer("https://example.test/featherlane");
     let out = client
         .complete(
             "openai/gpt-4o-mini",

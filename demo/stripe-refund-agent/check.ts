@@ -7,7 +7,7 @@ import type {
   AuthorizationGrant, AuthorizationGrantListResponse, CreateAuthorizationGrantRequest,
   CreateFinancialActionRequest, FinancialOperation, FinancialOperationSpec,
   FinancialActionRecord, FinancialReceipt,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import { executeRefundTool, prepareRefundTool, type RefundAgentClient } from './core';
 import { resetOrderDatabase } from './order-db';
@@ -16,7 +16,7 @@ import { handleProviderPayment, providerApiKey } from './provider';
 import { requireStripeTestKey } from './stripe';
 import { DEMO_ORDER_ID, type StripeRefundProviderRequest, type StripeRefundProviderResponse } from './types';
 
-process.env.STRIPE_REFUND_AGENT_DB = join(mkdtempSync(join(tmpdir(), 'tlg-stripe-refund-agent-')), 'orders.sqlite');
+process.env.STRIPE_REFUND_AGENT_DB = join(mkdtempSync(join(tmpdir(), 'featherlane-ai-stripe-refund-agent-')), 'orders.sqlite');
 
 async function main(): Promise<void> {
   resetOrderDatabase();

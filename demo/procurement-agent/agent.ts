@@ -1,5 +1,5 @@
 import { Agent, Runner, tool, type RunContext } from '@openai/agents';
-import type { AuthorizationDecision, Client } from '@trustloopguard/sdk';
+import type { AuthorizationDecision, Client } from '@featherlane-ai/sdk';
 import { z } from 'zod';
 
 import { OPENAI_API_KEY, OPENAI_MODEL } from '../shared/env';
@@ -12,7 +12,7 @@ import {
   type PublicProcurementQuote,
 } from './fixtures';
 
-const PURCHASE_ORDER_SCHEMA_HASH = 'tlg-schema:procurement-submit-po-v1';
+const PURCHASE_ORDER_SCHEMA_HASH = 'featherlane-ai-schema:procurement-submit-po-v1';
 const MAX_FINAL_MESSAGE_LENGTH = 2_000;
 
 const searchCatalogInputSchema = z.object({
@@ -213,8 +213,8 @@ export async function submitProcurementPurchaseOrder(
   const decision = toPublicAuthorizationDecision(result.decision);
   context.decision = decision;
   const summary = result.executed
-    ? `Purchase order submitted after TrustLoopGuard returned ${decision.effect}.`
-    : `Purchase order not submitted because TrustLoopGuard returned ${decision.effect}: ${decision.reason}`;
+    ? `Purchase order submitted after Featherlane AI returned ${decision.effect}.`
+    : `Purchase order not submitted because Featherlane AI returned ${decision.effect}: ${decision.reason}`;
   context.traces.push({ tool: 'submit_purchase_order', summary });
 
   return {
@@ -240,7 +240,7 @@ const searchCatalogTool = tool<typeof searchCatalogInputSchema, ProcurementRunCo
 const submitPurchaseOrderTool = tool<typeof submitPurchaseOrderInputSchema, ProcurementRunContext>({
   name: 'submit_purchase_order',
   description:
-    'Submit one purchase order from a quote ID returned by search_catalog. TrustLoopGuard evaluates the canonical quote before execution.',
+    'Submit one purchase order from a quote ID returned by search_catalog. Featherlane AI evaluates the canonical quote before execution.',
   parameters: submitPurchaseOrderInputSchema,
   execute: ({ quoteId }, runContext) => {
     const context = requireProcurementContext(runContext);
@@ -256,7 +256,7 @@ const PROCUREMENT_AGENT = new Agent<ProcurementRunContext>({
     'Use only quote IDs returned by search_catalog and never invent prices, suppliers, or availability.',
     'Call submit_purchase_order only when the buyer clearly asks to order an item.',
     'Never claim that a purchase order executed unless the tool result status is submitted.',
-    'If TrustLoopGuard blocks or holds an action, explain that outcome faithfully and do not retry it.',
+    'If Featherlane AI blocks or holds an action, explain that outcome faithfully and do not retry it.',
     'For general questions, answer briefly without proposing an action.',
     "Reply in the same language as the buyer's request.",
   ].join(' '),

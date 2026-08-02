@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { env } from '@/env';
 import { GITHUB_URL } from '@/lib/github';
 
-export const SITE_NAME = 'TrustLoopGuard';
+export const SITE_NAME = 'Featherlane AI';
 export const SITE_URL = stripTrailingSlash(env.NEXT_PUBLIC_SITE_URL);
 export const DEFAULT_DESCRIPTION =
   'Approval infrastructure for AI agents. Evaluate proposed payments, hospital requests, and other consequential actions against policy before they execute.';
@@ -44,13 +44,13 @@ export const landingPages = [
   {
     slug: 'ai-agent-spend-controls',
     lastModified: '2026-07-06',
-    title: 'AI Agent Spend Controls | TrustLoopGuard',
+    title: 'AI Agent Spend Controls | Featherlane AI',
     description:
-      'Set spend caps for AI agents before they pay, refund, book, or change accounts. TrustLoopGuard returns allow, block, cap, or hold with an audit trail.',
+      'Set spend caps for AI agents before they pay, refund, book, or change accounts. Featherlane AI returns allow, block, cap, or hold with an audit trail.',
     eyebrow: 'AI agent spend controls',
     h1: 'Stop agent overspend before money moves.',
     intro:
-      'TrustLoopGuard adds a pre-action check between an AI agent and a money-moving tool. Your app sends the proposed amount, merchant, action, and context; the guard returns allow, cap, block, or hold before the charge fires.',
+      'Featherlane AI adds a pre-action check between an AI agent and a money-moving tool. Your app sends the proposed amount, merchant, action, and context; the guard returns allow, cap, block, or hold before the charge fires.',
     primaryCta: 'Add spend controls',
     secondaryCta: 'Read the quickstart',
     problemHeading: 'The risk is not the answer. It is the action.',
@@ -84,27 +84,27 @@ export const landingPages = [
     ],
     faq: [
       {
-        question: 'Where does TrustLoopGuard sit?',
+        question: 'Where does Featherlane AI sit?',
         answer:
-          'It sits before the tool or payment action fires. Your agent proposes an action, your app checks it with TrustLoopGuard, then applies the returned effect.',
+          'It sits before the tool or payment action fires. Your agent proposes an action, your app checks it with Featherlane AI, then applies the returned effect.',
       },
       {
         question: 'Does this replace payment rails?',
         answer:
-          'No. TrustLoopGuard is a policy and audit layer that works with the rails your app already uses.',
+          'No. Featherlane AI is a policy and audit layer that works with the rails your app already uses.',
       },
     ],
   },
   {
     slug: 'ai-agent-payment-gateway',
     lastModified: '2026-07-06',
-    title: 'AI Agent Payment Gateway Controls | TrustLoopGuard',
+    title: 'AI Agent Payment Gateway Controls | Featherlane AI',
     description:
-      'Put policy checks in front of AI agent payment gateways. TrustLoopGuard gates charges, refunds, bookings, and account actions before they reach the provider.',
+      'Put policy checks in front of AI agent payment gateways. Featherlane AI gates charges, refunds, bookings, and account actions before they reach the provider.',
     eyebrow: 'AI agent payment gateway',
     h1: 'Add a policy gate before the payment gateway.',
     intro:
-      'Provider-compatible gateways make it easy for agents to call models and tools. TrustLoopGuard adds the missing action boundary: a check that evaluates the proposed charge, refund, booking, or account change before it reaches the payment provider.',
+      'Provider-compatible gateways make it easy for agents to call models and tools. Featherlane AI adds the missing action boundary: a check that evaluates the proposed charge, refund, booking, or account change before it reaches the payment provider.',
     primaryCta: 'Map a gateway check',
     secondaryCta: 'Read gateway docs',
     problemHeading: 'Gateway traffic needs money-action context.',
@@ -138,7 +138,7 @@ export const landingPages = [
     ],
     faq: [
       {
-        question: 'Is TrustLoopGuard a payment processor?',
+        question: 'Is Featherlane AI a payment processor?',
         answer:
           'No. It is a guard and audit layer before your app calls the payment, checkout, booking, or provider route.',
       },
@@ -152,13 +152,13 @@ export const landingPages = [
   {
     slug: 'mcp-spend-guard',
     lastModified: '2026-07-06',
-    title: 'MCP Spend Guard for AI Agents | TrustLoopGuard',
+    title: 'MCP Spend Guard for AI Agents | Featherlane AI',
     description:
       'Add a spend-guard check around MCP tool calls so AI agents can allow, block, or hold payment actions before they execute.',
     eyebrow: 'MCP spend guard',
     h1: 'Gate MCP tool calls before they spend.',
     intro:
-      'MCP is where agents ask tools to act. TrustLoopGuard is designed for that boundary: the agent proposes a checkout, payment, refund, booking, or account action, and the guard returns a effect before the tool runs.',
+      'MCP is where agents ask tools to act. Featherlane AI is designed for that boundary: the agent proposes a checkout, payment, refund, booking, or account action, and the guard returns a effect before the tool runs.',
     primaryCta: 'Talk through MCP',
     secondaryCta: 'Read the docs',
     problemHeading: 'Tool calls need action policy, not just prompt policy.',
@@ -194,7 +194,7 @@ export const landingPages = [
       {
         question: 'Is the MCP server shipped?',
         answer:
-          'The core TrustLoopGuard runtime and SDK path exist today. MCP-specific packaging should be implemented when a design partner pulls for it.',
+          'The core Featherlane AI runtime and SDK path exist today. MCP-specific packaging should be implemented when a design partner pulls for it.',
       },
       {
         question: 'Why not only use a wallet cap?',
@@ -206,13 +206,13 @@ export const landingPages = [
   {
     slug: 'agentic-travel-payments',
     lastModified: '2026-07-06',
-    title: 'Guard Agentic Travel Payments | TrustLoopGuard',
+    title: 'Guard Agentic Travel Payments | Featherlane AI',
     description:
       'Check AI travel bookings before payment. Cap fares, block duplicate bookings, and hold non-refundable itinerary changes for approval.',
     eyebrow: 'Agentic travel payments',
     h1: 'Make the booking agent prove the charge is safe.',
     intro:
-      'Travel agents cross from recommendation into irreversible booking fast. TrustLoopGuard checks fare, refundability, passenger intent, and spend cap before the booking or change is allowed.',
+      'Travel agents cross from recommendation into irreversible booking fast. Featherlane AI checks fare, refundability, passenger intent, and spend cap before the booking or change is allowed.',
     primaryCta: 'Review travel flow',
     secondaryCta: 'See guard modes',
     problemHeading: 'Travel failures become real charges.',
@@ -260,13 +260,13 @@ export const landingPages = [
   {
     slug: 'shopping-agent-checkout',
     lastModified: '2026-07-06',
-    title: 'Shopping Agent Checkout Controls | TrustLoopGuard',
+    title: 'Shopping Agent Checkout Controls | Featherlane AI',
     description:
       'Guard AI shopping agents before checkout. Confirm item, variant, price, merchant, and duplicate-order risk before payment.',
     eyebrow: 'Shopping agent checkout',
     h1: 'Catch the wrong cart before checkout.',
     intro:
-      'Shopping agents turn discovery into payment. TrustLoopGuard checks the item, variant, merchant, price, and retry context before a one-click or agent-fired checkout completes.',
+      'Shopping agents turn discovery into payment. Featherlane AI checks the item, variant, merchant, price, and retry context before a one-click or agent-fired checkout completes.',
     primaryCta: 'Guard checkout',
     secondaryCta: 'Read the quickstart',
     problemHeading: 'Tiny product mistakes turn into payment disputes.',
@@ -302,7 +302,7 @@ export const landingPages = [
       {
         question: 'Is this a checkout provider?',
         answer:
-          'No. TrustLoopGuard checks the proposed checkout action before your app sends it to the checkout or payment provider.',
+          'No. Featherlane AI checks the proposed checkout action before your app sends it to the checkout or payment provider.',
       },
       {
         question: 'Can it handle multi-merchant carts?',
@@ -314,13 +314,13 @@ export const landingPages = [
   {
     slug: 'accounts-payable-agents',
     lastModified: '2026-07-06',
-    title: 'Accounts Payable Agent Guardrails | TrustLoopGuard',
+    title: 'Accounts Payable Agent Guardrails | Featherlane AI',
     description:
       'Add policy checks to AP and procurement agents before invoices, purchase orders, or wires are approved and paid.',
     eyebrow: 'AP and procurement agents',
     h1: 'Do not let an AP agent pay the wrong invoice quietly.',
     intro:
-      'AP and procurement agents can move money from inbox to approval to payment. TrustLoopGuard adds a pre-payment decision for invoice amount, vendor, bank details, duplicate risk, and sign-off policy.',
+      'AP and procurement agents can move money from inbox to approval to payment. Featherlane AI adds a pre-payment decision for invoice amount, vendor, bank details, duplicate risk, and sign-off policy.',
     primaryCta: 'Map an AP check',
     secondaryCta: 'Read policy docs',
     problemHeading: 'Automation needs proof at the approval boundary.',
@@ -361,14 +361,14 @@ export const landingPages = [
       {
         question: 'Can it work with existing ERPs?',
         answer:
-          'Yes, when the AP workflow sends the proposed action to TrustLoopGuard before the ERP or payment call executes.',
+          'Yes, when the AP workflow sends the proposed action to Featherlane AI before the ERP or payment call executes.',
       },
     ],
   },
   {
     slug: 'ai-agent-audit-trail',
     lastModified: '2026-07-06',
-    title: 'AI Agent Audit Trail for Money Actions | TrustLoopGuard',
+    title: 'AI Agent Audit Trail for Money Actions | Featherlane AI',
     description:
       'Record why AI agents were allowed, blocked, capped, or held before payments, refunds, bookings, and account changes.',
     eyebrow: 'AI agent audit trail',
@@ -463,7 +463,7 @@ export function organizationJsonLd() {
     '@type': 'Organization',
     name: SITE_NAME,
     url: SITE_URL,
-    logo: absoluteUrl('/trustloop-logo.svg'),
+    logo: absoluteUrl('/featherlane-ai-logo.svg'),
     sameAs: [GITHUB_URL],
   };
 }

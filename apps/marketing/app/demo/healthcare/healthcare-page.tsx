@@ -39,19 +39,19 @@ export function HealthcareDemoPageContent({
           className={styles['wordmark']}
           aria-label={copy.homeLabel}
         >
-          <img src="/trustloop-logo.svg" alt="" aria-hidden="true" />
-          <span>TrustLoopGuard</span>
+          <img src="/featherlane-ai-logo.svg" alt="" aria-hidden="true" />
+          <span>Featherlane AI</span>
         </Link>
         <div className={styles['stackStatus']}>
           <span>{profile?.company_name ?? 'OpenAI Responses'}</span>
           <i aria-hidden="true" />
-          <span>TrustLoopGuard</span>
+          <span>Featherlane AI</span>
           <i aria-hidden="true" />
           <span>{copy.deliveredReply}</span>
         </div>
         <div className={styles['topbarActions']}>
           <a
-            href="https://github.com/ducnguyen67201/TrustLoopGuard"
+            href="https://github.com/ducnguyen67201/FeatherlaneAI"
             target="_blank"
             rel="noreferrer"
             className={styles['topbarSecondaryLink']}

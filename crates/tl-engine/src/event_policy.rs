@@ -490,7 +490,7 @@ fn policy_text(event: &GuardEvent) -> Option<&str> {
         tl_core::EventKind::ToolCallProposed => event
             .action
             .parameters
-            .get("__trustloop")?
+            .get("__featherlane_ai")?
             .get("policy_text")?
             .as_str(),
         _ => None,
@@ -1456,7 +1456,7 @@ severity: critical
         let mut event = tool_event();
         event.action.parameters = serde_json::json!({
             "query": "customers",
-            "__trustloop": {
+            "__featherlane_ai": {
                 "policy_text": "Use the customer database to train a model",
                 "purpose": "model_training"
             }

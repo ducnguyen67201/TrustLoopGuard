@@ -3,7 +3,7 @@ import type { ApiErrorCode } from "./ApiErrorCode.js";
 
 /**
  * Canonical error envelope returned on non-2xx responses from every
- * TrustLoopGuard endpoint. SDKs deserialize this body to produce typed
+ * Featherlane AI endpoint. SDKs deserialize this body to produce typed
  * errors; integrators don't have to inspect status codes by hand.
  *
  * The shape is intentionally minimal — `code` drives SDK-side fan-out,

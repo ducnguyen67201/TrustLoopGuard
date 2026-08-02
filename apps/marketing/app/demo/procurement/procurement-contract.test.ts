@@ -51,7 +51,7 @@ test('exposes only bounded public decision and purchase-order fields', () => {
       traces: [
         {
           tool: 'submit_purchase_order',
-          summary: 'Held by TrustLoopGuard.',
+          summary: 'Held by Featherlane AI.',
           rawToolOutput: 'private',
         },
       ],
@@ -105,7 +105,7 @@ test('exposes only bounded public decision and purchase-order fields', () => {
     ],
     runtime: {
       agent: 'openai-agents-js',
-      guard: 'trustloopguard-rust-api',
+      guard: 'featherlane-ai-rust-api',
       provider: 'simulated-procurement-api',
     },
     logs: [{ step: 'authorization_requested' }],
@@ -137,7 +137,7 @@ test('accepts only bounded Rust or template policy inventory', () => {
     source: 'rust',
     runtime: {
       agent: 'openai-agents-js',
-      guard: 'trustloopguard-rust-api',
+      guard: 'featherlane-ai-rust-api',
       provider: 'simulated-procurement-api',
     },
     workspace: {
@@ -169,7 +169,7 @@ test('the page presents live OpenAI, Rust policies, all outcomes, and a read-onl
   const source = `${page}\n${pageContent}\n${demo}\n${content}`;
 
   assert.match(source, /OpenAI proposes/i);
-  assert.match(source, /TrustLoopGuard decides/i);
+  assert.match(source, /Featherlane AI decides/i);
   assert.match(source, /Demo catalog only/i);
   assert.match(source, /Policies checked/i);
   assert.match(source, /Workspace holding these policies/i);

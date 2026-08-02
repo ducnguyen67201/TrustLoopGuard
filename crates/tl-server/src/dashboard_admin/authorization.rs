@@ -280,7 +280,7 @@ async fn require_admin_role(
 
 fn forwarded_user_id(headers: &HeaderMap) -> Option<Uuid> {
     headers
-        .get("x-tlg-user-id")
+        .get("x-featherlane-ai-user-id")
         .and_then(|value| value.to_str().ok())
         .and_then(|value| Uuid::parse_str(value.trim()).ok())
 }

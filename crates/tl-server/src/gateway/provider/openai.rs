@@ -28,11 +28,11 @@ impl GatewayProvider for OpenAiCompatibleGatewayProvider {
         let id = response
             .get("id")
             .and_then(Value::as_str)
-            .unwrap_or("chatcmpl_tlg_stream");
+            .unwrap_or("chatcmpl_featherlane_ai_stream");
         let model = response
             .get("model")
             .cloned()
-            .unwrap_or(json!("trustloopguard-gateway"));
+            .unwrap_or(json!("featherlane-ai-gateway"));
         let created = response
             .get("created")
             .and_then(Value::as_i64)
@@ -70,10 +70,10 @@ impl GatewayProvider for OpenAiCompatibleGatewayProvider {
 
     fn blocked_response(&self, request: &Value) -> Value {
         json!({
-            "id": format!("chatcmpl_tlg_{}", Uuid::now_v7()),
+            "id": format!("chatcmpl_featherlane_ai_{}", Uuid::now_v7()),
             "object": "chat.completion",
             "created": chrono::Utc::now().timestamp(),
-            "model": request.get("model").cloned().unwrap_or_else(|| json!("trustloopguard-gateway")),
+            "model": request.get("model").cloned().unwrap_or_else(|| json!("featherlane-ai-gateway")),
             "choices": [{
                 "index": 0,
                 "message": {

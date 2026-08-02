@@ -4,11 +4,11 @@ description: Add per-principal LLM spending caps, 80% alerts, and hard preflight
 ---
 
 A weekly `$50` cap with an `80%` alert gives each caller its own budget. When a bounded request
-would exceed the remaining budget, TrustLoopGuard returns `429 budget_exceeded` before contacting
+would exceed the remaining budget, Featherlane AI returns `429 budget_exceeded` before contacting
 the model provider.
 
-This guide applies to OpenAI-compatible calls routed through the TrustLoopGuard Gateway. It caps
-customer inference spend; TrustLoopGuard's own guardrail-model overhead is measured separately.
+This guide applies to OpenAI-compatible calls routed through the Featherlane AI Gateway. It caps
+customer inference spend; Featherlane AI's own guardrail-model overhead is measured separately.
 
 ## Before you begin
 
@@ -37,7 +37,7 @@ Open **Gateway**, select **New route**, and use:
 | Provider | `Demo`                     |
 | Agent    | `test`                     |
 
-Select **Create route**. TrustLoopGuard generates the OpenAI-compatible base URL and client example
+Select **Create route**. Featherlane AI generates the OpenAI-compatible base URL and client example
 for the route. Every enabled policy for the selected environment and agent applies automatically.
 
 ## 2. Set the model price
@@ -63,7 +63,7 @@ Use the provider's published price, including any deployment-specific price you 
 calls use the saved workspace price immediately, while earlier usage keeps its original price
 snapshot for auditability.
 
-TrustLoopGuard fails a budgeted request with `503 pricing_unavailable` when the requested model has
+Featherlane AI fails a budgeted request with `503 pricing_unavailable` when the requested model has
 no trusted price. This prevents unpriced provider spend from bypassing a cap.
 
 ## 3. Create the spending cap
@@ -87,7 +87,7 @@ configured window. Window boundaries use UTC: days begin at `00:00`, weeks begin
 `00:00`, and months begin on the first day.
 
 Leaving **Principal** blank does not create one shared workspace pool. The policy applies to every
-runtime-key principal, and TrustLoopGuard meters each principal separately. Enter a principal when
+runtime-key principal, and Featherlane AI meters each principal separately. Enter a principal when
 the control should apply to only one caller.
 
 ## 4. Add an 80% alert
@@ -124,7 +124,7 @@ Return to **Gateway**. The **Provider spending controls** card should show **Mod
 
 Change two settings in your existing OpenAI-compatible client:
 
-- use the TrustLoopGuard runtime key instead of the provider key
+- use the Featherlane AI runtime key instead of the provider key
 - use the Gateway route as the base URL
 
 Keep the model and message format unchanged. Set `max_tokens` or `max_completion_tokens` to make
@@ -134,8 +134,8 @@ the cap strict before provider spend:
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
-  apiKey: process.env.TLG_API_KEY,
-  baseURL: 'https://api.gettrustloop.app/v1/gateway/cost-cap-demo/openai',
+  apiKey: process.env.FEATHERLANE_AI_API_KEY,
+  baseURL: 'https://api.featherlane.ai/v1/gateway/cost-cap-demo/openai',
 });
 
 const response = await openai.chat.completions.create({
@@ -146,10 +146,10 @@ const response = await openai.chat.completions.create({
 ```
 
 The provider credential remains encrypted behind the Gateway route. Do not put the provider key or
-the TrustLoopGuard runtime key in browser code.
+the Featherlane AI runtime key in browser code.
 
 Replace `cost-cap-demo` with the short id of your own route. Keeping a positive `max_tokens` (or
-`max_completion_tokens`) is what lets TrustLoopGuard reserve the maximum possible cost and enforce
+`max_completion_tokens`) is what lets Featherlane AI reserve the maximum possible cost and enforce
 the cap before contacting the provider.
 
 ## 6. Verify enforcement
@@ -170,14 +170,14 @@ To test the hard stop without risking production traffic, use a test environment
 3. Choose an output-token bound whose maximum priced cost is greater than the remaining cap.
 4. Send the request.
 
-TrustLoopGuard should return HTTP `429` with `budget_exceeded`. The provider must not receive the
+Featherlane AI should return HTTP `429` with `budget_exceeded`. The provider must not receive the
 request, so its usage should not increase.
 
 ## Strict and soft behavior
 
 | Request                                          | Behavior                                                                                                                                      |
 | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Positive `max_tokens` or `max_completion_tokens` | TrustLoopGuard reserves the maximum cost atomically. It blocks before the provider when the request cannot fit.                               |
+| Positive `max_tokens` or `max_completion_tokens` | Featherlane AI reserves the maximum cost atomically. It blocks before the provider when the request cannot fit.                               |
 | No output-token bound                            | The request is allowed while current spend is below the cap, then settled to actual usage. One request can overshoot before later calls stop. |
 | Unknown model price                              | The request fails with `503 pricing_unavailable` before provider spend.                                                                       |
 | Cap reached or bounded maximum does not fit      | The request fails with `429 budget_exceeded` before provider spend.                                                                           |
@@ -185,7 +185,7 @@ request, so its usage should not increase.
 If the requirement is “never exceed the cap,” require a positive output-token bound on every
 request. Unbounded requests are compatibility mode, not a strict hard-cap guarantee.
 
-Provider invoices remain the final billing authority. TrustLoopGuard estimates cost from the model
+Provider invoices remain the final billing authority. Featherlane AI estimates cost from the model
 price snapshot and token usage reported by the provider.
 
 ## Related references

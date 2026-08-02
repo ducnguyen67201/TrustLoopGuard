@@ -1,6 +1,6 @@
 # Ownership
 
-Source of truth for who owns what in TrustLoopGuard. Two-founder split designed so neither half blocks the other for the 6-week MVP.
+Source of truth for who owns what in Featherlane AI. Two-founder split designed so neither half blocks the other for the 6-week MVP.
 
 ## Principle
 
@@ -26,7 +26,7 @@ Everything that runs **inside the customer's process**.
 
 ### Founder B — Cloud Service
 
-Everything that runs **on TLG infrastructure**.
+Everything that runs **on Featherlane AI infrastructure**.
 
 | Surface | Path | Notes |
 |---|---|---|

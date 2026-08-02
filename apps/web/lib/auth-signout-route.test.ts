@@ -12,8 +12,8 @@ describe('auth signout route helpers', () => {
   it('redirects direct Auth.js signout visits to the branded signout page', () => {
     expect(
       authSignOutRedirectUrl(
-        'https://app.gettrustloop.app/api/auth/signout?callbackUrl=%2Fsettings#confirm',
+        'https://app.featherlane.ai/api/auth/signout?callbackUrl=%2Fsettings#confirm',
       ).toString(),
-    ).toBe('https://app.gettrustloop.app/signout');
+    ).toBe('https://app.featherlane.ai/signout');
   });
 });

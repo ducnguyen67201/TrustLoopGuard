@@ -455,11 +455,11 @@ describe('guard()', () => {
     expect(body.principal.agent_id).toBe('factory-agent');
   });
 
-  it('factory form reads TLG_URL and TLG_API_KEY from the environment', async () => {
-    const previousUrl = process.env['TLG_URL'];
-    const previousKey = process.env['TLG_API_KEY'];
-    process.env['TLG_URL'] = 'https://api.example.test';
-    process.env['TLG_API_KEY'] = 'test-runtime-key';
+  it('factory form reads FEATHERLANE_AI_URL and FEATHERLANE_AI_API_KEY from the environment', async () => {
+    const previousUrl = process.env['FEATHERLANE_AI_URL'];
+    const previousKey = process.env['FEATHERLANE_AI_API_KEY'];
+    process.env['FEATHERLANE_AI_URL'] = 'https://api.example.test';
+    process.env['FEATHERLANE_AI_API_KEY'] = 'test-runtime-key';
     const fetchSpy = mockFetch(async () => {
       return new Response(
         JSON.stringify({
@@ -478,10 +478,10 @@ describe('guard()', () => {
       const protect = guard({ agentId: 'env-agent', fetchImpl: fetchSpy });
       await protect({ input: 'hello', draft: 'reply' });
     } finally {
-      if (previousUrl === undefined) delete process.env['TLG_URL'];
-      else process.env['TLG_URL'] = previousUrl;
-      if (previousKey === undefined) delete process.env['TLG_API_KEY'];
-      else process.env['TLG_API_KEY'] = previousKey;
+      if (previousUrl === undefined) delete process.env['FEATHERLANE_AI_URL'];
+      else process.env['FEATHERLANE_AI_URL'] = previousUrl;
+      if (previousKey === undefined) delete process.env['FEATHERLANE_AI_API_KEY'];
+      else process.env['FEATHERLANE_AI_API_KEY'] = previousKey;
     }
 
     expect(fetchSpy.mock.calls[0]?.[0]).toBe('https://api.example.test/v1/events');
@@ -1439,7 +1439,7 @@ describe('guardAgent()', () => {
     expect(body.action.parameters.text).toBe('support: hello');
   });
 
-  it('returns TrustLoopGuard transformed output from the same reply method', async () => {
+  it('returns Featherlane AI transformed output from the same reply method', async () => {
     const client = clientReturning({
       effect: 'transform',
       transformed_value: 'A safer response.',

@@ -75,7 +75,7 @@ export function SpendToEffect() {
             Watch the cap fire.
           </h2>
           <p className="section-copy mt-4 max-w-xl">
-            As the agent keeps spending, TrustLoopGuard checks every charge against the cap and
+            As the agent keeps spending, Featherlane AI checks every charge against the cap and
             stops it before the money moves. Scroll.
           </p>
 

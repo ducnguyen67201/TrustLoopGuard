@@ -4,7 +4,7 @@ import {
   runHostedHealthcareDemo,
   type HostedHealthcareDemoResponse,
   type HostedHealthcarePolicyInventoryResponse,
-} from '@trustloopguard/demo/healthcare-agent/hosted';
+} from '@featherlane-ai/demo/healthcare-agent/hosted';
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 

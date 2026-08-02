@@ -8,7 +8,7 @@ import { UseCaseNav } from './use-case-nav';
 const COPY = {
   en: {
     navigationLabel: 'Main navigation',
-    homeLabel: 'TrustLoopGuard home',
+    homeLabel: 'Featherlane AI home',
     demo: 'Demo',
     demoEventLabel: 'Live demo',
     links: [
@@ -17,7 +17,7 @@ const COPY = {
   },
   vi: {
     navigationLabel: 'Điều hướng chính',
-    homeLabel: 'Trang chủ TrustLoopGuard',
+    homeLabel: 'Trang chủ Featherlane AI',
     demo: 'Dùng thử',
     demoEventLabel: 'Bản demo trực tiếp',
     links: [
@@ -35,8 +35,8 @@ export async function Nav({ locale = 'en' }: { locale?: MarketingLocale }) {
     <header className="site-header sticky top-0 inset-x-0 z-40">
       <nav aria-label={copy.navigationLabel} className="site-nav">
         <Link href={homeHref} className="wordmark" aria-label={copy.homeLabel}>
-          <img src="/trustloop-logo.svg" alt="" aria-hidden="true" className="wordmark-logo" />
-          <span>TrustLoopGuard</span>
+          <img src="/featherlane-ai-logo.svg" alt="" aria-hidden="true" className="wordmark-logo" />
+          <span>Featherlane AI</span>
         </Link>
         <ul className="site-nav-links">
           <UseCaseNav locale={locale} />

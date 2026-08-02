@@ -178,7 +178,7 @@ pub async fn delete_environment(
 
 pub fn environment_id_from_headers(headers: &HeaderMap) -> Option<String> {
     headers
-        .get("x-tlg-environment-id")
+        .get("x-featherlane-ai-environment-id")
         .and_then(|value| value.to_str().ok())
         .map(str::trim)
         .filter(|value| !value.is_empty())

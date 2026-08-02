@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { AuthorizationDecision, Client, GuardEvent, Source } from '@trustloopguard/sdk';
+import type { AuthorizationDecision, Client, GuardEvent, Source } from '@featherlane-ai/sdk';
 
 import { createClient, DEFAULT_AGENT_ID } from '../shared/env';
 

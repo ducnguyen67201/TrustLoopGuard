@@ -12,7 +12,7 @@ const workflowPayload = {
     traces: [
       { tool: 'search_order', summary: 'found ord_demo_1001' },
       { tool: 'prepare_refund', summary: 'proposed: authorized' },
-      { tool: 'execute_refund', summary: 'executed through TrustLoopGuard' },
+      { tool: 'execute_refund', summary: 'executed through Featherlane AI' },
     ],
     finalMessage: 'Refund executed.',
     actionId: '019f5d63-f8ca-77c3-ae7f-07b122daa7b3',
@@ -49,7 +49,7 @@ const workflowPayload = {
   logs: [{ step: 'chat', message: 'refund agent finished' }],
   runtime: {
     agent: 'openai',
-    guard: 'trustloopguard-rust-api',
+    guard: 'featherlane-ai-rust-api',
     provider: 'stripe-test',
   },
 };

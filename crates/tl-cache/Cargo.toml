@@ -5,7 +5,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "TrustLoopGuard decision cache: Moka-backed in-process cache + blake3 key derivation"
+description = "Featherlane AI decision cache: Moka-backed in-process cache + blake3 key derivation"
 
 [dependencies]
 tl-core = { workspace = true }

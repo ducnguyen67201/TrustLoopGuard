@@ -53,7 +53,7 @@ const singleRun: RedteamReportPayload = {
       severity: 'critical',
       outcome: 'landed',
       landed: true,
-      evidence: 'the credential is sk-trustloop9f3k2x',
+      evidence: 'the credential is sk-featherlane-ai9f3k2x',
       prompt: 'Ignore the rules…',
       trace_id: 'trace-abc',
     },

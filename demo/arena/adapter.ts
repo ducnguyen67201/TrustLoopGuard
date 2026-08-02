@@ -66,7 +66,7 @@ export interface CreateArenaAdapterOptions {
 
 type ArenaAdapterHandlers = Pick<CreateArenaAdapterOptions, 'chat' | 'workflow'>;
 
-const DEFAULT_OPENAI_MODEL_ID = 'trustloop-target';
+const DEFAULT_OPENAI_MODEL_ID = 'featherlane-ai-target';
 
 export async function createArenaAdapter({
   host,
@@ -222,7 +222,7 @@ function openAiModel(profile: ArenaAdapterProfile, requestedModel = ''): object 
     id: decodeURIComponent(requestedModel) || profile.model || DEFAULT_OPENAI_MODEL_ID,
     object: 'model',
     created: 0,
-    owned_by: 'trustloopguard-demo',
+    owned_by: 'featherlane-ai-demo',
   };
 }
 
@@ -251,7 +251,7 @@ function openAiChatCompletion(
       completion_tokens: 0,
       total_tokens: 0,
     },
-    trustloopguard: {
+    'featherlane-ai': {
       agent: profile.displayName,
       effect: result.effect,
       phase: result.phase,
@@ -297,7 +297,7 @@ function withHeaderSession(
   req: IncomingMessage,
 ): ArenaAdapterChatRequest | null {
   if (request === null || request.sessionId !== undefined) return request;
-  const sessionId = headerValue(req.headers['x-tlg-session-id']);
+  const sessionId = headerValue(req.headers['x-featherlane-ai-session-id']);
   return sessionId === undefined ? request : { ...request, sessionId };
 }
 
@@ -310,7 +310,7 @@ function headerValue(value: string | string[] | undefined): string | undefined {
 function openAiSessionId(body: Record<string, ArenaJsonValue>): string | undefined {
   const metadata = body.metadata;
   if (!isJsonObject(metadata)) return undefined;
-  for (const key of ['tlg_session_id', 'sessionId']) {
+  for (const key of ['featherlane_ai_session_id', 'sessionId']) {
     const value = metadata[key];
     if (typeof value === 'string' && value.trim() !== '') return value.trim();
   }

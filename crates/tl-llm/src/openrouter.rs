@@ -1,6 +1,6 @@
 //! OpenRouter client. The wire shape is OpenAI-compatible — we change
 //! only the base URL and add an `HTTP-Referer` header so the request is
-//! attributable to TrustLoopGuard in the OpenRouter dashboard.
+//! attributable to Featherlane AI in the OpenRouter dashboard.
 
 use std::time::Duration;
 
@@ -11,7 +11,7 @@ use crate::client::{JsonSchema, LlmClient, LlmError, LlmOutput};
 use crate::wire::{call_chat_completions, RequestParts};
 
 const DEFAULT_BASE_URL: &str = "https://openrouter.ai/api";
-const DEFAULT_REFERER: &str = "https://github.com/anthropics/trustloopguard";
+const DEFAULT_REFERER: &str = "https://github.com/anthropics/featherlane-ai";
 
 pub struct OpenRouterClient {
     http: reqwest::Client,

@@ -262,7 +262,7 @@
       ]
     },
     "RunnerPlanRequest": {
-      "description": "Body of `POST /redteam/plan`. TrustLoopGuard sends only the target agent's\nstructured context; the private runner owns attack-planner instructions and\nvector generation.",
+      "description": "Body of `POST /redteam/plan`. Featherlane AI sends only the target agent's\nstructured context; the private runner owns attack-planner instructions and\nvector generation.",
       "type": "object",
       "properties": {
         "agentDisplayName": {

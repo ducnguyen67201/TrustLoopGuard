@@ -49,7 +49,7 @@ export async function GET(_req: Request, context: RouteContext): Promise<Respons
   return new Response(new Uint8Array(buffer), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="trustloopguard-report-${token}.pdf"`,
+      'Content-Disposition': `inline; filename="featherlane-ai-report-${token}.pdf"`,
       // A shared report can contain attack evidence — keep it out of indexes/caches.
       'X-Robots-Tag': 'noindex, nofollow',
       'Cache-Control': 'private, no-store',

@@ -9,7 +9,7 @@ import type {
   FinancialActionOutcome,
   FinancialActionRecord,
   GatewayProviderConnection,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

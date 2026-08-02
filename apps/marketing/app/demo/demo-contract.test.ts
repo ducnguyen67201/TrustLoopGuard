@@ -55,7 +55,7 @@ test('exposes only the public agent trace, order, refund, and decision fields', 
     logs: [{ step: 'prepare_refund', message: 'held: financial_action_123' }],
     runtime: {
       agent: 'openai',
-      guard: 'trustloopguard-rust-api',
+      guard: 'featherlane-ai-rust-api',
       provider: 'stripe-test',
     },
     providerApiKey: 'must-not-leak',
@@ -98,7 +98,7 @@ test('the Product Hunt route shows a live chat, the control boundary, and Stripe
   const source = `${page}\n${pageContent}\n${demo}\n${content}`;
 
   assert.match(source, /Ask the refund agent/i);
-  assert.match(source, /TrustLoopGuard/i);
+  assert.match(source, /Featherlane AI/i);
   assert.match(source, /Stripe test mode/i);
   assert.match(source, /not a scripted animation/i);
   assert.match(source, /api\/demo\/refund\?actionId=/i);

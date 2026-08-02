@@ -6,7 +6,7 @@ import httpx
 import pytest
 import respx
 
-from trustloopguard import (
+from featherlane_ai import (
     AsyncClient,
     Client,
     CreateRunEventRequest,
@@ -19,7 +19,7 @@ from trustloopguard import (
     ToolIdentity,
     AuthorizationEffect,
 )
-from trustloopguard.retry import RetryConfig
+from featherlane_ai.retry import RetryConfig
 
 DEFAULT_EVENT_ALLOW_REASON = "current policy and authority permit the subject"
 
@@ -207,7 +207,7 @@ def test_explicit_run_id_wins_and_tool_helper_inherits_context() -> None:
     assert second["kind"] == "tool.call.proposed"
     assert second["action"]["invocation_id"]
     assert second["action"]["tool_identity"] == {
-        "server_id": "trustloopguard-sdk",
+        "server_id": "featherlane-ai-sdk",
         "tool_name": "issue_refund",
         "schema_hash": "sdk-legacy-untyped-v1",
     }

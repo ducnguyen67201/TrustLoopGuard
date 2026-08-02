@@ -9,7 +9,7 @@ describe('generatePolicyDraft', () => {
   });
 
   it('preserves the selected workspace on the policy draft request', async () => {
-    window.history.replaceState({}, '', '/policies?workspace=trustloopguard-demo');
+    window.history.replaceState({}, '', '/policies?workspace=featherlane-ai-demo');
     const fetchMock = vi.fn<typeof fetch>(async () => {
       return new Response(
         JSON.stringify({
@@ -30,13 +30,13 @@ describe('generatePolicyDraft', () => {
     await generatePolicyDraft('block password sharing');
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/policies/generate?workspace=trustloopguard-demo',
+      '/api/policies/generate?workspace=featherlane-ai-demo',
       expect.objectContaining({ method: 'POST' }),
     );
   });
 
   it('preserves the selected workspace on the policy validation request', async () => {
-    window.history.replaceState({}, '', '/policies?workspace=trustloopguard-demo');
+    window.history.replaceState({}, '', '/policies?workspace=featherlane-ai-demo');
     const fetchMock = vi.fn<typeof fetch>(async () => {
       return new Response(
         JSON.stringify({
@@ -51,7 +51,7 @@ describe('generatePolicyDraft', () => {
     await validatePolicy('id: no-passwords');
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/policies/validate?workspace=trustloopguard-demo',
+      '/api/policies/validate?workspace=featherlane-ai-demo',
       expect.objectContaining({ method: 'POST' }),
     );
   });

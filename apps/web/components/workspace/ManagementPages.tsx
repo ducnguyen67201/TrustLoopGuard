@@ -705,7 +705,7 @@ export function AccountPageContent({ data }: { data: DashboardShellData }) {
     <PageShell
       eyebrow="Your account"
       title="Account"
-      description="Your profile and sign-in details, plus how TrustLoopGuard keeps you posted about guardrail events."
+      description="Your profile and sign-in details, plus how Featherlane AI keeps you posted about guardrail events."
       action={
         <Badge variant="outline" className="font-data gap-1.5 text-xs">
           <IconUserCircle className="size-3.5" />

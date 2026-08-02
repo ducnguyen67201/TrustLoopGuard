@@ -40,21 +40,21 @@ export function ProcurementDemoPageContent({
         <Link
           href={locale === 'vi' ? '/vi' : '/'}
           className={sharedStyles['wordmark']}
-          aria-label="TrustLoopGuard home"
+          aria-label="Featherlane AI home"
         >
-          <img src="/trustloop-logo.svg" alt="" aria-hidden="true" />
-          <span>TrustLoopGuard</span>
+          <img src="/featherlane-ai-logo.svg" alt="" aria-hidden="true" />
+          <span>Featherlane AI</span>
         </Link>
         <div className={sharedStyles['stackStatus']}>
           <span>{profile?.company_name ?? 'OpenAI Agents SDK'}</span>
           <i aria-hidden="true" />
-          <span>TrustLoopGuard</span>
+          <span>Featherlane AI</span>
           <i aria-hidden="true" />
           <span>Demo procurement</span>
         </div>
         <div className={sharedStyles['topbarActions']}>
           <a
-            href="https://github.com/ducnguyen67201/TrustLoopGuard"
+            href="https://github.com/ducnguyen67201/FeatherlaneAI"
             target="_blank"
             rel="noreferrer"
             className={sharedStyles['topbarSecondaryLink']}
@@ -76,12 +76,12 @@ export function ProcurementDemoPageContent({
           <h1 id="procurement-demo-title" className={styles['title']}>
             {profile
               ? `${profile.company_name} procurement concept.`
-              : 'OpenAI proposes. TrustLoopGuard decides before procurement executes.'}
+              : 'OpenAI proposes. Featherlane AI decides before procurement executes.'}
           </h1>
         </div>
         <p className={sharedStyles['introCopy']}>
           {profile?.risk_boundary ??
-            'Ask a live agent to source an item. It can search the demo catalog, but every purchase order must pass real TrustLoopGuard policy evaluation before the procurement system is called.'}
+            'Ask a live agent to source an item. It can search the demo catalog, but every purchase order must pass real Featherlane AI policy evaluation before the procurement system is called.'}
         </p>
         <small className={sharedStyles['safetyNote']} aria-label={copy.safetyLabel}>
           {copy.safetyNote}
@@ -103,7 +103,7 @@ export function ProcurementDemoPageContent({
         </p>
         {!profile ? (
           <Link href="/">
-            Explore TrustLoopGuard <span aria-hidden="true">→</span>
+            Explore Featherlane AI <span aria-hidden="true">→</span>
           </Link>
         ) : null}
       </footer>

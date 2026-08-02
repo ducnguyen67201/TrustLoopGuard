@@ -40,7 +40,7 @@ interface ChatResponse {
   logs: AgentRunLogEntry[];
   runtime: {
     agent: 'openai';
-    guard: 'trustloopguard-rust-api';
+    guard: 'featherlane-ai-rust-api';
     provider: 'stripe-test';
   };
 }
@@ -183,7 +183,7 @@ async function handleChat(req: IncomingMessage, res: ServerResponse): Promise<vo
       logs,
       runtime: {
         agent: 'openai',
-        guard: 'trustloopguard-rust-api',
+        guard: 'featherlane-ai-rust-api',
         provider: 'stripe-test',
       },
     };
@@ -408,10 +408,10 @@ function pageHtml(proxySecret: string): string {
     <header>
       <div>
         <h1>Stripe Refund Agent</h1>
-        <p>Chat with a refund agent that must authorize through TrustLoopGuard before execution.</p>
+        <p>Chat with a refund agent that must authorize through Featherlane AI before execution.</p>
       </div>
       <div class="small">
-        TLG: <code>${escapeHtml(SERVER_URL)}</code><br />
+        Featherlane AI: <code>${escapeHtml(SERVER_URL)}</code><br />
         Workspace: <code>${escapeHtml(WORKSPACE_ID ?? 'default')}</code>
       </div>
     </header>

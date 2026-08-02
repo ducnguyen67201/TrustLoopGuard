@@ -5,7 +5,7 @@ This page explains every field. For a quick start, read
 
 Documents without `family` use the content contract below. Typed families share the same registry and lifecycle but have family-specific fields. Shell command controls use `family: tool`; [Shell command safety](../concept/command-safety.md) is their canonical runtime contract.
 
-This is the canonical shape for a TrustLoopGuard policy file:
+This is the canonical shape for a Featherlane AI policy file:
 
 ```yaml
 id: refund-guarantee
@@ -172,7 +172,7 @@ match applies the policy effect. Ambiguous or unavailable judge results produce
 
 ## `action`
 
-Required. What TrustLoopGuard should do if the policy triggers.
+Required. What Featherlane AI should do if the policy triggers.
 
 Allowed values:
 

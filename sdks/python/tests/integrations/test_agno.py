@@ -12,20 +12,20 @@ from agno.run import RunContext
 from agno.run.agent import RunOutput
 from agno.tools.function import Function
 
-from trustloopguard import (
+from featherlane_ai import (
     AsyncClient,
     Client,
     RetryConfig,
     SideEffectClass,
     Transport,
 )
-from trustloopguard.integrations import (
+from featherlane_ai.integrations import (
     AdapterLogEvent,
     AdapterWarning,
     AdapterWarningCode,
     tool_schema_hash,
 )
-from trustloopguard.integrations.agno import guard_agno
+from featherlane_ai.integrations.agno import guard_agno
 
 
 def _decision(

@@ -5,7 +5,7 @@
  * Rust orchestrator (`crates/tl-server/src/redteam`); Rust owns the durable job +
  * per-attack sessions. The dashboard only dispatches, polls, lists, and cancels.
  *
- * The dashboard cannot use `@trustloopguard/sdk`'s `Client` here: that targets
+ * The dashboard cannot use `@featherlane-ai/sdk`'s `Client` here: that targets
  * Rust `/v1/*` directly with a bearer key (customer runtime), whereas the browser
  * authenticates by session through this same-origin proxy. So this is a thin
  * client over `/api/redteam/*` — but its TYPES are single-sourced from Rust via
@@ -18,7 +18,7 @@ import type {
   RedteamJobSummary,
   RedteamReportShare,
   RedteamSessionEvent,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 // Vectors enter the browser via the zod-validated planner client; reuse its
 // inferred type so the optional `source_path` shape lines up at this boundary.
 import type { AttackVector } from './redteam-plan';

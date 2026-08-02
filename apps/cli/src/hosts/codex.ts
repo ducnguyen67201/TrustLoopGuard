@@ -60,7 +60,7 @@ export const codexAdapter: HostAdapter = {
       remediation:
         compatibilityRemediation(detection, MINIMUM_VERSION) ??
         (installed
-          ? 'Restart Codex, open /hooks, review the TrustLoopGuard commands, and approve trust'
+          ? 'Restart Codex, open /hooks, review the Featherlane AI commands, and approve trust'
           : 'Run install --target codex'),
     };
   },

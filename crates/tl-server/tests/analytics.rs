@@ -31,7 +31,7 @@ async fn analytics_catalog_query_and_saved_views_round_trip() {
             Request::builder()
                 .method("GET")
                 .uri("/v1/analytics/catalog")
-                .header("x-tlg-workspace-id", "ws_analytics")
+                .header("x-featherlane-ai-workspace-id", "ws_analytics")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -48,7 +48,7 @@ async fn analytics_catalog_query_and_saved_views_round_trip() {
                 .method("POST")
                 .uri("/v1/analytics/query")
                 .header(header::CONTENT_TYPE, "application/json")
-                .header("x-tlg-workspace-id", "ws_analytics")
+                .header("x-featherlane-ai-workspace-id", "ws_analytics")
                 .body(Body::from(
                     serde_json::json!({
                         "metric": "trace_count",
@@ -72,7 +72,7 @@ async fn analytics_catalog_query_and_saved_views_round_trip() {
                 .method("POST")
                 .uri("/v1/analytics/views")
                 .header(header::CONTENT_TYPE, "application/json")
-                .header("x-tlg-workspace-id", "ws_analytics")
+                .header("x-featherlane-ai-workspace-id", "ws_analytics")
                 .body(Body::from(
                     serde_json::json!({
                         "name": "Ops view",
@@ -107,7 +107,7 @@ async fn analytics_catalog_query_and_saved_views_round_trip() {
                 .method("PATCH")
                 .uri(format!("/v1/analytics/views/{view_id}"))
                 .header(header::CONTENT_TYPE, "application/json")
-                .header("x-tlg-workspace-id", "ws_analytics")
+                .header("x-featherlane-ai-workspace-id", "ws_analytics")
                 .body(Body::from(
                     serde_json::json!({ "name": "Ops view v2" }).to_string(),
                 ))
@@ -176,8 +176,8 @@ async fn internal_bearer_analytics_authorizes_members_and_platform_admins() {
                 .method("GET")
                 .uri("/v1/analytics/catalog")
                 .header(header::AUTHORIZATION, "Bearer sk-internal")
-                .header("x-tlg-workspace-id", workspace.id.as_str())
-                .header("x-tlg-user-id", outsider_id.to_string())
+                .header("x-featherlane-ai-workspace-id", workspace.id.as_str())
+                .header("x-featherlane-ai-user-id", outsider_id.to_string())
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -192,8 +192,8 @@ async fn internal_bearer_analytics_authorizes_members_and_platform_admins() {
                 .method("GET")
                 .uri("/v1/analytics/catalog")
                 .header(header::AUTHORIZATION, "Bearer sk-internal")
-                .header("x-tlg-workspace-id", workspace.id.as_str())
-                .header("x-tlg-user-id", owner_id.to_string())
+                .header("x-featherlane-ai-workspace-id", workspace.id.as_str())
+                .header("x-featherlane-ai-user-id", owner_id.to_string())
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -207,8 +207,8 @@ async fn internal_bearer_analytics_authorizes_members_and_platform_admins() {
                 .method("GET")
                 .uri("/v1/analytics/catalog")
                 .header(header::AUTHORIZATION, "Bearer sk-internal")
-                .header("x-tlg-workspace-id", workspace.id.as_str())
-                .header("x-tlg-user-id", platform_admin_id.to_string())
+                .header("x-featherlane-ai-workspace-id", workspace.id.as_str())
+                .header("x-featherlane-ai-user-id", platform_admin_id.to_string())
                 .body(Body::empty())
                 .unwrap(),
         )

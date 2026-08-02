@@ -20,7 +20,7 @@ pub(super) async fn resolve_environment_id(
 #[allow(clippy::result_large_err)]
 pub(crate) fn workspace_id_from_headers(headers: &HeaderMap) -> Result<String, Response> {
     headers
-        .get("x-tlg-workspace-id")
+        .get("x-featherlane-ai-workspace-id")
         .and_then(|value| value.to_str().ok())
         .map(str::trim)
         .filter(|value| !value.is_empty())

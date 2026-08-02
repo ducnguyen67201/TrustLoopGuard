@@ -98,7 +98,7 @@ fn event_request(token: Option<&str>) -> Request<Body> {
         .method("POST")
         .uri("/v1/events")
         .header(header::CONTENT_TYPE, "application/json")
-        .header("x-tlg-workspace-id", "ws");
+        .header("x-featherlane-ai-workspace-id", "ws");
     if let Some(t) = token {
         b = b.header(header::AUTHORIZATION, format!("Bearer {t}"));
     }
@@ -133,7 +133,7 @@ fn create_api_key_request(token: &str, workspace_id: &str, name: &str) -> Reques
         .uri("/v1/api-keys")
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
-        .header("x-tlg-workspace-id", workspace_id)
+        .header("x-featherlane-ai-workspace-id", workspace_id)
         .body(Body::from(body.to_string()))
         .unwrap()
 }
@@ -150,8 +150,8 @@ fn create_api_key_request_with_user(
         .uri("/v1/api-keys")
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
-        .header("x-tlg-workspace-id", workspace_id)
-        .header("x-tlg-user-id", user_id.to_string())
+        .header("x-featherlane-ai-workspace-id", workspace_id)
+        .header("x-featherlane-ai-user-id", user_id.to_string())
         .body(Body::from(body.to_string()))
         .unwrap()
 }
@@ -161,7 +161,7 @@ fn list_api_keys_request(token: &str, workspace_id: &str) -> Request<Body> {
         .method("GET")
         .uri("/v1/api-keys")
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
-        .header("x-tlg-workspace-id", workspace_id)
+        .header("x-featherlane-ai-workspace-id", workspace_id)
         .body(Body::empty())
         .unwrap()
 }
@@ -175,8 +175,8 @@ fn list_api_keys_request_with_user(
         .method("GET")
         .uri("/v1/api-keys")
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
-        .header("x-tlg-workspace-id", workspace_id)
-        .header("x-tlg-user-id", user_id.to_string())
+        .header("x-featherlane-ai-workspace-id", workspace_id)
+        .header("x-featherlane-ai-user-id", user_id.to_string())
         .body(Body::empty())
         .unwrap()
 }
@@ -188,7 +188,7 @@ fn revoke_api_keys_request(token: &str, workspace_id: &str, ids: &[&str]) -> Req
         .uri("/v1/api-keys/batch/revoke")
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
-        .header("x-tlg-workspace-id", workspace_id)
+        .header("x-featherlane-ai-workspace-id", workspace_id)
         .body(Body::from(body.to_string()))
         .unwrap()
 }
@@ -205,8 +205,8 @@ fn revoke_api_keys_request_with_user(
         .uri("/v1/api-keys/batch/revoke")
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
-        .header("x-tlg-workspace-id", workspace_id)
-        .header("x-tlg-user-id", user_id.to_string())
+        .header("x-featherlane-ai-workspace-id", workspace_id)
+        .header("x-featherlane-ai-user-id", user_id.to_string())
         .body(Body::from(body.to_string()))
         .unwrap()
 }
@@ -239,8 +239,8 @@ fn oauth_authorize_request(token: &str, workspace_id: &str, user_id: Uuid) -> Re
         .uri("/v1/oauth/authorize")
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
-        .header("x-tlg-workspace-id", workspace_id)
-        .header("x-tlg-user-id", user_id.to_string())
+        .header("x-featherlane-ai-workspace-id", workspace_id)
+        .header("x-featherlane-ai-user-id", user_id.to_string())
         .body(Body::from(
             serde_json::json!({
                 "client_id": "attacker-client",
@@ -259,7 +259,7 @@ fn my_workspaces_request(token: &str, user_id: Uuid) -> Request<Body> {
         .method("GET")
         .uri("/v1/team/my-workspaces")
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
-        .header("x-tlg-user-id", user_id.to_string())
+        .header("x-featherlane-ai-user-id", user_id.to_string())
         .body(Body::empty())
         .unwrap()
 }
@@ -282,7 +282,7 @@ fn create_workspace_request_for_user(token: &str, user_id: Uuid, name: &str) -> 
         .uri("/v1/team/my-workspaces")
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
-        .header("x-tlg-user-id", user_id.to_string())
+        .header("x-featherlane-ai-user-id", user_id.to_string())
         .body(Body::from(body.to_string()))
         .unwrap()
 }

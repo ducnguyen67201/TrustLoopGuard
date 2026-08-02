@@ -65,7 +65,7 @@ fn json_request(
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
-        .header("x-tlg-workspace-id", workspace)
+        .header("x-featherlane-ai-workspace-id", workspace)
         .body(Body::from(body.to_string()))
         .unwrap()
 }
@@ -90,7 +90,7 @@ async fn create_workspace_key(
                 .uri("/v1/team/my-workspaces")
                 .header(header::CONTENT_TYPE, "application/json")
                 .header(header::AUTHORIZATION, "Bearer sk-internal")
-                .header("x-tlg-user-id", user_id.to_string())
+                .header("x-featherlane-ai-user-id", user_id.to_string())
                 .body(Body::from(json!({ "name": workspace_name }).to_string()))
                 .unwrap(),
         )
@@ -105,7 +105,7 @@ async fn create_workspace_key(
     let mut create_key_req =
         json_request("POST", "/v1/api-keys", "sk-internal", workspace, key_body);
     create_key_req.headers_mut().insert(
-        "x-tlg-user-id",
+        "x-featherlane-ai-user-id",
         user_id.to_string().parse().expect("valid user id header"),
     );
     let resp = app.oneshot(create_key_req).await.unwrap();
@@ -803,7 +803,7 @@ async fn create_extra_runtime_key(
         json!({ "name": format!("Key for {principal_id}"), "principal_id": principal_id }),
     );
     create_key_req.headers_mut().insert(
-        "x-tlg-user-id",
+        "x-featherlane-ai-user-id",
         gateway_owner_id()
             .to_string()
             .parse()
@@ -1042,7 +1042,7 @@ async fn key_without_principal_budgets_by_api_key_id() {
     let mut list_keys_req =
         json_request("GET", "/v1/api-keys", "sk-internal", workspace, json!({}));
     list_keys_req.headers_mut().insert(
-        "x-tlg-user-id",
+        "x-featherlane-ai-user-id",
         gateway_owner_id()
             .to_string()
             .parse()
@@ -1120,7 +1120,7 @@ async fn metered_llm_spend_crossing_threshold_fires_budget_alert() {
         }),
     );
     alert_req.headers_mut().insert(
-        "x-tlg-user-id",
+        "x-featherlane-ai-user-id",
         gateway_owner_id()
             .to_string()
             .parse()
@@ -1191,7 +1191,7 @@ async fn metered_llm_spend_crossing_threshold_fires_budget_alert() {
 fn admin_request(method: &str, uri: &str, workspace: &str, body: Value) -> Request<Body> {
     let mut request = json_request(method, uri, "sk-internal", workspace, body);
     request.headers_mut().insert(
-        "x-tlg-user-id",
+        "x-featherlane-ai-user-id",
         gateway_owner_id()
             .to_string()
             .parse()

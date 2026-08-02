@@ -2,7 +2,7 @@
 // GuardEvent builder, and the effect-gated runner. No I/O at module load, so
 // tests can import it without triggering a run (scenarios.ts is the entry).
 
-import type { AuthorizationDecision, GuardEvent, Source } from '@trustloopguard/sdk';
+import type { AuthorizationDecision, GuardEvent, Source } from '@featherlane-ai/sdk';
 
 import type { PaymentRequest, PaymentResult } from './payments';
 

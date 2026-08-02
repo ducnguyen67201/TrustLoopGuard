@@ -15,7 +15,7 @@ const validProfile = {
   company_name: 'Acme Cloud',
   company_domain: 'acme.example',
   scenario_id: 'healthcare-scheduling-v1',
-  demo_url: 'https://gettrustloop.app/demo/healthcare/acme-cloud',
+  demo_url: 'https://featherlane.ai/demo/healthcare/acme-cloud',
   user_profile: 'Hospital scheduling lead',
   workflow: 'Synthetic appointment scheduling',
   risk_boundary: 'A scheduling assistant must stop unsafe requests before drafting a reply.',
@@ -76,7 +76,7 @@ test('accepts a company-neutral workflow category route for a generic concept', 
     slug: 'cloud-storage-security',
     category: 'generic',
     scenario_id: 'internal-agent-tool-action-v1',
-    demo_url: 'https://gettrustloop.app/demo/cloud-storage-security',
+    demo_url: 'https://featherlane.ai/demo/cloud-storage-security',
   });
 
   assert.equal(profile?.slug, 'cloud-storage-security');
@@ -88,7 +88,7 @@ test('accepts the reviewed contextual policy pack under a healthcare category ro
     ...validProfile,
     slug: 'acme-health-ai-security',
     scenario_id: 'internal-agent-tool-action-v1',
-    demo_url: 'https://gettrustloop.app/demo/healthcare/acme-health-ai-security',
+    demo_url: 'https://featherlane.ai/demo/healthcare/acme-health-ai-security',
   });
 
   assert.equal(profile?.category, 'healthcare');
@@ -102,7 +102,7 @@ test('rejects an unreviewed contextual policy pack for a generic concept', () =>
       slug: 'cloud-storage-security',
       category: 'generic',
       scenario_id: 'invented-customer-policy-v1',
-      demo_url: 'https://gettrustloop.app/demo/cloud-storage-security',
+      demo_url: 'https://featherlane.ai/demo/cloud-storage-security',
     }),
     null,
   );
@@ -112,7 +112,7 @@ test('rejects a profile with a mismatched route or private outreach data', () =>
   assert.equal(
     parseOutboundDemoProfile({
       ...validProfile,
-      demo_url: 'https://gettrustloop.app/demo/healthcare/another-company',
+      demo_url: 'https://featherlane.ai/demo/healthcare/another-company',
     }),
     null,
   );
@@ -133,7 +133,7 @@ test('rejects a profile with a mismatched route or private outreach data', () =>
       ...validProfile,
       category: 'generic',
       scenario_id: 'internal-agent-tool-action-v1',
-      demo_url: 'https://gettrustloop.app/demo/acme-cloud',
+      demo_url: 'https://featherlane.ai/demo/acme-cloud',
     }),
     null,
   );
@@ -143,7 +143,7 @@ test('rejects a profile with a mismatched route or private outreach data', () =>
       slug: 'acme-cloud-security',
       category: 'generic',
       scenario_id: 'internal-agent-tool-action-v1',
-      demo_url: 'https://gettrustloop.app/demo/acme-cloud-security',
+      demo_url: 'https://featherlane.ai/demo/acme-cloud-security',
     }),
     null,
   );
@@ -237,8 +237,8 @@ test('the workflow category route reads only a generic profile and hides researc
   assert.match(page, /getGenericDemoProfile\(category\)/);
   assert.match(page, /notFound\(\)/);
   assert.match(page, /index: false, follow: false/);
-  assert.match(contextualContent, /Send through TrustLoopGuard/);
-  assert.match(contextualContent, /TrustLoopGuard policy monitor/);
+  assert.match(contextualContent, /Send through Featherlane AI/);
+  assert.match(contextualContent, /Featherlane AI policy monitor/);
   assert.match(contextualContent, /Shared demo workspace/);
   assert.match(demo, /fetch\(endpoint/);
   assert.match(demo, /JSON\.stringify\(\{ locale, sessionId, message: submittedMessage, history \}\)/);

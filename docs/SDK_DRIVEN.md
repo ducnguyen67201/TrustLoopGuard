@@ -35,13 +35,13 @@ agents:
 
 ```python
 from ag2 import Agent
-from trustloopguard import AsyncClient, SideEffectClass
-from trustloopguard.integrations.ag2 import guard_ag2
+from featherlane_ai import AsyncClient, SideEffectClass
+from featherlane_ai.integrations.ag2 import guard_ag2
 
 agent = Agent("sales-agent", tools=[confirm_order, lookup_inventory])
 guard_ag2(
     agent,
-    client=AsyncClient(base_url=TLG_URL, api_key=TLG_API_KEY),
+    client=AsyncClient(base_url=FEATHERLANE_AI_URL, api_key=FEATHERLANE_AI_API_KEY),
     tool_side_effects={
         "confirm_order": SideEffectClass.api_mutation,
         "lookup_inventory": SideEffectClass.read,
@@ -52,13 +52,13 @@ reply = await agent.ask("Confirm order 123")
 
 ```python
 from agno.agent import Agent
-from trustloopguard import Client, SideEffectClass
-from trustloopguard.integrations.agno import guard_agno
+from featherlane_ai import Client, SideEffectClass
+from featherlane_ai.integrations.agno import guard_agno
 
 agent = Agent(name="sales-agent", tools=[confirm_order, lookup_inventory])
 guard_agno(
     agent,
-    client=Client(base_url=TLG_URL, api_key=TLG_API_KEY),
+    client=Client(base_url=FEATHERLANE_AI_URL, api_key=FEATHERLANE_AI_API_KEY),
     tool_side_effects={
         "confirm_order": SideEffectClass.api_mutation,
         "lookup_inventory": SideEffectClass.read,
@@ -225,7 +225,7 @@ The common `AuthorizationReceipt` proves why execution was permitted. `Financial
 The hosted MCP access gateway requires no SDK wrapper. A member adds the
 workspace's managed `/mcp` URL to their AI client and completes OAuth by
 selecting a registered agent. Rust requires exact member-and-agent assignments,
-advertises a required client-declared `__trustloop` governance context, and
+advertises a required client-declared `__featherlane_ai` governance context, and
 applies the same event/authorization runtime both before execution and before
 result disclosure. Each call is linked to the selected agent's Runs and
 authorization receipts.

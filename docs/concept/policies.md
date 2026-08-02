@@ -1,6 +1,6 @@
 # Policies
 
-TrustLoopGuard has one Rust-owned policy registry. Every policy definition is stored in `crates/tl-storage` in the `policies` table and exposed through Rust `/v1/policies` APIs. The web dashboard is only a UI/proxy layer.
+Featherlane AI has one Rust-owned policy registry. Every policy definition is stored in `crates/tl-storage` in the `policies` table and exposed through Rust `/v1/policies` APIs. The web dashboard is only a UI/proxy layer.
 
 ## Registry
 

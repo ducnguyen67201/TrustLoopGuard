@@ -2,8 +2,8 @@ import {
   handleProviderPayment,
   isValidProviderAuthorization,
   type ProviderReply,
-} from '@trustloopguard/demo/stripe-refund-agent/provider-adapter';
-import type { StripeRefundProviderRequest } from '@trustloopguard/demo/stripe-refund-agent/types';
+} from '@featherlane-ai/demo/stripe-refund-agent/provider-adapter';
+import type { StripeRefundProviderRequest } from '@featherlane-ai/demo/stripe-refund-agent/types';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 

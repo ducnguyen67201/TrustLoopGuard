@@ -1,4 +1,4 @@
-//! TrustLoopGuard LLM provider clients.
+//! Featherlane AI LLM provider clients.
 //!
 //! v0 ships two providers behind a single trait:
 //!

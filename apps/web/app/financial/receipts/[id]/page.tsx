@@ -9,7 +9,7 @@ import type {
   FinancialActionRecord,
   FinancialOutcomeListResponse,
   FinancialReceipt,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 export default async function FinancialReceiptPage({
   params,

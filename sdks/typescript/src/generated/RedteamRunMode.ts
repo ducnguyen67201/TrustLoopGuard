@@ -3,7 +3,7 @@
 /**
  * Execution mode for a red-team run.
  *
- * TrustLoopGuard only routes this mode to the private runner. Learning memory,
+ * Featherlane AI only routes this mode to the private runner. Learning memory,
  * retrieval, compaction, and adaptive attack planning are orchestration-owned
  * business logic.
  */

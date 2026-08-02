@@ -11,7 +11,7 @@
 //!
 //! These routes are bearer-protected via the existing shared-key
 //! middleware. Pending invites are consumed by `GET /v1/team/my-workspaces`
-//! with `X-TLG-User-Email` set: any pending invite for that email is
+//! with `X-FEATHERLANE-AI-User-Email` set: any pending invite for that email is
 //! bulk-accepted before the membership list is returned.
 
 use std::sync::Arc;

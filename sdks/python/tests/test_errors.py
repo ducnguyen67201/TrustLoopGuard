@@ -11,7 +11,7 @@ import httpx
 import pytest
 import respx
 
-from trustloopguard import (
+from featherlane_ai import (
     Action,
     ApiErrorCode,
     Client,
@@ -30,7 +30,7 @@ from trustloopguard import (
     Unauthorized,
     Unavailable,
 )
-from trustloopguard.errors import (
+from featherlane_ai.errors import (
     code_from_http_status,
     from_response,
     parse_retry_after,

@@ -20,7 +20,7 @@ id: refund-guarantee
 match.regex: regex failed to compile
 ```
 
-TrustLoopGuard uses Rust regex syntax. Lookaround is not supported.
+Featherlane AI uses Rust regex syntax. Lookaround is not supported.
 
 ## Missing Rewrite
 

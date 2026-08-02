@@ -1,6 +1,6 @@
 # Agent profile — field reference
 
-An **agent profile** is the YAML (or JSON) document you register once per agent. Runtime `GuardEvent`s reference it through `principal.agent_id`. The profile tells TrustLoopGuard what the agent **is**, what it **may claim**, and how it **should sound**.
+An **agent profile** is the YAML (or JSON) document you register once per agent. Runtime `GuardEvent`s reference it through `principal.agent_id`. The profile tells Featherlane AI what the agent **is**, what it **may claim**, and how it **should sound**.
 
 This document is the field-by-field reference. If you just want to copy-paste a working file and ship, see [`demo/agents/acme-support-v3.yaml`](../demo/agents/acme-support-v3.yaml).
 

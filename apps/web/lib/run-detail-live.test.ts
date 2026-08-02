@@ -51,7 +51,7 @@ describe('parseRunDetailSnapshot', () => {
           payload: {
             reason: 'blocked unsafe output',
             triggered_policies: [{ id: 'policy-1' }],
-            safe_output: 'Blocked by TrustLoopGuard.',
+            safe_output: 'Blocked by Featherlane AI.',
             checked_output_excerpt: 'That is a stupid question. Figure it out yourself.',
           },
           created_at: '2026-05-25T00:00:01.000Z',
@@ -81,7 +81,7 @@ describe('parseRunDetailSnapshot', () => {
       outcome: 'deny',
       triggered: true,
       policy: 'policy-1',
-      safeOutput: 'Blocked by TrustLoopGuard.',
+      safeOutput: 'Blocked by Featherlane AI.',
       checkedOutput: 'That is a stupid question. Figure it out yourself.',
     });
   });
@@ -192,7 +192,7 @@ describe('parseRunDetailSnapshot', () => {
                 tool_identity: {
                   server_id: 'mastra',
                   tool_name: 'book_appointment',
-                  schema_hash: 'tlg-schema:fnv1a64:test',
+                  schema_hash: 'featherlane-ai-schema:fnv1a64:test',
                 },
               },
             },

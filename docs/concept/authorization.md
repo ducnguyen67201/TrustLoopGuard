@@ -39,11 +39,11 @@ A single shared static token configured per deployment.
 
 - **Where it lives**: env var on the server; `Doppler secrets set TL_API_KEY=…` for staging/prod. The server defaults to `127.0.0.1:8080` whether or not the key is configured. A deployment must explicitly set `TL_SERVER_ADDR` for a non-loopback bind and terminate TLS at a trusted reverse proxy. When the key is unset for local development, middleware is skipped only on a loopback listener; `tl-server` refuses an unauthenticated non-loopback bind.
 - **Who uses it**: the Next.js dashboard's same-origin proxy (`apps/web/app/api/*`), the seed script, and any internal tooling. It is the trust anchor for "this caller is us."
-- **Workspace scoping**: there is none. A request with `TL_API_KEY` reads `X-TLG-Workspace-Id` from the headers and trusts it. Safe because only first-party code sets that header.
+- **Workspace scoping**: there is none. A request with `TL_API_KEY` reads `X-FEATHERLANE-AI-Workspace-Id` from the headers and trusts it. Safe because only first-party code sets that header.
 - **User identity**: the web uses this lane for first-party service calls, including
   `POST /v1/identity/oauth-session`, which maps an already-authenticated Google/GitHub
-  account to a local TrustLoopGuard user record.
-- **User approval gate**: requests that carry `X-TLG-User-Id` are admitted only if the Rust-owned
+  account to a local Featherlane AI user record.
+- **User approval gate**: requests that carry `X-FEATHERLANE-AI-User-Id` are admitted only if the Rust-owned
   `users` row has `is_approved=true`. Internal calls without user context and customer `tl_live_`
   workspace keys are not affected.
 
@@ -78,7 +78,7 @@ This route is intentionally **internal-lane only**: bearer auth on
 `tl_live_` workspace runtime keys with `401`.
 
 The request carries the provider id (`google` or `github`), the provider's stable account subject,
-and the provider email. Rust resolves that identity to one local TrustLoopGuard `users.id`:
+and the provider email. Rust resolves that identity to one local Featherlane AI `users.id`:
 
 1. Find an existing row in `oauth_identities` by `(provider, provider_subject)`.
 2. Otherwise find an existing `users` row by email/username and link the provider identity to it.
@@ -115,7 +115,7 @@ The `/api-keys` dashboard page creates and lists these keys through Rust:
 - **Management authorization**: API key create/list/revoke requires an authenticated dashboard user who is an owner or admin of the workspace. The caller may authenticate with a user JWT or through the internal dashboard service lane with forwarded user context. Workspace id alone is never authority.
 - **Control-plane separation**: workspace runtime keys cannot mutate agent profiles or source-label policies. Agent deletion is rejected before its owned-policy cascade runs.
 - **Verification**: middleware inspects the bearer prefix. Starts with `tl_live_` -> SHA-256 the value, look up an active `workspace_api_keys` row, attach that row's `workspace_id` and `environment_id`, and update `last_used_at`.
-- **Scope enforcement**: the key decides the workspace and environment. Middleware overwrites `X-TLG-Workspace-Id` and `X-TLG-Environment-Id` with the stored values before handlers run, so caller-provided workspace or environment context cannot steer the request into another scope.
+- **Scope enforcement**: the key decides the workspace and environment. Middleware overwrites `X-FEATHERLANE-AI-Workspace-Id` and `X-FEATHERLANE-AI-Environment-Id` with the stored values before handlers run, so caller-provided workspace or environment context cannot steer the request into another scope.
 - **Runtime-only surface**: workspace keys are for SDK and gateway model traffic. They cannot list, create, or revoke API keys, and gateway configuration endpoints reject this lane. Dashboard/user credentials must manage provider connections, routes, and keys.
 - **Deployment boundary**: hosted SDK integrations use a workspace key at runtime and keep internal/dashboard credentials in setup or control-plane processes only. Runtime services do not select tenancy with caller-supplied workspace headers; the stored key scope selects it.
 

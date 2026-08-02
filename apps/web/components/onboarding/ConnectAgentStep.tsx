@@ -182,7 +182,7 @@ export function ConnectAgentStep({
           <h2 className="text-base font-semibold tracking-tight">Wire in the guard</h2>
           <p className="text-sm leading-6 text-muted-foreground">
             Pick the path that matches how you build. Every snippet reads{' '}
-            <span className="font-mono text-foreground">TLG_API_KEY</span> from the environment —
+            <span className="font-mono text-foreground">FEATHERLANE_AI_API_KEY</span> from the environment —
             preview shows the shape, the copy button takes the whole thing.
           </p>
         </div>
@@ -210,7 +210,7 @@ export function ConnectAgentStep({
           <TabsContent value="sdk" className="grid gap-3">
             <SurfaceIntro>
               Install one package and decorate your agent once. Existing agent.reply(...) call sites
-              stay unchanged, with no local TrustLoopGuard checkout or manual decision branching.
+              stay unchanged, with no local Featherlane AI checkout or manual decision branching.
             </SurfaceIntro>
             <CopyBlock
               label="Add the SDK yourself"
@@ -221,7 +221,7 @@ export function ConnectAgentStep({
 
           <TabsContent value="payments" className="grid gap-3">
             <SurfaceIntro>
-              For ecommerce agents, place TrustLoopGuard between the merchant&apos;s 402 response
+              For ecommerce agents, place Featherlane AI between the merchant&apos;s 402 response
               and the wallet signature. A reusable grant proves delegated authority; policies
               enforce standing limits through the same authorization flow.
             </SurfaceIntro>
@@ -272,7 +272,7 @@ export function ConnectAgentStep({
 
           <TabsContent value="coding-agent" className="grid gap-4">
             <SurfaceIntro>
-              Install user-level hooks so TrustLoopGuard authorizes every emitted tool call before
+              Install user-level hooks so Featherlane AI authorizes every emitted tool call before
               execution and completes the exact lease afterward. Managed projects fail closed; Codex
               reports host-owned coverage gaps explicitly.
             </SurfaceIntro>
@@ -320,7 +320,7 @@ export function ConnectAgentStep({
 
         <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
           <div>
-            <p className="text-sm font-medium">Want TrustLoopGuard to open a PR?</p>
+            <p className="text-sm font-medium">Want Featherlane AI to open a PR?</p>
             <p className="text-xs text-muted-foreground">
               Connect GitHub from the agent row and review the generated draft PR.
             </p>
@@ -447,7 +447,7 @@ function KeyReveal({
         </Button>
         <p className="text-xs leading-5 text-muted-foreground">
           Treat it like a password. Set it as{' '}
-          <span className="font-mono text-foreground">TLG_API_KEY</span> in your app&apos;s
+          <span className="font-mono text-foreground">FEATHERLANE_AI_API_KEY</span> in your app&apos;s
           environment — you won&apos;t see it again.
         </p>
       </div>
@@ -460,7 +460,7 @@ function KeyReveal({
 }
 
 const NEXT_STEPS = [
-  'Set the key as TLG_API_KEY',
+  'Set the key as FEATHERLANE_AI_API_KEY',
   'Wire the guard with one of the paths',
   'Run once — watch your first decision land',
 ] as const;
@@ -495,7 +495,7 @@ const FLOW_BEATS = [
   {
     icon: IconKey,
     title: 'Your secret key, once',
-    body: 'We create it here and show the plaintext a single time — copy it, set it as TLG_API_KEY.',
+    body: 'We create it here and show the plaintext a single time — copy it, set it as FEATHERLANE_AI_API_KEY.',
   },
   {
     icon: IconTerminal2,

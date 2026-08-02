@@ -8,7 +8,7 @@ use tl_policy::{MatchClause, Matcher, Policy};
 /// rather than in a file so the OpenAPI surface fully describes the
 /// behavior the server exposes.
 pub(super) const POLICY_DRAFT_SYSTEM_PROMPT: &str = concat!(
-    "You write TrustLoopGuard guardrail policies. Given a short natural-language ",
+    "You write Featherlane AI guardrail policies. Given a short natural-language ",
     "description, return a single policy draft as JSON matching the response schema.\n\n",
     "Rules:\n",
     "- `id` is kebab-case (lowercase letters, digits, hyphens only).\n",
@@ -24,7 +24,7 @@ pub(super) const POLICY_DRAFT_SYSTEM_PROMPT: &str = concat!(
 /// The model receives the customer's agent system prompt and must emit a
 /// **set** of guardrail drafts tailored to that agent — not a single one.
 pub(super) const POLICY_SET_DRAFT_SYSTEM_PROMPT: &str = concat!(
-    "You write TrustLoopGuard guardrail policy sets for a single agent.\n",
+    "You write Featherlane AI guardrail policy sets for a single agent.\n",
     "Given the customer's agent system prompt, derive 3–8 policies that protect ",
     "that specific agent from common failure modes. Return a JSON array matching ",
     "the response schema.\n\n",

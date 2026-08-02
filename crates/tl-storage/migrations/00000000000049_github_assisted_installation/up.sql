@@ -122,6 +122,6 @@ CREATE INDEX IF NOT EXISTS traces_github_integration_marker_idx
         workspace_id,
         environment_id,
         ((payload #>> '{event,principal,agent_id}')),
-        ((payload #>> '{event,context,tlg_integration_id}')),
+        ((payload #>> '{event,context,featherlane_ai_integration_id}')),
         created_at DESC
     );

@@ -34,7 +34,7 @@ UI component
   -> Rust /v1/... with Authorization
 ```
 
-Runtime/product pages carry the selected environment in the URL as `environment=<environment_id>`. Same-origin proxy helpers translate that into the trusted Rust `X-TLG-Environment-Id` header; browser code must not set that header directly.
+Runtime/product pages carry the selected environment in the URL as `environment=<environment_id>`. Same-origin proxy helpers translate that into the trusted Rust `X-FEATHERLANE-AI-Environment-Id` header; browser code must not set that header directly.
 
 ## Sidebar Navigation
 

@@ -3,7 +3,7 @@ import type {
   FinancialActionOutcome,
   FinancialActionRecord,
   FinancialReceipt,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

@@ -9,7 +9,7 @@ import { atomicWriteJson, readJsonObject, rejectSymlink, withFileLock } from './
 const directories: string[] = [];
 
 async function temporaryDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), 'tlg-managed-json-'));
+  const directory = await mkdtemp(join(tmpdir(), 'featherlane-ai-managed-json-'));
   directories.push(directory);
   return directory;
 }
@@ -34,7 +34,7 @@ describe('managed JSON', () => {
     await writeFile(file, '{"foreign":1}\n');
     await atomicWriteJson(file, { foreign: 1, managed: true }, { backup: true });
     await atomicWriteJson(file, { foreign: 2, managed: true }, { backup: true });
-    expect(await readFile(`${file}.tlg.bak`, 'utf8')).toBe('{"foreign":1}\n');
+    expect(await readFile(`${file}.featherlane-ai.bak`, 'utf8')).toBe('{"foreign":1}\n');
     expect(await readJsonObject(file)).toEqual({ foreign: 2, managed: true });
   });
 

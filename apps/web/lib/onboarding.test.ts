@@ -24,13 +24,13 @@ describe('buildSdkSnippet', () => {
     expect(snippet).toContain("agentId: 'support-ai'");
   });
 
-  test('references the key only through the TLG_API_KEY env var', () => {
-    expect(snippet).toContain('process.env.TLG_API_KEY');
+  test('references the key only through the FEATHERLANE_AI_API_KEY env var', () => {
+    expect(snippet).toContain('process.env.FEATHERLANE_AI_API_KEY');
     expect(snippet).not.toContain('tl_live_');
   });
 
   test('matches the SDK README quick-start structure', () => {
-    expect(snippet).toContain("import { guardAgent } from '@trustloopguard/sdk'");
+    expect(snippet).toContain("import { guardAgent } from '@featherlane-ai/sdk'");
     expect(snippet).toContain('const agent = guardAgent(createAgent(), {');
     expect(snippet).toContain('agent.reply(userMessage)');
     expect(snippet).not.toContain('.wrap(');
@@ -46,7 +46,7 @@ describe('buildPaymentSdkSnippet', () => {
     agentId: 'spid:commerce-agent',
   });
 
-  test('places TrustLoopGuard before payment signing', () => {
+  test('places Featherlane AI before payment signing', () => {
     expect(snippet).toContain("principal_id: 'spid:commerce-agent'");
     expect(snippet).toContain('client.createGrant');
     expect(snippet).toContain('client.authorizeAgenticPayment');
@@ -56,7 +56,7 @@ describe('buildPaymentSdkSnippet', () => {
   });
 
   test('uses the API key only through the environment', () => {
-    expect(snippet).toContain('process.env.TLG_API_KEY');
+    expect(snippet).toContain('process.env.FEATHERLANE_AI_API_KEY');
     expect(snippet).not.toContain('tl_live_');
   });
 });
@@ -69,9 +69,9 @@ describe('buildAssistantPrompt', () => {
   });
 
   test('is self-contained: install, env vars, guard wiring, first run', () => {
-    expect(prompt).toContain('npm install @trustloopguard/sdk');
-    expect(prompt).toContain('TLG_URL=https://api.example.test');
-    expect(prompt).toContain('TLG_API_KEY=');
+    expect(prompt).toContain('npm install @featherlane-ai/sdk');
+    expect(prompt).toContain('FEATHERLANE_AI_URL=https://api.example.test');
+    expect(prompt).toContain('FEATHERLANE_AI_API_KEY=');
     expect(prompt).toContain("'support-ai'");
     expect(prompt).toContain('guardAgent');
     expect(prompt).toContain('agent.reply(...)');
@@ -93,7 +93,7 @@ describe('buildAssistantPrompt', () => {
         assistant: option.id,
       });
       expect(tailored).toContain(option.label);
-      expect(tailored).toContain('TLG_API_KEY=');
+      expect(tailored).toContain('FEATHERLANE_AI_API_KEY=');
     }
   });
 });
@@ -106,7 +106,7 @@ describe('buildCodingAgentInstallCommand', () => {
   });
 
   test('uses the public installer with URL, agent, and target', () => {
-    expect(command).toContain('npx @trustloopguard/cli install');
+    expect(command).toContain('npx @featherlane-ai/cli install');
     expect(command).toContain("--agent-id 'support-ai'");
     expect(command).toContain("--url 'https://api.example.test'");
     expect(command).toContain('--target claude');
@@ -125,7 +125,7 @@ describe('buildCodingAgentInstallCommand', () => {
   });
 
   test('keeps the API key as an explicit placeholder', () => {
-    expect(command).toContain('export TLG_API_KEY="<copy the key shown on this page>"');
+    expect(command).toContain('export FEATHERLANE_AI_API_KEY="<copy the key shown on this page>"');
     expect(command).not.toContain('tl_live_');
   });
 });

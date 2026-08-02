@@ -34,7 +34,7 @@ async function forwardToWebhook(email: string): Promise<boolean> {
       text: `waitlist signup: ${email}`,
       email,
       secret,
-      source: 'gettrustloop.app',
+      source: 'featherlane.ai',
       at: new Date().toISOString(),
     }),
   });

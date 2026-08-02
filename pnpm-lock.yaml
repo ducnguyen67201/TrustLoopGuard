@@ -106,10 +106,10 @@ importers:
       '@t3-oss/env-nextjs':
         specifier: 0.13.11
         version: 0.13.11(typescript@6.0.3)(zod@4.4.3)
-      '@trustloopguard/demo':
+      '@featherlane-ai/demo':
         specifier: workspace:*
         version: link:../../demo
-      '@trustloopguard/sdk':
+      '@featherlane-ai/sdk':
         specifier: workspace:*
         version: link:../../sdks/typescript
       geist:
@@ -158,7 +158,7 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: 1.29.0
         version: 1.29.0(zod@4.4.3)
-      '@trustloopguard/sdk':
+      '@featherlane-ai/sdk':
         specifier: workspace:*
         version: link:../../sdks/typescript
       zod:
@@ -180,7 +180,7 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: 1.29.0
         version: 1.29.0(zod@4.4.3)
-      '@trustloopguard/sdk':
+      '@featherlane-ai/sdk':
         specifier: workspace:*
         version: link:../../sdks/typescript
       zod:
@@ -226,7 +226,7 @@ importers:
       '@tabler/icons-react':
         specifier: ^3.44.0
         version: 3.44.0(react@19.2.6)
-      '@trustloopguard/sdk':
+      '@featherlane-ai/sdk':
         specifier: workspace:*
         version: link:../../sdks/typescript
       class-variance-authority:
@@ -314,7 +314,7 @@ importers:
       '@openai/agents':
         specifier: ^0.13.5
         version: 0.13.5(ws@8.21.1)(zod@4.4.3)
-      '@trustloopguard/sdk':
+      '@featherlane-ai/sdk':
         specifier: workspace:*
         version: link:../sdks/typescript
       openai:

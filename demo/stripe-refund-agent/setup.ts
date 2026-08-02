@@ -4,7 +4,7 @@ import type {
   GatewayProviderConnection,
   GatewayProviderConnectionListResponse,
   UpdateGatewayProviderConnectionRequest,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import { ADMIN_USER_ID, API_KEY, createClient, SERVER_URL, WORKSPACE_ID } from '../shared/env';
 import { orderDatabasePath, resetOrderDatabase } from './order-db';
@@ -21,8 +21,8 @@ async function main(): Promise<void> {
   process.stdout.write(`payment_http provider ready: ${connection.id}\n\n`);
 
   process.stdout.write('Next terminals:\n');
-  process.stdout.write('  pnpm --filter @trustloopguard/demo stripe-refund-agent:provider\n');
-  process.stdout.write('  pnpm --filter @trustloopguard/demo stripe-refund-agent\n');
+  process.stdout.write('  pnpm --filter @featherlane-ai/demo stripe-refund-agent:provider\n');
+  process.stdout.write('  pnpm --filter @featherlane-ai/demo stripe-refund-agent\n');
 }
 
 async function ensureFinancialControl(): Promise<{ id: string }> {
@@ -137,8 +137,8 @@ async function listProviderConnections(): Promise<GatewayProviderConnectionListR
 function jsonHeaders(): Record<string, string> {
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (API_KEY) headers.authorization = `Bearer ${API_KEY}`;
-  if (WORKSPACE_ID) headers['x-tlg-workspace-id'] = WORKSPACE_ID;
-  if (ADMIN_USER_ID) headers['x-tlg-user-id'] = ADMIN_USER_ID;
+  if (WORKSPACE_ID) headers['x-featherlane-ai-workspace-id'] = WORKSPACE_ID;
+  if (ADMIN_USER_ID) headers['x-featherlane-ai-user-id'] = ADMIN_USER_ID;
   return headers;
 }
 

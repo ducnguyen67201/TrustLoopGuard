@@ -17,7 +17,7 @@ const COPY = {
     kicker: 'One more thing',
     title: 'Hey, you seem to like the product.',
     description:
-      'Want to talk through how TrustLoopGuard could work for your team? Pick a time on Duc’s calendar.',
+      'Want to talk through how Featherlane AI could work for your team? Pick a time on Duc’s calendar.',
     book: 'Book a call with Duc',
     continue: 'Keep exploring',
     close: 'Close meeting prompt',
@@ -26,7 +26,7 @@ const COPY = {
     kicker: 'Một điều nữa',
     title: 'Có vẻ bạn đang thích những gì mình thấy.',
     description:
-      'Bạn muốn trao đổi thêm về cách TrustLoopGuard có thể hỗ trợ đội ngũ của mình không? Hãy chọn thời gian phù hợp trên lịch của Duc.',
+      'Bạn muốn trao đổi thêm về cách Featherlane AI có thể hỗ trợ đội ngũ của mình không? Hãy chọn thời gian phù hợp trên lịch của Duc.',
     book: 'Đặt lịch với Duc',
     continue: 'Tiếp tục khám phá',
     close: 'Đóng lời mời đặt lịch',

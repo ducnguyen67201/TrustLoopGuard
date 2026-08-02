@@ -58,7 +58,10 @@ fn json_request(
         .method(method)
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json");
-    builder.header("x-tlg-workspace-id", workspace_id.unwrap_or("ws"))
+    builder.header(
+        "x-featherlane-ai-workspace-id",
+        workspace_id.unwrap_or("ws"),
+    )
 }
 
 fn policy_body(origin: &str) -> serde_json::Value {
@@ -323,7 +326,7 @@ fn event_request(body: &serde_json::Value) -> Request<Body> {
         .method("POST")
         .uri("/v1/events")
         .header(header::CONTENT_TYPE, "application/json")
-        .header("x-tlg-workspace-id", "ws")
+        .header("x-featherlane-ai-workspace-id", "ws")
         .body(Body::from(body.to_string()))
         .unwrap()
 }

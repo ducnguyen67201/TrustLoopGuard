@@ -11,7 +11,7 @@ import httpx
 import pytest
 import respx
 
-from trustloopguard import (
+from featherlane_ai import (
     Action,
     Client,
     EventKind,
@@ -26,8 +26,8 @@ from trustloopguard import (
     Unauthorized,
     Unavailable,
 )
-from trustloopguard._generated.types import ApiError, ApiErrorCode
-from trustloopguard.errors import Invalid, RateLimited
+from featherlane_ai._generated.types import ApiError, ApiErrorCode
+from featherlane_ai.errors import Invalid, RateLimited
 
 def output_event(text: str = "hello") -> GuardEvent:
     return GuardEvent(

@@ -791,7 +791,7 @@ export class Client {
           tool_identity:
             opts.toolIdentity ??
             ({
-              server_id: 'trustloopguard-sdk',
+              server_id: 'featherlane-ai-sdk',
               tool_name: opts.operation,
               schema_hash: 'sdk-legacy-untyped-v1',
             } satisfies ToolIdentity),

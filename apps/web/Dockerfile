@@ -11,7 +11,7 @@
 # it actually uses and emits a self-contained server. The runtime stage
 # never runs `pnpm install` and contains no dev dependencies.
 #
-# @trustloopguard/sdk lives in the workspace and exports its compiled
+# @featherlane-ai/sdk lives in the workspace and exports its compiled
 # dist/index.js entry point. The builder compiles the SDK before Next.js
 # so clean images do not depend on ignored local build artifacts.
 
@@ -59,7 +59,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_DOCS_URL=${NEXT_PUBLIC_DOCS_URL} \
     NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=${NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN} \
     NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST}
-RUN pnpm --filter @trustloopguard/sdk build \
+RUN pnpm --filter @featherlane-ai/sdk build \
  && pnpm --filter web exec next build
 
 # -----------------------------------------------------------------------------

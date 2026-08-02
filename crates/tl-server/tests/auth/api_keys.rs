@@ -11,8 +11,8 @@ fn create_api_key_request_with_principal(
         .uri("/v1/api-keys")
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
-        .header("x-tlg-workspace-id", workspace_id)
-        .header("x-tlg-user-id", user_id.to_string())
+        .header("x-featherlane-ai-workspace-id", workspace_id)
+        .header("x-featherlane-ai-user-id", user_id.to_string())
         .body(Body::from(body.to_string()))
         .unwrap()
 }
@@ -84,8 +84,8 @@ action: deny
                 .uri("/v1/policies")
                 .header(header::CONTENT_TYPE, "application/x-yaml")
                 .header(header::AUTHORIZATION, "Bearer sk-internal")
-                .header("x-tlg-workspace-id", &other_workspace_id)
-                .header("x-tlg-user-id", user_id.to_string())
+                .header("x-featherlane-ai-workspace-id", &other_workspace_id)
+                .header("x-featherlane-ai-user-id", user_id.to_string())
                 .body(Body::from(other_workspace_policy))
                 .unwrap(),
         )
@@ -116,7 +116,7 @@ action: deny
                 .uri("/v1/events")
                 .header(header::CONTENT_TYPE, "application/json")
                 .header(header::AUTHORIZATION, format!("Bearer {plaintext}"))
-                .header("x-tlg-workspace-id", &other_workspace_id)
+                .header("x-featherlane-ai-workspace-id", &other_workspace_id)
                 .body(Body::from(event_body.to_string()))
                 .unwrap(),
         )

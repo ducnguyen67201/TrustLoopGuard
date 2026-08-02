@@ -1,4 +1,4 @@
-"""Retry policy for the TrustLoopGuard Python SDK.
+"""Retry policy for the Featherlane AI Python SDK.
 
 Mirrors `tl-sdk-rust`'s `RetryConfig`. Same defaults, same `next_delay`
 contract — given the attempt number, elapsed time, the error that just
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from trustloopguard.errors import RateLimited, SdkError
+from featherlane_ai.errors import RateLimited, SdkError
 
 
 @dataclass(frozen=True)

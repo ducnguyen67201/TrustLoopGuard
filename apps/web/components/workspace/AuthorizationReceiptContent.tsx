@@ -1,4 +1,4 @@
-import type { AuthorizationReceipt } from '@trustloopguard/sdk';
+import type { AuthorizationReceipt } from '@featherlane-ai/sdk';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 

@@ -2,7 +2,7 @@ import type {
   AuthorizationGrant, AuthorizationReceipt, CreateAuthorizationGrantRequest,
   CreateFinancialActionRequest, FinancialActionOutcome, FinancialActionRecord,
   FinancialOutcomeListResponse, FinancialReceipt,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import type { FinancialDemoClient } from './core';
 

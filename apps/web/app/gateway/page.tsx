@@ -5,7 +5,7 @@ import { readParam, readWorkspaceSlug } from '@/lib/search-params';
 import { getGatewayPageData } from '@/lib/server/dashboard-data';
 import type { FamilyPolicyRow } from '@/lib/server/dashboard-data';
 import { rustApiForWorkspace } from '@/lib/server/tl-client';
-import type { BudgetAlertConfigListResponse, LlmPricingListResponse } from '@trustloopguard/sdk';
+import type { BudgetAlertConfigListResponse, LlmPricingListResponse } from '@featherlane-ai/sdk';
 
 export default async function GatewayPage({
   searchParams,

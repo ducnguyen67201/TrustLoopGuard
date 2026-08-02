@@ -13,7 +13,7 @@ import type { HostToolCall } from './wire.js';
 
 const installedConfigRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
-export function createTrustLoopGuardPlugin(
+export function createFeatherlaneAIPlugin(
   configRoot: string,
   environment: RuntimeEnvironment,
 ): Plugin {
@@ -105,7 +105,7 @@ export function createTrustLoopGuardPlugin(
   };
 }
 
-export const TrustLoopGuardPlugin: Plugin = createTrustLoopGuardPlugin(
+export const FeatherlaneAIPlugin: Plugin = createFeatherlaneAIPlugin(
   installedConfigRoot,
   process.env,
 );

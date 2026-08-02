@@ -1,6 +1,6 @@
 # SDK Recipes
 
-This directory is the source of truth for copyable TrustLoopGuard SDK setup
+This directory is the source of truth for copyable Featherlane AI SDK setup
 snippets.
 
 Add or update recipe YAML files under `recipes/sdk/`, then run:

@@ -9,7 +9,7 @@ async function main(): Promise<void> {
   const result = await runRefundAgent(prompt, createClient());
 
   process.stdout.write('\nRefund agent demo\n');
-  process.stdout.write(`TrustLoopGuard: ${SERVER_URL}\n`);
+  process.stdout.write(`Featherlane AI: ${SERVER_URL}\n`);
   if (WORKSPACE_ID) process.stdout.write(`Workspace: ${WORKSPACE_ID}\n`);
   process.stdout.write(`User: ${result.prompt}\n\n`);
 

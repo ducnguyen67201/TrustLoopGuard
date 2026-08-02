@@ -9,7 +9,7 @@ import {
   type GuardOptions,
   type PolicySummary,
   type Severity,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import { OPENAI_API_KEY, OPENAI_MODEL } from '../shared/env';
 import {
@@ -246,7 +246,7 @@ async function guardHealthcareDraft(
   request: GuardHealthcareDraftRequest,
 ): Promise<GuardHealthcareDraftResult> {
   if (!(request.client instanceof Client)) {
-    throw new TypeError('The default healthcare output guard requires a TrustLoopGuard Client');
+    throw new TypeError('The default healthcare output guard requires a Featherlane AI Client');
   }
 
   let decision: AuthorizationDecision | undefined;

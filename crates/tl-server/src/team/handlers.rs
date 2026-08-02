@@ -198,7 +198,7 @@ pub async fn revoke_invite(
 
 /// GET /v1/team/my-workspaces — list workspaces for the signed-in user.
 ///
-/// Reads `X-TLG-User-Id` (required, UUID) and `X-TLG-User-Email`
+/// Reads `X-FEATHERLANE-AI-User-Id` (required, UUID) and `X-FEATHERLANE-AI-User-Email`
 /// (optional). When the email is present we first bulk-accept any
 /// pending invites addressed to it; the membership query then sees
 /// the new rows in the same response. This is the dashboard's
@@ -225,7 +225,7 @@ pub async fn list_my_workspaces(
         return api_error(
             StatusCode::BAD_REQUEST,
             ApiErrorCode::Invalid,
-            "X-TLG-User-Id header is required and must be a UUID".into(),
+            "X-FEATHERLANE-AI-User-Id header is required and must be a UUID".into(),
         );
     };
 
@@ -306,7 +306,7 @@ pub async fn create_my_workspace(
         return api_error(
             StatusCode::BAD_REQUEST,
             ApiErrorCode::Invalid,
-            "X-TLG-User-Id header is required and must be a UUID".into(),
+            "X-FEATHERLANE-AI-User-Id header is required and must be a UUID".into(),
         );
     };
     let name = req.name.trim();
@@ -364,7 +364,7 @@ pub async fn delete_my_workspace(
         return api_error(
             StatusCode::BAD_REQUEST,
             ApiErrorCode::Invalid,
-            "X-TLG-User-Id header is required and must be a UUID".into(),
+            "X-FEATHERLANE-AI-User-Id header is required and must be a UUID".into(),
         );
     };
 

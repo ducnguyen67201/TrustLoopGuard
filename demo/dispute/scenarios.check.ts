@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import type { AuthorizationDecision, AuthorizationEffect } from '@trustloopguard/sdk';
+import type { AuthorizationDecision, AuthorizationEffect } from '@featherlane-ai/sdk';
 
 import type { PayFn, SubmitFn } from './scenarios.core';
 import { buildEvent, runScenarios, SCENARIOS } from './scenarios.core';

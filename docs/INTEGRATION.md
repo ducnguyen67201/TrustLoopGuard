@@ -1,16 +1,16 @@
 # Integration guide
 
-TrustLoopGuard evaluates proposed agent behavior before it reaches a user or
+Featherlane AI evaluates proposed agent behavior before it reaches a user or
 external system. The primary integration is the SDK decorator.
 
 Just look at this:
 
 ```bash
-npm install @trustloopguard/sdk
+npm install @featherlane-ai/sdk
 ```
 
 ```ts
-import { guardAgent } from '@trustloopguard/sdk';
+import { guardAgent } from '@featherlane-ai/sdk';
 
 const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
 
@@ -27,15 +27,15 @@ add a guard check to every handler, helper, or tool.
 Create an agent and runtime key in the dashboard, then install the package:
 
 ```bash
-npm install @trustloopguard/sdk
-export TLG_URL=https://api.gettrustloop.app
-export TLG_API_KEY=tl_live_...
+npm install @featherlane-ai/sdk
+export FEATHERLANE_AI_URL=https://api.featherlane.ai
+export FEATHERLANE_AI_API_KEY=tl_live_...
 ```
 
 Decorate the agent once:
 
 ```ts
-import { guardAgent } from '@trustloopguard/sdk';
+import { guardAgent } from '@featherlane-ai/sdk';
 
 const agent = guardAgent(createAgent(), { agentId: 'support-agent' });
 

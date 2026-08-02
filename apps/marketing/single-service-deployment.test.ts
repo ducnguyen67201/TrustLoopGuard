@@ -11,15 +11,15 @@ test('packages the public demos and SDK inside the Marketing image', () => {
   const dockerfile = readFileSync(new URL('./Dockerfile', import.meta.url), 'utf8');
   const dockerignore = readFileSync(new URL('../../.dockerignore', import.meta.url), 'utf8');
 
-  assert.equal(packageJson.dependencies['@trustloopguard/demo'], 'workspace:*');
-  assert.equal(packageJson.dependencies['@trustloopguard/sdk'], 'workspace:*');
+  assert.equal(packageJson.dependencies['@featherlane-ai/demo'], 'workspace:*');
+  assert.equal(packageJson.dependencies['@featherlane-ai/sdk'], 'workspace:*');
   assert.match(dockerfile, /COPY demo\/package\.json \.\/demo\//);
   assert.match(dockerfile, /COPY sdks\/typescript\/package\.json \.\/sdks\/typescript\//);
   assert.match(dockerfile, /COPY demo \.\/demo/);
   assert.match(dockerfile, /COPY sdks\/typescript \.\/sdks\/typescript/);
   assert.match(
     dockerfile,
-    /RUN pnpm --filter @trustloopguard\/sdk build \\\n && pnpm --filter marketing build/,
+    /RUN pnpm --filter @featherlane-ai\/sdk build \\\n && pnpm --filter marketing build/,
   );
   assert.match(dockerignore, /!demo\/shared\/\*\*/);
   assert.match(dockerignore, /!demo\/procurement-agent\/\*\*/);

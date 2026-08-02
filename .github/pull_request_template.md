@@ -1,5 +1,5 @@
 <!--
-TrustLoopGuard is SDK-driven. See docs/SDK_DRIVEN.md for the full philosophy.
+Featherlane AI is SDK-driven. See docs/SDK_DRIVEN.md for the full philosophy.
 
 The checklist below is mandatory for any PR that changes user-visible
 behavior. If your PR is engine-internal only (refactor, perf work, internal

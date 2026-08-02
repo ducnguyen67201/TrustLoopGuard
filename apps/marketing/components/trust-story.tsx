@@ -7,8 +7,8 @@ const COPY = {
     title: 'Built for production reality.',
     quote:
       '“Production finds what demos miss. Put policy before action—and leave proof behind.”',
-    founder: 'Founder, TrustLoopGuard',
-    principlesLabel: 'TrustLoopGuard design principles',
+    founder: 'Founder, Featherlane AI',
+    principlesLabel: 'Featherlane AI design principles',
     trustIsEvidence: 'Trust is evidence',
     reviewRepository: 'Review the repository ↗',
     principles: [
@@ -34,8 +34,8 @@ const COPY = {
     title: 'Được xây dựng cho thực tế production.',
     quote:
       '“Production tìm ra điều bản demo bỏ sót. Đặt chính sách trước hành động—và luôn để lại bằng chứng.”',
-    founder: 'Nhà sáng lập, TrustLoopGuard',
-    principlesLabel: 'Nguyên tắc thiết kế của TrustLoopGuard',
+    founder: 'Nhà sáng lập, Featherlane AI',
+    principlesLabel: 'Nguyên tắc thiết kế của Featherlane AI',
     trustIsEvidence: 'Niềm tin cần bằng chứng',
     reviewRepository: 'Xem kho mã nguồn ↗',
     principles: [

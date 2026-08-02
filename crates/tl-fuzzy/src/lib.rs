@@ -1,4 +1,4 @@
-//! TrustLoopGuard fuzzy similarity primitives.
+//! Featherlane AI fuzzy similarity primitives.
 //!
 //! Three building blocks that Tier 2 (PR 6) composes into a real fuzzy
 //! check:

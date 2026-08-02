@@ -5,7 +5,7 @@ import { delimiter, join } from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { runCommand, runtimeIsIntact } from './commands.js';
-import { resolveTrustLoopPaths } from './paths.js';
+import { resolveFeatherlaneAIPaths } from './paths.js';
 import { CliError, type CommandContext } from './types.js';
 
 const RUNTIME_FILES = [
@@ -24,7 +24,7 @@ async function setup(version = '2.1.133'): Promise<{
   context: CommandContext;
   output: string[];
 }> {
-  const root = await mkdtemp(join(tmpdir(), 'tlg-commands-'));
+  const root = await mkdtemp(join(tmpdir(), 'featherlane-ai-commands-'));
   directories.push(root);
   const home = join(root, 'home');
   const config = join(root, 'config');
@@ -46,7 +46,7 @@ async function setup(version = '2.1.133'): Promise<{
       HOME: home,
       XDG_CONFIG_HOME: config,
       PATH: `${bin}${delimiter}${process.env.PATH ?? ''}`,
-      TLG_API_KEY: 'tl_live_command_test_only',
+      FEATHERLANE_AI_API_KEY: 'tl_live_command_test_only',
     },
     stdout: (message) => output.push(message),
     stderr: (message) => output.push(`stderr:${message}`),
@@ -76,7 +76,7 @@ describe('commands', () => {
         context,
       ),
     ).toBe(0);
-    const paths = resolveTrustLoopPaths(context.env, process.platform, context.homeDirectory);
+    const paths = resolveFeatherlaneAIPaths(context.env, process.platform, context.homeDirectory);
     expect(await runtimeIsIntact(paths)).toBe(true);
     const settings = await readFile(paths.claudeSettingsFile, 'utf8');
     expect(settings).toContain('PreToolUse');
@@ -125,22 +125,22 @@ describe('commands', () => {
       );
     await install(project);
     await install(second);
-    const paths = resolveTrustLoopPaths(context.env, process.platform, context.homeDirectory);
+    const paths = resolveFeatherlaneAIPaths(context.env, process.platform, context.homeDirectory);
     await runCommand(
       { command: 'uninstall', project, json: false, all: true, target: 'all' },
       context,
     );
-    expect(await readFile(paths.claudeSettingsFile, 'utf8')).toContain('TrustLoopGuard');
+    expect(await readFile(paths.claudeSettingsFile, 'utf8')).toContain('Featherlane AI');
     await runCommand(
       { command: 'uninstall', project: second, json: false, all: true, target: 'all' },
       context,
     );
-    expect(await readFile(paths.claudeSettingsFile, 'utf8')).not.toContain('TrustLoopGuard');
+    expect(await readFile(paths.claudeSettingsFile, 'utf8')).not.toContain('Featherlane AI');
   });
 
   test('fails before writes for a missing key, invalid URL, and unsupported host', async () => {
     const missing = await setup();
-    delete missing.context.env.TLG_API_KEY;
+    delete missing.context.env.FEATHERLANE_AI_API_KEY;
     await expect(
       runCommand(
         {
@@ -154,7 +154,7 @@ describe('commands', () => {
         },
         missing.context,
       ),
-    ).rejects.toThrow(/TLG_API_KEY/);
+    ).rejects.toThrow(/FEATHERLANE_AI_API_KEY/);
 
     const invalid = await setup();
     const invalidUrl = new URL('https://example.test');
@@ -193,7 +193,7 @@ describe('commands', () => {
 
   test('rolls back runtime and registry when host configuration is malformed', async () => {
     const { project, context } = await setup();
-    const paths = resolveTrustLoopPaths(context.env, process.platform, context.homeDirectory);
+    const paths = resolveFeatherlaneAIPaths(context.env, process.platform, context.homeDirectory);
     await mkdir(join(context.homeDirectory!, '.claude'));
     await writeFile(paths.claudeSettingsFile, '{');
     await expect(

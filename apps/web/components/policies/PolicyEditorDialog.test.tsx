@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { PolicyDocument } from '@trustloopguard/sdk';
+import type { PolicyDocument } from '@featherlane-ai/sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PolicyEditorDialog } from './PolicyEditorDialog';

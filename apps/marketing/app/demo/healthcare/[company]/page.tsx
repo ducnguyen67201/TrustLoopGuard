@@ -31,9 +31,9 @@ export async function generateMetadata({
       : 'Personalized Healthcare Scheduling Demo',
     description: profile
       ? isContextual
-        ? `A private, public-source TrustLoopGuard concept for ${profile.company_name}.`
-        : `A private, public-source TrustLoopGuard healthcare scheduling concept for ${profile.company_name}.`
-      : 'A private TrustLoopGuard healthcare scheduling concept.',
+        ? `A private, public-source Featherlane AI concept for ${profile.company_name}.`
+        : `A private, public-source Featherlane AI healthcare scheduling concept for ${profile.company_name}.`
+      : 'A private Featherlane AI healthcare scheduling concept.',
     alternates: { canonical: '/demo/healthcare' },
     robots: { index: false, follow: false },
   };

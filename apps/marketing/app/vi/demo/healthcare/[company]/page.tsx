@@ -33,8 +33,8 @@ export async function generateMetadata({
     description: profile
       ? isContextual
         ? contextualCopy.description(profile.company_name)
-        : `Bản thử nghiệm TrustLoopGuard riêng cho quy trình đặt lịch của ${profile.company_name}, được xây dựng từ nguồn công khai.`
-      : 'Bản thử nghiệm đặt lịch y tế an toàn của TrustLoopGuard.',
+        : `Bản thử nghiệm Featherlane AI riêng cho quy trình đặt lịch của ${profile.company_name}, được xây dựng từ nguồn công khai.`
+      : 'Bản thử nghiệm đặt lịch y tế an toàn của Featherlane AI.',
     alternates: {
       canonical: profile
         ? `/vi/demo/healthcare/${profile.slug}`

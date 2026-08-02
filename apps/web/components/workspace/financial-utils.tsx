@@ -5,7 +5,7 @@ import type {
   FinancialActionRecord,
   FinancialActionState,
   FinancialExecutionStatus,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 type BadgeVariant = 'permit' | 'deny' | 'require_approval' | 'outline' | 'secondary';
 type FinancialActionWithOptionalState = Omit<FinancialActionRecord, 'state'> & {

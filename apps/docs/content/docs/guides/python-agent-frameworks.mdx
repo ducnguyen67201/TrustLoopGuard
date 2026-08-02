@@ -1,11 +1,11 @@
 ---
 title: Guard Python agents
-description: Attach TrustLoopGuard to AG2 or Agno local tools and final plain-text output.
+description: Attach Featherlane AI to AG2 or Agno local tools and final plain-text output.
 ---
 
 Use the Python framework adapters when an existing AG2 or Agno agent should be
 protected without rewriting its tools or business flow. Each adapter returns
-the same Agent object and sends runtime checks directly to the TrustLoopGuard
+the same Agent object and sends runtime checks directly to the Featherlane AI
 Rust API.
 
 ## Install the matching extra
@@ -13,14 +13,14 @@ Rust API.
 The AG2 adapter targets the current async-first `ag2` package:
 
 ```bash
-python -m pip install "trustloopguard[ag2]"
+python -m pip install "featherlane-ai[ag2]"
 python -c "import ag2; print(ag2.__version__)"
 ```
 
 The Agno adapter supports Agno 2.x:
 
 ```bash
-python -m pip install "trustloopguard[agno]"
+python -m pip install "featherlane-ai[agno]"
 python -c "import agno; print(agno.__version__)"
 ```
 
@@ -29,12 +29,12 @@ The adapter does not own the client.
 
 ## Classify your tools
 
-TrustLoopGuard defaults an unclassified tool to the conservative
+Featherlane AI defaults an unclassified tool to the conservative
 `api_mutation` side-effect class and emits a warning. Classify known tools so
 read-only operations do not inherit mutation policy:
 
 ```python
-from trustloopguard import SideEffectClass
+from featherlane_ai import SideEffectClass
 
 tool_side_effects = {
     "confirm_order": SideEffectClass.api_mutation,
@@ -53,12 +53,12 @@ AG2 middleware is asynchronous, so use `AsyncClient`:
 import os
 
 from ag2 import Agent
-from trustloopguard import AsyncClient, SideEffectClass
-from trustloopguard.integrations.ag2 import guard_ag2
+from featherlane_ai import AsyncClient, SideEffectClass
+from featherlane_ai.integrations.ag2 import guard_ag2
 
-tlg = AsyncClient(
-    base_url="https://api.gettrustloop.app",
-    api_key=os.environ["TLG_API_KEY"],
+featherlane = AsyncClient(
+    base_url="https://api.featherlane.ai",
+    api_key=os.environ["FEATHERLANE_AI_API_KEY"],
 )
 
 agent = Agent(
@@ -67,7 +67,7 @@ agent = Agent(
 )
 guard_ag2(
     agent,
-    client=tlg,
+    client=featherlane,
     tool_side_effects={
         "confirm_order": SideEffectClass.api_mutation,
         "lookup_inventory": SideEffectClass.read,
@@ -75,7 +75,7 @@ guard_ag2(
 )
 
 reply = await agent.ask("Confirm order 123")
-await tlg.aclose()
+await featherlane.aclose()
 ```
 
 `guard_ag2()` installs one outer middleware. Local tool calls pass through
@@ -84,7 +84,7 @@ response passes through `on_turn()` before `ask()` returns.
 
 Attach the guard immediately after constructing the Agent and before starting
 a run. The helper uses AG2's outer-middleware insertion API so existing
-middleware cannot execute a tool before TrustLoopGuard authorizes it.
+middleware cannot execute a tool before Featherlane AI authorizes it.
 
 ## Agno sync
 
@@ -94,20 +94,20 @@ Pair `Client` with `Agent.run()`:
 import os
 
 from agno.agent import Agent
-from trustloopguard import Client, SideEffectClass
-from trustloopguard.integrations.agno import guard_agno
+from featherlane_ai import Client, SideEffectClass
+from featherlane_ai.integrations.agno import guard_agno
 
 with Client(
-    base_url="https://api.gettrustloop.app",
-    api_key=os.environ["TLG_API_KEY"],
-) as tlg:
+    base_url="https://api.featherlane.ai",
+    api_key=os.environ["FEATHERLANE_AI_API_KEY"],
+) as featherlane-ai:
     agent = Agent(
         name="sales-agent",
         tools=[confirm_order, lookup_inventory],
     )
     guard_agno(
         agent,
-        client=tlg,
+        client=featherlane,
         tool_side_effects={
             "confirm_order": SideEffectClass.api_mutation,
             "lookup_inventory": SideEffectClass.read,
@@ -124,20 +124,20 @@ Pair `AsyncClient` with `Agent.arun()`:
 import os
 
 from agno.agent import Agent
-from trustloopguard import AsyncClient, SideEffectClass
-from trustloopguard.integrations.agno import guard_agno
+from featherlane_ai import AsyncClient, SideEffectClass
+from featherlane_ai.integrations.agno import guard_agno
 
 async with AsyncClient(
-    base_url="https://api.gettrustloop.app",
-    api_key=os.environ["TLG_API_KEY"],
-) as tlg:
+    base_url="https://api.featherlane.ai",
+    api_key=os.environ["FEATHERLANE_AI_API_KEY"],
+) as featherlane-ai:
     agent = Agent(
         name="sales-agent",
         tools=[confirm_order, lookup_inventory],
     )
     guard_agno(
         agent,
-        client=tlg,
+        client=featherlane,
         tool_side_effects={
             "confirm_order": SideEffectClass.api_mutation,
             "lookup_inventory": SideEffectClass.read,
@@ -146,7 +146,7 @@ async with AsyncClient(
     result = await agent.arun("Confirm order 123")
 ```
 
-Agno installs the TrustLoopGuard tool hook first, before existing tool hooks,
+Agno installs the Featherlane AI tool hook first, before existing tool hooks,
 and its output hook last, after existing output transformations.
 
 ## What each decision does
@@ -156,17 +156,17 @@ and its output hook last, after existing output transformations.
 | `permit` | Executes exactly once | Returns unchanged |
 | `transform` | Does not execute; returns a revision-required tool result | Uses a string `transformed_value`; otherwise returns safe block text |
 | `deny` | Does not execute; returns safe block text | Returns configured block text |
-| `require_approval` | Waits for TrustLoopGuard approval, re-evaluation, and a lease; otherwise does not execute | Returns configured review text |
+| `require_approval` | Waits for Featherlane AI approval, re-evaluation, and a lease; otherwise does not execute | Returns configured review text |
 | `defer` | Does not execute; returns missing-context text | Returns configured retry/evidence text |
 
-Executable checks always fail closed. If the TrustLoopGuard client cannot
+Executable checks always fail closed. If the Featherlane AI client cannot
 complete a tool check, the tool does not run and the agent receives a normal
 safe result. Output-only transport and decode failures can preserve the draft:
 
 ```python
 guard_agno(
     agent,
-    client=tlg,
+    client=featherlane,
     output_fail_closed=False,
 )
 ```

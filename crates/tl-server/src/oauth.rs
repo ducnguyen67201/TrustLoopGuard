@@ -376,9 +376,10 @@ pub(crate) async fn authorize(
             .filter(|value| !value.is_empty())
             .map(str::to_string)
     };
-    let (Some(user_id_raw), Some(workspace_id)) =
-        (header("x-tlg-user-id"), header("x-tlg-workspace-id"))
-    else {
+    let (Some(user_id_raw), Some(workspace_id)) = (
+        header("x-featherlane-ai-user-id"),
+        header("x-featherlane-ai-workspace-id"),
+    ) else {
         return oauth_error(
             StatusCode::UNAUTHORIZED,
             "access_denied",
@@ -804,9 +805,9 @@ mod tests {
         assert_eq!(
             authorization_endpoint_for(
                 "https://guard.example",
-                Some("https://app.gettrustloop.app/")
+                Some("https://app.featherlane.ai/")
             ),
-            "https://app.gettrustloop.app/oauth/authorize"
+            "https://app.featherlane.ai/oauth/authorize"
         );
         assert_eq!(
             authorization_endpoint_for("https://guard.example/", None),

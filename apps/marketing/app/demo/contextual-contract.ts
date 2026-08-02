@@ -67,7 +67,7 @@ const policySchema = z
 const runtimeSchema = z
   .object({
     agent: z.literal('openai-responses'),
-    guard: z.literal('trustloopguard-rust-api'),
+    guard: z.literal('featherlane-ai-rust-api'),
     workspace: z.literal('shared-contextual-demo'),
     data: z.literal('synthetic-only'),
   })
