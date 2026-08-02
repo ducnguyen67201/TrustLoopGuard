@@ -1,6 +1,6 @@
 'use client';
 
-import type { EnforcementMode } from '@trustloopguard/sdk';
+import type { EnforcementMode } from '@featherlane-ai/sdk';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { z } from 'zod';

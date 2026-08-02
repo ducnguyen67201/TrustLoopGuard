@@ -18,8 +18,8 @@ import {
 import {
   canonicalizeProject,
   ensureOwnedDirectory,
-  resolveTrustLoopPaths,
-  type TrustLoopPaths,
+  resolveFeatherlaneAIPaths,
+  type FeatherlaneAIPaths,
 } from './paths.js';
 import {
   findRegistration,
@@ -42,7 +42,7 @@ import {
 } from './types.js';
 import { CLI_VERSION } from './version.js';
 
-const DEFAULT_TLG_URL = 'https://api.gettrustloop.app';
+const DEFAULT_FEATHERLANE_AI_URL = 'https://api.featherlane.ai';
 const RUNTIME_FILES = [
   'bridge.js',
   'command-hook.js',
@@ -83,15 +83,15 @@ async function installCommand(
   options: Extract<CliCommandOptions, { command: 'install' }>,
   context: CommandContext,
 ): Promise<0 | 3> {
-  if (!context.env.TLG_API_KEY?.trim()) {
+  if (!context.env.FEATHERLANE_AI_API_KEY?.trim()) {
     throw new CliError(
-      'TLG_API_KEY is required in the environment; it is never accepted as a CLI argument',
+      'FEATHERLANE_AI_API_KEY is required in the environment; it is never accepted as a CLI argument',
       1,
     );
   }
   const project = await canonicalizeProject(options.project);
-  const agentId = validateAgentId(options.agentId ?? context.env.TLG_AGENT_ID);
-  const url = validateUrl(options.url ?? context.env.TLG_URL ?? DEFAULT_TLG_URL);
+  const agentId = validateAgentId(options.agentId ?? context.env.FEATHERLANE_AI_AGENT_ID);
+  const url = validateUrl(options.url ?? context.env.FEATHERLANE_AI_URL ?? DEFAULT_FEATHERLANE_AI_URL);
   const paths = commandPaths(context);
   await ensureOwnedDirectory(paths.configRoot);
   const adapterContext = await hostContext(paths, context);
@@ -177,7 +177,7 @@ async function statusCommand(
     doctor && registration !== undefined
       ? await checkHealth(registration.url)
       : { checked: false, reachable: false, note: 'not checked' };
-  const keyPresent = Boolean(context.env.TLG_API_KEY?.trim());
+  const keyPresent = Boolean(context.env.FEATHERLANE_AI_API_KEY?.trim());
   const result = {
     project,
     registered: registration !== undefined,
@@ -274,7 +274,7 @@ function uninstallTargets(selection: TargetSelection, registered: HostId[]): Hos
 }
 
 async function hostContext(
-  paths: TrustLoopPaths,
+  paths: FeatherlaneAIPaths,
   context: CommandContext,
   runtimePresent = false,
 ): Promise<HostContext> {
@@ -288,7 +288,7 @@ async function hostContext(
 
 async function inspectHosts(
   targets: HostId[],
-  paths: TrustLoopPaths,
+  paths: FeatherlaneAIPaths,
   context: CommandContext,
   knownRuntimePresent?: boolean,
 ): Promise<HostStatus[]> {
@@ -316,7 +316,7 @@ async function inspectHosts(
   );
 }
 
-async function copyRuntime(paths: TrustLoopPaths, runtimeSourceDirectory?: string): Promise<void> {
+async function copyRuntime(paths: FeatherlaneAIPaths, runtimeSourceDirectory?: string): Promise<void> {
   await ensureOwnedDirectory(paths.runtimeDirectory);
   await ensureOwnedDirectory(paths.stateDirectory);
   const sourceDirectory =
@@ -336,7 +336,7 @@ async function copyRuntime(paths: TrustLoopPaths, runtimeSourceDirectory?: strin
   await atomicWriteJson(paths.runtimeManifestFile, manifest);
 }
 
-export async function runtimeIsIntact(paths: TrustLoopPaths): Promise<boolean> {
+export async function runtimeIsIntact(paths: FeatherlaneAIPaths): Promise<boolean> {
   try {
     const value = await readJsonValue(paths.runtimeManifestFile);
     if (
@@ -359,7 +359,7 @@ export async function runtimeIsIntact(paths: TrustLoopPaths): Promise<boolean> {
   }
 }
 
-function filesTouchedByInstall(paths: TrustLoopPaths, targets: HostId[]): string[] {
+function filesTouchedByInstall(paths: FeatherlaneAIPaths, targets: HostId[]): string[] {
   return [
     paths.registryFile,
     paths.runtimeManifestFile,
@@ -369,14 +369,14 @@ function filesTouchedByInstall(paths: TrustLoopPaths, targets: HostId[]): string
   ];
 }
 
-function hostConfigFile(paths: TrustLoopPaths, target: HostId): string {
+function hostConfigFile(paths: FeatherlaneAIPaths, target: HostId): string {
   if (target === 'claude') return paths.claudeSettingsFile;
   if (target === 'codex') return paths.codexHooksFile;
   return paths.openCodePluginFile;
 }
 
-function commandPaths(context: CommandContext): TrustLoopPaths {
-  return resolveTrustLoopPaths(
+function commandPaths(context: CommandContext): FeatherlaneAIPaths {
+  return resolveFeatherlaneAIPaths(
     context.env,
     context.platform ?? process.platform,
     context.homeDirectory,

@@ -1,8 +1,8 @@
 # GitHub-Assisted Installation
 
-GitHub-assisted installation is a Rust-owned control-plane subsystem that helps a workspace owner or admin open a draft pull request adding TrustLoopGuard to a selected TypeScript/Next.js repository.
+GitHub-assisted installation is a Rust-owned control-plane subsystem that helps a workspace owner or admin open a draft pull request adding Featherlane AI to a selected TypeScript/Next.js repository.
 
-The feature starts from an existing agent and environment. A user installs the separate TrustLoopGuard GitHub App on selected repositories, maps one repository/root to the agent, describes the irreversible action they need guarded, reviews a generated integration plan, and explicitly approves opening a draft PR.
+The feature starts from an existing agent and environment. A user installs the separate Featherlane AI GitHub App on selected repositories, maps one repository/root to the agent, describes the irreversible action they need guarded, reviews a generated integration plan, and explicitly approves opening a draft PR.
 
 ## Ownership
 
@@ -21,7 +21,7 @@ The dashboard never stores GitHub installations, repository mappings, proposals,
 
 `github_installations` stores one GitHub App installation per workspace and GitHub installation id, including account metadata, selected/all repository mode, and lifecycle status.
 
-`github_repository_connections` maps a selected repository/root to one TrustLoopGuard agent and environment. The mapping carries the recipe version so future recipes can coexist.
+`github_repository_connections` maps a selected repository/root to one Featherlane AI agent and environment. The mapping carries the recipe version so future recipes can coexist.
 
 `github_integration_jobs` stores the analysis/apply lifecycle, risk statement, proposal summary, proposed file replacements, manual steps, draft PR details, error state, and activation timestamps.
 
@@ -38,7 +38,7 @@ The dashboard never stores GitHub installations, repository mappings, proposals,
 9. The worker reads a bounded repository tree through GitHub, filters candidate files deterministically, sends one strict-schema LLM request, validates the proposal, and stores the reviewable plan.
 10. The user approves `Open draft PR`.
 11. The worker creates a deterministic branch, commit, and draft PR through the Git Data API, then redacts full proposed file contents from durable job state.
-12. After merge/deploy/run, the job verifies only when a persisted trace matches workspace, environment, agent id, `tlg_integration_id`, and a post-merge timestamp.
+12. After merge/deploy/run, the job verifies only when a persisted trace matches workspace, environment, agent id, `featherlane_ai_integration_id`, and a post-merge timestamp.
 
 ## Security and Privacy
 
@@ -50,16 +50,16 @@ Installation tokens are minted just in time, cached only in memory, and never pe
 
 Repository source is bounded before it reaches the LLM. The analyzer skips environment files, workflows, lockfiles, binaries, generated/vendor directories, secret-looking paths, oversized files, and full-repository reads. The user must consent before source excerpts are processed.
 
-TrustLoopGuard does not execute customer code, install dependencies, update lockfiles, run formatters, run tests, merge PRs, deploy, or create repository secrets. Customer CI and review remain authoritative.
+Featherlane AI does not execute customer code, install dependencies, update lockfiles, run formatters, run tests, merge PRs, deploy, or create repository secrets. Customer CI and review remain authoritative.
 
 ## Supported Recipe
 
-The first recipe is `typescript-nextjs-v1`. It targets TypeScript/Next.js repositories and inserts TrustLoopGuard SDK calls with this activation marker:
+The first recipe is `typescript-nextjs-v1`. It targets TypeScript/Next.js repositories and inserts Featherlane AI SDK calls with this activation marker:
 
 ```ts
 context: {
-  tlg_integration_id: "<connection UUID>",
-  tlg_recipe_version: "typescript-nextjs-v1",
+  featherlane_ai_integration_id: "<connection UUID>",
+  featherlane_ai_recipe_version: "typescript-nextjs-v1",
 }
 ```
 

@@ -1,4 +1,4 @@
-"""Typed errors for the TrustLoopGuard Python SDK.
+"""Typed errors for the Featherlane AI Python SDK.
 
 Mirrors `tl-sdk-rust`'s `SdkError` and the canonical `ApiError` envelope
 defined in `tl-core`. Callers branch on exception type instead of
@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from trustloopguard._generated.types import ApiError, ApiErrorCode
+from featherlane_ai._generated.types import ApiError, ApiErrorCode
 
 # Status -> code fallback table. Mirrors `ApiErrorCode::from_http_status`
 # in tl-core. Tested for parity in tests/test_errors_parity.py.

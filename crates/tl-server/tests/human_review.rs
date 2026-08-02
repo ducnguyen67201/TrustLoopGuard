@@ -31,8 +31,8 @@ async fn review_event_endpoints_append_and_list_outcomes() {
                 .method("POST")
                 .uri(format!("/v1/traces/{trace_id}/review-events"))
                 .header(header::CONTENT_TYPE, "application/json")
-                .header("x-tlg-workspace-id", "ws_review")
-                .header("x-tlg-user-id", "reviewer-1")
+                .header("x-featherlane-ai-workspace-id", "ws_review")
+                .header("x-featherlane-ai-user-id", "reviewer-1")
                 .body(Body::from(
                     serde_json::json!({
                         "outcome": "corrected",
@@ -60,7 +60,7 @@ async fn review_event_endpoints_append_and_list_outcomes() {
             Request::builder()
                 .method("GET")
                 .uri(format!("/v1/traces/{trace_id}/review-events"))
-                .header("x-tlg-workspace-id", "ws_review")
+                .header("x-featherlane-ai-workspace-id", "ws_review")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -81,7 +81,7 @@ async fn human_review_analytics_route_returns_guardrail_and_human_summary() {
             Request::builder()
                 .method("GET")
                 .uri("/v1/analytics/human-review?agent_id=tax-agent&workflow_step=document_extraction")
-                .header("x-tlg-workspace-id", "ws_review")
+                .header("x-featherlane-ai-workspace-id", "ws_review")
                 .body(Body::empty())
                 .unwrap(),
         )

@@ -1,10 +1,10 @@
 ---
 title: Gateway
-description: Route OpenAI-compatible and Anthropic traffic through the same TrustLoopGuard policies as direct SDK events.
+description: Route OpenAI-compatible and Anthropic traffic through the same Featherlane AI policies as direct SDK events.
 ---
 
 Gateway is the proxy integration path. Your application keeps using its provider SDK, but changes
-the base URL and API key so requests pass through TrustLoopGuard first.
+the base URL and API key so requests pass through Featherlane AI first.
 
 ## What you configure
 
@@ -32,8 +32,8 @@ Base URL: https://inference.do-ai.run
 Default model: deepseek-4-flash
 ```
 
-Store the DigitalOcean model-access key as the provider secret. Applications call TrustLoopGuard
-with the TrustLoopGuard runtime key; the provider credential remains server-side.
+Store the DigitalOcean model-access key as the provider secret. Applications call Featherlane AI
+with the Featherlane AI runtime key; the provider credential remains server-side.
 
 ## OpenAI-compatible client
 
@@ -41,7 +41,7 @@ with the TrustLoopGuard runtime key; the provider credential remains server-side
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
-  apiKey: process.env.TLG_API_KEY,
+  apiKey: process.env.FEATHERLANE_AI_API_KEY,
   baseURL: 'https://<server>/v1/gateway/<route_id>/openai',
 });
 
@@ -65,7 +65,7 @@ Authorization: Bearer <tl_live_...>
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({
-  authToken: process.env.TLG_API_KEY,
+  authToken: process.env.FEATHERLANE_AI_API_KEY,
   baseURL: 'https://<server>/v1/gateway/<route_id>/anthropic',
 });
 
@@ -77,7 +77,7 @@ const response = await anthropic.messages.create({
 ```
 
 Use `authToken`, not the provider's `apiKey` option: Gateway runtime calls authenticate with a
-TrustLoopGuard bearer key.
+Featherlane AI bearer key.
 
 ## How policies apply
 
@@ -96,8 +96,8 @@ A rewrite without safe replacement text fails closed. Gateway does not issue an 
 regenerate output.
 
 Non-permitted responses use the provider's content-filter response shape and include
-`X-TrustLoopGuard-Effect`, `X-TrustLoopGuard-Phase`, `X-TrustLoopGuard-Trace-Id`, and—when
-available—`X-TrustLoopGuard-Policy-Id`.
+`X-Featherlane AI-Effect`, `X-Featherlane AI-Phase`, `X-Featherlane AI-Trace-Id`, and—when
+available—`X-Featherlane AI-Policy-Id`.
 
 ## Streaming
 
@@ -128,12 +128,12 @@ per-principal behavior, and a safe hard-stop test.
 
 Each Gateway request appears under Runs with the exact checked user and assistant turns, provider
 response id, model, token usage, latency, estimated cost, deterministic budget snapshot, and
-separate TrustLoopGuard guardrail overhead. Estimated costs use the price snapshot recorded with the
+separate Featherlane AI guardrail overhead. Estimated costs use the price snapshot recorded with the
 request; reconcile invoices in the provider dashboard.
 
 ## Troubleshooting
 
-- **401 Unauthorized** — the `Authorization` header is missing or the TrustLoopGuard runtime key is
+- **401 Unauthorized** — the `Authorization` header is missing or the Featherlane AI runtime key is
   invalid. A provider key cannot authenticate the Gateway route.
 - **404 gateway route not found** — the route id in the URL does not match a route in the runtime
   key's workspace.

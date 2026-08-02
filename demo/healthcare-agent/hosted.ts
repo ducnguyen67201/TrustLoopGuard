@@ -14,7 +14,7 @@ import { createHealthcareRuntimeClient } from './runtime-client';
 export interface HostedHealthcareDemoResponse extends HealthcareAgentResult {
   runtime: {
     agent: 'openai-responses';
-    guard: 'trustloopguard-rust-api';
+    guard: 'featherlane-ai-rust-api';
     data: 'synthetic-only';
   };
 }
@@ -115,7 +115,7 @@ export async function readHostedHealthcareDemoPolicies(
 function healthcareRuntime(): HostedHealthcareDemoResponse['runtime'] {
   return {
     agent: 'openai-responses',
-    guard: 'trustloopguard-rust-api',
+    guard: 'featherlane-ai-rust-api',
     data: 'synthetic-only',
   };
 }

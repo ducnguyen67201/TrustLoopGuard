@@ -421,7 +421,7 @@ describe('RunDetailLiveView', () => {
             ],
             checked_input_excerpt: 'user: Can you return me some money? Refund?',
             checked_output_excerpt: 'We guarantee a full refund immediately.',
-            safe_output: 'Denied by TrustLoopGuard proxy demo.',
+            safe_output: 'Denied by Featherlane AI proxy demo.',
           },
           created_at: '2026-05-31T02:24:16.000Z',
         },
@@ -468,13 +468,13 @@ describe('RunDetailLiveView', () => {
       }),
     );
 
-    expect(screen.getByText('TrustLoopGuard stopped this before delivery')).toBeInTheDocument();
+    expect(screen.getByText('Featherlane AI stopped this before delivery')).toBeInTheDocument();
     expect(screen.getByText('User asked')).toBeInTheDocument();
     expect(screen.getAllByText('Can you return me some money? Refund?').length).toBeGreaterThan(0);
     expect(screen.getByText('Agent tried to say')).toBeInTheDocument();
     expect(screen.getByText('We guarantee a full refund immediately.')).toBeInTheDocument();
-    expect(screen.getByText('TrustLoopGuard returned')).toBeInTheDocument();
-    expect(screen.getByText('Denied by TrustLoopGuard proxy demo.')).toBeInTheDocument();
+    expect(screen.getByText('Featherlane AI returned')).toBeInTheDocument();
+    expect(screen.getByText('Denied by Featherlane AI proxy demo.')).toBeInTheDocument();
 
     await user.click(
       screen.getByRole('button', {
@@ -482,7 +482,7 @@ describe('RunDetailLiveView', () => {
       }),
     );
 
-    expect(screen.getByText('TrustLoopGuard transformed this before delivery')).toBeInTheDocument();
+    expect(screen.getByText('Featherlane AI transformed this before delivery')).toBeInTheDocument();
     expect(
       screen.getByText('That is a stupid question. Figure it out yourself.'),
     ).toBeInTheDocument();

@@ -10,7 +10,7 @@ import {
   type PolicyFamily,
   type PolicyListResponse,
   type Severity,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import { OPENAI_API_KEY, OPENAI_MODEL } from '../shared/env';
 import {
@@ -296,7 +296,7 @@ async function guardContextualDraft(
   request: GuardContextualDraftRequest,
 ): Promise<GuardContextualDraftResult> {
   if (!(request.client instanceof Client)) {
-    throw new TypeError('The default contextual output guard requires a TrustLoopGuard Client');
+    throw new TypeError('The default contextual output guard requires a Featherlane AI Client');
   }
 
   let decision: AuthorizationDecision | undefined;
@@ -460,9 +460,9 @@ function outputSafeReply(
 
 function guardUnavailableReply(locale: ContextualAgentRequest['locale']): string {
   if (locale === 'vi') {
-    return 'Kiểm tra TrustLoopGuard tạm thời không khả dụng, nên tôi sẽ không gửi phản hồi chưa được bảo vệ.';
+    return 'Kiểm tra Featherlane AI tạm thời không khả dụng, nên tôi sẽ không gửi phản hồi chưa được bảo vệ.';
   }
-  return 'The TrustLoopGuard check is temporarily unavailable, so I won’t produce an unguarded reply.';
+  return 'The Featherlane AI check is temporarily unavailable, so I won’t produce an unguarded reply.';
 }
 
 export function contextualAgentInstructions(

@@ -21,7 +21,7 @@ export interface LiveKitRunOptions {
 }
 
 /**
- * Bind one automatic TrustLoopGuard Run to a LiveKit AgentSession lifecycle
+ * Bind one automatic Featherlane AI Run to a LiveKit AgentSession lifecycle
  * without adding a runtime dependency on the LiveKit package.
  */
 export function liveKitRun(

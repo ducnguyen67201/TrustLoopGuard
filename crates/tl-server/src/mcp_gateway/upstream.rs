@@ -199,7 +199,7 @@ fn normalize_tool(
         .is_some_and(|properties| properties.contains_key(super::governance::RESERVED_FIELD))
     {
         return Err(McpGatewayStoreError::Conflict(
-            "upstream tool uses the reserved __trustloop argument".into(),
+            "upstream tool uses the reserved __featherlane_ai argument".into(),
         ));
     }
     let output_schema = tool

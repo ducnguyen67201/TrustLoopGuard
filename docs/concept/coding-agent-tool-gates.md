@@ -4,13 +4,13 @@ The coding-agent tool gate is a user-owned adapter that pauses a host tool call,
 proposed action to the Rust runtime, and allows execution only after a `permit`. It does not move
 policy evaluation into the CLI and it does not weaken the host's own permission system.
 
-`@trustloopguard/cli` installs the gate for Claude Code, Codex, and OpenCode:
+`@featherlane-ai/cli` installs the gate for Claude Code, Codex, and OpenCode:
 
 ```bash
-export TLG_API_KEY="<workspace runtime key>"
-npx @trustloopguard/cli install \
+export FEATHERLANE_AI_API_KEY="<workspace runtime key>"
+npx @featherlane-ai/cli install \
   --agent-id coding-agent \
-  --url https://api.gettrustloop.app \
+  --url https://api.featherlane.ai \
   --target claude,codex,opencode
 ```
 
@@ -29,22 +29,22 @@ policy evaluation, approvals, grants, execution leases, receipts, and traces.
 
 ```text
 platform config directory
-├── trustloopguard/
+├── featherlane-ai/
 │   ├── registry.json        project root → URL, agent id, host targets
 │   ├── runtime/             dependency-free copied bridge
 │   └── state/               pending execution-lease files
-├── opencode/plugins/trustloopguard.mjs
+├── opencode/plugins/featherlane-ai.mjs
 ├── ~/.claude/settings.json  managed hook groups
 └── ~/.codex/hooks.json      managed hook groups
 ```
 
 The registry contains no credentials. A longest-root, path-segment match selects the managed
 project, so `/repo/app` does not match `/repo/application`. Calls outside a registered project
-receive no TrustLoopGuard override and retain native host behavior.
+receive no Featherlane AI override and retain native host behavior.
 
-Runtime and lease files live outside the guarded workspace. TrustLoopGuard-owned directories
+Runtime and lease files live outside the guarded workspace. Featherlane AI-owned directories
 reject symbolic links and foreign ownership, use restrictive permissions where supported, and
-receive atomic writes. Host JSON is merged in place with a one-time `.tlg.bak`; unrelated hooks and
+receive atomic writes. Host JSON is merged in place with a one-time `.featherlane-ai.bak`; unrelated hooks and
 settings survive install and uninstall.
 
 ## Blocking flow
@@ -80,7 +80,7 @@ covered while read/search or newly introduced handlers remain invisible. Codex a
 user to review and trust hook commands. The CLI lists these exceptions and never writes trusted
 hashes or recommends bypassing hook trust.
 
-An adapter permit means only that TrustLoopGuard permits the action. A stricter Claude Code,
+An adapter permit means only that Featherlane AI permits the action. A stricter Claude Code,
 Codex, or OpenCode native permission can still ask or deny.
 
 ## Operations

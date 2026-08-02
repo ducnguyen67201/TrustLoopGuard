@@ -4,7 +4,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import type { LlmUsageBucket } from '@trustloopguard/sdk';
+import type { LlmUsageBucket } from '@featherlane-ai/sdk';
 import {
   IconActivity,
   IconArrowRight,

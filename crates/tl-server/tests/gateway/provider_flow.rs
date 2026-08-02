@@ -44,7 +44,7 @@ async fn openai_gateway_forwards_with_customer_key_and_blocks_unsafe_output() {
     let body = read_body(resp).await;
     assert_eq!(
         body["choices"][0]["message"]["content"],
-        "Blocked by TrustLoopGuard."
+        "Blocked by Featherlane AI."
     );
 
     let runs = app
@@ -121,7 +121,7 @@ async fn gateway_reuses_run_for_external_correlation_header() {
             body,
         );
         req.headers_mut().insert(
-            "x-tlg-run-external-id",
+            "x-featherlane-ai-run-external-id",
             "livekit-room-123"
                 .parse()
                 .expect("valid correlation header"),
@@ -217,8 +217,8 @@ action: deny
                 .uri("/v1/policies")
                 .header(header::CONTENT_TYPE, "application/x-yaml")
                 .header(header::AUTHORIZATION, "Bearer sk-internal")
-                .header("x-tlg-workspace-id", workspace)
-                .header("x-tlg-user-id", gateway_owner_id().to_string())
+                .header("x-featherlane-ai-workspace-id", workspace)
+                .header("x-featherlane-ai-user-id", gateway_owner_id().to_string())
                 .body(Body::from(policy))
                 .unwrap(),
         )

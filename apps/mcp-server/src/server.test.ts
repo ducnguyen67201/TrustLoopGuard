@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { describe, expect, it, vi } from 'vitest';
 
-import { registerTrustLoopTools } from './server';
+import { registerFeatherlaneAITools } from './server';
 import { type ToolHandlers, type ToolResult } from './handlers';
 
 interface RegisteredTool {
@@ -54,7 +54,7 @@ function registerTools(toolHandlers = handlers()): {
     },
   };
 
-  registerTrustLoopTools(server as McpServer, toolHandlers);
+  registerFeatherlaneAITools(server as McpServer, toolHandlers);
 
   return { registered, handlers: toolHandlers };
 }
@@ -65,8 +65,8 @@ function findTool(registered: RegisteredTool[], name: string): RegisteredTool {
   return tool;
 }
 
-describe('registerTrustLoopTools', () => {
-  it('registers the exposed TrustLoopGuard tool surface', () => {
+describe('registerFeatherlaneAITools', () => {
+  it('registers the exposed Featherlane AI tool surface', () => {
     const { registered } = registerTools();
 
     expect(registered.map((tool) => tool.name)).toEqual([

@@ -102,7 +102,7 @@ export const outboundDemoProfileSchema = z
         ? `/demo/${profile.slug}`
         : `/demo/${profile.category}/${profile.slug}`;
     if (
-      url.origin !== 'https://gettrustloop.app' ||
+      url.origin !== 'https://featherlane.ai' ||
       url.pathname !== expectedPath ||
       url.search !== '' ||
       url.hash !== ''

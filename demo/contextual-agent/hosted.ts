@@ -15,7 +15,7 @@ import type { ContextualScenarioId } from './config';
 export interface HostedContextualDemoResponse extends ContextualAgentResult {
   runtime: {
     agent: 'openai-responses';
-    guard: 'trustloopguard-rust-api';
+    guard: 'featherlane-ai-rust-api';
     workspace: 'shared-contextual-demo';
     data: 'synthetic-only';
   };
@@ -111,7 +111,7 @@ export async function readHostedContextualDemoPolicies(
 function contextualRuntime(): HostedContextualDemoResponse['runtime'] {
   return {
     agent: 'openai-responses',
-    guard: 'trustloopguard-rust-api',
+    guard: 'featherlane-ai-rust-api',
     workspace: 'shared-contextual-demo',
     data: 'synthetic-only',
   };

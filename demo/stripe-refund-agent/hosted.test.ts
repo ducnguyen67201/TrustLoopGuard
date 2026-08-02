@@ -44,7 +44,7 @@ test('runs the hosted refund workflow in-process and removes request state', asy
     removeDatabase: (dbPath) => events.push(`remove:${dbPath}`),
   });
 
-  const expectedPath = '/tmp/refund-demo-hosted-test/trustloopguard-refund-demo/request-123.sqlite';
+  const expectedPath = '/tmp/refund-demo-hosted-test/featherlane-ai-refund-demo/request-123.sqlite';
   assert.deepEqual(events, [
     `seed:${expectedPath}`,
     `agent:Refund order ord_demo_1001 for $25.:${expectedPath}`,
@@ -55,7 +55,7 @@ test('runs the hosted refund workflow in-process and removes request state', asy
   assert.equal(response.state, state);
   assert.deepEqual(response.runtime, {
     agent: 'openai',
-    guard: 'trustloopguard-rust-api',
+    guard: 'featherlane-ai-rust-api',
     provider: 'stripe-test',
   });
 });
@@ -85,7 +85,7 @@ test('enforces the shared hosted launch budget before creating external state', 
   assert.equal(seeded, 1);
 });
 
-test('reads action status directly from TrustLoopGuard', async () => {
+test('reads action status directly from Featherlane AI', async () => {
   const actionId = '019f5d63-f8ca-77c3-ae7f-07b122daa7b3';
   const expected = {
     actionId,

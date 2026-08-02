@@ -1,6 +1,6 @@
 'use client';
 
-import type { AgentListResponse } from '@trustloopguard/sdk';
+import type { AgentListResponse } from '@featherlane-ai/sdk';
 import { useEffect, useState } from 'react';
 
 import type { WorkspaceMembership } from '@/lib/workspace-access';

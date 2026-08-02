@@ -74,7 +74,7 @@ pub struct RunnerWorkflowPath {
     pub sink_category: String,
 }
 
-/// Body of `POST /redteam/plan`. TrustLoopGuard sends only the target agent's
+/// Body of `POST /redteam/plan`. Featherlane AI sends only the target agent's
 /// structured context; the private runner owns attack-planner instructions and
 /// vector generation.
 #[derive(Debug, Clone, Serialize, Deserialize)]

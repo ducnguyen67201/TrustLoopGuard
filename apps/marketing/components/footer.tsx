@@ -38,7 +38,7 @@ const LINK_GROUPS = [
   {
     title: 'Company',
     links: [
-      { href: '/#trust', label: 'Why TrustLoopGuard' },
+      { href: '/#trust', label: 'Why Featherlane AI' },
       { href: BOOK_MEETING_URL, label: 'Book a demo' },
       { href: '/#updates', label: 'Product notes' },
     ],
@@ -76,7 +76,7 @@ const LINK_GROUPS_VI = [
   {
     title: 'Công ty',
     links: [
-      { href: '/vi#trust', label: 'Vì sao chọn TrustLoopGuard' },
+      { href: '/vi#trust', label: 'Vì sao chọn Featherlane AI' },
       { href: BOOK_MEETING_URL, label: 'Đặt lịch demo' },
       { href: '/vi#updates', label: 'Cập nhật sản phẩm' },
     ],
@@ -86,8 +86,8 @@ const LINK_GROUPS_VI = [
 const COPY = {
   en: {
     tagline: 'Runtime control for production AI agents.',
-    productHuntLabel: 'View TrustLoopGuard on Product Hunt',
-    productHuntAlt: 'TrustLoopGuard - Control AI agents before irreversible actions | Product Hunt',
+    productHuntLabel: 'View Featherlane AI on Product Hunt',
+    productHuntAlt: 'Featherlane AI - Control AI agents before irreversible actions | Product Hunt',
     footerNavigation: 'Footer navigation',
     newsletterHeading: 'Occasional product notes',
     newsletterCopy: 'New SDKs, policy features, and practical notes from the failure path.',
@@ -97,15 +97,15 @@ const COPY = {
     sending: 'Sending',
     subscribe: 'Subscribe',
     error: 'Could not subscribe. Try again in a minute.',
-    linksLabel: 'TrustLoopGuard links',
+    linksLabel: 'Featherlane AI links',
     openSource: 'Apache-2.0 open source',
     builtInOpen: 'Built in the open',
   },
   vi: {
     tagline: 'Kiểm soát tác nhân AI trong môi trường production.',
-    productHuntLabel: 'Xem TrustLoopGuard trên Product Hunt',
+    productHuntLabel: 'Xem Featherlane AI trên Product Hunt',
     productHuntAlt:
-      'TrustLoopGuard - Kiểm soát tác nhân AI trước các hành động không thể đảo ngược | Product Hunt',
+      'Featherlane AI - Kiểm soát tác nhân AI trước các hành động không thể đảo ngược | Product Hunt',
     footerNavigation: 'Điều hướng cuối trang',
     newsletterHeading: 'Cập nhật sản phẩm định kỳ',
     newsletterCopy: 'SDK mới, tính năng chính sách và ghi chú thực tế từ các đường dẫn lỗi.',
@@ -115,7 +115,7 @@ const COPY = {
     sending: 'Đang gửi',
     subscribe: 'Đăng ký',
     error: 'Không thể đăng ký. Vui lòng thử lại sau ít phút.',
-    linksLabel: 'Các liên kết TrustLoopGuard',
+    linksLabel: 'Các liên kết Featherlane AI',
     openSource: 'Mã nguồn mở Apache-2.0',
     builtInOpen: 'Được xây dựng công khai',
   },
@@ -163,13 +163,13 @@ export function Footer({ locale = 'en' }: { locale?: MarketingLocale }) {
       <div className="footer-panel">
         <div className="footer-intro">
           <div className="wordmark footer-wordmark">
-            <img src="/trustloop-logo.svg" alt="" aria-hidden="true" className="wordmark-logo" />
-            <span>TrustLoopGuard</span>
+            <img src="/featherlane-ai-logo.svg" alt="" aria-hidden="true" className="wordmark-logo" />
+            <span>Featherlane AI</span>
           </div>
           <div className="footer-intro-aside">
             <p>{copy.tagline}</p>
             <a
-              href="https://www.producthunt.com/products/trustloopguard?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-trustloopguard"
+              href="https://www.producthunt.com/products/featherlane-ai?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-featherlane-ai"
               target="_blank"
               rel="noopener noreferrer"
               className="product-hunt-badge"
@@ -279,7 +279,7 @@ export function Footer({ locale = 'en' }: { locale?: MarketingLocale }) {
           </p>
           <div>
             <span>{copy.builtInOpen}</span>
-            <span>© 2026 TrustLoopGuard</span>
+            <span>© 2026 Featherlane AI</span>
           </div>
         </div>
       </div>

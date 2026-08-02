@@ -51,8 +51,8 @@ fn write_request(
         .method(method)
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json")
-        .header("x-tlg-workspace-id", workspace_id)
-        .header("x-tlg-user-id", user_id.to_string())
+        .header("x-featherlane-ai-workspace-id", workspace_id)
+        .header("x-featherlane-ai-user-id", user_id.to_string())
         .body(Body::from(body.to_string()))
         .unwrap()
 }
@@ -61,7 +61,7 @@ fn get_request(uri: &str, workspace_id: &str) -> Request<Body> {
     Request::builder()
         .method("GET")
         .uri(uri)
-        .header("x-tlg-workspace-id", workspace_id)
+        .header("x-featherlane-ai-workspace-id", workspace_id)
         .body(Body::empty())
         .unwrap()
 }
@@ -175,7 +175,7 @@ async fn settings_write_without_user_is_unauthorized() {
                 .method("PATCH")
                 .uri("/v1/settings")
                 .header(header::CONTENT_TYPE, "application/json")
-                .header("x-tlg-workspace-id", workspace_id)
+                .header("x-featherlane-ai-workspace-id", workspace_id)
                 .body(Body::from(
                     json!({ "flow_checker_mode": "enforce" }).to_string(),
                 ))
@@ -232,8 +232,8 @@ async fn workspace_runtime_key_cannot_modify_settings() {
                 .uri("/v1/api-keys")
                 .header(header::CONTENT_TYPE, "application/json")
                 .header(header::AUTHORIZATION, "Bearer sk-internal")
-                .header("x-tlg-workspace-id", workspace.id.as_str())
-                .header("x-tlg-user-id", owner_id.to_string())
+                .header("x-featherlane-ai-workspace-id", workspace.id.as_str())
+                .header("x-featherlane-ai-user-id", owner_id.to_string())
                 .body(Body::from(json!({ "name": "agent key" }).to_string()))
                 .unwrap(),
         )

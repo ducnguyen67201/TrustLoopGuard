@@ -13,7 +13,7 @@ Rust owns the durable state. Tables, repository, and HTTP endpoints all live in 
 - HTTP handlers: `crates/tl-server/src/team.rs`.
 - Wire types: `crates/tl-core/src/team.rs`.
 
-The dashboard is a same-origin proxy. `apps/web/app/api/team/*` forwards active-workspace operations with `X-TLG-Workspace-Id`; `apps/web/app/api/me/workspaces/*` forwards signed-in user workspace operations. The dashboard never writes durable team or workspace lifecycle state directly.
+The dashboard is a same-origin proxy. `apps/web/app/api/team/*` forwards active-workspace operations with `X-FEATHERLANE-AI-Workspace-Id`; `apps/web/app/api/me/workspaces/*` forwards signed-in user workspace operations. The dashboard never writes durable team or workspace lifecycle state directly.
 
 ## Roles
 
@@ -54,9 +54,9 @@ All team endpoints sit behind the existing shared-bearer middleware.
 | `POST`   | `/v1/team/my-workspaces`   | `{ name }` | `MyWorkspace` *(self-service bootstrap for approved users)* |
 | `DELETE` | `/v1/team/my-workspaces/{id}` | — | 204 *(owner-only soft delete)* |
 
-Active-workspace team operations read context from `X-TLG-Workspace-Id`. The optional `X-TLG-User-Id` header (UUID) is captured on `POST /v1/team/invites` and persisted to `invited_by_user_id` so the audit trail survives.
+Active-workspace team operations read context from `X-FEATHERLANE-AI-Workspace-Id`. The optional `X-FEATHERLANE-AI-User-Id` header (UUID) is captured on `POST /v1/team/invites` and persisted to `invited_by_user_id` so the audit trail survives.
 
-The `GET`, `POST`, and `DELETE` operations under `/v1/team/my-workspaces` are user-scoped instead. They derive the signed-in user from the Rust JWT context or the trusted dashboard-forwarded user id; they do not authorize from the currently selected workspace. `GET` also reads `X-TLG-User-Email` when present and bulk-accepts pending invites addressed to it *before* querying memberships. This is the auto-bind mechanism: a user invited before or after signup sees the workspace on their next page load without clicking an accept link.
+The `GET`, `POST`, and `DELETE` operations under `/v1/team/my-workspaces` are user-scoped instead. They derive the signed-in user from the Rust JWT context or the trusted dashboard-forwarded user id; they do not authorize from the currently selected workspace. `GET` also reads `X-FEATHERLANE-AI-User-Email` when present and bulk-accepts pending invites addressed to it *before* querying memberships. This is the auto-bind mechanism: a user invited before or after signup sees the workspace on their next page load without clicking an accept link.
 
 For an ordinary user, `GET /v1/team/my-workspaces` returns only active workspace memberships and
 `is_platform_admin: false`. When `users.is_platform_admin` is true, it returns every active
@@ -120,7 +120,7 @@ There is one invite-consumption mechanism: email-based auto-bind on the next wor
                                                     | my-workspaces     |
                                                     +---------+---------+
                                                               |
-                                                              | X-TLG-User-Email matches invite
+                                                              | X-FEATHERLANE-AI-User-Email matches invite
                                                               v
                                                     +-------------------+
                                                     | accept pending    |
@@ -131,12 +131,12 @@ There is one invite-consumption mechanism: email-based auto-bind on the next wor
 
 `POST /v1/team/invites` is a smart add path. If the email already belongs to a user, Rust inserts the organization and workspace membership immediately and returns `kind: "added"`. If no user exists yet, Rust records a pending invite and returns `kind: "invited"`.
 
-When the invitee later signs in or signs up with that email, the dashboard's first workspace lookup calls `GET /v1/team/my-workspaces` with `X-TLG-User-Email`. Rust accepts every unexpired pending invite for that email, then returns the updated membership list in the same response.
+When the invitee later signs in or signs up with that email, the dashboard's first workspace lookup calls `GET /v1/team/my-workspaces` with `X-FEATHERLANE-AI-User-Email`. Rust accepts every unexpired pending invite for that email, then returns the updated membership list in the same response.
 
 ## Authorization model
 
 The web dashboard is a trusted first-party service: its same-origin proxy calls Rust with the
-user's Rust JWT or with `TL_API_KEY` plus trusted `X-TLG-User-Id` and `X-TLG-User-Email` headers.
+user's Rust JWT or with `TL_API_KEY` plus trusted `X-FEATHERLANE-AI-User-Id` and `X-FEATHERLANE-AI-User-Email` headers.
 Rust derives invite attribution from that authenticated user identity rather than accepting an
 untrusted caller-supplied user id. See [authorization.md](authorization.md) for the full bearer model
 and approval gate.

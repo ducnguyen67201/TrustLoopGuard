@@ -207,8 +207,10 @@ impl TraceRepo {
                     .bind::<diesel::sql_types::Text, _>(agent_id),
             )
             .filter(
-                diesel::dsl::sql::<Bool>("(payload #>> '{event,context,tlg_integration_id}') = ")
-                    .bind::<diesel::sql_types::Text, _>(integration_id),
+                diesel::dsl::sql::<Bool>(
+                    "(payload #>> '{event,context,featherlane_ai_integration_id}') = ",
+                )
+                .bind::<diesel::sql_types::Text, _>(integration_id),
             )
             .select((
                 traces::trace_id,

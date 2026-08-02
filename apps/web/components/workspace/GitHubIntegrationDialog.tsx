@@ -167,7 +167,7 @@ export function GitHubIntegrationDialog({ agentId, agentName, environmentId, chi
           icon={<IconBrandGithub />}
           eyebrow="Assisted install"
           title="Connect GitHub"
-          description={`Open a draft TrustLoopGuard integration PR for ${agentName}.`}
+          description={`Open a draft Featherlane AI integration PR for ${agentName}.`}
         />
 
         <div className="grid gap-5">

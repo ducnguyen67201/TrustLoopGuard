@@ -1,6 +1,6 @@
 # SDK agent adapters
 
-SDK agent adapters attach TrustLoopGuard to framework-owned execution seams.
+SDK agent adapters attach Featherlane AI to framework-owned execution seams.
 They route local executable tools and supported final-output boundaries through
 the same Rust authorization contract used by explicit SDK callers, while
 preserving the framework's agent object and run lifecycle.
@@ -18,12 +18,12 @@ preserving the framework's agent object and run lifecycle.
 
 TypeScript adapters use structural inspection and do not import Mastra, OpenAI
 Agents JS, or LiveKit at runtime. Python framework imports live only in their
-matching optional integration module. Importing base `trustloopguard` or
-`trustloopguard.integrations` does not require AG2 or Agno.
+matching optional integration module. Importing base `featherlane-ai` or
+`featherlane_ai.integrations` does not require AG2 or Agno.
 
 ## Decoration flow
 
-1. `guardAgent()` resolves one TrustLoopGuard `Client`.
+1. `guardAgent()` resolves one Featherlane AI `Client`.
 2. The decorator creates one Run controller. Reply scope creates a
    `chat_session` Run per `reply()`; session scope lazily creates and reuses
    one Run for a supplied framework lifecycle.
@@ -48,7 +48,7 @@ and asynchronous hooks for `AsyncClient`; the selected client must match
 Both adapters submit copied arguments, public schema identity, one
 unknown-origin argument source, top-level provenance, and bounded framework
 IDs. Agno run IDs stay in event context and are never represented as
-TrustLoopGuard Run IDs.
+Featherlane AI Run IDs.
 
 AG2 attachment intentionally uses `guard_ag2(agent, ...)` after Agent
 construction instead of returning an `ag2.Plugin`. AG2 applies plugin

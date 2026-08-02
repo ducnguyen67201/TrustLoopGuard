@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { SdkError, Unauthorized, type GuardEvent } from '@trustloopguard/sdk';
+import { SdkError, Unauthorized, type GuardEvent } from '@featherlane-ai/sdk';
 
-import { createToolHandlers, type TrustLoopClient } from './handlers';
+import { createToolHandlers, type FeatherlaneAIClient } from './handlers';
 
 function decision() {
   return {
@@ -77,17 +77,17 @@ function event(): GuardEvent {
   };
 }
 
-function client(overrides: Partial<TrustLoopClient> = {}): TrustLoopClient {
+function client(overrides: Partial<FeatherlaneAIClient> = {}): FeatherlaneAIClient {
   return {
-    submitEvent: vi.fn<TrustLoopClient['submitEvent']>(async () => decision()),
-    startRun: vi.fn<TrustLoopClient['startRun']>(async () => runSummary()),
-    listRuns: vi.fn<TrustLoopClient['listRuns']>(async () => ({ runs: [] })),
-    getRun: vi.fn<TrustLoopClient['getRun']>(async () => ({
+    submitEvent: vi.fn<FeatherlaneAIClient['submitEvent']>(async () => decision()),
+    startRun: vi.fn<FeatherlaneAIClient['startRun']>(async () => runSummary()),
+    listRuns: vi.fn<FeatherlaneAIClient['listRuns']>(async () => ({ runs: [] })),
+    getRun: vi.fn<FeatherlaneAIClient['getRun']>(async () => ({
       run: runSummary(),
       events: [],
       traces: [],
     })),
-    createRunEvent: vi.fn<TrustLoopClient['createRunEvent']>(async () => ({
+    createRunEvent: vi.fn<FeatherlaneAIClient['createRunEvent']>(async () => ({
       id: 'event_1',
       workspace_id: 'ws_1',
       run_id: 'run_1',
@@ -100,25 +100,25 @@ function client(overrides: Partial<TrustLoopClient> = {}): TrustLoopClient {
       occurred_at: '2026-01-01T00:00:00Z',
       created_at: '2026-01-01T00:00:00Z',
     })),
-    finishRun: vi.fn<TrustLoopClient['finishRun']>(async () => ({
+    finishRun: vi.fn<FeatherlaneAIClient['finishRun']>(async () => ({
       ...runSummary(),
       status: 'completed',
     })),
-    validatePolicy: vi.fn<TrustLoopClient['validatePolicy']>(async () => ({
+    validatePolicy: vi.fn<FeatherlaneAIClient['validatePolicy']>(async () => ({
       valid: true,
       errors: [],
     })),
-    listPolicies: vi.fn<TrustLoopClient['listPolicies']>(async () => ({ policies: [] })),
-    getPolicy: vi.fn<TrustLoopClient['getPolicy']>(async () => policyDocument()),
-    upsertPolicy: vi.fn<TrustLoopClient['upsertPolicy']>(async () => policyDocument()),
-    setPolicyEnabled: vi.fn<TrustLoopClient['setPolicyEnabled']>(async () => ({
+    listPolicies: vi.fn<FeatherlaneAIClient['listPolicies']>(async () => ({ policies: [] })),
+    getPolicy: vi.fn<FeatherlaneAIClient['getPolicy']>(async () => policyDocument()),
+    upsertPolicy: vi.fn<FeatherlaneAIClient['upsertPolicy']>(async () => policyDocument()),
+    setPolicyEnabled: vi.fn<FeatherlaneAIClient['setPolicyEnabled']>(async () => ({
       ...policyDocument(),
       enabled: true,
     })),
-    listAgents: vi.fn<TrustLoopClient['listAgents']>(async () => ({ agents: [] })),
-    upsertAgent: vi.fn<TrustLoopClient['upsertAgent']>(async () => agentProfile()),
-    listToolMetadata: vi.fn<TrustLoopClient['listToolMetadata']>(async () => ({ tools: [] })),
-    upsertToolMetadata: vi.fn<TrustLoopClient['upsertToolMetadata']>(async () => ({
+    listAgents: vi.fn<FeatherlaneAIClient['listAgents']>(async () => ({ agents: [] })),
+    upsertAgent: vi.fn<FeatherlaneAIClient['upsertAgent']>(async () => agentProfile()),
+    listToolMetadata: vi.fn<FeatherlaneAIClient['listToolMetadata']>(async () => ({ tools: [] })),
+    upsertToolMetadata: vi.fn<FeatherlaneAIClient['upsertToolMetadata']>(async () => ({
       metadata: {
         tool: 'send_email',
         side_effect: 'external_communication',
@@ -127,8 +127,8 @@ function client(overrides: Partial<TrustLoopClient> = {}): TrustLoopClient {
       },
       enabled: true,
     })),
-    listTraces: vi.fn<TrustLoopClient['listTraces']>(async () => ({ traces: [] })),
-    listRunTraces: vi.fn<TrustLoopClient['listRunTraces']>(async () => ({ traces: [] })),
+    listTraces: vi.fn<FeatherlaneAIClient['listTraces']>(async () => ({ traces: [] })),
+    listRunTraces: vi.fn<FeatherlaneAIClient['listRunTraces']>(async () => ({ traces: [] })),
     ...overrides,
   };
 }
@@ -182,7 +182,7 @@ describe('createToolHandlers', () => {
       details: null,
     });
     const fakeClient = client({
-      submitEvent: vi.fn<TrustLoopClient['submitEvent']>(async () => {
+      submitEvent: vi.fn<FeatherlaneAIClient['submitEvent']>(async () => {
         throw error;
       }),
     });

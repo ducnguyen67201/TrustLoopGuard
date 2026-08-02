@@ -27,27 +27,27 @@ const assistantInstructions: Record<AssistantKind, string> = {
 
 /**
  * TypeScript quick-start shown on the connect step. The API key is referenced
- * only via the TLG_API_KEY env var — the plaintext secret is never baked into
+ * only via the FEATHERLANE_AI_API_KEY env var — the plaintext secret is never baked into
  * snippet text.
  */
 export function buildSdkSnippet(opts: { baseUrl: string; agentId: string }): string {
-  return `import { guardAgent } from '@trustloopguard/sdk';
+  return `import { guardAgent } from '@featherlane-ai/sdk';
 
 const agent = guardAgent(createAgent(), {
   agentId: '${opts.agentId}',
-  baseUrl: process.env.TLG_URL ?? '${opts.baseUrl}',
-  apiKey: process.env.TLG_API_KEY,
+  baseUrl: process.env.FEATHERLANE_AI_URL ?? '${opts.baseUrl}',
+  apiKey: process.env.FEATHERLANE_AI_API_KEY,
 });
 
 const reply = await agent.reply(userMessage);`;
 }
 
 export function buildPaymentSdkSnippet(opts: { baseUrl: string; agentId: string }): string {
-  return `import { Client } from '@trustloopguard/sdk';
+  return `import { Client } from '@featherlane-ai/sdk';
 
 const client = new Client({
-  baseUrl: process.env.TLG_URL ?? '${opts.baseUrl}',
-  apiKey: process.env.TLG_API_KEY,
+  baseUrl: process.env.FEATHERLANE_AI_URL ?? '${opts.baseUrl}',
+  apiKey: process.env.FEATHERLANE_AI_API_KEY,
 });
 
 // 1. After verified user intent, create a reusable grant with the exact payment scope.
@@ -78,7 +78,7 @@ const grant = await client.createGrant({
 // 2. Your agent requests the resource and receives HTTP 402 from the merchant.
 const requirement = paymentRequired.accepts[0];
 
-// 3. TrustLoopGuard authorizes before the wallet signs or retries payment.
+// 3. Featherlane AI authorizes before the wallet signs or retries payment.
 const auth = await client.authorizeAgenticPayment({
   idempotency_key: crypto.randomUUID(),
   principal_id: '${opts.agentId}',
@@ -90,7 +90,7 @@ const auth = await client.authorizeAgenticPayment({
   metadata: { order_id: checkoutSessionId },
 });
 
-if (!auth.signable) throw new Error('TrustLoopGuard denied payment: ' + auth.reason);
+if (!auth.signable) throw new Error('Featherlane AI denied payment: ' + auth.reason);
 
 // 4. Sign/pay with your wallet or x402 client, then commit or rollback.
 const settlement = await payWithWallet(requirement);
@@ -106,16 +106,16 @@ export function buildAssistantPrompt(opts: {
   agentId: string;
   assistant: AssistantKind;
 }): string {
-  return `Add TrustLoopGuard runtime guardrails to this project.
+  return `Add Featherlane AI runtime guardrails to this project.
 
-1. Install the SDK: npm install @trustloopguard/sdk
+1. Install the SDK: npm install @featherlane-ai/sdk
 2. Add two environment variables (I already have the values):
-   TLG_URL=${opts.baseUrl}
-   TLG_API_KEY=<the API key I just created — ask me to paste it into .env, do not hardcode it>
+   FEATHERLANE_AI_URL=${opts.baseUrl}
+   FEATHERLANE_AI_API_KEY=<the API key I just created — ask me to paste it into .env, do not hardcode it>
 3. Find the agent object whose async agent.reply(...) method takes the user's message as its first argument and returns the final reply string. Keep the agent internals unchanged.
-4. Import guardAgent from '@trustloopguard/sdk' and decorate the agent once where it is created: const agent = guardAgent(createAgent(), { agentId: '${opts.agentId}' }). Keep every existing agent.reply(...) call site unchanged. If the framework has no reply-style object, add one thin adapter at the single final-output boundary; do not scatter guard checks throughout the code.
-5. Do not clone TrustLoopGuard, start a local TrustLoopGuard server, construct GuardEvent manually, or add run/monitoring setup.
-6. Run the agent once end-to-end so a real request goes through the guard — I'm watching for the first event on my TrustLoopGuard dashboard.
+4. Import guardAgent from '@featherlane-ai/sdk' and decorate the agent once where it is created: const agent = guardAgent(createAgent(), { agentId: '${opts.agentId}' }). Keep every existing agent.reply(...) call site unchanged. If the framework has no reply-style object, add one thin adapter at the single final-output boundary; do not scatter guard checks throughout the code.
+5. Do not clone Featherlane AI, start a local Featherlane AI server, construct GuardEvent manually, or add run/monitoring setup.
+6. Run the agent once end-to-end so a real request goes through the guard — I'm watching for the first event on my Featherlane AI dashboard.
 
 Assistant workflow: ${assistantInstructions[opts.assistant]}`;
 }
@@ -137,8 +137,8 @@ export function buildCodingAgentInstallCommand(opts: {
   agentId: string;
   target: CodingAgentKind;
 }): string {
-  return `export TLG_API_KEY="<copy the key shown on this page>"
-npx @trustloopguard/cli install \\
+  return `export FEATHERLANE_AI_API_KEY="<copy the key shown on this page>"
+npx @featherlane-ai/cli install \\
   --agent-id ${shellQuote(opts.agentId)} \\
   --url ${shellQuote(opts.baseUrl)} \\
   --target ${opts.target}`;

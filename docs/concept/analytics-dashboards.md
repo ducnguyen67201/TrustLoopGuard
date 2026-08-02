@@ -17,7 +17,7 @@ The dashboard may render filters, widget controls, and charts. It must not persi
 
 ## Access
 
-Analytics endpoints are workspace-scoped. User-session calls use the Rust `UserContext`; internal-service calls from the web dashboard's OAuth fallback must forward `X-TLG-User-Id`. Rust verifies that an ordinary user is a member of the requested `X-TLG-Workspace-Id` before returning analytics data or saved views. A [platform administrator](web-dashboard-authentication.md) may access any active workspace through the same Rust authorization gate without receiving an inserted membership row. Workspace runtime keys remain forbidden from dashboard analytics endpoints.
+Analytics endpoints are workspace-scoped. User-session calls use the Rust `UserContext`; internal-service calls from the web dashboard's OAuth fallback must forward `X-FEATHERLANE-AI-User-Id`. Rust verifies that an ordinary user is a member of the requested `X-FEATHERLANE-AI-Workspace-Id` before returning analytics data or saved views. A [platform administrator](web-dashboard-authentication.md) may access any active workspace through the same Rust authorization gate without receiving an inserted membership row. Workspace runtime keys remain forbidden from dashboard analytics endpoints.
 
 ## Template Variables
 

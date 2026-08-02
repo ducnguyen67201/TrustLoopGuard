@@ -12,7 +12,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Generic, Literal, TypeVar, cast
 
-from trustloopguard._generated.types import (
+from featherlane_ai._generated.types import (
     AuthorizationEffect,
     Labels,
     Origin,
@@ -134,7 +134,7 @@ def tool_schema_hash(schema: Mapping[str, Any] | None) -> str:
         code_unit = encoded[index] | (encoded[index + 1] << 8)
         value ^= code_unit
         value = (value * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
-    return f"tlg-schema:fnv1a64:{value:016x}"
+    return f"featherlane-ai-schema:fnv1a64:{value:016x}"
 
 
 def safe_tool_message(

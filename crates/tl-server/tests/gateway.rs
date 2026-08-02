@@ -59,7 +59,7 @@ fn json_request(
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
-        .header("x-tlg-workspace-id", workspace)
+        .header("x-featherlane-ai-workspace-id", workspace)
         .body(Body::from(body.to_string()))
         .unwrap()
 }
@@ -78,7 +78,7 @@ async fn create_workspace_key(app: axum::Router, workspace: &str) -> String {
                 .uri("/v1/team/my-workspaces")
                 .header(header::CONTENT_TYPE, "application/json")
                 .header(header::AUTHORIZATION, "Bearer sk-internal")
-                .header("x-tlg-user-id", user_id.to_string())
+                .header("x-featherlane-ai-user-id", user_id.to_string())
                 .body(Body::from(json!({ "name": workspace_name }).to_string()))
                 .unwrap(),
         )
@@ -100,7 +100,7 @@ async fn create_workspace_key(app: axum::Router, workspace: &str) -> String {
         json!({ "name": "Gateway runtime" }),
     );
     create_key_req.headers_mut().insert(
-        "x-tlg-user-id",
+        "x-featherlane-ai-user-id",
         user_id.to_string().parse().expect("valid user id header"),
     );
     let resp = app.oneshot(create_key_req).await.unwrap();
@@ -177,8 +177,8 @@ action: deny
                 .uri("/v1/policies")
                 .header(header::CONTENT_TYPE, "application/x-yaml")
                 .header(header::AUTHORIZATION, "Bearer sk-internal")
-                .header("x-tlg-workspace-id", workspace)
-                .header("x-tlg-user-id", gateway_owner_id().to_string())
+                .header("x-featherlane-ai-workspace-id", workspace)
+                .header("x-featherlane-ai-user-id", gateway_owner_id().to_string())
                 .body(Body::from(policy))
                 .unwrap(),
         )

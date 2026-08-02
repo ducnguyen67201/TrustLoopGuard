@@ -236,7 +236,7 @@ describe('submitEvent', () => {
     expect(bodies[1].action.operation).toBe('issue_refund');
     expect(bodies[1].action.invocation_id).toEqual(expect.any(String));
     expect(bodies[1].action.tool_identity).toEqual({
-      server_id: 'trustloopguard-sdk',
+      server_id: 'featherlane-ai-sdk',
       tool_name: 'issue_refund',
       schema_hash: 'sdk-legacy-untyped-v1',
     });

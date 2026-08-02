@@ -1,8 +1,8 @@
 # Human Review Analytics
 
-Human review analytics record what a customer reviewer did after a guardrail decision. They measure customer-side intervention separately from TrustLoopGuard's automated authorization effects.
+Human review analytics record what a customer reviewer did after a guardrail decision. They measure customer-side intervention separately from Featherlane AI's automated authorization effects.
 
-TrustLoopGuard stores review outcomes for audit and analytics only. It does not assign reviewers, own the customer's queue, or decide whether the customer's final artifact is correct.
+Featherlane AI stores review outcomes for audit and analytics only. It does not assign reviewers, own the customer's queue, or decide whether the customer's final artifact is correct.
 
 ## Ownership
 

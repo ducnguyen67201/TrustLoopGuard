@@ -31,7 +31,7 @@ export interface HostedRefundDemoResponse {
   logs: AgentRunLogEntry[];
   runtime: {
     agent: 'openai';
-    guard: 'trustloopguard-rust-api';
+    guard: 'featherlane-ai-rust-api';
     provider: 'stripe-test';
   };
 }
@@ -67,7 +67,7 @@ export async function runHostedRefundDemo(
   const requestId = (dependencies.createRequestId ?? randomUUID)();
   const dbPath = resolve(
     (dependencies.temporaryDirectory ?? tmpdir)(),
-    'trustloopguard-refund-demo',
+    'featherlane-ai-refund-demo',
     `${requestId}.sqlite`,
   );
   const logs: AgentRunLogEntry[] = [];
@@ -102,7 +102,7 @@ export async function runHostedRefundDemo(
       logs,
       runtime: {
         agent: 'openai',
-        guard: 'trustloopguard-rust-api',
+        guard: 'featherlane-ai-rust-api',
         provider: 'stripe-test',
       },
     };

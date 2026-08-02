@@ -1,11 +1,11 @@
 import 'server-only';
-import { Client } from '@trustloopguard/sdk';
+import { Client } from '@featherlane-ai/sdk';
 import { auth } from '@/auth';
 import { getServerUrl } from '../server-url';
 import { selectAuthorizedWorkspaceId, type WorkspaceMembership } from '../workspace-access';
 import { env } from '@/env';
 
-const DEFAULT_WORKSPACE_SLUG = 'trustloop-demo';
+const DEFAULT_WORKSPACE_SLUG = 'featherlane-ai-demo';
 let cached: Client | null = null;
 
 export class RustApiError extends Error {
@@ -109,10 +109,10 @@ export async function rustApiForWorkspace<T>(
   environmentId?: string | null,
 ): Promise<T> {
   const headers = new Headers(init.headers);
-  headers.set('x-tlg-workspace-id', workspaceId);
+  headers.set('x-featherlane-ai-workspace-id', workspaceId);
   const cleanEnvironmentId = environmentId?.trim();
   if (cleanEnvironmentId !== undefined && cleanEnvironmentId !== '') {
-    headers.set('x-tlg-environment-id', cleanEnvironmentId);
+    headers.set('x-featherlane-ai-environment-id', cleanEnvironmentId);
   }
   applyInternalAuth(headers);
   const res = await fetch(`${getServerUrl()}${path}`, {
@@ -146,10 +146,10 @@ async function rustApiResponseForUserWorkspace<T>(
   environmentId?: string | null,
 ): Promise<{ data: T; status: number }> {
   const headers = new Headers(init.headers);
-  headers.set('x-tlg-workspace-id', workspaceId);
+  headers.set('x-featherlane-ai-workspace-id', workspaceId);
   const cleanEnvironmentId = environmentId?.trim();
   if (cleanEnvironmentId !== undefined && cleanEnvironmentId !== '') {
-    headers.set('x-tlg-environment-id', cleanEnvironmentId);
+    headers.set('x-featherlane-ai-environment-id', cleanEnvironmentId);
   }
   applyInternalAuth(headers);
   applyForwardedUserHeaders(headers, user);
@@ -174,7 +174,7 @@ async function rustApiResponseForUserWorkspace<T>(
 ///    verifies it and attaches a `UserContext` to the request, so
 ///    handlers can read `user_id` without trusting headers.
 /// 2. Otherwise (OAuth users, who don't yet get a Rust JWT), we
-///    fall back to `X-TLG-User-Id` + `X-TLG-User-Email` forwarding.
+///    fall back to `X-FEATHERLANE-AI-User-Id` + `X-FEATHERLANE-AI-User-Email` forwarding.
 ///    The trusted internal `TL_API_KEY` lane authorizes the request.
 ///
 /// Both lanes work side by side; the JWT path is preferred whenever
@@ -201,10 +201,10 @@ export async function rustApiForUser<T>(
 function fetchWithWorkspace(workspaceId: string, environmentId?: string | null): typeof fetch {
   return ((input: RequestInfo | URL, init?: RequestInit) => {
     const headers = new Headers(init?.headers);
-    headers.set('x-tlg-workspace-id', workspaceId);
+    headers.set('x-featherlane-ai-workspace-id', workspaceId);
     const cleanEnvironmentId = environmentId?.trim();
     if (cleanEnvironmentId !== undefined && cleanEnvironmentId !== '') {
-      headers.set('x-tlg-environment-id', cleanEnvironmentId);
+      headers.set('x-featherlane-ai-environment-id', cleanEnvironmentId);
     }
     applyInternalAuth(headers);
     return globalThis.fetch(input, { ...init, headers });
@@ -242,9 +242,9 @@ function applyUserAuth(headers: Headers, user: SignedInUser) {
 function applyForwardedUserHeaders(headers: Headers, user: SignedInUser) {
   // Always forward identity headers too — useful for the auto-bind
   // path (email lookup) and as a fallback when no JWT is present.
-  headers.set('x-tlg-user-id', user.id);
+  headers.set('x-featherlane-ai-user-id', user.id);
   if (user.email !== undefined && user.email !== null && user.email.trim() !== '') {
-    headers.set('x-tlg-user-email', user.email.trim());
+    headers.set('x-featherlane-ai-user-email', user.email.trim());
   }
 }
 

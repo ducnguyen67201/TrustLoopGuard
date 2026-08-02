@@ -98,14 +98,14 @@ export const HEALTHCARE_PAGE_COPY: Record<HealthcareDemoLocale, HealthcarePageCo
   en: {
     title: 'Secure Healthcare Scheduling Agent Demo',
     description:
-      'Chat with a synthetic hospital scheduling agent and watch TrustLoopGuard check user input and OpenAI output before a reply is delivered.',
-    homeLabel: 'TrustLoopGuard home',
+      'Chat with a synthetic hospital scheduling agent and watch Featherlane AI check user input and OpenAI output before a reply is delivered.',
+    homeLabel: 'Featherlane AI home',
     deliveredReply: 'Delivered reply',
     viewSource: 'View source',
     eyebrow: 'Protected scheduling agent',
     heading: 'Chat with a protected hospital agent.',
     introduction:
-      'OpenAI drafts only after TrustLoopGuard permits the message, then the reply is checked again before delivery.',
+      'OpenAI drafts only after Featherlane AI permits the message, then the reply is checked again before delivery.',
     safetyLabel: 'Synthetic demo only — do not enter real patient information.',
     safetyNote: 'Synthetic demo only · No real PHI',
     disclaimer:
@@ -120,14 +120,14 @@ export const HEALTHCARE_PAGE_COPY: Record<HealthcareDemoLocale, HealthcarePageCo
   vi: {
     title: 'Bản thử nghiệm tác nhân đặt lịch y tế an toàn',
     description:
-      'Trò chuyện với tác nhân đặt lịch bệnh viện giả lập và xem TrustLoopGuard kiểm tra đầu vào cùng đầu ra OpenAI trước khi gửi phản hồi.',
-    homeLabel: 'Trang chủ TrustLoopGuard',
+      'Trò chuyện với tác nhân đặt lịch bệnh viện giả lập và xem Featherlane AI kiểm tra đầu vào cùng đầu ra OpenAI trước khi gửi phản hồi.',
+    homeLabel: 'Trang chủ Featherlane AI',
     deliveredReply: 'Phản hồi đã kiểm tra',
     viewSource: 'Xem mã nguồn',
     eyebrow: 'Tác nhân đặt lịch được bảo vệ',
     heading: 'Trò chuyện với tác nhân bệnh viện được bảo vệ.',
     introduction:
-      'OpenAI chỉ soạn thảo sau khi TrustLoopGuard cho phép tin nhắn. Phản hồi sau đó được kiểm tra lần nữa trước khi gửi.',
+      'OpenAI chỉ soạn thảo sau khi Featherlane AI cho phép tin nhắn. Phản hồi sau đó được kiểm tra lần nữa trước khi gửi.',
     safetyLabel: 'Chỉ là bản thử nghiệm giả lập — không nhập thông tin bệnh nhân thật.',
     safetyNote: 'Chỉ dùng dữ liệu giả lập · Không có dữ liệu bệnh nhân thật',
     disclaimer:
@@ -187,8 +187,8 @@ export const HEALTHCARE_UI_COPY: Record<HealthcareDemoLocale, HealthcareUiCopy> 
     scenariosLabel: 'Synthetic healthcare demo scenarios',
     messageLabel: 'Synthetic visitor message',
     runningWorkflow: 'Running protected workflow',
-    send: 'Send through TrustLoopGuard',
-    monitorKicker: 'TrustLoopGuard policy monitor',
+    send: 'Send through Featherlane AI',
+    monitorKicker: 'Featherlane AI policy monitor',
     monitorTitle: 'Every turn, two checks',
     thisTurn: 'This turn',
     readyForMessage: 'Ready for a message',
@@ -207,9 +207,9 @@ export const HEALTHCARE_UI_COPY: Record<HealthcareDemoLocale, HealthcareUiCopy> 
     modelStopped: 'The input decision stopped generation before model spend.',
     modelDescription:
       'One stateless draft at most; the draft is never rendered before output checking.',
-    progressInput: 'TrustLoopGuard is checking the message before OpenAI.',
+    progressInput: 'Featherlane AI is checking the message before OpenAI.',
     progressModel: 'The protected workflow is preparing an OpenAI draft.',
-    progressOutput: 'TrustLoopGuard is checking the draft before delivery.',
+    progressOutput: 'Featherlane AI is checking the draft before delivery.',
     evaluatingPolicies: 'Evaluating enabled Rust-owned policies.',
     skippedEarlier: 'Skipped because an earlier boundary stopped the turn.',
     guardUnavailable: 'Unavailable; the healthcare demo failed closed.',
@@ -303,8 +303,8 @@ export const HEALTHCARE_UI_COPY: Record<HealthcareDemoLocale, HealthcareUiCopy> 
     scenariosLabel: 'Các tình huống y tế giả lập',
     messageLabel: 'Tin nhắn giả lập của khách',
     runningWorkflow: 'Đang chạy quy trình được bảo vệ',
-    send: 'Gửi qua TrustLoopGuard',
-    monitorKicker: 'Trình giám sát chính sách TrustLoopGuard',
+    send: 'Gửi qua Featherlane AI',
+    monitorKicker: 'Trình giám sát chính sách Featherlane AI',
     monitorTitle: 'Mỗi lượt, hai lần kiểm tra',
     thisTurn: 'Lượt này',
     readyForMessage: 'Sẵn sàng nhận tin nhắn',
@@ -325,9 +325,9 @@ export const HEALTHCARE_UI_COPY: Record<HealthcareDemoLocale, HealthcareUiCopy> 
     modelStopped: 'Quyết định đầu vào đã dừng việc tạo phản hồi trước khi gọi mô hình.',
     modelDescription:
       'Tối đa một bản nháp không lưu trạng thái; bản nháp không bao giờ được hiển thị trước khi kiểm tra đầu ra.',
-    progressInput: 'TrustLoopGuard đang kiểm tra tin nhắn trước khi gọi OpenAI.',
+    progressInput: 'Featherlane AI đang kiểm tra tin nhắn trước khi gọi OpenAI.',
     progressModel: 'Quy trình được bảo vệ đang chuẩn bị bản nháp từ OpenAI.',
-    progressOutput: 'TrustLoopGuard đang kiểm tra bản nháp trước khi gửi.',
+    progressOutput: 'Featherlane AI đang kiểm tra bản nháp trước khi gửi.',
     evaluatingPolicies: 'Đang đánh giá các chính sách được bật trong Rust.',
     skippedEarlier: 'Đã bỏ qua vì một biên trước đó dừng lượt này.',
     guardUnavailable: 'Không khả dụng; bản thử nghiệm y tế đã đóng an toàn.',

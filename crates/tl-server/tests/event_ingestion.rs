@@ -50,7 +50,7 @@ fn json_request(
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json");
     if let Some(ws) = workspace_id {
-        builder = builder.header("x-tlg-workspace-id", ws);
+        builder = builder.header("x-featherlane-ai-workspace-id", ws);
     }
     builder
 }
@@ -568,7 +568,7 @@ severity: high
 }
 
 #[tokio::test]
-async fn semantic_policy_without_llm_route_preserves_allow() {
+async fn high_severity_semantic_policy_without_llm_route_defers() {
     let policy = load_str(
         r#"
 id: respectful-tone
@@ -592,8 +592,15 @@ severity: high
     assert_eq!(resp.status(), StatusCode::OK);
 
     let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.effect, AuthorizationEffect::Permit);
-    assert!(decision.findings.is_empty());
+    assert_eq!(decision.effect, AuthorizationEffect::Defer);
+    assert_eq!(decision.findings.len(), 1);
+    assert_eq!(
+        decision.findings[0].policy_id.as_deref(),
+        Some("respectful-tone")
+    );
+    assert!(decision.findings[0]
+        .reason
+        .contains("semantic judge route is disabled"));
 }
 
 #[tokio::test]
@@ -876,7 +883,7 @@ mod trace_evidence {
             .clone()
             .oneshot(
                 json_request("POST", "/v1/tool-metadata", Some(&workspace.id))
-                    .header("x-tlg-user-id", owner_id.to_string())
+                    .header("x-featherlane-ai-user-id", owner_id.to_string())
                     .body(Body::from(metadata_body().to_string()))
                     .unwrap(),
             )

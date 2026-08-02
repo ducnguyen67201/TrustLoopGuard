@@ -264,7 +264,7 @@ export function RunDetailLiveView({
           <div className="grid gap-1">
             <CardTitle className="text-sm">Agent events and guard checks</CardTitle>
             <CardDescription>
-              Transcript events and TrustLoopGuard decisions, newest first. Click any row to see the
+              Transcript events and Featherlane AI decisions, newest first. Click any row to see the
               exact text, linked guard check, and policy outcome.
             </CardDescription>
           </div>
@@ -572,8 +572,8 @@ function DeliveryInterventionDetail({ trace, turn }: { trace: RunTrace; turn: Tr
   const tone = OUTCOME_TONE[outcome];
   const stopped = outcome === 'deny';
   const status = stopped
-    ? 'TrustLoopGuard stopped this before delivery'
-    : 'TrustLoopGuard transformed this before delivery';
+    ? 'Featherlane AI stopped this before delivery'
+    : 'Featherlane AI transformed this before delivery';
   const returned = trace.safeOutput ?? 'No unsafe response delivered';
 
   return (
@@ -608,7 +608,7 @@ function DeliveryInterventionDetail({ trace, turn }: { trace: RunTrace; turn: Tr
       {trace.checkedOutput ? (
         <Excerpt label="Agent tried to say" value={trace.checkedOutput} />
       ) : null}
-      <Excerpt label="TrustLoopGuard returned" value={returned} tone={tone} />
+      <Excerpt label="Featherlane AI returned" value={returned} tone={tone} />
 
       <TraceFooter side={trace.side} latency={trace.latency} id={trace.id} />
     </div>
@@ -938,7 +938,7 @@ function GuardrailUsageCard({ usage }: { usage: RunDetailSnapshot['guardrailUsag
       <CardHeader className="gap-1">
         <CardTitle className="text-sm">Guardrail overhead</CardTitle>
         <CardDescription>
-          TrustLoopGuard semantic checks, separate from customer spend.
+          Featherlane AI semantic checks, separate from customer spend.
         </CardDescription>
       </CardHeader>
       <CardContent>

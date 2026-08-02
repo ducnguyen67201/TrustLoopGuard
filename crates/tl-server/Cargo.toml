@@ -5,7 +5,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "TrustLoopGuard HTTP server (axum)"
+description = "Featherlane AI HTTP server (axum)"
 
 [[bin]]
 name = "tl-server"

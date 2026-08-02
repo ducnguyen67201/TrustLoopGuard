@@ -28,7 +28,7 @@ export default async function SignUpPage({
     <AuthScreen
       eyebrow="Safety checks for your AI apps"
       title="Let's get you set up."
-      description="TrustLoopGuard adds safety checks to your AI apps — it can block, rewrite, or flag risky requests automatically. Create an account and you'll be ready to add your first rule in minutes."
+      description="Featherlane AI adds safety checks to your AI apps — it can block, rewrite, or flag risky requests automatically. Create an account and you'll be ready to add your first rule in minutes."
       cardTitle="Create your account"
       cardDescription="Takes about a minute. Pick whichever option is easiest for you."
     >

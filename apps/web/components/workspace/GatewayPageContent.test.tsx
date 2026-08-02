@@ -30,8 +30,8 @@ const shell: Pick<
   },
   organization: {
     id: 'org_1',
-    name: 'TrustLoop',
-    slug: 'trustloop',
+    name: 'Featherlane AI',
+    slug: 'featherlane_ai',
   },
   activeWorkspace: {
     id: 'ws_1',

@@ -5,7 +5,7 @@ import { ProcurementDemoPageContent } from './procurement-page';
 export const metadata: Metadata = {
   title: 'Secure AI Procurement Agent Demo',
   description:
-    'Chat with a live OpenAI procurement agent and watch TrustLoopGuard permit, hold, or block purchase orders before they execute.',
+    'Chat with a live OpenAI procurement agent and watch Featherlane AI permit, hold, or block purchase orders before they execute.',
   alternates: {
     canonical: '/demo/procurement',
     languages: {

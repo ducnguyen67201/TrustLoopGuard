@@ -83,7 +83,7 @@ async function createBackupOnce(file: string): Promise<string | undefined> {
     if (error instanceof Error && isNodeError(error) && error.code === 'ENOENT') return undefined;
     throw error;
   }
-  const backup = `${file}.tlg.bak`;
+  const backup = `${file}.featherlane-ai.bak`;
   try {
     await copyFile(file, backup, constants.COPYFILE_EXCL);
     if (process.platform !== 'win32') await chmod(backup, 0o600);

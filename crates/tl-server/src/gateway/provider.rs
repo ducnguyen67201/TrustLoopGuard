@@ -10,7 +10,7 @@ pub(super) use anthropic::AnthropicGatewayProvider;
 pub(super) use openai::OpenAiCompatibleGatewayProvider;
 pub(crate) use payment::forward_payment;
 
-pub(super) const BLOCKED_MESSAGE: &str = "Blocked by TrustLoopGuard.";
+pub(super) const BLOCKED_MESSAGE: &str = "Blocked by Featherlane AI.";
 
 #[async_trait]
 pub(super) trait GatewayProvider: Send + Sync {

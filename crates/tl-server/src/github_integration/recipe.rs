@@ -115,7 +115,7 @@ pub async fn analyze(
         }
         if !contains_required_marker(&change.replacement, &connection.id) {
             return Err(GitHubIntegrationStoreError::Validation(
-                "proposal is missing the TrustLoopGuard integration marker".into(),
+                "proposal is missing the Featherlane AI integration marker".into(),
             ));
         }
         if change.rationale.trim().is_empty() {
@@ -211,16 +211,16 @@ fn prompt(
     files: &[GitHubFile],
 ) -> String {
     let mut prompt = format!(
-        "You are preparing a TrustLoopGuard SDK integration for a TypeScript/Next.js repository.\n\
+        "You are preparing a Featherlane AI SDK integration for a TypeScript/Next.js repository.\n\
          Return only JSON matching the schema.\n\
          Recipe: {GITHUB_INTEGRATION_RECIPE_TYPESCRIPT_NEXTJS_V1}\n\
          Agent ID: {}\n\
          Environment ID: {}\n\
          Integration marker: {}\n\
          Risk statement: {}\n\
-         Required context object in every guard call: {{ tlg_integration_id: \"{}\", tlg_recipe_version: \"{}\" }}\n\
-         The API key must be referenced as process.env.TLG_API_KEY. Never hardcode a key.\n\
-         If @trustloopguard/sdk is absent, update only package.json and include a manual lockfile refresh step.\n\
+         Required context object in every guard call: {{ featherlane_ai_integration_id: \"{}\", featherlane_ai_recipe_version: \"{}\" }}\n\
+         The API key must be referenced as process.env.FEATHERLANE_AI_API_KEY. Never hardcode a key.\n\
+         If @featherlane-ai/sdk is absent, update only package.json and include a manual lockfile refresh step.\n\
          Do not edit workflows, env files, lockfiles, generated files, or unrelated code.\n\n",
         connection.agent_id,
         connection.environment_id,
@@ -263,7 +263,7 @@ struct ProposalFileReplacement {
 
 fn proposal_schema() -> JsonSchema {
     JsonSchema {
-        name: "trustloopguard_github_integration_plan".into(),
+        name: "featherlane_ai_github_integration_plan".into(),
         schema: json!({
             "type": "object",
             "additionalProperties": false,

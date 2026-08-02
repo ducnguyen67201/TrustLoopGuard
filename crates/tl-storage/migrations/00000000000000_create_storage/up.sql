@@ -1,4 +1,4 @@
--- TrustLoopGuard storage schema.
+-- Featherlane AI storage schema.
 --
 -- Diesel-friendly conventions:
 -- - snake_case table and column names

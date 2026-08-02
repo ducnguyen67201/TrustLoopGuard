@@ -101,7 +101,7 @@ describe('hardenJob', () => {
   });
 
   it('preserves the selected workspace on the harden request', async () => {
-    window.history.replaceState({}, '', '/attacks?workspace=trustloopguard-demo');
+    window.history.replaceState({}, '', '/attacks?workspace=featherlane-ai-demo');
     const fetchMock = vi.fn<typeof fetch>(
       async () =>
         new Response(
@@ -119,7 +119,7 @@ describe('hardenJob', () => {
     await hardenJob('job-1', false);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/redteam/jobs/job-1/harden?workspace=trustloopguard-demo',
+      '/api/redteam/jobs/job-1/harden?workspace=featherlane-ai-demo',
       expect.objectContaining({ method: 'POST' }),
     );
   });

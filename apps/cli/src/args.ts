@@ -4,15 +4,15 @@ import { HOST_IDS, type CliCommandOptions, type HostId, type TargetSelection } f
 
 const COMMANDS = new Set(['doctor', 'install', 'status', 'uninstall']);
 
-export const HELP_TEXT = `TrustLoopGuard coding-agent tool gate
+export const HELP_TEXT = `Featherlane AI coding-agent tool gate
 
 Usage:
-  trustloopguard install --agent-id <id> [--url <url>] [--target auto|all|claude,codex,opencode]
-  trustloopguard status [--project <path>] [--json]
-  trustloopguard doctor [--project <path>] [--json]
-  trustloopguard uninstall [--project <path>] [--target <targets> | --all]
+  featherlane-ai install --agent-id <id> [--url <url>] [--target auto|all|claude,codex,opencode]
+  featherlane-ai status [--project <path>] [--json]
+  featherlane-ai doctor [--project <path>] [--json]
+  featherlane-ai uninstall [--project <path>] [--target <targets> | --all]
 
-The installer reads TLG_API_KEY from the environment and never writes it to disk.`;
+The installer reads FEATHERLANE_AI_API_KEY from the environment and never writes it to disk.`;
 
 function parseTarget(value: string | undefined, fallback: TargetSelection): TargetSelection {
   if (value === undefined || value.trim() === '') return fallback;

@@ -31,10 +31,10 @@ while IFS= read -r path; do
       add_package "marketing"
       ;;
     demo/*)
-      add_package "@trustloopguard/demo"
+      add_package "@featherlane-ai/demo"
       ;;
     sdks/typescript/*)
-      add_package "@trustloopguard/sdk"
+      add_package "@featherlane-ai/sdk"
       ;;
   esac
 done < <(git diff --cached --name-only --diff-filter=ACMR)

@@ -36,7 +36,7 @@ export async function runScriptedRefundAgent(
     };
   }
 
-  options.logger?.log('prepare_refund', 'submitting typed financial action to TrustLoopGuard');
+  options.logger?.log('prepare_refund', 'submitting typed financial action to Featherlane AI');
   const prepared = await prepareRefundTool(input, client, options.dbPath, {
     grantId: options.refundGrantId,
     allowGrantProvisioning: options.allowGrantProvisioning,
@@ -50,7 +50,7 @@ export async function runScriptedRefundAgent(
     return {
       prompt,
       traces,
-      finalMessage: `TrustLoopGuard returned ${prepared.status}. I did not create a Stripe refund.`,
+      finalMessage: `Featherlane AI returned ${prepared.status}. I did not create a Stripe refund.`,
       actionId: prepared.action.id,
     };
   }

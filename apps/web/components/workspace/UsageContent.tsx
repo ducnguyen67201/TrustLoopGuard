@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
-import type { LlmUsageBucket } from '@trustloopguard/sdk';
+import type { LlmUsageBucket } from '@featherlane-ai/sdk';
 import { z } from 'zod';
 
 import { Badge } from '@/components/ui/badge';

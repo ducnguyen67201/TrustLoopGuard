@@ -74,7 +74,7 @@ function heldResponse(): RefundDemoResponse {
     },
     runtime: {
       agent: 'openai',
-      guard: 'trustloopguard-rust-api',
+      guard: 'featherlane-ai-rust-api',
       provider: 'stripe-test',
     },
   };

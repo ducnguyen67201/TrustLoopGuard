@@ -1,6 +1,6 @@
 /**
  * Types + zod schemas for the red-team vulnerability report, single-sourced from
- * the generated SDK (`@trustloopguard/sdk`). The public PDF route uses these to
+ * the generated SDK (`@featherlane-ai/sdk`). The public PDF route uses these to
  * fetch and validate the Rust-owned report payload before rendering.
  *
  * `fetchPublicReport` is server-only: it reads `env.TL_SERVER_URL`. The
@@ -16,7 +16,7 @@ import type {
   RedteamReportFinding,
   RedteamReportPayload,
   ReportSeverity,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 import { z } from 'zod';
 
 import { env } from '@/env';

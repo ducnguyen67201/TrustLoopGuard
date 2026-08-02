@@ -10,7 +10,7 @@ import {
 } from './types.js';
 
 const REGISTRY_VERSION = 1;
-export const RUNTIME_VERSION = 'trustloopguard-tool-gate-v1';
+export const RUNTIME_VERSION = 'featherlane-ai-tool-gate-v1';
 
 export function emptyRegistry(): Registry {
   return { version: REGISTRY_VERSION, projects: [] };
@@ -24,7 +24,7 @@ export async function readRegistry(file: string): Promise<Registry> {
 
 export function parseRegistry(value: JsonValue, source = 'registry'): Registry {
   if (!isJsonObject(value) || value['version'] !== REGISTRY_VERSION) {
-    throw new Error(`${source} has an unsupported TrustLoopGuard registry version`);
+    throw new Error(`${source} has an unsupported Featherlane AI registry version`);
   }
   const projects = value['projects'];
   if (!Array.isArray(projects)) throw new Error(`${source} has an invalid projects list`);

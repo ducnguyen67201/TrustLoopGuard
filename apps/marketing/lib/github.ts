@@ -1,7 +1,7 @@
 import { env } from '@/env';
 
-const GITHUB_REPO = 'ducnguyen67201/TrustLoopGuard';
-export const GITHUB_URL = 'https://github.com/ducnguyen67201/TrustLoopGuard';
+const GITHUB_REPO = 'ducnguyen67201/FeatherlaneAI';
+export const GITHUB_URL = 'https://github.com/ducnguyen67201/FeatherlaneAI';
 export const BOOK_MEETING_URL = env.NEXT_PUBLIC_BOOK_MEETING_URL;
 export const DOCS_URL = env.NEXT_PUBLIC_DOCS_URL;
 
@@ -19,7 +19,7 @@ export async function getStarCount(): Promise<number | null> {
     const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}`, {
       headers: {
         accept: 'application/vnd.github+json',
-        'user-agent': 'trustloopguard-marketing',
+        'user-agent': 'featherlane-ai-marketing',
       },
       next: { revalidate: 300 },
     });

@@ -19,7 +19,7 @@ const COPY = {
     talk: 'Talk to founder',
     talkEventLabel: 'Book a meeting',
     app: 'Get started',
-    github: 'View TrustLoopGuard on GitHub',
+    github: 'View Featherlane AI on GitHub',
     stars: 'stars',
   },
   vi: {
@@ -28,7 +28,7 @@ const COPY = {
     talk: 'Trao đổi với nhà sáng lập',
     talkEventLabel: 'Đặt lịch trao đổi',
     app: 'Bắt đầu',
-    github: 'Xem TrustLoopGuard trên GitHub',
+    github: 'Xem Featherlane AI trên GitHub',
     stars: 'sao',
   },
 } as const;

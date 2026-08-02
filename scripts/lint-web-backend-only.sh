@@ -8,7 +8,7 @@
 #   2. LLM provider SDKs (openai, anthropic, …) MUST NOT appear ANYWHERE
 #      in apps/web — not even in app/api/** server routes. Those calls
 #      belong in tl-server (Rust), exposed as a typed endpoint and
-#      reached from web via the @trustloopguard/sdk Client. This keeps
+#      reached from web via the @featherlane-ai/sdk Client. This keeps
 #      provider integrations, secrets, rate limits, and observability
 #      in one place and gives the CLI, Python SDK, and Rust SDK the
 #      same feature for free.
@@ -61,7 +61,7 @@ scan_provider_sdks_anywhere() {
   # calls live in tl-server (Rust). No exemption for app/api/**.
   if grep -nE "${PROVIDER_SDK_PATTERN}" "${file}" >/dev/null 2>&1; then
     while IFS= read -r line; do
-      violations+=("${file}: LLM provider SDK imported — move this call into tl-server (Rust) and proxy via @trustloopguard/sdk → ${line}")
+      violations+=("${file}: LLM provider SDK imported — move this call into tl-server (Rust) and proxy via @featherlane-ai/sdk → ${line}")
     done < <(grep -nE "${PROVIDER_SDK_PATTERN}" "${file}")
   fi
 }
@@ -74,14 +74,14 @@ scan_browser_only_rules() {
 
   # Rule 1a: SDK Client value imports — server-only. Type-only imports
   # are fine because they get erased.
-  if grep -nE "^[[:space:]]*import[[:space:]]+(\{[^}]*\bClient\b[^}]*\}|Client)[[:space:]]+from[[:space:]]+['\"]@trustloopguard/sdk['\"]" \
+  if grep -nE "^[[:space:]]*import[[:space:]]+(\{[^}]*\bClient\b[^}]*\}|Client)[[:space:]]+from[[:space:]]+['\"]@featherlane-ai/sdk['\"]" \
       "${file}" >/dev/null 2>&1; then
     while IFS= read -r line; do
       case "${line}" in
         *"import type"*) continue ;;
       esac
-      violations+=("${file}: @trustloopguard/sdk Client imported in browser-bundled code → ${line}")
-    done < <(grep -nE "^[[:space:]]*import[[:space:]]+(\{[^}]*\bClient\b[^}]*\}|Client)[[:space:]]+from[[:space:]]+['\"]@trustloopguard/sdk['\"]" "${file}")
+      violations+=("${file}: @featherlane-ai/sdk Client imported in browser-bundled code → ${line}")
+    done < <(grep -nE "^[[:space:]]*import[[:space:]]+(\{[^}]*\bClient\b[^}]*\}|Client)[[:space:]]+from[[:space:]]+['\"]@featherlane-ai/sdk['\"]" "${file}")
   fi
 
   # Rule 1b: Absolute-URL fetch — browser code must call same-origin /api/*.
@@ -114,7 +114,7 @@ if (( ${#violations[@]} > 0 )); then
   echo "    server-only helper in apps/web/lib/server/." >&2
   echo "  - LLM provider SDKs (openai, anthropic, …) are forbidden anywhere" >&2
   echo "    in apps/web — those calls live in tl-server (Rust) and reach" >&2
-  echo "    web via @trustloopguard/sdk." >&2
+  echo "    web via @featherlane-ai/sdk." >&2
   echo "" >&2
   for v in "${violations[@]}"; do
     printf '  %s\n' "${v}" >&2

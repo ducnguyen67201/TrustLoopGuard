@@ -68,6 +68,10 @@ async fn fires(
     )
     .await;
     !outcome.triggered.is_empty()
+        && !outcome
+            .reason
+            .as_deref()
+            .is_some_and(|reason| reason.starts_with("semantic policy judge unavailable for"))
 }
 
 /// Deterministic obfuscation variants of a landed reply. These are gating:

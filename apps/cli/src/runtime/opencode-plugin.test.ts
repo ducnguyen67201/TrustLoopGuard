@@ -5,12 +5,12 @@ import { join } from 'node:path';
 import type { PluginInput } from '@opencode-ai/plugin';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
-import { createTrustLoopGuardPlugin } from './opencode-plugin.js';
+import { createFeatherlaneAIPlugin } from './opencode-plugin.js';
 
 const directories: string[] = [];
 
 async function setup(): Promise<{ root: string; project: string; input: PluginInput }> {
-  const root = await mkdtemp(join(tmpdir(), 'tlg-opencode-plugin-'));
+  const root = await mkdtemp(join(tmpdir(), 'featherlane-ai-opencode-plugin-'));
   directories.push(root);
   const projectDirectory = join(root, 'project');
   await mkdir(projectDirectory);
@@ -46,7 +46,7 @@ afterEach(async () => {
 });
 
 describe('OpenCode runtime plugin', () => {
-  test('throws before execution when TrustLoopGuard denies', async () => {
+  test('throws before execution when Featherlane AI denies', async () => {
     const { root, input } = await setup();
     vi.stubGlobal(
       'fetch',
@@ -56,8 +56,8 @@ describe('OpenCode runtime plugin', () => {
           new Response(JSON.stringify({ effect: 'deny', reason: 'blocked', trace_id: 'trace-1' })),
         ),
     );
-    const hooks = await createTrustLoopGuardPlugin(root, {
-      TLG_API_KEY: 'tl_live_test_only',
+    const hooks = await createFeatherlaneAIPlugin(root, {
+      FEATHERLANE_AI_API_KEY: 'tl_live_test_only',
     })(input);
     await expect(
       hooks['tool.execute.before']?.(
@@ -94,8 +94,8 @@ describe('OpenCode runtime plugin', () => {
       )
       .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'canceled' })));
     vi.stubGlobal('fetch', fetchMock);
-    const hooks = await createTrustLoopGuardPlugin(root, {
-      TLG_API_KEY: 'tl_live_test_only',
+    const hooks = await createFeatherlaneAIPlugin(root, {
+      FEATHERLANE_AI_API_KEY: 'tl_live_test_only',
     })(input);
 
     await hooks['tool.execute.before']?.(

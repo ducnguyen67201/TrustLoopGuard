@@ -3,7 +3,7 @@ import type {
   Client,
   FinancialActionRecord,
   FinancialReceipt,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import { DEMO_ORDER_ID, REFUND_AGENT_ID } from './types';
 

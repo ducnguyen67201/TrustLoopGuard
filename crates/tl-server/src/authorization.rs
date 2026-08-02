@@ -826,7 +826,7 @@ pub async fn list_approvals(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let environment = header(&headers, "x-tlg-environment-id");
+    let environment = header(&headers, "x-featherlane-ai-environment-id");
     match state
         .store
         .list_approvals(&workspace_id, environment.as_deref())
@@ -942,7 +942,7 @@ pub async fn list_grants(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let environment = header(&headers, "x-tlg-environment-id");
+    let environment = header(&headers, "x-featherlane-ai-environment-id");
     match state
         .store
         .list_grants(&workspace_id, environment.as_deref())
@@ -1304,7 +1304,7 @@ fn key(workspace_id: &str, environment_id: &str, id: &str) -> (String, String, S
 }
 
 fn environment_id(headers: &HeaderMap) -> String {
-    header(headers, "x-tlg-environment-id").unwrap_or_else(|| "production".into())
+    header(headers, "x-featherlane-ai-environment-id").unwrap_or_else(|| "production".into())
 }
 
 fn header(headers: &HeaderMap, name: &str) -> Option<String> {
@@ -1405,8 +1405,11 @@ mod tests {
 
     fn scoped_headers() -> HeaderMap {
         let mut headers = HeaderMap::new();
-        headers.insert("x-tlg-workspace-id", "ws".parse().unwrap());
-        headers.insert("x-tlg-environment-id", "production".parse().unwrap());
+        headers.insert("x-featherlane-ai-workspace-id", "ws".parse().unwrap());
+        headers.insert(
+            "x-featherlane-ai-environment-id",
+            "production".parse().unwrap(),
+        );
         headers
     }
 

@@ -21,8 +21,8 @@ field controls, and where to find the full policy-authoring guide.
 - Expand the canonical policy README with a dashboard workflow and field guide
   for protection and financial policies.
 - Add a discoverable policy-guide link to the policy creation flow.
-- Add concise, user-visible helper text for every field or grouped control in
-  the financial policy dialog.
+- Add a concise information tooltip for every field or grouped control in the
+  financial policy dialog so guidance does not make rows uneven.
 - Preserve and verify the existing protection-rule field help.
 - Add component tests for the guide link and the new financial field guidance.
 
@@ -38,20 +38,21 @@ field controls, and where to find the full policy-authoring guide.
 | Area | Files | Pattern to Follow |
 | --- | --- | --- |
 | Policy create entry point | `apps/web/components/workspace/PolicyCreateDialog.tsx` | Keep one family chooser and route each family to its existing editor. |
-| Protection policy editor | `apps/web/components/policies/PolicyEditorDialog.tsx` | Reuse the existing `Field` helper, visible hint copy, and `InfoHint` terminology. |
-| Financial policy editor | `apps/web/components/workspace/FinancialSpendingControlsCard.tsx` | Extend the local `Field`, `MoneyField`, and `ActionField` helpers rather than adding a form framework. |
+| Protection policy editor | `apps/web/components/policies/PolicyEditorDialog.tsx` | Preserve its existing `Field` helper, hint copy, and `InfoHint` terminology. |
+| Financial policy editor | `apps/web/components/workspace/FinancialSpendingControlsCard.tsx` | Extend the local `Field`, `MoneyField`, and `ActionField` helpers with the shared `InfoHint` primitive rather than adding a form framework. |
 | Policy UI tests | `apps/web/components/workspace/PolicyCreateDialog.test.tsx`, `apps/web/components/workspace/FinancialSpendingControlsCard.test.tsx` | Assert user-visible labels, descriptions, links, and behavior with Testing Library. |
 | Canonical user guide | `docs/policies/README.md` | Extend the existing quick-start guide; link to detailed references rather than duplicating runtime concepts. |
 | Docs-site bridge | `apps/docs/content/docs/guides/policy-authoring.mdx` | Keep the same-origin guide route and point it to the canonical README. |
-| Shared help convention | `apps/web/components/ui/info-hint.tsx`, `docs/concept/web-ui-conventions.md` | Keep glossary tooltips for domain terms and plain visible copy for page-specific form guidance. |
+| Shared help convention | `apps/web/components/ui/info-hint.tsx`, `docs/concept/web-ui-conventions.md` | Use the accessible hover/focus tooltip for compact field guidance in this dense domain form. |
 
 ## Implementation Steps
 
 1. Add component assertions for the policy-guide link and representative
    field-by-field financial guidance, then run the focused tests and confirm
    they fail for the missing UI.
-2. Add the guide link and financial helper copy with the smallest changes to
-   the existing dialog components, then rerun the same tests until they pass.
+2. Add the guide link and financial information tooltips with the smallest
+   changes to the existing dialog components, then rerun the same tests until
+   they pass.
 3. Expand `docs/policies/README.md` with the dashboard workflow, protection
    fields, financial fields, safe rollout advice, and links to canonical
    references.
@@ -82,8 +83,8 @@ field controls, and where to find the full policy-authoring guide.
 
 ## Risks
 
-- Too much copy can make a dense form harder to scan. Keep hints to one short
-  sentence and put longer explanations in the README.
+- Too much copy can make a dense form harder to scan. Keep tooltips short and
+  put longer explanations in the README.
 - Financial terms can drift from runtime behavior. Base copy on
   `docs/concept/financial-authorization.md` and the current form payload.
 - A new guide could duplicate existing docs. Extend `docs/policies/README.md`

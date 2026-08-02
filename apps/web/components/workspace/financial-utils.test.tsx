@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { FinancialActionRecord } from '@trustloopguard/sdk';
+import type { FinancialActionRecord } from '@featherlane-ai/sdk';
 
 import {
   effectiveFinancialActionState,

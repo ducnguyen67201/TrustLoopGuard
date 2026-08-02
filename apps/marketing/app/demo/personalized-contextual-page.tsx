@@ -27,8 +27,8 @@ export function PersonalizedContextualDemoPageContent({
           className={styles['wordmark']}
           aria-label={copy.homeLabel}
         >
-          <img src="/trustloop-logo.svg" alt="" aria-hidden="true" />
-          <span>TrustLoopGuard</span>
+          <img src="/featherlane-ai-logo.svg" alt="" aria-hidden="true" />
+          <span>Featherlane AI</span>
         </Link>
         <div className={styles['stackStatus']}>
           <span>{profile.company_name}</span>

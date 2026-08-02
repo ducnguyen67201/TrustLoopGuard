@@ -4,7 +4,7 @@ import { readClientOptions } from './client';
 
 describe('readClientOptions', () => {
   it('defaults to the local Rust API URL', () => {
-    const options = readClientOptions({ TLG_API_KEY: 'tl_live_test' });
+    const options = readClientOptions({ FEATHERLANE_AI_API_KEY: 'tl_live_test' });
 
     expect(options).toEqual({
       baseUrl: 'http://127.0.0.1:8080',
@@ -14,8 +14,8 @@ describe('readClientOptions', () => {
 
   it('trims configured URL and API key', () => {
     const options = readClientOptions({
-      TLG_URL: ' https://api.example.test/ ',
-      TLG_API_KEY: ' tl_live_test ',
+      FEATHERLANE_AI_URL: ' https://api.example.test/ ',
+      FEATHERLANE_AI_API_KEY: ' tl_live_test ',
     });
 
     expect(options).toEqual({
@@ -25,6 +25,6 @@ describe('readClientOptions', () => {
   });
 
   it('rejects an empty API key without echoing env values', () => {
-    expect(() => readClientOptions({ TLG_API_KEY: '   ' })).toThrow('TLG_API_KEY is required');
+    expect(() => readClientOptions({ FEATHERLANE_AI_API_KEY: '   ' })).toThrow('FEATHERLANE_AI_API_KEY is required');
   });
 });

@@ -59,14 +59,14 @@ not a claim that the pre-implementation code could pass the specification.
 
 The consolidated validation pass completed without a failed gate:
 
-- `pnpm --filter @trustloopguard/sdk test`: 11 files and 116 tests passed.
+- `pnpm --filter @featherlane-ai/sdk test`: 11 files and 116 tests passed.
   The 18 new session-lifecycle cases cover sequential and concurrent reuse,
   output/tool concurrency, lifecycle status mapping, explicit scope
   precedence, privacy, and failure isolation.
-- `pnpm --filter @trustloopguard/sdk typecheck` and `build`: passed with zero
+- `pnpm --filter @featherlane-ai/sdk typecheck` and `build`: passed with zero
   TypeScript errors.
 - Fumadocs generation and the docs typecheck: passed.
-- `pnpm --filter @trustloopguard/sdk test:package`: packed 339 files, imported
+- `pnpm --filter @featherlane-ai/sdk test:package`: packed 339 files, imported
   `guardAgent` and `liveKitRun`, and typechecked the structural LiveKit
   consumer without installing LiveKit.
 - Workspace typecheck, boundary lint, Prettier, production dependency audit,

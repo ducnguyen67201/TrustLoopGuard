@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
-import { createTrustLoopClient } from './client';
-import { createTrustLoopMcpServer } from './server';
+import { createFeatherlaneAIClient } from './client';
+import { createFeatherlaneAIMcpServer } from './server';
 
 async function main(): Promise<void> {
-  const server = createTrustLoopMcpServer(createTrustLoopClient());
+  const server = createFeatherlaneAIMcpServer(createFeatherlaneAIClient());
   await server.connect(new StdioServerTransport());
 }
 

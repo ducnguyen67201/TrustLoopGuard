@@ -8,7 +8,7 @@ const config: NextConfig = {
   },
   output: 'standalone',
   outputFileTracingRoot: path.resolve(import.meta.dirname, '../../'),
-  transpilePackages: ['@trustloopguard/demo', '@trustloopguard/sdk'],
+  transpilePackages: ['@featherlane-ai/demo', '@featherlane-ai/sdk'],
 };
 
 export default config;

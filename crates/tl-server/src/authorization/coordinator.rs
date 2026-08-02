@@ -550,7 +550,8 @@ fn deterministic_intent_id(
 ) -> String {
     Uuid::new_v5(
         &Uuid::NAMESPACE_URL,
-        format!("tlg:{workspace_id}:{environment_id}:{domain:?}:{subject_id}").as_bytes(),
+        format!("featherlane-ai:{workspace_id}:{environment_id}:{domain:?}:{subject_id}")
+            .as_bytes(),
     )
     .to_string()
 }

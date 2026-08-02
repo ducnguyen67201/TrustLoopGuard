@@ -4,7 +4,7 @@ import type {
   AuthorizationApproval,
   AuthorizationGrantScope,
   AuthorizationReceipt,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthorizationApprovalsContent } from './AuthorizationApprovalsContent';

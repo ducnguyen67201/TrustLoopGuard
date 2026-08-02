@@ -23,7 +23,7 @@
     "@react-pdf/renderer": "^4.5.1",
     "@t3-oss/env-nextjs": "0.13.11",
     "@tabler/icons-react": "^3.44.0",
-    "@trustloopguard/sdk": "workspace:*",
+    "@featherlane-ai/sdk": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.14.0",

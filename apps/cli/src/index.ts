@@ -25,7 +25,7 @@ async function main(): Promise<void> {
 
 main().catch((error: Error) => {
   const cliError = error instanceof CliError ? error : new CliError(error.message);
-  process.stderr.write(`TrustLoopGuard: ${cliError.message}\n`);
+  process.stderr.write(`Featherlane AI: ${cliError.message}\n`);
   if (cliError.remediation !== undefined) process.stderr.write(`${cliError.remediation}\n`);
   process.exitCode = cliError.exitCode;
 });

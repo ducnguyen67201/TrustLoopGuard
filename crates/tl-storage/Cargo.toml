@@ -5,7 +5,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "TrustLoopGuard decision-log storage: in-memory + Postgres"
+description = "Featherlane AI decision-log storage: in-memory + Postgres"
 
 [features]
 default = []

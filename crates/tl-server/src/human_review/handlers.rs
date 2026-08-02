@@ -44,7 +44,7 @@ pub async fn create_review_event(
         Err(response) => return response,
     };
     let reviewer_id = headers
-        .get("x-tlg-user-id")
+        .get("x-featherlane-ai-user-id")
         .and_then(|value| value.to_str().ok())
         .map(str::to_string);
     match state

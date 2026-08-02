@@ -46,13 +46,13 @@ const departureMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'TrustLoopGuard',
+  title: 'Featherlane AI',
   description:
-    'TrustLoopGuard dashboard. Overview of guardrail decisions and policy activity returned by tl-server.',
+    'Featherlane AI dashboard. Overview of guardrail decisions and policy activity returned by tl-server.',
   icons: {
-    icon: [{ url: '/trustloop-logo.svg', type: 'image/svg+xml' }],
-    shortcut: ['/trustloop-logo.svg'],
-    apple: [{ url: '/trustloop-logo.svg', type: 'image/svg+xml' }],
+    icon: [{ url: '/featherlane-ai-logo.svg', type: 'image/svg+xml' }],
+    shortcut: ['/featherlane-ai-logo.svg'],
+    apple: [{ url: '/featherlane-ai-logo.svg', type: 'image/svg+xml' }],
   },
 };
 

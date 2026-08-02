@@ -30,7 +30,7 @@ export function HeroCard() {
         <div className="cc-shine" />
         <div className="cc-top">
           <span className="cc-chip" />
-          <span className="cc-net">TLG&nbsp;PAY</span>
+          <span className="cc-net">Featherlane AI&nbsp;PAY</span>
         </div>
         <div className="cc-number">···· ···· ···· 4242</div>
         <div className="cc-bot">

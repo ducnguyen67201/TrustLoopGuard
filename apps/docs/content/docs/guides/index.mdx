@@ -1,6 +1,6 @@
 ---
 title: Guides
-description: Task-oriented walkthroughs for common TrustLoopGuard workflows.
+description: Task-oriented walkthroughs for common Featherlane AI workflows.
 ---
 
 Guides are task-oriented. Start here when you know what you want to do and need
@@ -11,7 +11,7 @@ the shortest path through the repo.
 | Guide                                                                  | Use it when                                                                                         |
 | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | [Coding-Agent Tool Gates](/docs/guides/coding-agent-tool-gates)        | You want Claude Code, Codex, or OpenCode tool calls checked before execution.                       |
-| [Hosted MCP Access](/docs/guides/hosted-mcp-access)                    | You want employee AI clients to use assigned remote MCP tools through TrustLoopGuard.               |
+| [Hosted MCP Access](/docs/guides/hosted-mcp-access)                    | You want employee AI clients to use assigned remote MCP tools through Featherlane AI.               |
 | [Python Agent Frameworks](/docs/guides/python-agent-frameworks)        | You want to guard AG2 or Agno local tools and final plain-text output without rewriting agent flow. |
 | [AI Usage Cost Caps](/docs/guides/llm-spending-caps)                   | You need per-caller LLM spend limits, 80% alerts, and hard preflight enforcement.                   |
 | [Policy Authoring](/docs/guides/policy-authoring)                      | You need to write, validate, push, or pull policy YAML.                                             |
@@ -21,7 +21,7 @@ the shortest path through the repo.
 
 ### Guard An Agent Reply
 
-1. Create an agent and runtime key in the TrustLoopGuard dashboard.
+1. Create an agent and runtime key in the Featherlane AI dashboard.
 2. Install the SDK package for your runtime.
 3. Decorate the agent object once at construction.
 4. Keep calling its `reply()` method normally.
@@ -36,7 +36,7 @@ Use the demo package when you want a clean product moment:
 
 ```text
 agent drafts risky output
-  -> TrustLoopGuard checks it
+  -> Featherlane AI checks it
   -> user receives only the allowed or rewritten output
   -> dashboard shows the trace
 ```

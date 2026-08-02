@@ -740,8 +740,8 @@ async fn record_semantic_usage(
                 .insert_event(
                     workspace_id,
                     crate::llm_usage::RecordLlmUsageEvent {
-                        principal_id: "trustloopguard:guardrail".to_string(),
-                        api_key_id: "trustloopguard".to_string(),
+                        principal_id: "featherlane-ai:guardrail".to_string(),
+                        api_key_id: "featherlane-ai".to_string(),
                         kind: LlmUsageKind::Guardrail,
                         model,
                         prompt_tokens: i64::from(prompt_tokens),

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { Client } from '@trustloopguard/sdk';
+import { Client } from '@featherlane-ai/sdk';
 import { parseDocument } from 'yaml';
 
 import { loadDemoEnvForCurrentScript } from './load-env';
@@ -43,7 +43,7 @@ function parsePort(raw: string | undefined, fallback: number): number {
 }
 
 export function createClient(): Client {
-  const fetchImpl = fetchWithTrustLoopContext();
+  const fetchImpl = fetchWithFeatherlaneAIContext();
   return new Client({
     baseUrl: SERVER_URL,
     apiKey: API_KEY,
@@ -69,8 +69,8 @@ export async function registerDemoProfile(agentId = DEFAULT_AGENT_ID): Promise<v
     'content-type': 'application/yaml',
   };
   if (API_KEY) headers.authorization = `Bearer ${API_KEY}`;
-  if (WORKSPACE_ID) headers['x-tlg-workspace-id'] = WORKSPACE_ID;
-  if (ADMIN_USER_ID) headers['x-tlg-user-id'] = ADMIN_USER_ID;
+  if (WORKSPACE_ID) headers['x-featherlane-ai-workspace-id'] = WORKSPACE_ID;
+  if (ADMIN_USER_ID) headers['x-featherlane-ai-user-id'] = ADMIN_USER_ID;
 
   const res = await fetch(`${SERVER_URL}/v1/agents`, {
     method: 'POST',
@@ -85,14 +85,14 @@ export async function registerDemoProfile(agentId = DEFAULT_AGENT_ID): Promise<v
   process.stdout.write(`registered agent profile "${agentId}"\n\n`);
 }
 
-function fetchWithTrustLoopContext(): typeof fetch | undefined {
+function fetchWithFeatherlaneAIContext(): typeof fetch | undefined {
   const workspaceId = cleanOptionalEnv(WORKSPACE_ID);
   const adminUserId = ADMIN_USER_ID;
   if (workspaceId === undefined && adminUserId === undefined) return undefined;
   return ((input: RequestInfo | URL, init?: RequestInit) => {
     const headers = new Headers(init?.headers);
-    if (workspaceId !== undefined) headers.set('x-tlg-workspace-id', workspaceId);
-    if (adminUserId !== undefined) headers.set('x-tlg-user-id', adminUserId);
+    if (workspaceId !== undefined) headers.set('x-featherlane-ai-workspace-id', workspaceId);
+    if (adminUserId !== undefined) headers.set('x-featherlane-ai-user-id', adminUserId);
     return fetch(input, { ...init, headers });
   }) as typeof fetch;
 }

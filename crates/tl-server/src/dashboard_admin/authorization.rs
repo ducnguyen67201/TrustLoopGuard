@@ -46,12 +46,8 @@ pub(crate) async fn authorize_workspace_admin(
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     action: &str,
 ) -> Result<(String, Option<Uuid>), Response> {
-    if runtime_key.is_some() {
-        return Err(api_error_response(
-            StatusCode::FORBIDDEN,
-            ApiErrorCode::Forbidden,
-            format!("workspace runtime keys cannot {action}"),
-        ));
+    if let Some(response) = reject_workspace_runtime_key(runtime_key, action) {
+        return Err(response);
     }
 
     let workspace_id = crate::policies::workspace_id_from_headers(headers)?;
@@ -88,6 +84,25 @@ pub(crate) async fn authorize_workspace_admin(
     Ok((workspace_id, Some(user_id)))
 }
 
+/// Reject runtime credentials at control-plane mutation boundaries.
+///
+/// Some compatibility endpoints predate dashboard membership enforcement and
+/// still support the internal operator lane. They must nevertheless reject a
+/// workspace runtime key before touching governing configuration.
+pub(crate) fn reject_workspace_runtime_key(
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
+    action: &str,
+) -> Option<Response> {
+    if runtime_key.is_some() {
+        return Some(api_error_response(
+            StatusCode::FORBIDDEN,
+            ApiErrorCode::Forbidden,
+            format!("workspace runtime keys cannot {action}"),
+        ));
+    }
+    None
+}
+
 pub(crate) async fn authorize_workspace_admin_for_workspace(
     team_store: &Arc<dyn TeamStore>,
     workspace_id: &str,
@@ -97,12 +112,8 @@ pub(crate) async fn authorize_workspace_admin_for_workspace(
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     action: &str,
 ) -> Result<Uuid, Response> {
-    if runtime_key.is_some() {
-        return Err(api_error_response(
-            StatusCode::FORBIDDEN,
-            ApiErrorCode::Forbidden,
-            format!("workspace runtime keys cannot {action}"),
-        ));
+    if let Some(response) = reject_workspace_runtime_key(runtime_key, action) {
+        return Err(response);
     }
 
     let user_id = match user {
@@ -143,12 +154,8 @@ pub(crate) async fn authorize_workspace_member(
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     action: &str,
 ) -> Result<MyWorkspace, Response> {
-    if runtime_key.is_some() {
-        return Err(api_error_response(
-            StatusCode::FORBIDDEN,
-            ApiErrorCode::Forbidden,
-            format!("workspace runtime keys cannot {action}"),
-        ));
+    if let Some(response) = reject_workspace_runtime_key(runtime_key, action) {
+        return Err(response);
     }
     let workspace_id = crate::policies::workspace_id_from_headers(headers)?;
     let user_id = match user {
@@ -273,7 +280,7 @@ async fn require_admin_role(
 
 fn forwarded_user_id(headers: &HeaderMap) -> Option<Uuid> {
     headers
-        .get("x-tlg-user-id")
+        .get("x-featherlane-ai-user-id")
         .and_then(|value| value.to_str().ok())
         .and_then(|value| Uuid::parse_str(value.trim()).ok())
 }

@@ -53,11 +53,11 @@ impl GatewayProvider for AnthropicGatewayProvider {
         let id = response
             .get("id")
             .and_then(Value::as_str)
-            .unwrap_or("msg_tlg_stream");
+            .unwrap_or("msg_featherlane_ai_stream");
         let model = response
             .get("model")
             .cloned()
-            .unwrap_or(json!("trustloopguard-gateway"));
+            .unwrap_or(json!("featherlane-ai-gateway"));
         let text = self.extract_output(response);
         let stop_reason = response
             .get("stop_reason")
@@ -120,10 +120,10 @@ impl GatewayProvider for AnthropicGatewayProvider {
 
     fn blocked_response(&self, request: &Value) -> Value {
         json!({
-            "id": format!("msg_tlg_{}", Uuid::now_v7()),
+            "id": format!("msg_featherlane_ai_{}", Uuid::now_v7()),
             "type": "message",
             "role": "assistant",
-            "model": request.get("model").cloned().unwrap_or_else(|| json!("trustloopguard-gateway")),
+            "model": request.get("model").cloned().unwrap_or_else(|| json!("featherlane-ai-gateway")),
             "content": [{ "type": "text", "text": BLOCKED_MESSAGE }],
             "stop_reason": "content_filter",
             "stop_sequence": null,

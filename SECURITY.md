@@ -1,12 +1,12 @@
 # Security Policy
 
-TrustLoopGuard is a runtime guardrail for AI agents, so we take security
+Featherlane AI is a runtime guardrail for AI agents, so we take security
 reports seriously and aim to respond quickly. Thank you for helping keep
-TrustLoopGuard and its users safe.
+Featherlane AI and its users safe.
 
 ## Supported Versions
 
-TrustLoopGuard is pre-1.0 and under active development. Security fixes land on
+Featherlane AI is pre-1.0 and under active development. Security fixes land on
 the latest release and the `main` branch only — there are no long-term-support
 or backport guarantees during the `0.x` series. Always upgrade to the latest
 published version before reporting an issue.
@@ -14,8 +14,8 @@ published version before reporting an issue.
 | Component | Channel | Supported |
 | --------- | ------- | --------- |
 | Rust service (`crates/tl-server`) | `main` / latest release | :white_check_mark: |
-| TypeScript SDK (`@trustloopguard/sdk`) | latest npm release | :white_check_mark: |
-| Python SDK (`trustloopguard`) | latest PyPI release | :white_check_mark: |
+| TypeScript SDK (`@featherlane-ai/sdk`) | latest npm release | :white_check_mark: |
+| Python SDK (`featherlane-ai`) | latest PyPI release | :white_check_mark: |
 | Older `0.x` releases | — | :x: |
 
 ## Reporting a Vulnerability

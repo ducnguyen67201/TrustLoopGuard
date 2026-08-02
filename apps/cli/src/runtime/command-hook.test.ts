@@ -9,7 +9,7 @@ import { runCommandHook } from './command-hook.js';
 const directories: string[] = [];
 
 async function config(): Promise<{ root: string; project: string }> {
-  const root = await mkdtemp(join(tmpdir(), 'tlg-command-hook-'));
+  const root = await mkdtemp(join(tmpdir(), 'featherlane-ai-command-hook-'));
   directories.push(root);
   const projectDirectory = join(root, 'project');
   await mkdir(projectDirectory);
@@ -63,7 +63,7 @@ describe('command hook protocol', () => {
       ['--host', 'claude'],
       project,
       root,
-      { TLG_API_KEY: 'tl_live_test_only' },
+      { FEATHERLANE_AI_API_KEY: 'tl_live_test_only' },
     );
     expect(JSON.parse(result.stdout)).toMatchObject({
       hookSpecificOutput: {

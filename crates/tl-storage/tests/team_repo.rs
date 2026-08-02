@@ -276,7 +276,7 @@ async fn delete_workspace_revokes_access_and_retains_history() {
             &workspace.id,
             DEFAULT_ENVIRONMENT_ID,
             "Delete workspace key",
-            "tlg_delete",
+            "featherlane_ai_delete",
             "delete-workspace-key-hash",
             Some(owner_id),
             None,

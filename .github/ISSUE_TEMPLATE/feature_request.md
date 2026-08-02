@@ -8,7 +8,7 @@ assignees: ""
 
 ## Summary
 
-<!-- One paragraph: what should TrustLoopGuard enable, and for whom? -->
+<!-- One paragraph: what should Featherlane AI enable, and for whom? -->
 
 ## Problem
 
@@ -20,7 +20,7 @@ assignees: ""
 
 ## SDK/API surface
 
-> TrustLoopGuard is SDK-driven. User-visible features should be exposed through
+> Featherlane AI is SDK-driven. User-visible features should be exposed through
 > the SDKs, not only through engine internals.
 
 - [ ] `tl-core` type or wire-format change needed

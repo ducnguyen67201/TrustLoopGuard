@@ -1,10 +1,10 @@
-# Contributing to TrustLoopGuard
+# Contributing to Featherlane AI
 
 Thanks for your interest in contributing. This document covers how to report bugs, propose changes, and get your code merged.
 
 ## Reporting bugs
 
-Open a [GitHub issue](https://github.com/ducnguyen67201/TrustLoopGuard/issues) with:
+Open a [GitHub issue](https://github.com/ducnguyen67201/FeatherlaneAI/issues) with:
 
 - A minimal reproduction (the smallest `GuardEvent` or SDK call that triggers the problem)
 - The SDK and version you're using
@@ -20,8 +20,8 @@ For larger changes — new SDK methods, engine behavior, wire type additions —
 
 ```bash
 # Clone and enter the repo
-git clone https://github.com/ducnguyen67201/TrustLoopGuard.git
-cd TrustLoopGuard
+git clone https://github.com/ducnguyen67201/FeatherlaneAI.git
+cd Featherlane AI
 
 # Install workspace dependencies and build the local TypeScript SDK
 corepack enable
@@ -31,7 +31,7 @@ pnpm install
 cargo run -p tl-server
 
 # Run the dispute demo to verify your environment
-pnpm --filter @trustloopguard/demo dispute:check
+pnpm --filter @featherlane-ai/demo dispute:check
 ```
 
 This repository setup is only for contributors and self-hosting. Customers

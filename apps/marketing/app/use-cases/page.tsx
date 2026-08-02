@@ -9,9 +9,9 @@ import { absoluteUrl } from '@/lib/seo';
 import { USE_CASES } from './content';
 
 const PAGE_PATH = '/use-cases';
-const PAGE_TITLE = 'AI Agent Guardrail Use Cases | TrustLoopGuard';
+const PAGE_TITLE = 'AI Agent Guardrail Use Cases | Featherlane AI';
 const PAGE_DESCRIPTION =
-  'See how TrustLoopGuard checks shell commands, outbound email, agent spending, AI inference, x402 payments, and irreversible actions before execution.';
+  'See how Featherlane AI checks shell commands, outbound email, agent spending, AI inference, x402 payments, and irreversible actions before execution.';
 
 export const metadata: Metadata = {
   title: { absolute: PAGE_TITLE },
@@ -56,7 +56,7 @@ function UseCasesHero() {
         </div>
         <div className="use-cases-hero-copy">
           <p>
-            TrustLoopGuard is the control layer between an AI system&apos;s proposed action and the
+            Featherlane AI is the control layer between an AI system&apos;s proposed action and the
             provider, payment rail, or tool that makes it real.
           </p>
           <p>
@@ -84,7 +84,7 @@ function UseCasesHero() {
 
 function UseCaseIndex() {
   return (
-    <nav className="use-case-index" aria-label="TrustLoopGuard use cases">
+    <nav className="use-case-index" aria-label="Featherlane AI use cases">
       {USE_CASES.map((useCase) => (
         <Link key={useCase.slug} href={useCase.href} className="use-case-index-card">
           <span>{useCase.number}</span>
@@ -124,7 +124,7 @@ function BoundarySection() {
           <div>
             <p className="eyebrow eyebrow-light">One role, clearly bounded</p>
             <h2 id="boundary-heading" className="section-title">
-              The rail executes. TrustLoopGuard decides.
+              The rail executes. Featherlane AI decides.
             </h2>
           </div>
           <p className="section-copy">

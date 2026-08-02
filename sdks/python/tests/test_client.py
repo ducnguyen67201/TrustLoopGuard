@@ -1,4 +1,4 @@
-"""Smoke tests for the TrustLoopGuard Python SDK. No live network calls."""
+"""Smoke tests for the Featherlane AI Python SDK. No live network calls."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import httpx
 import pytest
 import respx
 
-from trustloopguard import (
+from featherlane_ai import (
     Action,
     AsyncClient,
     CreateRunEventRequest,
@@ -259,7 +259,7 @@ def test_authorized_action_submits_typed_evidence_from_defensive_copies() -> Non
             tool_identity=ToolIdentity(
                 server_id="ag2",
                 tool_name="confirm_order",
-                schema_hash="tlg-schema:fnv1a64:test",
+                schema_hash="featherlane-ai-schema:fnv1a64:test",
             ),
             execute=execute,
             invocation_id="call-1",
@@ -289,7 +289,7 @@ def test_authorized_action_submits_typed_evidence_from_defensive_copies() -> Non
             "tool_identity": {
                 "server_id": "ag2",
                 "tool_name": "confirm_order",
-                "schema_hash": "tlg-schema:fnv1a64:test",
+                "schema_hash": "featherlane-ai-schema:fnv1a64:test",
             },
         },
         "sources": [
@@ -328,7 +328,7 @@ async def test_async_authorized_action_submits_typed_evidence() -> None:
             tool_identity=ToolIdentity(
                 server_id="agno",
                 tool_name="lookup_inventory",
-                schema_hash="tlg-schema:fnv1a64:test",
+                schema_hash="featherlane-ai-schema:fnv1a64:test",
             ),
             execute=lambda _: _async_value("available"),
             parameters={"sku": "sku-1"},
@@ -372,7 +372,7 @@ def test_authorized_action_rejects_principal_agent_mismatch_before_io(
         "tool_identity": ToolIdentity(
             server_id="agno",
             tool_name="confirm_order",
-            schema_hash="tlg-schema:fnv1a64:test",
+            schema_hash="featherlane-ai-schema:fnv1a64:test",
         ),
         "execute": execute,
         "principal": Principal(

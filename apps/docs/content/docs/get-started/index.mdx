@@ -5,7 +5,7 @@ description: Connect OpenAI Agents, Mastra, or a custom TypeScript agent and gua
 
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
-TrustLoopGuard protects two boundaries: local tools before they execute and the
+Featherlane AI protects two boundaries: local tools before they execute and the
 final answer before your application sends it to a user. The exact setup
 depends on how your framework runs an agent.
 
@@ -13,12 +13,12 @@ Choose your framework in Step 4. Every path uses the same package and runtime
 credentials:
 
 ```bash
-npm install @trustloopguard/sdk
+npm install @featherlane-ai/sdk
 ```
 
 ## 1. Create an Agent and Runtime Key
 
-In the TrustLoopGuard dashboard:
+In the Featherlane AI dashboard:
 
 1. Open **Agents**, choose **New agent**, and copy the new agent ID.
 2. Open **API Keys**, choose **Create key**, and select the same environment as
@@ -30,13 +30,13 @@ You now need three values:
 | Value       | Where it is used                  |
 | ----------- | --------------------------------- |
 | Agent ID    | The `agentId` option in your code |
-| Runtime URL | `TLG_URL`                         |
-| Runtime key | `TLG_API_KEY`                     |
+| Runtime URL | `FEATHERLANE_AI_URL`                         |
+| Runtime key | `FEATHERLANE_AI_API_KEY`                     |
 
 ## 2. Install One Package
 
 ```bash
-npm install @trustloopguard/sdk
+npm install @featherlane-ai/sdk
 ```
 
 ## 3. Configure
@@ -46,11 +46,11 @@ For local development, add them to the environment file your framework loads,
 such as `.env` or `.env.local`:
 
 ```dotenv
-TLG_URL=https://api.gettrustloop.app
-TLG_API_KEY=tl_live_...
+FEATHERLANE_AI_URL=https://api.featherlane.ai
+FEATHERLANE_AI_API_KEY=tl_live_...
 ```
 
-The SDK reads both variables automatically. Keep `TLG_API_KEY` server-side:
+The SDK reads both variables automatically. Keep `FEATHERLANE_AI_API_KEY` server-side:
 do not commit it or expose it through a browser-prefixed variable such as
 `NEXT_PUBLIC_*`.
 
@@ -59,7 +59,7 @@ do not commit it or expose it through a browser-prefixed variable such as
 Create the framework agent first, then pass that object to `guardAgent(...)`.
 Do not call `guardAgent(agent, ...)` before `agent` has been declared.
 
-The `agentId` value is the agent ID from the TrustLoopGuard dashboard. It does
+The `agentId` value is the agent ID from the Featherlane AI dashboard. It does
 not need to match your JavaScript variable name or the display name used by
 OpenAI or Mastra.
 
@@ -71,12 +71,12 @@ OpenAI or Mastra.
     `result.finalOutput` to protect the answer:
 
     ```bash
-    npm install @trustloopguard/sdk @openai/agents zod
+    npm install @featherlane-ai/sdk @openai/agents zod
     ```
 
     ```ts
     import { Agent, run } from '@openai/agents';
-    import { guard, guardAgent } from '@trustloopguard/sdk';
+    import { guard, guardAgent } from '@featherlane-ai/sdk';
 
     const baseAgent = new Agent({
       name: 'Support agent',
@@ -100,7 +100,7 @@ OpenAI or Mastra.
     ```
 
     Keep `OPENAI_API_KEY` configured exactly as OpenAI Agents expects. The
-    TrustLoopGuard variables are additional credentials; they do not replace
+    Featherlane AI variables are additional credentials; they do not replace
     your model-provider key.
 
   </Tab>
@@ -111,12 +111,12 @@ OpenAI or Mastra.
     local tools are protected, and wrap the final-text function:
 
     ```bash
-    npm install @trustloopguard/sdk @mastra/core
+    npm install @featherlane-ai/sdk @mastra/core
     ```
 
     ```ts
     import { Agent } from '@mastra/core/agent';
-    import { guard, guardAgent } from '@trustloopguard/sdk';
+    import { guard, guardAgent } from '@featherlane-ai/sdk';
 
     const baseAgent = new Agent({
       id: 'support-agent',
@@ -139,7 +139,7 @@ OpenAI or Mastra.
     ```
 
     Keep the provider environment variable used by your Mastra model, such as
-    `OPENAI_API_KEY`, alongside `TLG_URL` and `TLG_API_KEY`.
+    `OPENAI_API_KEY`, alongside `FEATHERLANE_AI_URL` and `FEATHERLANE_AI_API_KEY`.
 
   </Tab>
 
@@ -149,7 +149,7 @@ OpenAI or Mastra.
     its local tools and final replies:
 
     ```ts
-    import { guardAgent } from '@trustloopguard/sdk';
+    import { guardAgent } from '@featherlane-ai/sdk';
 
     const baseAgent = createAgent();
     const agent = guardAgent(baseAgent, { agentId: 'support-agent' });
@@ -169,7 +169,7 @@ OpenAI or Mastra.
     wrap the one function that resolves to the final text:
 
     ```ts
-    import { guard } from '@trustloopguard/sdk';
+    import { guard } from '@featherlane-ai/sdk';
 
     const reply = guard({ agentId: 'support-agent' }).wrap(generateReply);
     const safeReply = await reply(userMessage);
@@ -184,7 +184,7 @@ OpenAI or Mastra.
   </Tab>
 </Tabs>
 
-Do not stream tokens to the user before TrustLoopGuard checks them. For
+Do not stream tokens to the user before Featherlane AI checks them. For
 streaming frameworks, buffer the complete result with the SDK's `guard.stream`
 helper; see [Guard Modes](/docs/guides/guard-modes#streaming-output).
 
@@ -213,7 +213,7 @@ For a framework-owned multi-turn session, keep the same wrap-once shape and
 bind the real lifecycle:
 
 ```ts
-import { guardAgent, liveKitRun } from '@trustloopguard/sdk';
+import { guardAgent, liveKitRun } from '@featherlane-ai/sdk';
 
 const session = createLiveKitAgentSession();
 const agent = guardAgent(createAgent(), {
@@ -240,12 +240,12 @@ clone, Doppler setup, local Rust server, or model-provider proxy is required.
 
 ### Common setup errors
 
-- **Cannot find `@trustloopguard/sdk`:** run the install command in the same
+- **Cannot find `@featherlane-ai/sdk`:** run the install command in the same
   application package as the agent file. In a monorepo, installing it only at a
   different workspace root may not make the import available.
 - **Agent used before declaration:** create `baseAgent` first, then call
   `guardAgent(baseAgent, ...)`. The decorator needs the real framework object.
-- **No trace appears:** confirm that `TLG_URL` and `TLG_API_KEY` are loaded by
+- **No trace appears:** confirm that `FEATHERLANE_AI_URL` and `FEATHERLANE_AI_API_KEY` are loaded by
   the server process, and that `agentId` exactly matches an agent in the key's
   environment.
 - **Structured or streamed output:** select or buffer the final user-visible

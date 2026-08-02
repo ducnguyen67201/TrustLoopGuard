@@ -1,11 +1,11 @@
-# TrustLoopGuard concepts
+# Featherlane AI concepts
 
 Plain-English explanations of every moving part. Read these in order if you're
 new, or use the visual map below to jump to the part you need.
 
-## What TrustLoopGuard is
+## What Featherlane AI is
 
-> Ultra-low-latency runtime safety layer for production AI agents. The moment before an agent speaks, sends, clicks, or commits — TrustLoopGuard returns `permit | transform | require_approval | defer | deny`.
+> Ultra-low-latency runtime safety layer for production AI agents. The moment before an agent speaks, sends, clicks, or commits — Featherlane AI returns `permit | transform | require_approval | defer | deny`.
 
 Customers integrate one primitive into their agent loop:
 
@@ -13,15 +13,15 @@ Customers integrate one primitive into their agent loop:
 agent tool/reply → guardAgent(...) → GuardEvent → authorization kernel → safe execution + trace
 ```
 
-That runtime check is the product. SDK callers receive the decision and handle it in code; gateway callers route provider traffic through TrustLoopGuard and let the Rust proxy apply dashboard-managed enforcement.
+That runtime check is the product. SDK callers receive the decision and handle it in code; gateway callers route provider traffic through Featherlane AI and let the Rust proxy apply dashboard-managed enforcement.
 
-![TrustLoopGuard concept overview](assets/trustloop-concept.svg)
+![Featherlane AI concept overview](assets/featherlane-ai-concept.svg)
 
 ## Visual map
 
 | What you need to understand | Start here | What the diagram explains |
 |---|---|---|
-| The product concept | [architecture.md](architecture.md) | TrustLoopGuard is a gate in the agent output path, not the agent itself. |
+| The product concept | [architecture.md](architecture.md) | Featherlane AI is a gate in the agent output path, not the agent itself. |
 | Runtime data ownership | [architecture.md](architecture.md#runtime-data-flow) | SDKs and the dashboard both reach Rust; the dashboard does not own guardrail state. |
 | Event-engine contract | [event-engine.md](event-engine.md) | `GuardEvent` vocabulary, event-stage seams, policy evaluation, and decision evidence. |
 | TypeScript agent adapters | [sdk-agent-adapters.md](sdk-agent-adapters.md) | How one agent wrapper discovers and guards supported local tools. |
@@ -49,8 +49,8 @@ That runtime check is the product. SDK callers receive the decision and handle i
 10. [analytics-dashboards.md](analytics-dashboards.md) — how customizable analytics queries and saved dashboard views work.
 11. [gateway.md](gateway.md) — how proxy/gateway mode differs from SDK mode.
 12. [agent-breakaway-arena.md](agent-breakaway-arena.md) — the raw-vs-guarded comparison concept and the agent adapter contract the demos use.
-13. [sdk-publishing.md](sdk-publishing.md) — how `@trustloopguard/sdk` is released to npm.
-14. [cli-publishing.md](cli-publishing.md) — how `@trustloopguard/cli` is released to npm.
+13. [sdk-publishing.md](sdk-publishing.md) — how `@featherlane-ai/sdk` is released to npm.
+14. [cli-publishing.md](cli-publishing.md) — how `@featherlane-ai/cli` is released to npm.
 15. [sdk-agent-adapters.md](sdk-agent-adapters.md) — how TypeScript agent wrappers discover local tools and where visibility stops.
 
 ## When to update these docs

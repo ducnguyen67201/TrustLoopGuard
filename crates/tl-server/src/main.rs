@@ -4,28 +4,46 @@ use tl_server::{build_app_state, build_seal_key, router, AuthConfig, BuildOption
 async fn main() -> anyhow::Result<()> {
     init_tracing();
 
-    let state = build_app_state(BuildOptions::default()).await?;
-
-    // TL_API_KEY is the production gate. Local dev can omit it; the
-    // server logs a warning and serves /v1/* without auth. We do NOT
-    // silently default to a constant — that would shadow forgotten
-    // production configs.
+    // Local development may omit TL_API_KEY only while listening on loopback.
+    // A non-loopback listener without authentication would expose the entire
+    // /v1 control and runtime surface to the surrounding network.
     let auth = match AuthConfig::from_env() {
         Ok(cfg) => Some(cfg),
         Err(e) => {
             tracing::warn!(
                 error = %e,
-                "TL_API_KEY not configured — /v1/* endpoints are UNAUTHENTICATED"
+                "TL_API_KEY not configured — only a loopback listener is permitted"
             );
             None
         }
     };
 
-    let app = router(state, auth, build_seal_key());
-    let addr = std::env::var("TL_SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
+    let addr =
+        std::env::var("TL_SERVER_ADDR").unwrap_or_else(|_| default_listener_addr().to_owned());
     let listener = tokio::net::TcpListener::bind(&addr).await?;
+    validate_listener_auth(listener.local_addr()?, auth.is_some())?;
+
+    let state = build_app_state(BuildOptions::default()).await?;
+    let app = router(state, auth, build_seal_key());
     tracing::info!(addr, "tl-server listening");
     axum::serve(listener, app).await?;
+    Ok(())
+}
+
+fn default_listener_addr() -> &'static str {
+    "127.0.0.1:8080"
+}
+
+fn validate_listener_auth(
+    addr: std::net::SocketAddr,
+    authentication_enabled: bool,
+) -> anyhow::Result<()> {
+    if !authentication_enabled && !addr.ip().is_loopback() {
+        anyhow::bail!(
+            "refusing unauthenticated non-loopback listener {addr}; set TL_API_KEY or bind \
+             TL_SERVER_ADDR to 127.0.0.1/[::1]"
+        );
+    }
     Ok(())
 }
 
@@ -48,4 +66,27 @@ fn init_tracing() {
 fn env_filter() -> tracing_subscriber::EnvFilter {
     tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{default_listener_addr, validate_listener_auth};
+
+    #[test]
+    fn default_listener_is_loopback() {
+        assert_eq!(default_listener_addr(), "127.0.0.1:8080");
+    }
+
+    #[test]
+    fn unauthenticated_listener_is_limited_to_loopback() {
+        assert!(validate_listener_auth("127.0.0.1:8080".parse().unwrap(), false).is_ok());
+        assert!(validate_listener_auth("[::1]:8080".parse().unwrap(), false).is_ok());
+        assert!(validate_listener_auth("0.0.0.0:8080".parse().unwrap(), false).is_err());
+        assert!(validate_listener_auth("[::]:8080".parse().unwrap(), false).is_err());
+    }
+
+    #[test]
+    fn authenticated_listener_may_bind_non_loopback() {
+        assert!(validate_listener_auth("0.0.0.0:8080".parse().unwrap(), true).is_ok());
+    }
 }

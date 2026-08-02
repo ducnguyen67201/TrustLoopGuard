@@ -1,7 +1,7 @@
 import type {
   AuthorizationApprovalListResponse,
   AuthorizationReceiptListResponse,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import { AppLayout } from '@/components/AppLayout';
 import { AuthorizationApprovalsContent } from '@/components/workspace/AuthorizationApprovalsContent';

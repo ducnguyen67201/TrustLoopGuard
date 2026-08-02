@@ -1,6 +1,6 @@
 // Flagship money-agent showcase: a fixed set of money-move attempts, each
 // isolating ONE control, run through the guard. A payment fires only on
-// `allow`. Run with `pnpm --filter @trustloopguard/demo dispute:scenarios`.
+// `allow`. Run with `pnpm --filter @featherlane-ai/demo dispute:scenarios`.
 //
 // The pure scenario logic lives in scenarios.core.ts (so tests can import it
 // without triggering a run); this file is the runnable entry: real client,

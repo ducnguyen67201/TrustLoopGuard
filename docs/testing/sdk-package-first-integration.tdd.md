@@ -4,12 +4,12 @@
 
 The user journeys were derived from direct integration feedback: customers
 should install one published SDK package and decorate the agent object once,
-without cloning TrustLoopGuard, changing every reply call site, or adding
+without cloning Featherlane AI, changing every reply call site, or adding
 monitoring scaffolding.
 
 ## User journeys
 
-- As a TypeScript developer, I can install `@trustloopguard/sdk`, decorate an
+- As a TypeScript developer, I can install `@featherlane-ai/sdk`, decorate an
   agent at construction, and keep calling `agent.reply(...)` normally.
 - As a developer, I retain the decorated agent's other properties, methods, and
   typed `reply()` arguments.
@@ -23,7 +23,7 @@ monitoring scaffolding.
 | --- | --- | --- |
 | TypeScript function wrapper | `pnpm test -- guard.test.ts` ran the new tests and failed five cases with `protect.wrap is not a function`. | The lower-level wrapper remains compatible in the full SDK suite. |
 | TypeScript agent decorator | The new agent-object tests failed four cases with `guardAgent is not a function`. A later private-field regression test failed because untouched methods received the proxy as `this`. | `pnpm test` passed 77 tests, including unchanged `agent.reply(...)` calls, private-backed interface preservation, transformed output, and fail-closed behavior. |
-| Environment-only SDK configuration | The new test reached `http://127.0.0.1:8080/v1/events` instead of `TLG_URL`, then showed the documented `TLG_API_KEY` was not loaded. | The TypeScript SDK tests passed with both environment variables applied to the request. |
+| Environment-only SDK configuration | The new test reached `http://127.0.0.1:8080/v1/events` instead of `FEATHERLANE_AI_URL`, then showed the documented `FEATHERLANE_AI_API_KEY` was not loaded. | The TypeScript SDK tests passed with both environment variables applied to the request. |
 | Python decorator | `PYTHONPATH=src python3 -m pytest tests/test_guard.py -q` failed collection because `guarded` was not exported. | The full Python SDK suite passed 70 tests. |
 | Concise dashboard onboarding | The first package-first assertions failed because the snippet still imported `Client`, used `withRun`, and required branch callbacks. The structural-decorator assertions later failed three cases while onboarding still showed `.wrap()`. | The web suite passed 225 tests, including the `guardAgent(...)` onboarding unit and component contracts. |
 | Installable npm artifact | Importing the packed artifact failed with `ERR_MODULE_NOT_FOUND` because emitted ESM used extensionless relative imports. The first dry run also contained 969 files, including source and generated runtime modules. | `test:package` now packs and imports the exact artifact in Node, compiles a TypeScript consumer, verifies `guardAgent`, excludes source/generated runtime JavaScript, and passes with 329 files. |
@@ -38,10 +38,10 @@ created. The evidence is preserved here instead.
 | 1 | `guardAgent(agent, options)` returns the same agent type and preserves `agent.reply(...)` call sites | `sdks/typescript/test/guard.test.ts` and SDK typecheck | Unit/compile-time | PASS |
 | 2 | The decorated `reply()` delegates to the original agent and submits its returned string | `sdks/typescript/test/guard.test.ts` | Unit/integration | PASS |
 | 3 | Other agent members and additional reply arguments remain usable | `sdks/typescript/test/guard.test.ts` | Unit | PASS |
-| 4 | TrustLoopGuard transformed output is returned through the same `reply()` method | `sdks/typescript/test/guard.test.ts` | Unit | PASS |
+| 4 | Featherlane AI transformed output is returned through the same `reply()` method | `sdks/typescript/test/guard.test.ts` | Unit | PASS |
 | 5 | The root agent decorator fails closed on SDK transport errors by default | `sdks/typescript/test/guard.test.ts` | Unit | PASS |
 | 6 | Existing explicit `guard()` and lower-level `.wrap()` behavior remain compatible | Full TypeScript and Python SDK suites | Regression | PASS |
-| 7 | `TLG_URL` and `TLG_API_KEY` configure the factory without constructing a client | `sdks/typescript/test/guard.test.ts` | Unit | PASS |
+| 7 | `FEATHERLANE_AI_URL` and `FEATHERLANE_AI_API_KEY` configure the factory without constructing a client | `sdks/typescript/test/guard.test.ts` | Unit | PASS |
 | 8 | Dashboard snippets lead with `guardAgent(...)`, retain `agent.reply(...)`, and omit `Client`/`withRun` | Web onboarding tests | Component/unit | PASS |
 | 9 | The exact npm tarball imports in Node and exports `guardAgent` | `sdks/typescript/scripts/package-smoke.mjs` | Package integration | PASS |
 | 10 | Published files exclude TypeScript source and generated runtime JavaScript | `sdks/typescript/scripts/package-smoke.mjs` | Package contract | PASS |
@@ -55,7 +55,7 @@ created. The evidence is preserved here instead.
 - `pnpm test -- lib/onboarding.test.ts components/onboarding/ConnectAgentStep.test.tsx && pnpm typecheck` in `apps/web`: PASS, 225 tests.
 - `pnpm typecheck && pnpm build` in `apps/marketing`: PASS.
 - `pnpm typecheck && pnpm build` in `apps/docs`: PASS.
-- `pnpm --filter @trustloopguard/sdk test:package`: PASS, 329 packed files,
+- `pnpm --filter @featherlane-ai/sdk test:package`: PASS, 329 packed files,
   205052 unpacked bytes.
 - `cargo test -p tl-codegen`: PASS, including TypeScript import-normalization
   tests.

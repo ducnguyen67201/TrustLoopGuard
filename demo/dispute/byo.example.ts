@@ -1,21 +1,21 @@
-// Bring-your-own-agent: gate YOUR money tool on a TrustLoopGuard authorization effect.
+// Bring-your-own-agent: gate YOUR money tool on a Featherlane AI authorization effect.
 //
 // This is the whole integration: (1) register your tool's controls once, then
 // (2) ask the guard before you execute and honor the effect. Copy this shape
 // into your own agent. Run end-to-end against a local server with:
-//   make server && pnpm --filter @trustloopguard/demo dispute:byo
+//   make server && pnpm --filter @featherlane-ai/demo dispute:byo
 //
 // Prefer not to wrap each call yourself? Point your OpenAI/Anthropic client's
 // baseURL at the gateway proxy instead — same effects, no per-call code.
 
-import type { AuthorizationDecision, GuardEvent } from '@trustloopguard/sdk';
+import type { AuthorizationDecision, GuardEvent } from '@featherlane-ai/sdk';
 
 import { API_KEY, createClient, DEFAULT_AGENT_ID, SERVER_URL, WORKSPACE_ID } from '../shared/env';
 
 function headers(): Record<string, string> {
   const result: Record<string, string> = { 'content-type': 'application/json' };
   if (API_KEY) result.authorization = `Bearer ${API_KEY}`;
-  if (WORKSPACE_ID) result['x-tlg-workspace-id'] = WORKSPACE_ID;
+  if (WORKSPACE_ID) result['x-featherlane-ai-workspace-id'] = WORKSPACE_ID;
   return result;
 }
 

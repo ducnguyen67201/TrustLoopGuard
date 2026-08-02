@@ -31,7 +31,7 @@ function getDatabase(): ReturnType<typeof postgres> | null {
     connect_timeout: 10,
     prepare: false,
     connection: {
-      application_name: 'trustloop-marketing-demo-reader',
+      application_name: 'featherlane-ai-marketing-demo-reader',
       default_transaction_read_only: true,
       statement_timeout: 3_000,
     },

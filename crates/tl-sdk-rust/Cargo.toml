@@ -5,7 +5,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "TrustLoopGuard Rust SDK"
+description = "Featherlane AI Rust SDK"
 
 [dependencies]
 tl-core = { workspace = true }

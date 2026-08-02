@@ -11,7 +11,7 @@ use super::config::{GitHubAppConfig, GITHUB_REQUEST_TIMEOUT};
 const API_VERSION_HEADER: &str = "X-GitHub-Api-Version";
 const API_VERSION: &str = "2026-03-10";
 const ACCEPT_JSON: &str = "application/vnd.github+json";
-const USER_AGENT_VALUE: &str = "TrustLoopGuard-GitHub-Integration";
+const USER_AGENT_VALUE: &str = "Featherlane AI-GitHub-Integration";
 
 #[derive(Debug, thiserror::Error)]
 pub enum GitHubClientError {
@@ -543,7 +543,7 @@ impl GitHubClient for ReqwestGitHubClient {
             &token,
             &format!("https://api.github.com/repos/{owner}/{repo}/git/commits"),
             &serde_json::json!({
-                "message": "Integrate TrustLoopGuard",
+                "message": "Integrate Featherlane AI",
                 "tree": new_tree.sha,
                 "parents": [base_sha],
             }),

@@ -26,7 +26,7 @@ test('reuses the existing dedicated healthcare workspace', async () => {
   assert.equal(requests.length, 1);
   assert.equal(requests[0]?.method, 'GET');
   assert.equal(requests[0]?.headers.get('authorization'), 'Bearer internal-key');
-  assert.equal(requests[0]?.headers.get('x-tlg-user-id'), ADMIN_USER_ID);
+  assert.equal(requests[0]?.headers.get('x-featherlane-ai-user-id'), ADMIN_USER_ID);
 });
 
 test('creates the dedicated healthcare workspace only when it is missing', async () => {
@@ -66,7 +66,7 @@ test('rejects ambiguous duplicate healthcare workspaces instead of selecting one
 test('resolves the Rust-owned default environment for policy and key scope', async () => {
   const config = adminConfig(async (input, init) => {
     const request = new Request(input, init);
-    assert.equal(request.headers.get('x-tlg-workspace-id'), 'ws_healthcare_demo');
+    assert.equal(request.headers.get('x-featherlane-ai-workspace-id'), 'ws_healthcare_demo');
     return Response.json({
       environments: [
         environmentRecord('staging', false),
@@ -108,7 +108,7 @@ test('creates one agent-bound runtime key when the workspace has none', async ()
     apiKey: runtimeKeyRecord(),
     plaintextKey: 'tl_live_healthcare-secret',
   });
-  assert.equal(requests[1]?.headers.get('x-tlg-workspace-id'), 'ws_healthcare_demo');
+  assert.equal(requests[1]?.headers.get('x-featherlane-ai-workspace-id'), 'ws_healthcare_demo');
 });
 
 test('reuses runtime-key metadata without rotating or exposing another secret', async () => {
@@ -177,8 +177,8 @@ test('hosted client uses only the workspace runtime key and sends no workspace o
   await client.listPolicies({ family: 'content' });
 
   assert.equal(request?.headers.get('authorization'), 'Bearer tl_live_healthcare-secret');
-  assert.equal(request?.headers.get('x-tlg-workspace-id'), null);
-  assert.equal(request?.headers.get('x-tlg-user-id'), null);
+  assert.equal(request?.headers.get('x-featherlane-ai-workspace-id'), null);
+  assert.equal(request?.headers.get('x-featherlane-ai-user-id'), null);
 });
 
 test('hosted client rejects missing and non-runtime credentials', () => {

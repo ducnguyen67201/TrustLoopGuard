@@ -750,7 +750,7 @@ fn request_user_id(
     }
     if internal.is_some() {
         if let Some(value) = headers
-            .get("x-tlg-user-id")
+            .get("x-featherlane-ai-user-id")
             .and_then(|value| value.to_str().ok())
             .and_then(|value| Uuid::parse_str(value).ok())
         {

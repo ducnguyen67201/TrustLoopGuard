@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, test } from 'vitest';
 
-import { resolveTrustLoopPaths } from '../paths.js';
+import { resolveFeatherlaneAIPaths } from '../paths.js';
 import type { HostInstallContext } from './types.js';
 import {
   commandHandler,
@@ -22,7 +22,7 @@ import { openCodeAdapter, openCodeLoader } from './opencode.js';
 const directories: string[] = [];
 
 async function fixture(): Promise<{ root: string; context: HostInstallContext }> {
-  const root = await mkdtemp(join(tmpdir(), 'tlg-hosts-'));
+  const root = await mkdtemp(join(tmpdir(), 'featherlane-ai-hosts-'));
   directories.push(root);
   const bin = join(root, 'bin');
   await mkdir(bin);
@@ -42,7 +42,7 @@ async function fixture(): Promise<{ root: string; context: HostInstallContext }>
     root,
     context: {
       env,
-      paths: resolveTrustLoopPaths(env, process.platform, env.HOME),
+      paths: resolveFeatherlaneAIPaths(env, process.platform, env.HOME),
       platform: process.platform,
       runtimePresent: true,
       allowUnsupported: false,
@@ -131,7 +131,7 @@ describe('host adapters', () => {
     const handler = hooks.hooks['PreToolUse']?.[0]?.hooks[0];
     expect(handler).toMatchObject({
       type: 'command',
-      statusMessage: 'TrustLoopGuard is authorizing this tool',
+      statusMessage: 'Featherlane AI is authorizing this tool',
       timeout: 330,
     });
     expect(handler?.['command']).toContain('--host codex');
@@ -149,17 +149,17 @@ describe('host adapters', () => {
     expect(quoteWindows('C:\\A \"B\"\\hook.js')).toBe('"C:\\A \\"B\\"\\hook.js"');
     expect(
       openCodeLoader(
-        '/config/opencode/plugins/trustloopguard.mjs',
-        '/config/trustloopguard/runtime/opencode-plugin.js',
+        '/config/opencode/plugins/featherlane-ai.mjs',
+        '/config/featherlane-ai/runtime/opencode-plugin.js',
       ),
-    ).toContain('../../trustloopguard/runtime/opencode-plugin.js');
+    ).toContain('../../featherlane-ai/runtime/opencode-plugin.js');
   });
 
   test('installs and removes only the managed OpenCode loader', async () => {
     const { context } = await fixture();
     await openCodeAdapter.install(context);
     expect(await readFile(context.paths.openCodePluginFile, 'utf8')).toContain(
-      'TrustLoopGuard managed OpenCode tool gate',
+      'Featherlane AI managed OpenCode tool gate',
     );
     expect(await openCodeAdapter.inspect(context)).toMatchObject({
       installed: true,

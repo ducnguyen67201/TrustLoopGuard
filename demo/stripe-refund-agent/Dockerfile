@@ -25,4 +25,4 @@ ENV NODE_ENV=production \
 USER node
 EXPOSE 8080
 
-CMD ["pnpm", "--filter", "@trustloopguard/demo", "stripe-refund-agent:ui"]
+CMD ["pnpm", "--filter", "@featherlane-ai/demo", "stripe-refund-agent:ui"]

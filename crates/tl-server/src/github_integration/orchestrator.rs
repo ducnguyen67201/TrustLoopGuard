@@ -314,7 +314,7 @@ async fn run_apply(
         return;
     };
     let branch_name = format!(
-        "trustloopguard/integrate-{}",
+        "featherlane-ai/integrate-{}",
         &job_id[..8.min(job_id.len())]
     );
     let body = pr_body(&job_before, &connection, &branch_name);
@@ -327,7 +327,7 @@ async fn run_apply(
             base_sha: base_sha.to_string(),
             branch_name,
             changes: job_before.proposed_changes.clone(),
-            title: "Integrate TrustLoopGuard".to_string(),
+            title: "Integrate Featherlane AI".to_string(),
             body,
         })
         .await
@@ -414,8 +414,8 @@ fn pr_body(
         .collect::<Vec<_>>()
         .join("\n");
     format!(
-        "## TrustLoopGuard integration\n\n\
-         This draft PR was opened after explicit approval in TrustLoopGuard. It has not been merged, deployed, or tested by TrustLoopGuard.\n\n\
+        "## Featherlane AI integration\n\n\
+         This draft PR was opened after explicit approval in Featherlane AI. It has not been merged, deployed, or tested by Featherlane AI.\n\n\
          Risk guarded: {}\n\n\
          Agent: `{}`\n\
          Environment: `{}`\n\
@@ -423,7 +423,7 @@ fn pr_body(
          Branch: `{}`\n\n\
          Files:\n{}\n\n\
          Manual steps:\n{}\n\n\
-         Configure `TLG_API_KEY` and `TLG_URL` in your deployment environment before merging. Run your repository CI and refresh the lockfile locally if package.json changed.",
+         Configure `FEATHERLANE_AI_API_KEY` and `FEATHERLANE_AI_URL` in your deployment environment before merging. Run your repository CI and refresh the lockfile locally if package.json changed.",
         job.risk_statement,
         connection.agent_id,
         connection.environment_id,

@@ -3,8 +3,8 @@ use uuid::Uuid;
 
 use crate::jwt::UserContext;
 
-pub(super) const X_USER_HEADER: &str = "x-tlg-user-id";
-pub(super) const X_USER_EMAIL_HEADER: &str = "x-tlg-user-email";
+pub(super) const X_USER_HEADER: &str = "x-featherlane-ai-user-id";
+pub(super) const X_USER_EMAIL_HEADER: &str = "x-featherlane-ai-user-email";
 
 pub(super) fn request_user_id(
     headers: &HeaderMap,

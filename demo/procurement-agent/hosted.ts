@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import type { Client, PolicySummary, Severity } from '@trustloopguard/sdk';
+import type { Client, PolicySummary, Severity } from '@featherlane-ai/sdk';
 
 import { createClient, WORKSPACE_ID } from '../shared/env';
 import {
@@ -81,7 +81,7 @@ export interface HostedProcurementDemoResponse {
   logs: HostedProcurementLogEntry[];
   runtime: {
     agent: 'openai-agents-js';
-    guard: 'trustloopguard-rust-api';
+    guard: 'featherlane-ai-rust-api';
     provider: 'simulated-procurement-api';
   };
 }
@@ -238,7 +238,7 @@ function projectProcurementPolicies(
 function procurementRuntime(): HostedProcurementDemoResponse['runtime'] {
   return {
     agent: 'openai-agents-js',
-    guard: 'trustloopguard-rust-api',
+    guard: 'featherlane-ai-rust-api',
     provider: 'simulated-procurement-api',
   };
 }

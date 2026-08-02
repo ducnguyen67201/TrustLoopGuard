@@ -1,6 +1,6 @@
 # Write Your First Policy
 
-A policy is a YAML rule that tells TrustLoopGuard what an agent is not allowed
+A policy is a YAML rule that tells Featherlane AI what an agent is not allowed
 to say or execute, and what to do when the rule matches. This guide starts with
 the default content family; executable shell controls are covered in
 [Shell command safety](../concept/command-safety.md).
@@ -50,6 +50,10 @@ literal and regex policies; use **Advanced (YAML)** for semantic matchers,
 multiple matchers, tool policies, or other typed fields.
 
 ### Financial Authorization Fields
+
+In the dashboard, hover or focus the information icon beside any field label for
+a concise explanation without expanding the form. Use this reference when you
+need to compare several fields at once.
 
 | Field | What To Enter |
 | --- | --- |
@@ -117,7 +121,7 @@ To reproduce it:
 
 The safe draft should return `permit`. The risky draft should return
 `transform` with the configured `rewrite` value. The event is a policy check
-over a proposed message; TrustLoopGuard does not deliver the email.
+over a proposed message; Featherlane AI does not deliver the email.
 
 ## Validate It
 
@@ -168,9 +172,9 @@ For most first policies, use `transform` or `deny`.
 | `semantic` | You need meaning-based matching and have a `semantic_policy` LLM route configured. |
 
 Start with `literal`. Add `regex` only when exact text is not enough. Use
-`semantic` for concepts that need model judgment; if no semantic judge route is
-configured, semantic matchers are skipped while literal and regex matchers still
-run.
+`semantic` for concepts that need model judgment. If no semantic judge route is
+configured, high/critical semantic candidates return `defer`; lower-severity
+semantic candidates remain advisory while literal and regex matchers still run.
 
 ## Local And Cloud Mode
 

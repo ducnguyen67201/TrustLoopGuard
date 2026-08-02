@@ -1,4 +1,4 @@
-//! Policy DSL for TrustLoopGuard. YAML in, compiled `Policy` out.
+//! Policy DSL for Featherlane AI. YAML in, compiled `Policy` out.
 //!
 //! Also parses `AgentProfile` YAML — see `agent_parse::load_agent_str` —
 //! and non-content policy families — see `family_parse::load_any_str`.

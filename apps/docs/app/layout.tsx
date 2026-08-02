@@ -12,9 +12,9 @@ const departureMono = localFont({
 });
 
 export const metadata = {
-  title: 'TrustLoopGuard docs',
+  title: 'Featherlane AI docs',
   description:
-    'TrustLoopGuard is an open-source policy and trust loop runtime. These docs cover concepts, the CLI, the HTTP API, and the SDKs.',
+    'Featherlane AI is an open-source policy enforcement runtime. These docs cover concepts, the CLI, the HTTP API, and the SDKs.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

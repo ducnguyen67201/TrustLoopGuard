@@ -1,4 +1,4 @@
-import type { Severity } from '@trustloopguard/sdk';
+import type { Severity } from '@featherlane-ai/sdk';
 
 import type { ContextualPolicyPhase } from './config';
 

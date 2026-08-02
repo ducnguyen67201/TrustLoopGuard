@@ -7,7 +7,7 @@ const postHogProjectToken = z
   .string()
   .regex(/^phc_[A-Za-z0-9]+$/, 'Must be a PostHog project token');
 const defaultAppUrl =
-  process.env.NODE_ENV === 'production' ? 'https://app.gettrustloop.app' : 'http://localhost:3000';
+  process.env.NODE_ENV === 'production' ? 'https://app.featherlane.ai' : 'http://localhost:3000';
 
 export const env = createEnv({
   server: {
@@ -17,9 +17,9 @@ export const env = createEnv({
     NEXT_PUBLIC_BOOK_MEETING_URL: publicUrl.default(
       'https://calendar.app.google/aQc6ws3pDWpUKFzS9',
     ),
-    NEXT_PUBLIC_DOCS_URL: publicUrl.default('https://docs.gettrustloop.app/'),
-    NEXT_PUBLIC_SITE_URL: publicUrl.default('https://gettrustloop.app'),
-    NEXT_PUBLIC_TRUSTLOOPGUARD_APP_URL: publicUrl.default(defaultAppUrl),
+    NEXT_PUBLIC_DOCS_URL: publicUrl.default('https://docs.featherlane.ai/'),
+    NEXT_PUBLIC_SITE_URL: publicUrl.default('https://featherlane.ai'),
+    NEXT_PUBLIC_FEATHERLANE_AI_APP_URL: publicUrl.default(defaultAppUrl),
     NEXT_PUBLIC_GTM_ID: gtmId.optional(),
     NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: postHogProjectToken.optional(),
     NEXT_PUBLIC_POSTHOG_HOST: publicUrl.default('https://us.i.posthog.com'),
@@ -29,7 +29,7 @@ export const env = createEnv({
     NEXT_PUBLIC_BOOK_MEETING_URL: process.env['NEXT_PUBLIC_BOOK_MEETING_URL'],
     NEXT_PUBLIC_DOCS_URL: process.env['NEXT_PUBLIC_DOCS_URL'],
     NEXT_PUBLIC_SITE_URL: process.env['NEXT_PUBLIC_SITE_URL'],
-    NEXT_PUBLIC_TRUSTLOOPGUARD_APP_URL: process.env['NEXT_PUBLIC_TRUSTLOOPGUARD_APP_URL'],
+    NEXT_PUBLIC_FEATHERLANE_AI_APP_URL: process.env['NEXT_PUBLIC_FEATHERLANE_AI_APP_URL'],
     NEXT_PUBLIC_GTM_ID: process.env['NEXT_PUBLIC_GTM_ID'],
     NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: process.env['NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN'],
     NEXT_PUBLIC_POSTHOG_HOST: process.env['NEXT_PUBLIC_POSTHOG_HOST'],

@@ -4,14 +4,14 @@ import { NextRequest } from 'next/server';
 import { proxy } from './proxy';
 
 function request(headers: HeadersInit = {}) {
-  return new NextRequest('https://trustloopguard.com/?source=test', { headers });
+  return new NextRequest('https://featherlane.ai/?source=test', { headers });
 }
 
 test('redirects a visitor from Vietnam using the Vercel country header', () => {
   const response = proxy(request({ 'x-vercel-ip-country': 'VN' }));
 
   assert.equal(response.status, 307);
-  assert.equal(response.headers.get('location'), 'https://trustloopguard.com/vi?source=test');
+  assert.equal(response.headers.get('location'), 'https://featherlane.ai/vi?source=test');
   assert.equal(response.headers.get('cache-control'), 'private, no-store');
 });
 
@@ -19,14 +19,14 @@ test('redirects a visitor from Vietnam using the Cloudflare country header', () 
   const response = proxy(request({ 'cf-ipcountry': 'vn' }));
 
   assert.equal(response.status, 307);
-  assert.equal(response.headers.get('location'), 'https://trustloopguard.com/vi?source=test');
+  assert.equal(response.headers.get('location'), 'https://featherlane.ai/vi?source=test');
 });
 
 test('redirects a visitor from Vietnam using the CloudFront country header', () => {
   const response = proxy(request({ 'cloudfront-viewer-country': 'VN' }));
 
   assert.equal(response.status, 307);
-  assert.equal(response.headers.get('location'), 'https://trustloopguard.com/vi?source=test');
+  assert.equal(response.headers.get('location'), 'https://featherlane.ai/vi?source=test');
 });
 
 test('keeps visitors outside Vietnam on the English homepage', () => {

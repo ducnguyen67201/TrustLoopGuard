@@ -46,7 +46,7 @@ const stateSchema = z.object({
 
 const runtimeSchema = z.object({
   agent: z.literal('openai'),
-  guard: z.literal('trustloopguard-rust-api'),
+  guard: z.literal('featherlane-ai-rust-api'),
   provider: z.literal('stripe-test'),
 });
 

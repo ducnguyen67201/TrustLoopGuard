@@ -108,12 +108,12 @@ async fn openai_gateway_streams_blocked_output_as_sse() {
         "text/event-stream"
     );
     assert_eq!(
-        resp.headers().get("x-trustloopguard-effect").unwrap(),
+        resp.headers().get("x-featherlane-ai-effect").unwrap(),
         "deny"
     );
     let body = read_text(resp).await;
     assert!(body.contains("content_filter"));
-    assert!(body.contains("Blocked by TrustLoopGuard."));
+    assert!(body.contains("Blocked by Featherlane AI."));
     assert!(body.trim_end().ends_with("data: [DONE]"));
 
     provider.verify().await;

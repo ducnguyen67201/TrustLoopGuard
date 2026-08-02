@@ -1,10 +1,10 @@
-# TrustLoopGuard demos
+# Featherlane AI demos
 
 These demos exercise the public SDKs:
 
 1. The agent drafts output.
 2. The demo calls a runtime guard or typed financial authorization helper.
-3. TrustLoopGuard returns a decision, action status, trace, receipt, or proof.
+3. Featherlane AI returns a decision, action status, trace, receipt, or proof.
 4. The demo executes only after authorization allows it.
 
 ## Agent visibility
@@ -18,7 +18,7 @@ output trace.
 ```sh
 TL_SERVER_URL=http://127.0.0.1:8080 \
 TL_WORKSPACE_ID=<workspace-id> \
-pnpm --filter @trustloopguard/demo agent-visibility
+pnpm --filter @featherlane-ai/demo agent-visibility
 ```
 
 The script registers the agent profile and discovered tool metadata, executes
@@ -35,7 +35,7 @@ Optional environment:
 
 | Var | Default | Purpose |
 | --- | --- | --- |
-| `TL_SERVER_URL` | `http://127.0.0.1:8080` | TrustLoopGuard server URL |
+| `TL_SERVER_URL` | `http://127.0.0.1:8080` | Featherlane AI server URL |
 | `TL_API_KEY` | unset | Bearer token when the server requires auth |
 | `TL_AGENT_ID` | `demo-acme-support` | Demo agent profile id |
 | `TL_WORKSPACE_ID` | unset | Optional local workspace header override, e.g. `ws_test` |
@@ -49,7 +49,7 @@ Optional environment:
 | `STRIPE_REFUND_AGENT_DB` | `demo/.data/stripe-refund-agent.sqlite` | SQLite DB used by the refund-agent demo as the customer order backend |
 | `STRIPE_PAYMENT_INTENT_ID` | seeded demo id | Optional Stripe test PaymentIntent id for the refund-agent order |
 | `STRIPE_REFUND_PROVIDER_PORT` | `9303` | Local provider sidecar port for Stripe refund execution |
-| `STRIPE_REFUND_PROVIDER_API_KEY` | local demo token | Bearer token TrustLoopGuard uses when calling the provider sidecar |
+| `STRIPE_REFUND_PROVIDER_API_KEY` | local demo token | Bearer token Featherlane AI uses when calling the provider sidecar |
 
 ## Contextual outbound demo agent
 
@@ -60,13 +60,13 @@ The browser sends only the current message, a session id, and bounded chat histo
 Start a configured Rust server, then provision the shared runtime once with an internal management credential and an approved owner/admin user:
 
 ```sh
-pnpm --filter @trustloopguard/sdk build
+pnpm --filter @featherlane-ai/sdk build
 
 export TL_SERVER_URL=http://127.0.0.1:8080
 export TL_API_KEY=<internal-management-key>
 export TL_ADMIN_USER_ID=<approved-owner-or-admin-user-id>
 
-pnpm --filter @trustloopguard/demo contextual-agent:setup
+pnpm --filter @featherlane-ai/demo contextual-agent:setup
 ```
 
 The first setup prints `TL_CONTEXTUAL_DEMO_API_KEY` exactly once. Store it only in the Marketing server environment, remove setup credentials from that environment, and start Marketing with OpenAI configured:
@@ -85,7 +85,7 @@ Setup is idempotent: it reuses the named workspace and default environment, disa
 ## Procurement agent
 
 The Marketing demo at `http://localhost:3002/demo/procurement` is a live
-OpenAI Agents SDK workflow protected by TrustLoopGuard. The agent can search a
+OpenAI Agents SDK workflow protected by Featherlane AI. The agent can search a
 fixed catalog, but its simulated procurement system receives a purchase order
 only after the TypeScript SDK submits the exact canonical action to Rust and
 receives `permit`.
@@ -123,7 +123,7 @@ TL_SERVER_URL=http://127.0.0.1:8080 \
 TL_API_KEY=<internal-api-key> \
 TL_WORKSPACE_ID=procurement-demo-local \
 TL_ADMIN_USER_ID=<owner-or-admin-id> \
-pnpm --filter @trustloopguard/demo procurement-agent:setup
+pnpm --filter @featherlane-ai/demo procurement-agent:setup
 ```
 
 `TL_ADMIN_USER_ID` is needed when the local server requires an owner/admin
@@ -166,13 +166,13 @@ changing their behavior or ownership.
 ## Stripe refund agent
 
 This is the live financial-authorization demo. You ask a support agent for a
-refund; the agent searches a seeded order, prepares a typed TrustLoopGuard
+refund; the agent searches a seeded order, prepares a typed Featherlane AI
 refund action, and executes only through the vaulted `payment_http` provider
 path. The agent process does not need `STRIPE_SECRET_KEY`.
 
 SQLite is the demo customer backend. `search_order` queries `orders` and
 `refunds` from `demo/.data/stripe-refund-agent.sqlite`, then returns trusted
-eligibility evidence to TrustLoopGuard. TrustLoopGuard still owns financial
+eligibility evidence to Featherlane AI. Featherlane AI still owns financial
 authorization state, ledger entries, approvals, and receipts.
 
 Tools exposed to the agent:
@@ -181,7 +181,7 @@ Tools exposed to the agent:
 | --- | --- |
 | `search_order` | Read-only lookup for order/payment/refundable-balance evidence |
 | `prepare_refund` | Calls the SDK `financialOperation("issue_refund")` wrapper, which submits a typed refund `FinancialAction` |
-| `execute_refund` | Calls TrustLoopGuard `executeAction` after authorization |
+| `execute_refund` | Calls Featherlane AI `executeAction` after authorization |
 
 Run the local stack first:
 
@@ -192,8 +192,8 @@ make local
 Then set up the demo workspace:
 
 ```sh
-pnpm --filter @trustloopguard/demo stripe-refund-agent:db
-pnpm --filter @trustloopguard/demo stripe-refund-agent:setup
+pnpm --filter @featherlane-ai/demo stripe-refund-agent:db
+pnpm --filter @featherlane-ai/demo stripe-refund-agent:setup
 ```
 
 For the browser demo, start the refund provider and chat UI together:
@@ -211,8 +211,8 @@ provider on `127.0.0.1:9303` and the chat UI on `127.0.0.1:9310`; use
 For a terminal-only refund:
 
 ```sh
-pnpm --filter @trustloopguard/demo stripe-refund-agent:provider
-pnpm --filter @trustloopguard/demo stripe-refund-agent \
+pnpm --filter @featherlane-ai/demo stripe-refund-agent:provider
+pnpm --filter @featherlane-ai/demo stripe-refund-agent \
   'Refund order ord_demo_1001 for $75 because damaged item.'
 ```
 
@@ -223,7 +223,7 @@ refund. Live keys are refused.
 Offline smoke:
 
 ```sh
-pnpm --filter @trustloopguard/demo stripe-refund-agent:check
+pnpm --filter @featherlane-ai/demo stripe-refund-agent:check
 ```
 
 Code map:
@@ -233,7 +233,7 @@ Code map:
 | `stripe-refund-agent/agent.ts` | Choosing OpenAI mode or deterministic scripted mode |
 | `stripe-refund-agent/scripted-agent.ts` | The easiest-to-read refund flow |
 | `stripe-refund-agent/tool-runner.ts` | The three agent tools and their outputs |
-| `stripe-refund-agent/core.ts` | TrustLoopGuard financial action preparation/execution |
+| `stripe-refund-agent/core.ts` | Featherlane AI financial action preparation/execution |
 | `stripe-refund-agent/order-db.ts` | SQLite customer-backend order/refund state |
 | `stripe-refund-agent/ui.ts` | Local chat UI for the demo agent |
 
@@ -255,8 +255,8 @@ proves duplicate idempotency does not execute twice.
 | missing grant | `denied` | `denied` | 0 |
 
 ```sh
-pnpm --filter @trustloopguard/demo financial-refund
-pnpm --filter @trustloopguard/demo financial-refund:check
+pnpm --filter @featherlane-ai/demo financial-refund
+pnpm --filter @featherlane-ai/demo financial-refund:check
 ```
 
 ## Money agent — guarded scenarios (flagship)
@@ -275,9 +275,9 @@ payment fires **only** when the effect is `permit`. Amounts are integer cents.
 
 ```sh
 make server                                                   # 1. run the guard
-TL_USER_ID=<owner-uuid> pnpm --filter @trustloopguard/demo dispute:setup   # 2. register tools + arm enforce modes
-pnpm --filter @trustloopguard/demo dispute:scenarios          # 3. simulated payments
-STRIPE_SECRET_KEY=sk_test_… pnpm --filter @trustloopguard/demo dispute:scenarios   # or real test-mode payments
+TL_USER_ID=<owner-uuid> pnpm --filter @featherlane-ai/demo dispute:setup   # 2. register tools + arm enforce modes
+pnpm --filter @featherlane-ai/demo dispute:scenarios          # 3. simulated payments
+STRIPE_SECRET_KEY=sk_test_… pnpm --filter @featherlane-ai/demo dispute:scenarios   # or real test-mode payments
 ```
 
 The runner prints a effect table and fails loudly if every scenario was
@@ -287,7 +287,7 @@ allowed (which means the workspace's `param`/`approval` checkers are still
 Offline smoke (no server, no keys):
 
 ```sh
-pnpm --filter @trustloopguard/demo dispute:scenarios:check
+pnpm --filter @featherlane-ai/demo dispute:scenarios:check
 ```
 
 ## Bring your own agent
@@ -298,8 +298,8 @@ effect. See [`dispute/byo.example.ts`](dispute/byo.example.ts):
 
 ```sh
 make server
-TL_USER_ID=<owner-uuid> pnpm --filter @trustloopguard/demo dispute:setup
-pnpm --filter @trustloopguard/demo dispute:byo
+TL_USER_ID=<owner-uuid> pnpm --filter @featherlane-ai/demo dispute:setup
+pnpm --filter @featherlane-ai/demo dispute:byo
 ```
 
 ```ts
@@ -319,7 +319,7 @@ The smoke test is local-only: it forces `useOpenAI: false` and checks the
 fallback parser plus local refund ledger behavior.
 
 ```sh
-pnpm --filter @trustloopguard/demo dispute:check
+pnpm --filter @featherlane-ai/demo dispute:check
 ```
 
 For the OpenAI-backed Attacks tab flow, the demo exposes the same agent in two
@@ -340,13 +340,13 @@ HackAgent can initiate chat through `/v1/chat/completions`; manual curl can use
 Set up the refund tool metadata once with the Rust server running:
 
 ```sh
-pnpm --filter @trustloopguard/demo dispute:setup:doppler
+pnpm --filter @featherlane-ai/demo dispute:setup:doppler
 ```
 
 Start the dispute adapters:
 
 ```sh
-pnpm --filter @trustloopguard/demo dispute:serve:doppler
+pnpm --filter @featherlane-ai/demo dispute:serve:doppler
 ```
 
 Open `http://localhost:3000/attacks`, then run against each root target:
@@ -376,13 +376,13 @@ finds or creates one Rust-owned workspace named `Healthcare Demo`; no workspace
 id is configured or hard-coded:
 
 ```sh
-pnpm --filter @trustloopguard/sdk build
+pnpm --filter @featherlane-ai/sdk build
 
 export TL_SERVER_URL=http://127.0.0.1:8080
 export TL_API_KEY=<internal-management-key>
 export TL_ADMIN_USER_ID=<approved-owner-or-admin-user-id>
 
-pnpm --filter @trustloopguard/demo healthcare-agent:setup
+pnpm --filter @featherlane-ai/demo healthcare-agent:setup
 ```
 
 On the first run, setup prints `TL_HEALTHCARE_DEMO_API_KEY` exactly once. Put
@@ -444,12 +444,12 @@ For voice, the demo configures a 250 ms guardrail budget and one SDK attempt:
 the runtime either returns guarded output within the realtime budget or follows
 the SDK's configured failure behavior.
 
-Gateway mode points LiveKit's OpenAI-compatible LLM at TrustLoopGuard instead of
+Gateway mode points LiveKit's OpenAI-compatible LLM at Featherlane AI instead of
 calling the provider directly:
 
 ```sh
 python demo/livekit/proxy_healthcare_agent.py dev
 ```
 
-Set `TLG_API_KEY` and `TL_GATEWAY_ROUTE_ID` in `demo/livekit/.env` first. See
+Set `FEATHERLANE_AI_API_KEY` and `TL_GATEWAY_ROUTE_ID` in `demo/livekit/.env` first. See
 `livekit/README.md` for the full setup.

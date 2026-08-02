@@ -2,14 +2,14 @@
 
 The shortest integration decorates the function that produces the final reply::
 
-    @trustloopguard.guarded(agent_id="acme-support-v3")
+    @featherlane_ai.guarded(agent_id="acme-support-v3")
     async def answer(message: str) -> str:
         return await agent.reply(message)
 
 The explicit guard factory remains available when the caller already has
 separate input and draft values::
 
-    guardrail = trustloopguard.guard(agent_id="acme-support-v3")
+    guardrail = featherlane_ai.guard(agent_id="acme-support-v3")
     reply = await guardrail(input=user_message, draft=agent_draft)
 
 The lower-level sync (``guard`` with ``client=...``) and async
@@ -29,16 +29,16 @@ Factory-mode presets::
     rewrite               → use transformed output, deny when none exists
     rewrite_or_regenerate → use transformed output, otherwise regenerate and check again
 
-Transport / decode / retry-exhausted errors route to ``on_error``,
-**default fail-open** (return original draft). Pass an explicit
-handler for fail-closed behaviour.
+Transport / decode / retry-exhausted errors route to ``on_error`` and fail
+closed with the SDK safe message by default. Set ``fail_closed=False`` only
+when returning the unchecked draft during an outage is an explicit choice.
 
 Low-level example::
 
-    from trustloopguard import Client, guard
+    from featherlane_ai import Client, guard
 
-    client = Client(base_url="https://api.trustloopguard.dev",
-                    api_key=os.environ["TLG_API_KEY"])
+    client = Client(base_url="https://api.featherlane.ai",
+                    api_key=os.environ["FEATHERLANE_AI_API_KEY"])
 
     reply = guard(
         client=client,
@@ -64,7 +64,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Awaitable, Callable, Literal, Optional, ParamSpec, Union, overload
 
-from trustloopguard._generated.types import (
+from featherlane_ai._generated.types import (
     Action,
     Channel,
     AuthorizationDecision,
@@ -78,11 +78,11 @@ from trustloopguard._generated.types import (
     Source,
     AuthorizationEffect,
 )
-from trustloopguard.client import AsyncClient, Client
-from trustloopguard.errors import SdkError
-from trustloopguard.retry import RetryConfig
+from featherlane_ai.client import AsyncClient, Client
+from featherlane_ai.errors import SdkError
+from featherlane_ai.retry import RetryConfig
 
-_logger = logging.getLogger("trustloopguard")
+_logger = logging.getLogger("featherlane-ai")
 P = ParamSpec("P")
 
 # -- Sync callback signatures ----------------------------------------------
@@ -115,7 +115,7 @@ DEFAULT_DEFER_MESSAGE = "Required evidence or system state is unavailable. Pleas
 
 
 class GuardMode(str, Enum):
-    """High-level output handling preset for ``trustloopguard.guard``."""
+    """High-level output handling preset for ``featherlane_ai.guard``."""
 
     STRICT = "strict"
     REWRITE = "rewrite"
@@ -146,9 +146,9 @@ class GuardLogEvent:
 
 
 class OutputGuard:
-    """Async callable returned by ``trustloopguard.guard(agent_id=...)``.
+    """Async callable returned by ``featherlane_ai.guard(agent_id=...)``.
 
-    It owns the SDK client by default, reads the usual TrustLoopGuard env vars,
+    It owns the SDK client by default, reads the usual Featherlane AI env vars,
     and applies safe deny/approval/defer defaults. Most integrations should create
     one guard at startup and call it at the output boundary:
 
@@ -174,7 +174,7 @@ class OutputGuard:
         mode: GuardModeInput = GuardMode.REWRITE,
         regenerate: RegenerateHandler | None = None,
         max_regenerations: int = 1,
-        fail_closed: bool = False,
+        fail_closed: bool = True,
         log: Callable[[GuardLogEvent], None] | None = None,
     ) -> None:
         self.agent_id = agent_id
@@ -198,18 +198,13 @@ class OutputGuard:
 
         resolved_base_url = (
             base_url
-            or _env("TLG_URL", "TL_SERVER_URL", "TRUSTLOOPGUARD_URL", "TRUSTLOOP_URL")
+            or _env("FEATHERLANE_AI_URL", "TL_SERVER_URL")
             or "http://127.0.0.1:8080"
         )
         self.client = AsyncClient(
             base_url=resolved_base_url,
             api_key=api_key
-            or _env(
-                "TLG_API_KEY",
-                "TL_API_KEY",
-                "TRUSTLOOPGUARD_API_KEY",
-                "TRUSTLOOP_API_KEY",
-            ),
+            or _env("FEATHERLANE_AI_API_KEY", "TL_API_KEY"),
             timeout=timeout,
             retry=retry,
         )
@@ -308,6 +303,7 @@ class OutputGuard:
                 on_defer=defer_handler,
                 on_revise=on_revise,
                 on_error=error_handler,
+                fail_closed=self.fail_closed,
                 log=selected_log,
             )
 
@@ -511,8 +507,9 @@ def guarded(
     argument. The decorated function must receive a string input and return a
     string draft.
 
-    Decorators fail closed on SDK transport errors by default. The existing
-    :func:`guard` helper keeps its fail-open default for compatibility.
+    Decorators and standalone guards fail closed on SDK transport errors by
+    default. Set ``fail_closed=False`` only for an explicit availability-first
+    integration.
     """
 
     def decorate(func: Callable[P, Awaitable[str]]) -> Callable[P, Awaitable[str]]:
@@ -627,7 +624,7 @@ def guard(
     mode: GuardModeInput = GuardMode.REWRITE,
     regenerate: RegenerateHandler | None = None,
     max_regenerations: int = 1,
-    fail_closed: bool = False,
+    fail_closed: bool = True,
     log: Callable[[GuardLogEvent], None] | None = None,
 ) -> OutputGuard: ...
 
@@ -652,6 +649,7 @@ def guard(
     log: Callable[[GuardLogEvent], None] | None = None,
     run_id: str | None = None,
     run_event_id: str | None = None,
+    fail_closed: bool = True,
 ) -> str: ...
 
 
@@ -681,13 +679,13 @@ def guard(
     api_key: str | None = None,
     timeout: float = 5.0,
     retry: RetryConfig | None = None,
-    fail_closed: bool = False,
+    fail_closed: bool = True,
 ) -> str | OutputGuard:
     """Create a simple async guard or run the legacy sync guard.
 
     New integrations should use the factory form:
 
-        guardrail = trustloopguard.guard(agent_id="support-agent")
+        guardrail = featherlane_ai.guard(agent_id="support-agent")
         reply = await guardrail(input=user_text, draft=agent_draft)
 
     The existing sync form remains supported when ``client``, ``input``,
@@ -696,7 +694,7 @@ def guard(
     if client is None:
         if input is not None or draft is not None:
             raise TypeError(
-                "trustloopguard.guard(...) without client returns a guard; "
+                "featherlane_ai.guard(...) without client returns a guard; "
                 "call the returned guard with input=... and draft=..."
             )
         return OutputGuard(
@@ -738,6 +736,7 @@ def guard(
         on_allow=on_allow,
         on_revise=on_revise,
         on_error=on_error if callable(on_error) else None,
+        fail_closed=fail_closed,
         channel=channel,
         domain=domain,
         context=context,
@@ -760,6 +759,7 @@ def _guard_sync(
     on_allow: OnAllowSync | None = None,
     on_revise: OnReviseSync | None = None,
     on_error: OnErrorSync | None = None,
+    fail_closed: bool = True,
     channel: Channel | None = None,
     domain: str | None = None,
     context: dict[str, Any] | None = None,
@@ -789,7 +789,10 @@ def _guard_sync(
     try:
         decision = client.submit_event(event)
     except SdkError as e:
-        result = on_error(e, draft) if on_error else draft  # fail-open default
+        if on_error:
+            result = on_error(e, draft)
+        else:
+            result = DEFAULT_BLOCK_MESSAGE if fail_closed else draft
         _emit_log(log, trace_id or "", "permit", "error", start)
         return result
 
@@ -835,6 +838,7 @@ async def guard_async(
     on_allow: OnAllowAsync | None = None,
     on_revise: OnReviseAsync | None = None,
     on_error: OnErrorAsync | None = None,
+    fail_closed: bool = True,
     channel: Channel | None = None,
     domain: str | None = None,
     context: dict[str, Any] | None = None,
@@ -860,7 +864,10 @@ async def guard_async(
     try:
         decision = await client.submit_event(event)
     except SdkError as e:
-        result = await on_error(e, draft) if on_error else draft
+        if on_error:
+            result = await on_error(e, draft)
+        else:
+            result = DEFAULT_BLOCK_MESSAGE if fail_closed else draft
         _emit_log(log, trace_id or "", "permit", "error", start)
         return result
 

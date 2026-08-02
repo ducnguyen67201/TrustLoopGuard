@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { AuthorizationGrant } from '@trustloopguard/sdk';
+import type { AuthorizationGrant } from '@featherlane-ai/sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthorizationGrantsContent } from './AuthorizationGrantsContent';

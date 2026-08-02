@@ -12,7 +12,7 @@ import type {
   FinancialActionOutcome,
   FinancialOutcomeListResponse,
   GatewayProviderConnectionListResponse,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 export default async function FinancialPage({
   searchParams,

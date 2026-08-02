@@ -31,7 +31,7 @@ const REQUEST_TIMEOUT_MS = 3_000;
 const APPROVAL_TIMEOUT_MS = 300_000;
 const APPROVAL_POLL_MS = 1_000;
 const MAX_TOOL_INPUT_BYTES = 1_000_000;
-const RUNTIME_SCHEMA_VERSION = 'trustloopguard-tool-gate-v1';
+const RUNTIME_SCHEMA_VERSION = 'featherlane-ai-tool-gate-v1';
 
 const FILE_TOOLS = new Set(['Write', 'Edit', 'NotebookEdit', 'apply_patch', 'write', 'edit']);
 const READ_TOOLS = new Set(['Read', 'Glob', 'Grep', 'read', 'glob', 'grep', 'read_file']);
@@ -76,7 +76,7 @@ export async function authorizeToolCall(
     return {
       managed: true,
       allowed: false,
-      reason: `TrustLoopGuard could not authorize this tool: ${
+      reason: `Featherlane AI could not authorize this tool: ${
         error instanceof Error ? error.message : 'project registry unavailable'
       }.`,
     };
@@ -84,8 +84,8 @@ export async function authorizeToolCall(
   if (registration === undefined) return { managed: false, allowed: false, reason: '' };
   try {
     if (call.callId === '') throw new Error('tool-use id is missing');
-    const apiKey = options.env.TLG_API_KEY?.trim();
-    if (!apiKey) throw new Error('TLG_API_KEY is not set in the host environment');
+    const apiKey = options.env.FEATHERLANE_AI_API_KEY?.trim();
+    if (!apiKey) throw new Error('FEATHERLANE_AI_API_KEY is not set in the host environment');
     const event = buildGuardEvent(call, registration);
     if (Buffer.byteLength(JSON.stringify(event.action.parameters)) > MAX_TOOL_INPUT_BYTES) {
       throw new Error('tool input exceeds the 1 MB gate limit');
@@ -126,7 +126,7 @@ export async function authorizeToolCall(
     return {
       managed: true,
       allowed: false,
-      reason: `TrustLoopGuard could not authorize this tool: ${message}.`,
+      reason: `Featherlane AI could not authorize this tool: ${message}.`,
     };
   }
 }
@@ -280,9 +280,9 @@ async function awaitApproval(
   const sleep =
     options.sleep ??
     ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
-  const timeoutMs = positiveInt(options.env.TLG_APPROVAL_TIMEOUT_MS, APPROVAL_TIMEOUT_MS);
+  const timeoutMs = positiveInt(options.env.FEATHERLANE_AI_APPROVAL_TIMEOUT_MS, APPROVAL_TIMEOUT_MS);
   const configuredPollMs = positiveInt(
-    options.env.TLG_APPROVAL_POLL_MS,
+    options.env.FEATHERLANE_AI_APPROVAL_POLL_MS,
     serverPollMs || APPROVAL_POLL_MS,
   );
   const deadline = now() + timeoutMs;
@@ -309,11 +309,11 @@ async function completeClaims(
   hookEvent: string,
   options: BridgeOptions,
 ): Promise<CompletionResult> {
-  const apiKey = options.env.TLG_API_KEY?.trim();
+  const apiKey = options.env.FEATHERLANE_AI_API_KEY?.trim();
   const result: CompletionResult = { completed: 0, retained: 0, errors: [] };
   for (const claim of claims) {
     try {
-      if (!apiKey) throw new Error('TLG_API_KEY is not set in the host environment');
+      if (!apiKey) throw new Error('FEATHERLANE_AI_API_KEY is not set in the host environment');
       let lastError: Error | undefined;
       for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
@@ -353,7 +353,7 @@ async function requestJson(
   options: BridgeOptions,
 ): Promise<JsonValue> {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const timeout = positiveInt(options.env.TLG_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_MS);
+  const timeout = positiveInt(options.env.FEATHERLANE_AI_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_MS);
   const response = await fetchImpl(`${baseUrl.replace(/\/$/, '')}${pathname}`, {
     ...init,
     headers: {
@@ -363,15 +363,15 @@ async function requestJson(
     },
     signal: AbortSignal.timeout(timeout),
   });
-  if (!response.ok) throw new Error(`TrustLoopGuard returned HTTP ${response.status}`);
+  if (!response.ok) throw new Error(`Featherlane AI returned HTTP ${response.status}`);
   const text = await response.text();
   if (Buffer.byteLength(text) > MAX_TOOL_INPUT_BYTES) {
-    throw new Error('TrustLoopGuard returned an oversized response');
+    throw new Error('Featherlane AI returned an oversized response');
   }
   try {
     return JSON.parse(text) as JsonValue;
   } catch {
-    throw new Error('TrustLoopGuard returned malformed JSON');
+    throw new Error('Featherlane AI returned malformed JSON');
   }
 }
 
@@ -392,10 +392,10 @@ async function findRegistration(
     raw = JSON.parse(await readFile(join(configRoot, 'registry.json'), 'utf8')) as JsonValue;
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return undefined;
-    throw new Error('TrustLoopGuard project registry is unreadable');
+    throw new Error('Featherlane AI project registry is unreadable');
   }
   if (!isObject(raw) || raw['version'] !== 1 || !Array.isArray(raw['projects'])) {
-    throw new Error('TrustLoopGuard project registry is malformed');
+    throw new Error('Featherlane AI project registry is malformed');
   }
   let candidatePath = cwd;
   try {
@@ -433,5 +433,5 @@ function sha256(value: string): string {
 }
 
 function describeDecision(decision: GuardDecision): string {
-  return `TrustLoopGuard ${decision.effect}: ${decision.reason} (trace ${decision.traceId})`;
+  return `Featherlane AI ${decision.effect}: ${decision.reason} (trace ${decision.traceId})`;
 }

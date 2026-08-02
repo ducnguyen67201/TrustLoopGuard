@@ -104,7 +104,7 @@ export class GuardedToolBlocked extends Error {
   readonly tool: DiscoveredToolInfo;
 
   constructor(tool: DiscoveredToolInfo, decision: AuthorizationDecision) {
-    super(`TrustLoopGuard stopped tool "${tool.name}" with effect "${decision.effect}"`);
+    super(`Featherlane AI stopped tool "${tool.name}" with effect "${decision.effect}"`);
     this.name = 'GuardedToolBlocked';
     this.tool = tool;
     this.decision = decision;
@@ -161,7 +161,7 @@ export function toolSchemaHash(schema: object | undefined): string {
     hash ^= BigInt(canonical.charCodeAt(index));
     hash = BigInt.asUintN(64, hash * 0x100000001b3n);
   }
-  return `tlg-schema:fnv1a64:${hash.toString(16).padStart(16, '0')}`;
+  return `featherlane-ai-schema:fnv1a64:${hash.toString(16).padStart(16, '0')}`;
 }
 
 function decorateObjectRegistry(

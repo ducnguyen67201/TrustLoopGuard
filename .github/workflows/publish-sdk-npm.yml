@@ -67,16 +67,16 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        run: pnpm --filter @trustloopguard/sdk typecheck
+        run: pnpm --filter @featherlane-ai/sdk typecheck
 
       - name: Build
-        run: pnpm --filter @trustloopguard/sdk build
+        run: pnpm --filter @featherlane-ai/sdk build
 
       - name: Test
-        run: pnpm --filter @trustloopguard/sdk test
+        run: pnpm --filter @featherlane-ai/sdk test
 
       - name: Verify packed npm artifact
-        run: pnpm --filter @trustloopguard/sdk test:package
+        run: pnpm --filter @featherlane-ai/sdk test:package
 
       - name: Publish to npm
         working-directory: sdks/typescript

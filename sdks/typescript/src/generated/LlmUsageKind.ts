@@ -3,6 +3,6 @@
 /**
  * Runtime that generated a priced LLM call. Customer inference is
  * the only kind counted by customer spending caps; guardrail calls are
- * TrustLoopGuard's semantic-policy overhead.
+ * Featherlane AI's semantic-policy overhead.
  */
 export type LlmUsageKind = "customer_inference" | "guardrail";

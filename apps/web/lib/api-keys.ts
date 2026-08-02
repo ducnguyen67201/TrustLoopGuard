@@ -1,4 +1,4 @@
-import type { ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse } from '@trustloopguard/sdk';
+import type { ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse } from '@featherlane-ai/sdk';
 import { z } from 'zod';
 import { http } from './http';
 

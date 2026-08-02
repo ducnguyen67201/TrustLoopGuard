@@ -828,7 +828,7 @@ function ConsoleStatusStrip({ state }: { state: ConsoleState }) {
         )}
       />
       <span>{s.label}</span>
-      <span className="ml-auto text-muted-foreground/70">tlg · redteam</span>
+      <span className="ml-auto text-muted-foreground/70">featherlane · redteam</span>
     </div>
   );
 }
@@ -1507,7 +1507,7 @@ function ThreatResultBoard({
         <span className="font-medium" style={{ color: 'var(--color-permit)' }}>
           resisted
         </span>
-        . A resisted attack does not always mean TrustLoopGuard fired; open the row to check for a
+        . A resisted attack does not always mean Featherlane AI fired; open the row to check for a
         trace.
       </p>
 
@@ -1669,7 +1669,7 @@ function AttackTranscript({ result }: { result: RedteamAttackSession }) {
           })}
         </div>
         <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
-          HackAgent -&gt; target agent -&gt; TrustLoopGuard
+          HackAgent -&gt; target agent -&gt; Featherlane AI
         </span>
         <span className="ml-auto">
           <OutcomeBadge outcome={result.outcome} landed={result.landed} />
@@ -1846,7 +1846,7 @@ function replayEffect(result: RedteamAttackSession): {
   return {
     label: 'Resisted',
     detail:
-      'The target refused or stayed safe. A guard trace only appears when TrustLoopGuard checked it.',
+      'The target refused or stayed safe. A guard trace only appears when Featherlane AI checked it.',
     tone: 'safe',
     color: 'var(--color-permit)',
     icon: <ShieldCheck className="size-3.5" aria-hidden="true" />,
@@ -1895,7 +1895,7 @@ function EvidenceTranscript({ result }: { result: RedteamAttackSession }) {
   const prompt = sessionEventText(result, 'attack_prompt') ?? result.goal;
   const reply = sessionEventText(result, 'target_reply') ?? result.error ?? '';
   const guardContext = result.trace_id
-    ? `TrustLoopGuard trace captured: ${result.trace_id}`
+    ? `Featherlane AI trace captured: ${result.trace_id}`
     : breached
       ? 'No guard trace was returned. Treat this as the before/raw comparison row.'
       : 'No guard trace was returned. The target resisted at the agent/reply level.';
@@ -1907,7 +1907,7 @@ function EvidenceTranscript({ result }: { result: RedteamAttackSession }) {
           Transcript
         </span>
         <span className="font-mono text-[11px] text-muted-foreground">
-          HackAgent -&gt; target agent -&gt; TrustLoopGuard
+          HackAgent -&gt; target agent -&gt; Featherlane AI
         </span>
         <span className="ml-auto">
           <OutcomeBadge outcome={result.outcome} landed={result.landed} />
@@ -2001,7 +2001,7 @@ function TranscriptStep({
 }
 
 function OutcomeBadge({ outcome, landed }: { outcome: string; landed?: boolean }) {
-  // Outcome here is the attack runner's score, not necessarily a TrustLoopGuard
+  // Outcome here is the attack runner's score, not necessarily a Featherlane AI
   // policy effect. Non-landed rows resisted even when no guard trace exists.
   if (outcome === 'landed' || landed) {
     return (

@@ -23,9 +23,8 @@
 //   await sendToCustomer(reply);
 //
 // The handler stays the source of truth on what to do per effect.
-// `guard` just makes the dispatch ergonomic and applies a fail-open
-// default for transport errors so an outage on our side doesn't take
-// down the agent.
+// `guard` just makes the dispatch ergonomic and fails closed on transport
+// errors by default so unchecked output is never released during an outage.
 //
 // Factory guards support three presets:
 //   strict                -> treat transform effects as denied output
@@ -69,13 +68,13 @@ export interface RegenerateFeedback {
   /** The draft that failed the guard check. */
   draft: string;
 
-  /** Full TrustLoopGuard decision for the failed draft. */
+  /** Full Featherlane AI decision for the failed draft. */
   decision: Decision;
 
-  /** Human-readable reason returned by TrustLoopGuard. */
+  /** Human-readable reason returned by Featherlane AI. */
   reason: string;
 
-  /** Safe output returned by TrustLoopGuard, when available. */
+  /** Safe output returned by Featherlane AI, when available. */
   safeOutput: string | null;
 
   /** 1-based regeneration attempt number. */
@@ -127,9 +126,9 @@ export interface GuardCallbacks {
 
   /**
    * Called when the SDK transport itself fails (network down, server
-   * 5xx, decode error, retries exhausted). Default: **fail-open** —
-   * return the original draft. Pass an explicit handler if you'd
-   * rather fail-closed (e.g. `() => cannedSafeReply`).
+   * 5xx, decode error, retries exhausted). Default: return the SDK safe
+   * block message. Pass an explicit handler to choose a domain-specific
+   * fallback.
    */
   onError?: (err: SdkError, draft: string) => string | Promise<string>;
 }
@@ -184,6 +183,9 @@ export interface GuardOptions extends GuardCallbacks {
 
   /** Optional cancellation. Forwarded to the underlying check call. */
   signal?: AbortSignal;
+
+  /** Fail closed on transport errors. Defaults to true. */
+  failClosed?: boolean;
 }
 
 export interface GuardFactoryOptions {
@@ -193,7 +195,7 @@ export interface GuardFactoryOptions {
   /** Existing client. Pass this when you want to own transport lifecycle/config. */
   client?: Client;
 
-  /** TrustLoopGuard server URL. Defaults to env or localhost. */
+  /** Featherlane AI server URL. Defaults to env or localhost. */
   baseUrl?: string;
 
   /** Bearer token. Defaults to env when available. */
@@ -226,7 +228,7 @@ export interface GuardFactoryOptions {
   /** Default unresolved-evidence branch. Omit for the SDK retry-later message. */
   onDefer?: DecisionHandler;
 
-  /** Transport failure branch. Omit for fail-open. */
+  /** Transport failure branch. Omit for the SDK safe block message. */
   onError?: ErrorHandler;
 
   /**
@@ -237,13 +239,13 @@ export interface GuardFactoryOptions {
    */
   mode?: GuardMode;
 
-  /** Called by rewrite_or_regenerate when TrustLoopGuard has no safeOutput. */
+  /** Called by rewrite_or_regenerate when Featherlane AI has no safeOutput. */
   regenerate?: RegenerateHandler;
 
   /** Hard cap for model regeneration loops. Defaults to 1. */
   maxRegenerations?: number;
 
-  /** Return the default block message on transport errors when no onError is set. */
+  /** Return the default block message on transport errors. Defaults to true. */
   failClosed?: boolean;
 
   /** Logger hook for every guard invocation. */
@@ -325,6 +327,8 @@ export interface GuardCallOptions {
   maxRegenerations?: number;
   log?: (event: GuardLogEvent) => void;
   signal?: AbortSignal;
+  /** Per-call transport failure mode. Defaults to the factory setting, then true. */
+  failClosed?: boolean;
 }
 
 /** Streaming form of {@link GuardCallOptions}: the agent's output arrives as a
@@ -389,9 +393,9 @@ export interface GuardLogEvent {
  *   require_approval → onRequireApproval (required)
  *   defer            → onDefer (required)
  *
- * Transport / decode / retry-exhausted errors go to `onError`. Default
- * is **fail-open** — return the original draft. Pass an explicit
- * `onError` if your domain prefers fail-closed.
+ * Transport / decode / retry-exhausted errors go to `onError`. Without a
+ * handler, the default is fail-closed. Set `failClosed: false` only when an
+ * explicit availability-over-enforcement tradeoff is intended.
  */
 export function guard(opts: GuardFactoryOptions): OutputGuard;
 export function guard(opts: GuardOptions): Promise<string>;
@@ -407,7 +411,7 @@ export function guard(opts: GuardFactoryOptions | GuardOptions): OutputGuard | P
  *
  * The returned object keeps the agent's public interface. When `reply()` is
  * present, its input and proposed output are recorded as Run events, and the
- * final string passes through TrustLoopGuard before it reaches the caller.
+ * final string passes through Featherlane AI before it reaches the caller.
  * Input observation never creates an authorization decision. Supported local
  * tool registries are discovered and their `execute()` methods are authorized
  * before side effects run.
@@ -512,13 +516,7 @@ function wrapObservedAgentReply<Args extends unknown[]>(
 
       return await automaticRun.withEvent(
         { kind: 'assistant_turn', output_summary: draft },
-        async () => {
-          const call: GuardCallOptions = { input, draft };
-          if (opts.failClosed === undefined && opts.onError === undefined) {
-            call.onError = DEFAULT_BLOCK_MESSAGE;
-          }
-          return await outputGuard(call);
-        },
+        async () => await outputGuard({ input, draft }),
       );
     });
 }
@@ -532,7 +530,11 @@ async function guardOnce(opts: GuardOptions): Promise<string> {
     decision = await opts.client.submitEvent(event, opts.signal);
   } catch (e) {
     if (!(e instanceof SdkError)) throw e;
-    const fallback = opts.onError ? await opts.onError(e, opts.draft) : opts.draft; // fail-open default
+    const fallback = opts.onError
+      ? await opts.onError(e, opts.draft)
+      : opts.failClosed === false
+        ? opts.draft
+        : DEFAULT_BLOCK_MESSAGE;
     opts.log?.({
       trace_id: opts.traceId ?? '',
       // Wire shape doesn't have an "error" effect; we synthesise the
@@ -606,7 +608,7 @@ function createOutputGuard(opts: GuardFactoryOptions): OutputGuard {
     const onDefer = decisionHandler(call.onDefer ?? opts.onDefer, DEFAULT_DEFER_MESSAGE);
     const onError = errorHandler(
       call.onError ?? opts.onError,
-      opts.failClosed === true ? DEFAULT_BLOCK_MESSAGE : undefined,
+      (call.failClosed ?? opts.failClosed ?? true) ? DEFAULT_BLOCK_MESSAGE : undefined,
     );
 
     const runAttempt = async (
@@ -662,6 +664,7 @@ function createOutputGuard(opts: GuardFactoryOptions): OutputGuard {
       addDefined(guardOpts, 'onError', onError);
       addDefined(guardOpts, 'log', call.log ?? opts.log);
       addDefined(guardOpts, 'signal', call.signal);
+      addDefined(guardOpts, 'failClosed', call.failClosed ?? opts.failClosed);
 
       return await guardOnce(guardOpts);
     };
@@ -695,11 +698,7 @@ function createOutputGuard(opts: GuardFactoryOptions): OutputGuard {
         throw new TypeError('guard.wrap() wrapped function must return a string');
       }
 
-      const call: GuardCallOptions = { input, draft };
-      if (opts.failClosed === undefined && opts.onError === undefined) {
-        call.onError = DEFAULT_BLOCK_MESSAGE;
-      }
-      return await guardFn(call);
+      return await guardFn({ input, draft });
     };
   };
   return outputGuard;
@@ -766,16 +765,9 @@ function env(...names: string[]): string | undefined {
 
 function clientOptions(opts: GuardFactoryOptions): ClientOptions {
   const clientOpts: ClientOptions = {
-    baseUrl:
-      opts.baseUrl ??
-      env('TLG_URL', 'TL_SERVER_URL', 'TRUSTLOOPGUARD_URL', 'TRUSTLOOP_URL') ??
-      'http://127.0.0.1:8080',
+    baseUrl: opts.baseUrl ?? env('FEATHERLANE_AI_URL', 'TL_SERVER_URL') ?? 'http://127.0.0.1:8080',
   };
-  addDefined(
-    clientOpts,
-    'apiKey',
-    opts.apiKey ?? env('TLG_API_KEY', 'TL_API_KEY', 'TRUSTLOOPGUARD_API_KEY', 'TRUSTLOOP_API_KEY'),
-  );
+  addDefined(clientOpts, 'apiKey', opts.apiKey ?? env('FEATHERLANE_AI_API_KEY', 'TL_API_KEY'));
   addDefined(clientOpts, 'retry', opts.retry);
   addDefined(clientOpts, 'fetchImpl', opts.fetchImpl);
   addDefined(clientOpts, 'onRetry', opts.onRetry);

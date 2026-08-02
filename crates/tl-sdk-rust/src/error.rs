@@ -1,4 +1,4 @@
-//! Typed errors produced by the TrustLoopGuard Rust SDK.
+//! Typed errors produced by the Featherlane AI Rust SDK.
 //!
 //! `SdkError` is the only error type users of the SDK see. Variants line up
 //! 1:1 with `ApiErrorCode` plus two infrastructure variants (`Transport`

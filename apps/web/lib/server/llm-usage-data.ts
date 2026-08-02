@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { LlmUsageBucket, LlmUsageBucketsResponse } from '@trustloopguard/sdk';
+import type { LlmUsageBucket, LlmUsageBucketsResponse } from '@featherlane-ai/sdk';
 
 import { periodRange, type UsagePeriod } from '@/components/workspace/usage-utils';
 import { rustApiForWorkspace } from './tl-client';

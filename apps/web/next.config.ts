@@ -16,7 +16,7 @@ const config: NextConfig = {
   generateBuildId: () => buildId,
   // Bundle the workspace SDK with the app. The SDK build must run first
   // because its package exports resolve through dist/index.js.
-  transpilePackages: ['@trustloopguard/sdk'],
+  transpilePackages: ['@featherlane-ai/sdk'],
   typescript: {
     ignoreBuildErrors: false,
   },
@@ -31,7 +31,7 @@ const config: NextConfig = {
   // ~150 MB final image instead of ~1 GB.
   output: 'standalone',
   // Trace files from the monorepo root so the standalone bundle picks
-  // up the workspace-symlinked @trustloopguard/sdk and its hoisted
+  // up the workspace-symlinked @featherlane-ai/sdk and its hoisted
   // node_modules. Without this, Next defaults to the app dir and ships
   // a broken bundle in pnpm/yarn workspaces.
   outputFileTracingRoot: path.resolve(import.meta.dirname, '../../'),

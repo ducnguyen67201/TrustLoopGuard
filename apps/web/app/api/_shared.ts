@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { Decode, SdkError, Transport, type ApiErrorCode } from '@trustloopguard/sdk';
+import { Decode, SdkError, Transport, type ApiErrorCode } from '@featherlane-ai/sdk';
 
 import {
   RustApiError,

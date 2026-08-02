@@ -4,15 +4,15 @@ from dataclasses import asdict
 
 import pytest
 
-from trustloopguard import AuthorizationEffect, SideEffectClass
-from trustloopguard.integrations import (
+from featherlane_ai import AuthorizationEffect, SideEffectClass
+from featherlane_ai.integrations import (
     AdapterLogEvent,
     AdapterWarning,
     AdapterWarningCode,
     ToolGuardMessages,
     tool_schema_hash,
 )
-from trustloopguard.integrations._core import (
+from featherlane_ai.integrations._core import (
     build_argument_evidence,
     emit_log,
     emit_warning,
@@ -24,7 +24,7 @@ from trustloopguard.integrations._core import (
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [
-        ({}, "tlg-schema:fnv1a64:08f44b07b5901a25"),
+        ({}, "featherlane-ai-schema:fnv1a64:08f44b07b5901a25"),
         (
             {
                 "type": "object",
@@ -34,7 +34,7 @@ from trustloopguard.integrations._core import (
                 },
                 "required": ["a"],
             },
-            "tlg-schema:fnv1a64:f95ce20f84567dd1",
+            "featherlane-ai-schema:fnv1a64:f95ce20f84567dd1",
         ),
         (
             {
@@ -46,7 +46,7 @@ from trustloopguard.integrations._core import (
                     }
                 },
             },
-            "tlg-schema:fnv1a64:4e2d56feadc9be83",
+            "featherlane-ai-schema:fnv1a64:4e2d56feadc9be83",
         ),
         (
             {
@@ -59,7 +59,7 @@ from trustloopguard.integrations._core import (
                     }
                 },
             },
-            "tlg-schema:fnv1a64:8df48d13fea63701",
+            "featherlane-ai-schema:fnv1a64:8df48d13fea63701",
         ),
         (
             {
@@ -68,7 +68,7 @@ from trustloopguard.integrations._core import (
                 "maximum": 1e20,
                 "multipleOf": 0.1,
             },
-            "tlg-schema:fnv1a64:9c0380fc74da9183",
+            "featherlane-ai-schema:fnv1a64:9c0380fc74da9183",
         ),
     ],
 )

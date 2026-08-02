@@ -55,11 +55,11 @@ storage. See [hosted MCP access gateway](hosted-mcp-access-gateway.md).
 
 `TL_DASHBOARD_URL` is the Rust server's public reference to this same dashboard
 origin. OAuth discovery uses it for the employee consent endpoint; in production
-it should be `https://app.gettrustloop.app` when `AUTH_URL` has that value.
+it should be `https://app.featherlane.ai` when `AUTH_URL` has that value.
 
 `AUTH_URL` is the canonical dashboard URL used for Auth.js redirects and OAuth callbacks. It must
-point at the frontend app (`https://staging3.gettrustloop.app` in staging,
-`https://app.gettrustloop.app` in production), not the Rust API.
+point at the frontend app (`https://staging3.featherlane.ai` in staging,
+`https://app.featherlane.ai` in production), not the Rust API.
 
 Dashboard logout uses the branded `/signout` page. Direct browser visits to Auth.js'
 `/api/auth/signout` endpoint are redirected back to `/signout`; POST requests still go through the
@@ -126,7 +126,7 @@ Rust-owned tables currently include:
 
 The web app treats the `workspace` query parameter as a requested workspace, not an authority. Before
 server-rendered dashboard pages or `apps/web/app/api/*` proxy routes attach `TL_API_KEY` and
-`x-tlg-workspace-id`, they resolve the signed-in user's memberships through Rust
+`x-featherlane-ai-workspace-id`, they resolve the signed-in user's memberships through Rust
 `GET /v1/team/my-workspaces`. For ordinary users, if the requested workspace is not in that
 membership list, the proxy returns 403 instead of forwarding the request. Platform administrators
 receive the complete active-workspace list from Rust, so the same check permits their
@@ -134,7 +134,7 @@ cross-workspace selection. When no workspace is requested, the first authorized 
 
 Membership selection does not grant mutation authority. Server actions that mutate Rust-owned data
 resolve the signed-in user and selected membership through Rust, enforce the action's required role,
-and only then attach `TL_API_KEY`, `x-tlg-user-id`, and `x-tlg-workspace-id` when forwarding the
+and only then attach `TL_API_KEY`, `x-featherlane-ai-user-id`, and `x-featherlane-ai-workspace-id` when forwarding the
 mutation. Shared workspace configuration, including policy and knowledge-source creation, requires
 an Owner/Admin role. Rust repeats the role check before durable storage is called.
 

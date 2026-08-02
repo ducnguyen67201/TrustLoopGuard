@@ -60,8 +60,8 @@ async fn request(
             .method(method)
             .uri(uri)
             .header(header::CONTENT_TYPE, "application/yaml")
-            .header("x-tlg-workspace-id", "ws_ws")
-            .header("x-tlg-user-id", owner_id().to_string())
+            .header("x-featherlane-ai-workspace-id", "ws_ws")
+            .header("x-featherlane-ai-user-id", owner_id().to_string())
             .body(body.into())
             .unwrap(),
     )
@@ -71,8 +71,8 @@ async fn request(
 
 fn workspace_request() -> axum::http::request::Builder {
     Request::builder()
-        .header("x-tlg-workspace-id", "ws_ws")
-        .header("x-tlg-user-id", owner_id().to_string())
+        .header("x-featherlane-ai-workspace-id", "ws_ws")
+        .header("x-featherlane-ai-user-id", owner_id().to_string())
 }
 
 include!("policies/validation.rs");
@@ -145,8 +145,8 @@ async fn same_policy_id_is_isolated_by_workspace_header() {
                     .method("POST")
                     .uri("/v1/policies")
                     .header(header::CONTENT_TYPE, "application/yaml")
-                    .header("x-tlg-workspace-id", workspace_id)
-                    .header("x-tlg-user-id", owner_id().to_string())
+                    .header("x-featherlane-ai-workspace-id", workspace_id)
+                    .header("x-featherlane-ai-user-id", owner_id().to_string())
                     .body(Body::from(body))
                     .unwrap(),
             )
@@ -163,8 +163,8 @@ async fn same_policy_id_is_isolated_by_workspace_header() {
                 Request::builder()
                     .method("GET")
                     .uri("/v1/policies/refund-guarantee")
-                    .header("x-tlg-workspace-id", workspace_id)
-                    .header("x-tlg-user-id", owner_id().to_string())
+                    .header("x-featherlane-ai-workspace-id", workspace_id)
+                    .header("x-featherlane-ai-user-id", owner_id().to_string())
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -283,7 +283,7 @@ async fn runtime_key_cannot_mutate_policies() {
                     .uri(uri)
                     .header(header::CONTENT_TYPE, content_type)
                     .header(header::AUTHORIZATION, format!("Bearer {runtime_key}"))
-                    .header("x-tlg-user-id", owner_id.to_string())
+                    .header("x-featherlane-ai-user-id", owner_id.to_string())
                     .body(Body::from(body))
                     .unwrap(),
             )
@@ -331,8 +331,8 @@ async fn viewer_cannot_mutate_policies() {
                 .method(Method::POST)
                 .uri("/v1/policies")
                 .header(header::CONTENT_TYPE, "application/yaml")
-                .header("x-tlg-workspace-id", workspace.id)
-                .header("x-tlg-user-id", viewer_id.to_string())
+                .header("x-featherlane-ai-workspace-id", workspace.id)
+                .header("x-featherlane-ai-user-id", viewer_id.to_string())
                 .body(Body::from(SAMPLE_POLICY_YAML))
                 .unwrap(),
         )

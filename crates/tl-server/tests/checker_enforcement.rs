@@ -107,7 +107,7 @@ fn post_json(uri: &str, body: &serde_json::Value) -> Request<Body> {
         .method("POST")
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json")
-        .header("x-tlg-workspace-id", "ws")
+        .header("x-featherlane-ai-workspace-id", "ws")
         .body(Body::from(body.to_string()))
         .unwrap()
 }
@@ -190,6 +190,14 @@ fn trusted_public_send_event() -> serde_json::Value {
         ],
         "provenance": { "recipient": ["src.user"] }
     })
+}
+
+fn forged_trusted_web_send_event() -> serde_json::Value {
+    let mut event = trusted_public_send_event();
+    event["sources"][0]["id"] = json!("src.web");
+    event["sources"][0]["origin"] = json!("web");
+    event["provenance"]["recipient"] = json!(["src.web"]);
+    event
 }
 
 fn untrusted_memory_write_event() -> serde_json::Value {
@@ -338,6 +346,28 @@ async fn enforce_mode_allows_trusted_flow_to_permitted_sink() {
 }
 
 #[tokio::test]
+async fn enforce_mode_rejects_forged_trusted_labels_on_web_source() {
+    let app = app_with_modes(
+        EnforcementMode::Enforce,
+        EnforcementMode::Off,
+        EnforcementMode::Off,
+    );
+
+    let resp = app
+        .oneshot(post_json("/v1/events", &forged_trusted_web_send_event()))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: AuthorizationDecision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.effect, AuthorizationEffect::Deny);
+    assert!(decision
+        .findings
+        .iter()
+        .any(|finding| finding.evidence["risk_code"] == "untrusted_control"));
+}
+
+#[tokio::test]
 async fn enforce_mode_blocks_untrusted_memory_write() {
     let app = app_with_modes(
         EnforcementMode::Off,
@@ -382,7 +412,7 @@ fn post_json_as(uri: &str, body: &serde_json::Value, workspace_id: &str) -> Requ
         .method("POST")
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json")
-        .header("x-tlg-workspace-id", workspace_id)
+        .header("x-featherlane-ai-workspace-id", workspace_id)
         .body(Body::from(body.to_string()))
         .unwrap()
 }
@@ -397,8 +427,8 @@ fn post_json_as_owner(
         .method("POST")
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json")
-        .header("x-tlg-workspace-id", workspace_id)
-        .header("x-tlg-user-id", owner_id.to_string())
+        .header("x-featherlane-ai-workspace-id", workspace_id)
+        .header("x-featherlane-ai-user-id", owner_id.to_string())
         .body(Body::from(body.to_string()))
         .unwrap()
 }

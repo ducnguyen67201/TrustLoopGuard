@@ -14,7 +14,7 @@ const LOOP = [
   },
   {
     n: '02',
-    title: 'TrustLoopGuard checks it',
+    title: 'Featherlane AI checks it',
     body: 'The Rust engine scores it against your spend caps, per-merchant limits, and policy in under 10ms.',
   },
   {

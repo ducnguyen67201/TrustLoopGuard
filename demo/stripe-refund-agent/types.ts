@@ -4,7 +4,7 @@ import type {
   FinancialExecutionStatus,
   FinancialActionRecord,
   FinancialReceipt,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 export const REFUND_AGENT_ID = 'refund-bot';
 export const REFUND_GRANT_CAPABILITY = 'financial:issue_refund';

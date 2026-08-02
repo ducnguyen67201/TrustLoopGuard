@@ -1,12 +1,12 @@
-# TrustLoopGuard CLI
+# Featherlane AI CLI
 
-Install TrustLoopGuard as a blocking tool-call gate for Claude Code, Codex, and OpenCode.
+Install Featherlane AI as a blocking tool-call gate for Claude Code, Codex, and OpenCode.
 
 ```bash
-export TLG_API_KEY="<your workspace runtime key>"
-npx @trustloopguard/cli install \
+export FEATHERLANE_AI_API_KEY="<your workspace runtime key>"
+npx @featherlane-ai/cli install \
   --agent-id coding-agent \
-  --url https://api.gettrustloop.app \
+  --url https://api.featherlane.ai \
   --target claude,codex,opencode
 ```
 
@@ -21,15 +21,15 @@ directory, then safely merges user-level host hooks.
 ## Commands
 
 ```bash
-npx @trustloopguard/cli install --agent-id coding-agent --target auto
-npx @trustloopguard/cli status
-npx @trustloopguard/cli doctor
-npx @trustloopguard/cli uninstall --target claude
-npx @trustloopguard/cli uninstall --all
+npx @featherlane-ai/cli install --agent-id coding-agent --target auto
+npx @featherlane-ai/cli status
+npx @featherlane-ai/cli doctor
+npx @featherlane-ai/cli uninstall --target claude
+npx @featherlane-ai/cli uninstall --all
 ```
 
 `status` reports configuration without making network requests. `doctor` also checks the host
-versions, runtime integrity, environment key presence, and TrustLoopGuard health endpoint.
+versions, runtime integrity, environment key presence, and Featherlane AI health endpoint.
 
 Claude Code and OpenCode gate every tool event emitted through their blocking before-tool
 extension points. Codex coverage is limited to tool handlers for which the installed Codex version
@@ -41,7 +41,7 @@ MCP server but does not intercept native or third-party tool calls.
 ## Verify
 
 - Restart each configured host after installation.
-- In Claude Code, open `/hooks` and confirm the three TrustLoopGuard handlers.
+- In Claude Code, open `/hooks` and confirm the three Featherlane AI handlers.
 - In Codex, open `/hooks`, review the command, and approve hook trust.
 - In OpenCode, run a harmless tool after restart and confirm a trace appears.
 
