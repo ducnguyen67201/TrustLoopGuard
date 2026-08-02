@@ -60,6 +60,12 @@ The sidebar owns the workspace switcher and environment switcher. Runtime/produc
 
 The top bar (`apps/web/components/site-header.tsx`) renders a breadcrumb trail. Pass `breadcrumbs={[{ label, href? }]}` for nested routes (e.g. `Runs / <run id>`) so users can navigate back to the parent; the last crumb is the current page and is not linked. With no `breadcrumbs`, it falls back to a single crumb showing the page title.
 
+## BrandLogo
+
+`apps/web/components/brand-logo.tsx` is the canonical Featherlane AI mark for dashboard chrome. It renders the transparent feather artwork with its intrinsic aspect ratio; callers set the displayed height with a named Tailwind utility and keep `w-auto`. Use `alt=""` when adjacent text already names Featherlane AI, and keep the default alternative text when the mark stands alone. Browser, shortcut, and Apple icon metadata use the padded dark artwork at `public/featherlane-ai-logo-dark.png`.
+
+Current adopters are the app sidebar, authentication and sign-out screens, welcome screen, and workspace onboarding header. Do not introduce inline SVGs, icon-library stand-ins, rounded masks, or page-local copies of the brand mark.
+
 ## PageHeader
 
 `apps/web/components/ui/page-header.tsx` is the single in-content page header. Every dashboard page opens with it so heading rhythm, the primary action position, and spacing are identical everywhere.

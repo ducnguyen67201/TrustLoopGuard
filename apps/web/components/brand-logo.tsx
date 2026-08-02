@@ -15,12 +15,12 @@ export function BrandLogo({
 }: BrandLogoProps) {
   return (
     <Image
-      src="/featherlane-ai-logo.svg"
+      src="/featherlane-ai-logo.png"
       alt={alt}
-      width={40}
-      height={40}
+      width={44}
+      height={41}
       priority={priority}
-      className={cn('size-8 rounded-full', className)}
+      className={cn('h-8 w-auto object-contain', className)}
     />
   );
 }

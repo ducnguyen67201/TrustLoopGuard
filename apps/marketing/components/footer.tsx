@@ -163,7 +163,12 @@ export function Footer({ locale = 'en' }: { locale?: MarketingLocale }) {
       <div className="footer-panel">
         <div className="footer-intro">
           <div className="wordmark footer-wordmark">
-            <img src="/featherlane-ai-logo.svg" alt="" aria-hidden="true" className="wordmark-logo" />
+            <img
+              src="/featherlane-ai-logo.png"
+              alt=""
+              aria-hidden="true"
+              className="wordmark-logo"
+            />
             <span>Featherlane AI</span>
           </div>
           <div className="footer-intro-aside">

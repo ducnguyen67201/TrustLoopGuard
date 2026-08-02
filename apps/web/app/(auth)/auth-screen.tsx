@@ -46,7 +46,7 @@ export function AuthScreen({
         <div className="grid w-full max-w-md gap-6">
           <div className="grid gap-2 lg:hidden">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <BrandLogo className="size-7" priority />
+              <BrandLogo alt="" className="h-7 w-auto" priority />
               <span className="font-mono text-xs tracking-wide">Featherlane AI</span>
             </div>
             <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
@@ -84,7 +84,7 @@ function BrandRail({ eyebrow, title, description }: BrandRailProps) {
       className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-secondary px-12 py-12 lg:flex"
     >
       <div className="flex items-center gap-2.5">
-        <BrandLogo className="size-8" priority />
+        <BrandLogo alt="" className="h-8 w-auto" priority />
         <span className="font-mono text-sm tracking-wide">Featherlane AI</span>
       </div>
 

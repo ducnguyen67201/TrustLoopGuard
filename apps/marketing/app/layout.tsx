@@ -56,9 +56,9 @@ export const metadata: Metadata = {
     description: DEFAULT_DESCRIPTION,
   },
   icons: {
-    icon: [{ url: '/featherlane-ai-logo.svg', type: 'image/svg+xml' }],
-    shortcut: ['/featherlane-ai-logo.svg'],
-    apple: [{ url: '/featherlane-ai-logo.svg', type: 'image/svg+xml' }],
+    icon: [{ url: '/featherlane-ai-logo-dark.png', type: 'image/png' }],
+    shortcut: ['/featherlane-ai-logo-dark.png'],
+    apple: [{ url: '/featherlane-ai-logo-dark.png', type: 'image/png' }],
   },
 };
 

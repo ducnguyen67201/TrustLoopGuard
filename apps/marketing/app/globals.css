@@ -111,10 +111,9 @@ input {
 
 .wordmark-logo {
   display: block;
-  width: 2rem;
   height: 2rem;
+  width: auto;
   flex: 0 0 auto;
-  border-radius: 50%;
 }
 
 .site-nav-links {
@@ -1304,8 +1303,8 @@ input {
   }
 
   .wordmark-logo {
-    width: 1.8rem;
     height: 1.8rem;
+    width: auto;
   }
 
   .site-nav > div {

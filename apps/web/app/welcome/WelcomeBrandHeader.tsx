@@ -15,7 +15,7 @@ export function WelcomeBrandHeader({ status }: WelcomeBrandHeaderProps) {
   return (
     <header className="flex items-center justify-between gap-4">
       <div className="flex items-center gap-2.5">
-        <BrandLogo className="size-7" priority />
+        <BrandLogo alt="" className="h-7 w-auto" priority />
         <span className="text-sm font-medium text-foreground">Featherlane AI</span>
       </div>
       <Badge variant="outline" className="gap-1.5 text-xs">
