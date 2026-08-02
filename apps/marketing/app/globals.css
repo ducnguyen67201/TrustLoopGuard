@@ -33,7 +33,7 @@
   --color-background: var(--color-page);
   --color-foreground: var(--color-ink);
   --font-sans: var(--font-inter, ui-sans-serif, system-ui, sans-serif);
-  --font-mono: var(--font-geist-mono, ui-monospace, SFMono-Regular, monospace);
+  --font-mono: var(--font-pixel), var(--font-geist-mono, ui-monospace, SFMono-Regular, monospace);
 }
 
 * {
@@ -52,6 +52,9 @@ body {
   font-feature-settings: 'cv01', 'ss01';
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Departure Mono ships weight 400 only; faux-bold smears a pixel grid.
+     Bold mono renders as regular instead. Inter/Space Grotesk are unaffected. */
+  font-synthesis-weight: none;
 }
 
 a {
@@ -4410,5 +4413,142 @@ input {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+}
+
+/* ============================================================
+   Glass layer
+   Ambient aurora behind the page + frosted surfaces on top.
+   Appended last so it overrides the opaque panel rules above.
+   ============================================================ */
+
+:root {
+  --glass-bg: rgb(255 255 255 / 0.66);
+  --glass-bg-strong: rgb(255 255 255 / 0.8);
+  --glass-bg-inner: rgb(255 255 255 / 0.34);
+  --glass-bg-dark: rgb(255 255 255 / 0.055);
+  --glass-line: rgb(255 255 255 / 0.6);
+  --glass-blur: saturate(1.5) blur(20px);
+  --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 0.7);
+  --glass-shadow: 0 20px 50px -18px rgb(16 42 67 / 0.22);
+}
+
+/* Aurora: viewport-fixed so it stays put while the page scrolls. */
+body {
+  background:
+    radial-gradient(67% 82% at 8% -10%, rgb(99 102 241 / 0.3), transparent 62%) fixed,
+    radial-gradient(53% 71% at 94% 0%, rgb(34 211 238 / 0.22), transparent 60%) fixed,
+    radial-gradient(62% 85% at 80% 72%, rgb(56 110 220 / 0.24), transparent 62%) fixed,
+    radial-gradient(49% 68% at 12% 94%, rgb(168 85 247 / 0.18), transparent 60%) fixed,
+    var(--color-page);
+}
+
+/* Let the aurora through the full-bleed light sections. */
+.hero {
+  background: radial-gradient(circle at 78% 20%, rgb(36 91 200 / 0.08), transparent 31rem);
+}
+
+.home-demo,
+.developers-section,
+.site-footer {
+  background: rgb(238 243 247 / 0.5);
+}
+
+.journey-section {
+  background: rgb(245 234 215 / 0.62);
+}
+
+/* Frosted panels. */
+.card,
+.cell,
+.quick-install,
+.principles,
+.trace-sheet,
+.evidence-notes,
+.integration-rail,
+.code-panel,
+.use-case-showcase-panel,
+.flow,
+.flow-node,
+.use-case-context,
+.use-case-flow,
+.use-case-flow-node,
+.use-case-result-card,
+.use-case-related a,
+.site-nav-dropdown-menu,
+.journey-card,
+.button-secondary {
+  border-color: var(--glass-line);
+  background: var(--glass-bg-strong);
+  box-shadow:
+    var(--glass-highlight),
+    var(--glass-shadow);
+}
+
+/* Inner strips sit inside an already-blurred parent — tint only, no second blur. */
+.trace-sheet > header,
+.principles-intro,
+.integration-tab,
+.code-panel-label,
+.quick-install button,
+.use-case-showcase-icon {
+  background: var(--glass-bg-inner);
+}
+
+/* Glass over the dark sections. */
+.control-preview,
+.authorization-flow,
+.use-case-boundary-grid article {
+  background: var(--glass-bg-dark);
+}
+
+.control-section,
+.use-case-boundary-section {
+  background: rgb(16 42 67 / 0.94);
+}
+
+.site-header {
+  background: rgb(246 248 247 / 0.62);
+}
+
+/* Blur is the expensive, less-supported half — opt in only where it works,
+   so no-backdrop-filter browsers keep the more opaque, legible fallback above. */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .card,
+  .cell,
+  .quick-install,
+  .principles,
+  .trace-sheet,
+  .evidence-notes,
+  .integration-rail,
+  .code-panel,
+  .use-case-showcase-panel,
+  .flow,
+  .flow-node,
+  .use-case-context,
+  .use-case-flow,
+  .use-case-flow-node,
+  .use-case-result-card,
+  .use-case-related a,
+  .site-nav-dropdown-menu,
+  .journey-card,
+  .button-secondary,
+  .control-preview,
+  .authorization-flow,
+  .use-case-boundary-grid article {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+
+  .control-preview,
+  .authorization-flow,
+  .use-case-boundary-grid article {
+    background: var(--glass-bg-dark);
+  }
+
+  .site-header {
+    -webkit-backdrop-filter: saturate(1.5) blur(22px);
+    backdrop-filter: saturate(1.5) blur(22px);
   }
 }
