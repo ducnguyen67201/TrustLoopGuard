@@ -34,6 +34,9 @@
   --color-foreground: var(--color-ink);
   --font-sans: var(--font-inter, ui-sans-serif, system-ui, sans-serif);
   --font-mono: var(--font-pixel), var(--font-geist-mono, ui-monospace, SFMono-Regular, monospace);
+  /* Bare <code>/<pre> use Tailwind's preflight default, not the font-mono
+     utility — point it at the same stack so they get the pixel face too. */
+  --default-mono-font-family: var(--font-mono);
 }
 
 * {

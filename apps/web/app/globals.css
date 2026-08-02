@@ -52,7 +52,11 @@
   --badge-block-bg: color-mix(in oklab, var(--color-deny), transparent 88%);
   --badge-block-border: color-mix(in oklab, var(--color-deny), transparent 72%);
   --badge-require-approval-bg: color-mix(in oklab, var(--color-require-approval), transparent 88%);
-  --badge-require-approval-border: color-mix(in oklab, var(--color-require-approval), transparent 72%);
+  --badge-require-approval-border: color-mix(
+    in oklab,
+    var(--color-require-approval),
+    transparent 72%
+  );
 
   --chart-1: #ff6900;
   --chart-2: #00cccc;
@@ -155,10 +159,14 @@
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
 
-  /* Two-face typography: Inter for UI/prose, IBM Plex Mono for data/code. */
+  /* Two-face typography: Inter for UI/prose, Departure Mono for data/code. */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-ibm-plex-mono), ui-monospace, 'SFMono-Regular', monospace;
+  --font-mono:
+    var(--font-pixel), var(--font-ibm-plex-mono), ui-monospace, 'SFMono-Regular', monospace;
+  /* Bare <code>/<pre> use Tailwind's preflight default, not the font-mono
+     utility — point it at the same stack so they get the pixel face too. */
+  --default-mono-font-family: var(--font-mono);
 
   /* Micro-type: de-facto sizes below Tailwind's text-xs floor, used across
      badges, table meta, and eyebrow labels. rem-based so they scale with root. */
@@ -179,6 +187,9 @@ body {
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Departure Mono ships weight 400 only; faux-bold smears a pixel grid.
+     font-bold on mono renders as regular instead. Inter is variable, unaffected. */
+  font-synthesis-weight: none;
 }
 
 /* Numeric/data surfaces opt into mono + tabular figures for stable digits. */
