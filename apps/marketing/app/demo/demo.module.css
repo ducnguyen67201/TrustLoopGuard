@@ -406,6 +406,7 @@
   background: var(--color-panel-2);
   color: var(--color-muted);
   cursor: pointer;
+  font-family: var(--font-mono), monospace;
   font-size: 0.68rem;
 }
 
@@ -465,6 +466,7 @@
 
 .workflowStep h3 {
   margin: 0 0 0.3rem;
+  font-family: var(--font-display), var(--font-inter), sans-serif;
   font-size: 0.9rem;
 }
 
@@ -562,6 +564,7 @@
 
 .proofGrid dt {
   color: var(--color-faint);
+  font-family: var(--font-mono), monospace;
 }
 
 .proofGrid dd {

@@ -60,6 +60,17 @@ body {
   font-synthesis-weight: none;
 }
 
+/* Headings default to the display face. Component rules that want mono
+   (footer link groups) or another face still win on specificity. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display), var(--font-inter), sans-serif;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -84,9 +95,7 @@ input {
 /* Header */
 .site-header {
   border-bottom: 1px solid var(--color-line);
-  background: rgb(246 248 247 / 0.92);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+  background: var(--color-page);
 }
 
 .site-nav {
@@ -176,12 +185,12 @@ input {
   border-radius: 0 0 14px 14px;
   background: #fff;
   box-shadow: 0 22px 60px rgb(16 42 67 / 0.16);
-  opacity: 0;
   visibility: hidden;
   pointer-events: none;
   transform: translate(-50%, -0.5rem);
+  /* No opacity fade: a translucent panel mid-transition lets the page read
+     straight through the menu. It slides in already opaque. */
   transition:
-    opacity 150ms ease,
     transform 150ms ease,
     visibility 150ms ease;
 }
@@ -189,7 +198,6 @@ input {
 .site-nav-dropdown:hover .site-nav-dropdown-menu,
 .site-nav-dropdown:focus-within .site-nav-dropdown-menu,
 .site-nav-dropdown[data-open='true'] .site-nav-dropdown-menu {
-  opacity: 1;
   visibility: visible;
   pointer-events: auto;
   transform: translate(-50%, 0);
@@ -217,6 +225,7 @@ input {
 
 .site-nav-mega-header small {
   color: var(--color-accent-deep);
+  font-family: var(--font-mono), monospace;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -287,6 +296,7 @@ input {
 
 .site-nav-mega-grid small {
   color: var(--color-accent-deep);
+  font-family: var(--font-mono), monospace;
   font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -2369,6 +2379,7 @@ input {
 
 .trace-event-title strong {
   margin-top: 0.22rem;
+  font-family: var(--font-mono), monospace;
   font-size: 0.95rem;
 }
 
@@ -3013,8 +3024,9 @@ input {
 
 .use-case-flow-demo-fields > div {
   display: grid;
-  grid-template-columns: minmax(4.5rem, 0.65fr) minmax(0, 1.35fr);
-  gap: 0.75rem;
+  /* Mono values need more of the row than the sans they replaced. */
+  grid-template-columns: minmax(3rem, 0.45fr) minmax(0, 1.55fr);
+  gap: 0.55rem;
   padding: 0.65rem 0;
   border-top: 1px solid rgb(255 255 255 / 0.1);
 }
@@ -3034,6 +3046,7 @@ input {
 
 .use-case-flow-demo-fields dd {
   color: #c8d3dc;
+  font-family: var(--font-mono), monospace;
   overflow-wrap: anywhere;
 }
 
@@ -4477,14 +4490,11 @@ body {
 .use-case-flow-node,
 .use-case-result-card,
 .use-case-related a,
-.site-nav-dropdown-menu,
 .journey-card,
 .button-secondary {
   border-color: var(--glass-line);
   background: var(--glass-bg-strong);
-  box-shadow:
-    var(--glass-highlight),
-    var(--glass-shadow);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
 
 /* Inner strips sit inside an already-blurred parent — tint only, no second blur. */
@@ -4509,10 +4519,6 @@ body {
   background: rgb(16 42 67 / 0.94);
 }
 
-.site-header {
-  background: rgb(246 248 247 / 0.62);
-}
-
 /* Blur is the expensive, less-supported half — opt in only where it works,
    so no-backdrop-filter browsers keep the more opaque, legible fallback above. */
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
@@ -4532,7 +4538,6 @@ body {
   .use-case-flow-node,
   .use-case-result-card,
   .use-case-related a,
-  .site-nav-dropdown-menu,
   .journey-card,
   .button-secondary,
   .control-preview,
@@ -4547,10 +4552,5 @@ body {
   .authorization-flow,
   .use-case-boundary-grid article {
     background: var(--glass-bg-dark);
-  }
-
-  .site-header {
-    -webkit-backdrop-filter: saturate(1.5) blur(22px);
-    backdrop-filter: saturate(1.5) blur(22px);
   }
 }
