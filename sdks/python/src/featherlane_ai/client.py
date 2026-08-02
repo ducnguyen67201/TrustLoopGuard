@@ -1,4 +1,4 @@
-"""HTTP client for TrustLoopGuard's GuardEvent runtime contract.
+"""HTTP client for Featherlane AI's GuardEvent runtime contract.
 
 Sync and async variants share the same surface.
 """
@@ -18,7 +18,7 @@ import httpx
 
 from urllib.parse import quote
 
-from trustloopguard._generated.types import (
+from featherlane_ai._generated.types import (
     Action,
     AuthorizationApproval,
     AuthorizationApprovalListResponse,
@@ -76,21 +76,21 @@ from trustloopguard._generated.types import (
     ToolIdentity,
     UpdateRunRequest,
 )
-from trustloopguard.authorization import AuthorizationResult
-from trustloopguard.errors import (
+from featherlane_ai.authorization import AuthorizationResult
+from featherlane_ai.errors import (
     Decode,
     SdkError,
     Transport,
     from_response,
     parse_retry_after,
 )
-from trustloopguard.retry import RetryConfig
+from featherlane_ai.retry import RetryConfig
 
-# Module-level logger; callers can hook into trustloopguard.* if they want
+# Module-level logger; callers can hook into featherlane_ai.* if they want
 # our retry decisions in their structured logs.
-_logger = logging.getLogger("trustloopguard")
+_logger = logging.getLogger("featherlane-ai")
 _run_context: contextvars.ContextVar[dict[str, str]] = contextvars.ContextVar(
-    "trustloopguard_run_context", default={}
+    "featherlane_ai_run_context", default={}
 )
 InputT = TypeVar("InputT")
 FactsT = TypeVar("FactsT")
@@ -325,10 +325,10 @@ def _clean_financial_operation_field(name: str, value: str) -> str:
 
 
 class Client:
-    """Synchronous TrustLoopGuard client.
+    """Synchronous Featherlane AI client.
 
     Args:
-        base_url: TrustLoopGuard server URL, e.g. ``"https://api.trustloopguard.dev"``.
+        base_url: Featherlane AI server URL, e.g. ``"https://api.featherlane.ai"``.
         api_key:  Bearer token. Optional in local dev.
         timeout:  Per-request deadline (seconds). Voice callers should pass
                   a tight value (≈0.1s); chat callers can be looser.
@@ -679,7 +679,7 @@ class Client:
                             tool_identity.model_dump(mode="json")
                             if tool_identity is not None
                             else {
-                                "server_id": "trustloopguard-sdk",
+                                "server_id": "featherlane-ai-sdk",
                                 "tool_name": operation,
                                 "schema_hash": "sdk-legacy-untyped-v1",
                             }
@@ -1143,7 +1143,7 @@ class Client:
                 if delay is None:
                     raise
                 _logger.info(
-                    "trustloopguard retry: attempt=%d delay=%.3fs error=%s",
+                    "featherlane-ai retry: attempt=%d delay=%.3fs error=%s",
                     attempt,
                     delay,
                     err,
@@ -1390,7 +1390,7 @@ class _RunEventContext:
 
 
 class AsyncClient:
-    """Async TrustLoopGuard client. Same surface as ``Client`` but awaitable."""
+    """Async Featherlane AI client. Same surface as ``Client`` but awaitable."""
 
     def __init__(
         self,
@@ -1732,7 +1732,7 @@ class AsyncClient:
                             tool_identity.model_dump(mode="json")
                             if tool_identity is not None
                             else {
-                                "server_id": "trustloopguard-sdk",
+                                "server_id": "featherlane-ai-sdk",
                                 "tool_name": operation,
                                 "schema_hash": "sdk-legacy-untyped-v1",
                             }
@@ -2182,7 +2182,7 @@ class AsyncClient:
                 if delay is None:
                     raise
                 _logger.info(
-                    "trustloopguard retry: attempt=%d delay=%.3fs error=%s",
+                    "featherlane-ai retry: attempt=%d delay=%.3fs error=%s",
                     attempt,
                     delay,
                     err,

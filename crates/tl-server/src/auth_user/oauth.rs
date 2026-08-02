@@ -12,7 +12,7 @@ use super::response::api_error;
 use super::{normalize_oauth_provider, AuthUserState};
 
 /// `POST /v1/identity/oauth-session` — map a provider-authenticated
-/// Google/GitHub account to a local TrustLoopGuard app user.
+/// Google/GitHub account to a local Featherlane AI app user.
 ///
 /// This endpoint is internal-only and accepts only the internal
 /// `TL_API_KEY` bearer lane. User-session JWTs and workspace runtime keys

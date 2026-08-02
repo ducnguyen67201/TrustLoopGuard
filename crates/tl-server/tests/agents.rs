@@ -49,7 +49,7 @@ async fn read_body(resp: axum::response::Response) -> serde_json::Value {
 }
 
 fn request_with_workspace(workspace_id: &str) -> axum::http::request::Builder {
-    Request::builder().header("x-tlg-workspace-id", workspace_id)
+    Request::builder().header("x-featherlane-ai-workspace-id", workspace_id)
 }
 
 fn workspace_request() -> axum::http::request::Builder {

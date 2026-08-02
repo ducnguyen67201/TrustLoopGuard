@@ -5,14 +5,14 @@ import {
   createToolHandlers,
   type ListTracesInput,
   type ToolHandlers,
-  type TrustLoopClient,
+  type FeatherlaneAIClient,
   type UpsertAgentInput,
 } from './handlers';
 
 const jsonValue = z.json();
 const jsonObject = z.record(z.string(), jsonValue);
 const guardEvent = jsonObject.transform(
-  (event) => event as Parameters<TrustLoopClient['submitEvent']>[0],
+  (event) => event as Parameters<FeatherlaneAIClient['submitEvent']>[0],
 );
 const sideEffect = z.enum([
   'none',
@@ -119,13 +119,13 @@ const traceSchema = z.object({
   session_id: z.string().optional(),
 });
 
-export function createTrustLoopMcpServer(client: TrustLoopClient): McpServer {
-  const server = new McpServer({ name: 'trustloopguard', version: '0.0.0' });
-  registerTrustLoopTools(server, createToolHandlers(client));
+export function createFeatherlaneAIMcpServer(client: FeatherlaneAIClient): McpServer {
+  const server = new McpServer({ name: 'featherlane-ai', version: '0.0.0' });
+  registerFeatherlaneAITools(server, createToolHandlers(client));
   return server;
 }
 
-export function registerTrustLoopTools(server: McpServer, handlers: ToolHandlers): void {
+export function registerFeatherlaneAITools(server: McpServer, handlers: ToolHandlers): void {
   server.registerTool(
     'submit_guard_event',
     {
@@ -136,12 +136,12 @@ export function registerTrustLoopTools(server: McpServer, handlers: ToolHandlers
   );
   server.registerTool(
     'start_run',
-    { description: 'Create a TrustLoopGuard run.', inputSchema: runInput.shape },
+    { description: 'Create a Featherlane AI run.', inputSchema: runInput.shape },
     (input) => handlers.start_run(runRequest(input)),
   );
   server.registerTool(
     'list_runs',
-    { description: 'List TrustLoopGuard runs.', inputSchema: {} },
+    { description: 'List Featherlane AI runs.', inputSchema: {} },
     () => handlers.list_runs(),
   );
   server.registerTool(
@@ -243,7 +243,7 @@ export function registerTrustLoopTools(server: McpServer, handlers: ToolHandlers
   );
 }
 
-function runRequest(input: z.infer<typeof runInput>): Parameters<TrustLoopClient['startRun']>[0] {
+function runRequest(input: z.infer<typeof runInput>): Parameters<FeatherlaneAIClient['startRun']>[0] {
   return {
     agent_id: input.agent_id,
     kind: input.kind,
@@ -255,7 +255,7 @@ function runRequest(input: z.infer<typeof runInput>): Parameters<TrustLoopClient
 
 function runEventRequest(
   input: z.infer<typeof runEventInput>,
-): Parameters<TrustLoopClient['createRunEvent']>[1] {
+): Parameters<FeatherlaneAIClient['createRunEvent']>[1] {
   return {
     kind: input.kind,
     ...(input.sequence !== undefined ? { sequence: input.sequence } : {}),
@@ -301,7 +301,7 @@ function knowledgeSourceInput(
 
 function toolMetadataRequest(
   input: z.infer<typeof toolMetadataInput>,
-): Parameters<TrustLoopClient['upsertToolMetadata']>[0] {
+): Parameters<FeatherlaneAIClient['upsertToolMetadata']>[0] {
   return {
     tool: input.tool,
     side_effect: input.side_effect,
@@ -322,7 +322,7 @@ function toolMetadataRequest(
 function allowedSourceInput(
   input: Exclude<z.infer<typeof toolParam>['allowed_sources'], undefined>[number],
 ): Exclude<
-  Parameters<TrustLoopClient['upsertToolMetadata']>[0]['params'][number]['allowed_sources'],
+  Parameters<FeatherlaneAIClient['upsertToolMetadata']>[0]['params'][number]['allowed_sources'],
   undefined
 >[number] {
   return {
@@ -334,7 +334,7 @@ function allowedSourceInput(
 
 function approvalInput(
   input: z.infer<typeof approval>,
-): Exclude<Parameters<TrustLoopClient['upsertToolMetadata']>[0]['approval'], undefined> {
+): Exclude<Parameters<FeatherlaneAIClient['upsertToolMetadata']>[0]['approval'], undefined> {
   return {
     required: input.required,
     ...(input.approver_roles !== undefined ? { approver_roles: input.approver_roles } : {}),

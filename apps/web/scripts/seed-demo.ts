@@ -1,5 +1,5 @@
 const SERVER_URL = process.env['NEXT_PUBLIC_TL_SERVER_URL'] ?? 'http://127.0.0.1:3001';
-const WORKSPACE_ID = process.env['TL_DEMO_WORKSPACE_ID'] ?? 'ws_trustloop_demo';
+const WORKSPACE_ID = process.env['TL_DEMO_WORKSPACE_ID'] ?? 'ws_featherlane_ai_demo';
 const API_KEY = process.env['TL_API_KEY'];
 const USER_ID = process.env['TL_DEMO_USER_ID'];
 
@@ -282,9 +282,9 @@ async function recordTrace(trace: DemoTraceInput) {
 
 async function request(path: string, init: RequestInit) {
   const headers = new Headers(init.headers);
-  headers.set('x-tlg-workspace-id', WORKSPACE_ID);
+  headers.set('x-featherlane-ai-workspace-id', WORKSPACE_ID);
   if (API_KEY) headers.set('authorization', `Bearer ${API_KEY}`);
-  if (USER_ID) headers.set('x-tlg-user-id', USER_ID);
+  if (USER_ID) headers.set('x-featherlane-ai-user-id', USER_ID);
 
   const res = await fetch(`${SERVER_URL}${path}`, {
     ...init,

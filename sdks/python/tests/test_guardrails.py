@@ -6,7 +6,7 @@ import httpx
 import pytest
 import respx
 
-from trustloopguard import (
+from featherlane_ai import (
     Client,
     GuardrailGenerateResponse,
     GuardrailListResponse,
@@ -115,7 +115,7 @@ def test_generate_503_raises_unavailable() -> None:
         )
     )
     # max_attempts=1 so we don't actually retry the 503 here.
-    from trustloopguard import RetryConfig
+    from featherlane_ai import RetryConfig
 
     with Client(
         "https://api.example.test", retry=RetryConfig(max_attempts=1)

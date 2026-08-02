@@ -20,8 +20,8 @@ action: deny
                 .uri("/v1/policies")
                 .header(header::CONTENT_TYPE, "application/x-yaml")
                 .header(header::AUTHORIZATION, "Bearer sk-internal")
-                .header("x-tlg-workspace-id", workspace)
-                .header("x-tlg-user-id", gateway_owner_id().to_string())
+                .header("x-featherlane-ai-workspace-id", workspace)
+                .header("x-featherlane-ai-user-id", gateway_owner_id().to_string())
                 .body(Body::from(policy))
                 .unwrap(),
         )
@@ -85,6 +85,6 @@ action: deny
 
     assert_eq!(resp.status(), StatusCode::OK);
     let body = read_body(resp).await;
-    assert_eq!(body["content"][0]["text"], "Blocked by TrustLoopGuard.");
+    assert_eq!(body["content"][0]["text"], "Blocked by Featherlane AI.");
     provider.verify().await;
 }

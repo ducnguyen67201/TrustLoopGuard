@@ -11,7 +11,7 @@ import httpx
 import pytest
 import respx
 
-from trustloopguard import (
+from featherlane_ai import (
     AsyncClient,
     Channel,
     Client,

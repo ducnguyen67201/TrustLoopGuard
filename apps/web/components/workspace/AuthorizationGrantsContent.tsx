@@ -1,7 +1,7 @@
 'use client';
 
 import { IconBan, IconPlus } from '@tabler/icons-react';
-import type { AuthorizationGrant } from '@trustloopguard/sdk';
+import type { AuthorizationGrant } from '@featherlane-ai/sdk';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';

@@ -14,16 +14,16 @@ describe('web environment helpers', () => {
 
     expect(getEnv()).toBe('staging');
     expect(checkEnv()).toBe('stage');
-    expect(getAppUrl()).toBe('https://staging3.gettrustloop.app');
-    expect(getDocsUrl()).toBe('https://staging3.gettrustloop.app/apps/doc');
+    expect(getAppUrl()).toBe('https://staging3.featherlane.ai');
+    expect(getDocsUrl()).toBe('https://staging3.featherlane.ai/apps/doc');
   });
 
   it('canonicalizes production defaults', () => {
     process.env['NEXT_PUBLIC_APP_ENV'] = 'prod';
 
     expect(getEnv()).toBe('prod');
-    expect(getAppUrl()).toBe('https://app.gettrustloop.app');
-    expect(getDocsUrl()).toBe('https://app.gettrustloop.app/apps/doc');
+    expect(getAppUrl()).toBe('https://app.featherlane.ai');
+    expect(getDocsUrl()).toBe('https://app.featherlane.ai/apps/doc');
   });
 
   it('canonicalizes local development defaults', () => {

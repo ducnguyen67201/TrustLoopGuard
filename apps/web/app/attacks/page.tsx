@@ -9,7 +9,7 @@ import { isWorkspaceFeatureEnabled } from '@/lib/workspace-features';
 import { AttacksPanel } from './_components/attacks-panel';
 
 export const metadata: Metadata = {
-  title: 'Attacks | TrustLoopGuard',
+  title: 'Attacks | Featherlane AI',
   description: 'Red-team a registered agent endpoint and see what gets through.',
 };
 

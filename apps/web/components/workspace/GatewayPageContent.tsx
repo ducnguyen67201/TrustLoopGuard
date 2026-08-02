@@ -18,7 +18,7 @@ import type {
   GatewayProviderConnection,
   GatewayProviderKind,
   GatewayRoute,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -251,7 +251,7 @@ export function GatewayPageContent({
         eyebrow={data.activeWorkspace.name}
         title="Gateway"
         help={<InfoHint term="gateway" />}
-        description="Route AI provider calls through TrustLoopGuard so every request uses the same enabled policies as your SDK and event traffic."
+        description="Route AI provider calls through Featherlane AI so every request uses the same enabled policies as your SDK and event traffic."
         actions={
           <GatewayRouteDialog
             workspaceSlug={data.activeWorkspace.slug}
@@ -936,7 +936,7 @@ function IntegrationCard({
                 <IconAlertTriangle />
                 <AlertTitle>You need an API key first</AlertTitle>
                 <AlertDescription>
-                  Put your gateway API key in the <code className="font-mono">TLG_API_KEY</code>{' '}
+                  Put your gateway API key in the <code className="font-mono">FEATHERLANE_AI_API_KEY</code>{' '}
                   setting before running the examples below.
                   <Button asChild variant="link" className="h-auto px-1 py-0">
                     <Link href={`/api-keys?workspace=${encodeURIComponent(workspaceSlug)}`}>
@@ -957,7 +957,7 @@ function IntegrationCard({
                 code={`import OpenAI from "openai";
 
 const openai = new OpenAI({
-  apiKey: process.env.TLG_API_KEY,
+  apiKey: process.env.FEATHERLANE_AI_API_KEY,
   baseURL: "${openAiBaseUrl}",
 });
 
@@ -972,7 +972,7 @@ const response = await openai.chat.completions.create({
                 code={`import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({
-  authToken: process.env.TLG_API_KEY,
+  authToken: process.env.FEATHERLANE_AI_API_KEY,
   baseURL: "${anthropicBaseUrl}",
 });
 

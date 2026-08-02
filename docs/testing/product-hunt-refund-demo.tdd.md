@@ -5,7 +5,7 @@
 1. A visitor opens `/demo` and asks the support agent for a refund.
 2. The demo creates a fresh, captured $100 payment in Stripe test mode.
 3. OpenAI selects the order lookup and refund tools from the visitor's request.
-4. The refund action is proposed to the TrustLoopGuard Rust API before Stripe is called.
+4. The refund action is proposed to the Featherlane AI Rust API before Stripe is called.
 5. The UI shows the guard decision, execution trace, audit identifiers, and Stripe result.
 
 The three suggested amounts exercise the public story:
@@ -30,9 +30,9 @@ Verification commands:
 
 ```text
 pnpm test:refund-demo
-pnpm --filter @trustloopguard/demo typecheck
+pnpm --filter @featherlane-ai/demo typecheck
 pnpm --filter marketing typecheck
-pnpm --filter @trustloopguard/demo stripe-refund-agent:check
+pnpm --filter @featherlane-ai/demo stripe-refund-agent:check
 pnpm --filter marketing build
 ```
 
@@ -77,7 +77,7 @@ contract.
 
 ## External approval synchronization
 
-As a demo viewer, I can leave a `$75` refund held, approve that exact action in the TrustLoopGuard
+As a demo viewer, I can leave a `$75` refund held, approve that exact action in the Featherlane AI
 dashboard, and watch the original `/demo` page advance to executed with its receipt and Stripe
 reference. RED checkpoint `800566f2` captured the missing authenticated status reader, redacted
 proxy, browser merge model, and polling hook.
@@ -138,7 +138,7 @@ Railway network contract. GREEN checkpoint `49748821` adds the authenticated `/p
 strong production provider-key validation, hosted-origin validation, Railway host/port configuration,
 and a dedicated allowlisted Docker build context.
 
-`pnpm test:refund-demo` passes 28 tests, `pnpm --filter @trustloopguard/demo typecheck` passes, the
+`pnpm test:refund-demo` passes 28 tests, `pnpm --filter @featherlane-ai/demo typecheck` passes, the
 Docker image builds, and a running container returns `401` for an invalid payment bearer credential.
 The container does not expose secret values in its image or startup output.
 

@@ -1,7 +1,7 @@
 # Agent Breakaway Arena
 
 The Agent Breakaway Arena is the raw-vs-guarded comparison concept: the same adversarial chat
-prompts are sent to a raw agent and a TrustLoopGuard-protected agent, and the difference in what
+prompts are sent to a raw agent and a Featherlane AI-protected agent, and the difference in what
 gets through is the before/after.
 
 > The standalone Arena **dashboard page was removed** — `/arena` now redirects to the **Attacks**
@@ -53,7 +53,7 @@ Field meaning:
 ```json
 {
   "agent": "Proxy demo support agent",
-  "content": "Denied by TrustLoopGuard proxy demo.",
+  "content": "Denied by Featherlane AI proxy demo.",
   "finishReason": "content_filter",
   "effect": "deny",
   "phase": "output",
@@ -69,10 +69,10 @@ non-permit effect, `phase: "output"`, and a non-empty `traceId`.
 The top-level arena adapter fields model what the app sees in gateway mode:
 
 - `effect: null` means the gateway did not add an enforcement header.
-- `effect: "deny"` maps to `X-TrustLoopGuard-Effect: deny`.
-- `effect: "transform"` maps to `X-TrustLoopGuard-Effect: transform`.
-- `effect: "require_approval"` maps to `X-TrustLoopGuard-Effect: require_approval`.
-- `effect: "defer"` maps to `X-TrustLoopGuard-Effect: defer`.
+- `effect: "deny"` maps to `X-Featherlane AI-Effect: deny`.
+- `effect: "transform"` maps to `X-Featherlane AI-Effect: transform`.
+- `effect: "require_approval"` maps to `X-Featherlane AI-Effect: require_approval`.
+- `effect: "defer"` maps to `X-Featherlane AI-Effect: defer`.
 - `phase` is `null`, `"input"`, or `"output"`.
 
 These values are the same authorization-effect vocabulary returned by SDK `/v1/events` decisions.
@@ -80,7 +80,7 @@ These values are the same authorization-effect vocabulary returned by SDK `/v1/e
 ## What The Agent Receives
 
 Gateway mode is designed to look like the provider to the agent. The agent does not receive the full
-TrustLoopGuard `Decision` object. It receives the OpenAI- or Anthropic-shaped response it already
+Featherlane AI `Decision` object. It receives the OpenAI- or Anthropic-shaped response it already
 knows how to parse.
 
 Clean gateway response:
@@ -96,7 +96,7 @@ Clean gateway response:
 }
 ```
 
-No TrustLoopGuard enforcement headers are attached to clean responses.
+No Featherlane AI enforcement headers are attached to clean responses.
 
 Denied gateway response:
 
@@ -104,7 +104,7 @@ Denied gateway response:
 {
   "choices": [
     {
-      "message": { "role": "assistant", "content": "Denied by TrustLoopGuard proxy demo." },
+      "message": { "role": "assistant", "content": "Denied by Featherlane AI proxy demo." },
       "finish_reason": "content_filter"
     }
   ]
@@ -114,10 +114,10 @@ Denied gateway response:
 The agent can also inspect the HTTP response headers:
 
 ```text
-X-TrustLoopGuard-Effect: deny
-X-TrustLoopGuard-Phase: output
-X-TrustLoopGuard-Trace-Id: trace_123
-X-TrustLoopGuard-Policy-Id: policy_123
+X-Featherlane AI-Effect: deny
+X-Featherlane AI-Phase: output
+X-Featherlane AI-Trace-Id: trace_123
+X-Featherlane AI-Policy-Id: policy_123
 ```
 
 SDK mode is different. An SDK-integrated agent submits a `GuardEvent` to `/v1/events` and receives a `Decision`:
@@ -145,10 +145,10 @@ private runner (`POST /redteam/jobs`, `REDTEAM_RUNNER_URL`) and persists per-att
 
 ```text
 Attacks tab -> Rust orchestrator -> runner -> POST /arena/chat -> agent adapter
-            -> (guarded) TrustLoopGuard gateway -> provider
+            -> (guarded) Featherlane AI gateway -> provider
 ```
 
-The guarded path is unchanged from gateway mode: the guarded adapter calls the TrustLoopGuard
+The guarded path is unchanged from gateway mode: the guarded adapter calls the Featherlane AI
 gateway, which applies policy and returns `effect`/`phase`/`traceId` as described above.
 
 ## Hardening Loop
@@ -173,6 +173,6 @@ Rust calls — the guard runtime never owns adversarial prompt generation itself
 enforces the loopback agent-target allowlist (`127.0.0.1`, `localhost`, `::1` — deny-by-default).
 
 The one place a run touches the product backend is the guarded target itself: the guarded adapter
-calls the real TrustLoopGuard gateway, which evaluates policy and persists traces in Rust exactly
+calls the real Featherlane AI gateway, which evaluates policy and persists traces in Rust exactly
 as it would for any other traffic. The comparison reads nothing back from those traces; it only
 surfaces the trace IDs returned in adapter replies.

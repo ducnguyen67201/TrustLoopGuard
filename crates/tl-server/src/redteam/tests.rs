@@ -82,7 +82,7 @@ fn dispatch_message(job_id: &str) -> DispatchJob {
 
 fn workspace_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
-    headers.insert("x-tlg-workspace-id", "ws".parse().unwrap());
+    headers.insert("x-featherlane-ai-workspace-id", "ws".parse().unwrap());
     headers
 }
 
@@ -929,7 +929,7 @@ async fn dispatch_returns_503_when_worker_disabled() {
     let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(
         body["message"],
-        "red-team execution is not configured for this deployment; contact TrustLoopGuard to enable managed or enterprise execution"
+        "red-team execution is not configured for this deployment; contact Featherlane AI to enable managed or enterprise execution"
     );
 }
 
@@ -1046,7 +1046,7 @@ fn report_result(
         events: session_events(
             seq,
             "prompt",
-            "the credential is sk-trustloop9f3k2x",
+            "the credential is sk-featherlane-ai9f3k2x",
             Some("trace-1"),
         ),
         error: None,

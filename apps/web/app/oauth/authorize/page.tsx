@@ -118,7 +118,7 @@ export default async function OAuthAuthorizePage({
           <h1 className="text-xl font-semibold text-foreground">Authorize access</h1>
           <p className="text-sm text-muted-foreground">
             {client.clientName ?? 'An MCP client'} wants to use managed tools from your
-            TrustLoopGuard workspace. Choose the workspace and registered agent identity that
+            Featherlane AI workspace. Choose the workspace and registered agent identity that
             policy, assignments, runs, and authorization activity should use.
           </p>
           {get('resource') ? (

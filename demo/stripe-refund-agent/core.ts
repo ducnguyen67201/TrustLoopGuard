@@ -9,7 +9,7 @@ import type {
   FinancialActionRecord,
   FinancialExecutionStatus,
   FinancialReceipt,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import { searchOrder } from './orders';
 import { recordRefundExecution } from './order-db';
@@ -157,7 +157,7 @@ export async function executeRefundTool(
     status: executed.execution_status,
     message:
       executed.execution_status === 'succeeded'
-        ? `refund ${executed.id} executed through TrustLoopGuard`
+        ? `refund ${executed.id} executed through Featherlane AI`
         : `refund ${executed.id} is ${executed.execution_status}; no Stripe refund was created`,
   };
 }

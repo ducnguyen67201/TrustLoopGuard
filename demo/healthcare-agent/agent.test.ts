@@ -8,7 +8,7 @@ import type {
   PolicyFamily,
   PolicyListResponse,
   PolicySummary,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 import { parseDocument } from 'yaml';
 
 import {
@@ -249,7 +249,7 @@ test('Vietnamese model input requests a Vietnamese response without changing pro
 
   assert.match(input, /"response_locale":"vi"/);
   assert.match(healthcareAgentInstructions('vi'), /Respond in natural Vietnamese/);
-  assert.match(healthcareAgentInstructions('vi'), /CareDesk, OpenAI, and TrustLoopGuard/);
+  assert.match(healthcareAgentInstructions('vi'), /CareDesk, OpenAI, and Featherlane AI/);
 });
 
 test('defines six uniquely scoped healthcare policy templates with deterministic presets', () => {

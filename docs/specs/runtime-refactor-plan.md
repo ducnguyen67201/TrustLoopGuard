@@ -12,7 +12,7 @@ The ordered execution checklist and completion evidence live in
 
 ## Goal
 
-TrustLoopGuard should read like the runtime product it is:
+Featherlane AI should read like the runtime product it is:
 
 - `tl-core`: protocol and public wire vocabulary.
 - `tl-policy`: policy DSL parsing, validation, and compilation surface.

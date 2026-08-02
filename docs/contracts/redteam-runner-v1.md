@@ -5,7 +5,7 @@ This contract describes the private server-to-runner HTTP protocol used by
 contract documentation only: browser clients never call this service directly,
 and the runner does not own durable product state.
 
-The public TrustLoopGuard API remains `/v1/redteam/*`. The runner only receives
+The public Featherlane AI API remains `/v1/redteam/*`. The runner only receives
 validated loopback target URLs from `tl-server`, performs transient execution,
 and returns scored attack sessions for Rust to persist.
 

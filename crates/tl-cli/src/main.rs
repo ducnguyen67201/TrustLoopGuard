@@ -7,7 +7,7 @@ mod http;
 mod policy;
 
 #[derive(Parser)]
-#[command(name = "tl", about = "TrustLoopGuard CLI", version)]
+#[command(name = "tl", about = "Featherlane AI CLI", version)]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,

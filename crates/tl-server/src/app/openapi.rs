@@ -10,7 +10,7 @@ use crate::{
 #[derive(OpenApi)]
 #[openapi(
     info(
-        title = "TrustLoopGuard API",
+        title = "Featherlane AI API",
         version = "0.0.1",
         description = "Real-time guardrail runtime for AI agents.",
         license(name = "Apache-2.0"),

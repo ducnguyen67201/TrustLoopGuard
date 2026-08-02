@@ -8,7 +8,7 @@ There are two integration modes:
 - `guarded_healthcare_agent.py` uses SDK mode. The app receives a `Decision` and
   applies it before calling `session.say(...)`.
 - `proxy_healthcare_agent.py` uses gateway mode. LiveKit's OpenAI-compatible LLM
-  points at `/v1/gateway/<route_id>/openai`, and TrustLoopGuard applies the
+  points at `/v1/gateway/<route_id>/openai`, and Featherlane AI applies the
   decision inside the proxy.
 
 ## SDK mode
@@ -18,12 +18,12 @@ The integration point is intentionally small:
 <!-- BEGIN recipe:output-boundary-guard:python_livekit -->
 
 ```py
-import trustloopguard as trustloop
+import featherlane_ai
 
-guardrail = trustloop.guard(
+guardrail = featherlane_ai.guard(
     agent_id="demo-healthcare-livekit",
     base_url="http://127.0.0.1:8080",
-    channel=trustloop.Channel.voice,
+    channel=featherlane_ai.Channel.voice,
 )
 
 guarded_reply = await guardrail(
@@ -43,7 +43,7 @@ The same output-boundary shape exists in TypeScript for chat agents and regular 
 <!-- BEGIN recipe:output-boundary-guard:typescript -->
 
 ```ts
-import { guard } from '@trustloopguard/sdk';
+import { guard } from '@featherlane-ai/sdk';
 
 const guardrail = guard({ agentId: 'support-agent' });
 const reply = await guardrail({ input: userText, draft: agentDraft });
@@ -54,35 +54,35 @@ const reply = await guardrail({ input: userText, draft: agentDraft });
 ## Modes
 
 Use `strict` when unsafe output should stop immediately, `rewrite` when
-TrustLoopGuard safe output is enough, and `rewrite_or_regenerate` when the app
+Featherlane AI safe output is enough, and `rewrite_or_regenerate` when the app
 should ask the model for a safer answer in real time.
 
 <!-- BEGIN recipe:output-boundary-guard:python_modes -->
 
 ```py
-import trustloopguard as trustloop
+import featherlane_ai
 
-strict_guardrail = trustloop.guard(
+strict_guardrail = featherlane_ai.guard(
     agent_id="support-agent",
-    mode=trustloop.GuardMode.STRICT,
+    mode=featherlane_ai.GuardMode.STRICT,
 )
 
-rewrite_guardrail = trustloop.guard(
+rewrite_guardrail = featherlane_ai.guard(
     agent_id="support-agent",
-    mode=trustloop.GuardMode.REWRITE,
+    mode=featherlane_ai.GuardMode.REWRITE,
 )
 
-async def regenerate_reply(feedback: trustloop.RegenerateFeedback) -> str:
+async def regenerate_reply(feedback: featherlane_ai.RegenerateFeedback) -> str:
     return await model.generate(
         instructions=(
-            "The previous draft was blocked by TrustLoopGuard: "
+            "The previous draft was blocked by Featherlane AI: "
             f"{feedback.reason}. Generate a safer answer."
         )
     )
 
-regenerating_guardrail = trustloop.guard(
+regenerating_guardrail = featherlane_ai.guard(
     agent_id="support-agent",
-    mode=trustloop.GuardMode.REWRITE_OR_REGENERATE,
+    mode=featherlane_ai.GuardMode.REWRITE_OR_REGENERATE,
     regenerate=regenerate_reply,
     max_regenerations=1,
 )
@@ -93,7 +93,7 @@ regenerating_guardrail = trustloop.guard(
 <!-- BEGIN recipe:output-boundary-guard:typescript_modes -->
 
 ```ts
-import { GuardMode, guard } from '@trustloopguard/sdk';
+import { GuardMode, guard } from '@featherlane-ai/sdk';
 
 const strictGuardrail = guard({
   agentId: 'support-agent',
@@ -112,7 +112,7 @@ const regeneratingGuardrail = guard({
   regenerate: async (feedback) => {
     return await model.generate({
       instructions:
-        `The previous draft was blocked by TrustLoopGuard: ${feedback.reason}. ` +
+        `The previous draft was blocked by Featherlane AI: ${feedback.reason}. ` +
         'Generate a safer answer.',
     });
   },
@@ -127,7 +127,7 @@ const regeneratingGuardrail = guard({
 - `guarded_healthcare_agent.py` shows the same pattern inside a LiveKit `Agent`
   shaped like the upstream healthcare example.
 - `proxy_healthcare_agent.py` shows gateway mode by configuring LiveKit's OpenAI
-  plugin with a TrustLoopGuard gateway base URL.
+  plugin with a Featherlane AI gateway base URL.
 - `../README.md` lists the rest of the SDK-backed demo surfaces.
 
 ## Setup (isolated env)
@@ -140,7 +140,7 @@ directory:
 cd demo/livekit
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt          # LiveKit Agents + the editable TrustLoopGuard SDK
+pip install -r requirements.txt          # LiveKit Agents + the editable Featherlane AI SDK
 python proxy_healthcare_agent.py download-files   # pre-fetch silero/turn-detector weights
 ```
 
@@ -148,12 +148,12 @@ python proxy_healthcare_agent.py download-files   # pre-fetch silero/turn-detect
 single source of truth — it is not vendored into this folder).
 
 Secrets come from Doppler, never a `.env` file (repo convention). The demo reads
-them from the `trustloopguard_demo_agent` project's `dev_livekit` config, so every
+them from the `featherlane_ai_demo_agent` project's `dev_livekit` config, so every
 command below is wrapped in `doppler run`.
 
 ## Run SDK mode
 
-Start TrustLoopGuard (from the repo root, in another terminal):
+Start Featherlane AI (from the repo root, in another terminal):
 
 ```sh
 make server
@@ -163,13 +163,13 @@ Then run the demo from `demo/livekit/` with secrets injected by Doppler:
 
 ```sh
 TL_AGENT_ID=demo-healthcare-livekit \
-doppler run -p trustloopguard_demo_agent -c dev_livekit -- \
+doppler run -p featherlane_ai_demo_agent -c dev_livekit -- \
   python guarded_healthcare_agent.py dev
 ```
 
 Optional:
 
-- `TL_API_KEY` (in Doppler) if your TrustLoopGuard server requires auth.
+- `TL_API_KEY` (in Doppler) if your Featherlane AI server requires auth.
 - LiveKit provider env vars (`LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET`)
   live in the same Doppler config.
 
@@ -184,7 +184,7 @@ using the same SDK `guard()` helper as the chat demo.
 
 ## Run gateway mode
 
-First create a TrustLoopGuard gateway route in the dashboard **Gateway** page.
+First create a Featherlane AI gateway route in the dashboard **Gateway** page.
 The route must use an OpenAI-compatible provider connection. Start the server
 first:
 
@@ -204,9 +204,9 @@ key      : tl_live_...
 Copy the route id and runtime key into the Doppler config (not a `.env` file):
 
 ```sh
-doppler secrets set -p trustloopguard_demo_agent -c dev_livekit \
+doppler secrets set -p featherlane_ai_demo_agent -c dev_livekit \
   TL_GATEWAY_ROUTE_ID=demo-proxy-route-... \
-  TLG_API_KEY=tl_live_...
+  FEATHERLANE_AI_API_KEY=tl_live_...
 ```
 
 `TL_SERVER_URL` and `OPENAI_MODEL` already live in that config; set
@@ -215,25 +215,25 @@ doppler secrets set -p trustloopguard_demo_agent -c dev_livekit \
 Then run the LiveKit gateway demo from `demo/livekit/`:
 
 ```sh
-doppler run -p trustloopguard_demo_agent -c dev_livekit -- \
+doppler run -p featherlane_ai_demo_agent -c dev_livekit -- \
   python proxy_healthcare_agent.py dev
 ```
 
-LiveKit calls TrustLoopGuard as if it were an OpenAI-compatible provider:
+LiveKit calls Featherlane AI as if it were an OpenAI-compatible provider:
 
 ```text
 LiveKit AgentSession
   -> /v1/gateway/<route_id>/openai
-  -> TrustLoopGuard input check
+  -> Featherlane AI input check
   -> provider
-  -> TrustLoopGuard output check
+  -> Featherlane AI output check
   -> LiveKit agent reply
 ```
 
 In the dashboard, gateway traffic appears under the route workspace's runs and
-traces. The raw provider key never leaves the TrustLoopGuard provider
+traces. The raw provider key never leaves the Featherlane AI provider
 connection; the LiveKit process only uses the workspace runtime key. The demo
-sends the LiveKit room id as `X-TLG-Run-External-Id`, so repeated model calls
+sends the LiveKit room id as `X-FEATHERLANE-AI-Run-External-Id`, so repeated model calls
 from one room are grouped into one dashboard run.
 
 The LiveKit proxy demo intentionally produces unsafe output by default for

@@ -1,8 +1,8 @@
 # Runs
 
-Runs are TrustLoopGuard's execution-level observability container. A run is one customer agent execution after guardrails have been assigned: a chat session, live call, workflow execution, or background job.
+Runs are Featherlane AI's execution-level observability container. A run is one customer agent execution after guardrails have been assigned: a chat session, live call, workflow execution, or background job.
 
-TrustLoopGuard observes runs; it does not start, host, schedule, or orchestrate the customer agent.
+Featherlane AI observes runs; it does not start, host, schedule, or orchestrate the customer agent.
 
 ## Ownership
 
@@ -115,7 +115,7 @@ metadata. Raw input and output are stored on their turn events, not copied into
 Run metadata. Durable state and environment validation remain owned by the
 Rust Run API.
 
-Gateway integrations create runs automatically. Each accepted provider-compatible gateway request becomes one `chat_session` run, and the gateway links its input/output policy checks to that run. If the request carries `X-TLG-Run-External-Id`, the gateway uses that value as the run `external_id` and reuses an existing run for the same route agent plus external id. Streaming integrations use this to group all model calls from one external session into a single dashboard run.
+Gateway integrations create runs automatically. Each accepted provider-compatible gateway request becomes one `chat_session` run, and the gateway links its input/output policy checks to that run. If the request carries `X-FEATHERLANE-AI-Run-External-Id`, the gateway uses that value as the run `external_id` and reuses an existing run for the same route agent plus external id. Streaming integrations use this to group all model calls from one external session into a single dashboard run.
 
 The dashboard run detail view uses the same Rust-owned run detail API and refreshes while the page is open so live demos can show new events and traces without manually reloading. The web server resolves the persisted `agent_id` against the Rust-owned agent profiles already loaded for the active workspace and environment. When the profile is available, the page shows its display name and links to that Agent configuration while keeping the raw identifier visible and copyable; when it is unavailable, the page labels that state and retains the raw identifier. Gateway-created chat sessions create one `user_turn` for the exact checked request and one `assistant_turn` for a successful provider response. Input and output checks link to their respective turns, so the timeline reads as a transcript instead of an ungrouped trace list. Gateway system events carry provider usage, deterministic LLM budget decisions, and semantic-judge usage as typed audit evidence. `RunDetail` exposes the latest provider and budget evidence plus every guardrail invocation without making run events a second enforcement or accounting store.
 
@@ -141,4 +141,4 @@ v1 treats statuses as flexible monitoring labels. It does not enforce a strict s
 
 `external_id` is an optional customer/platform correlation key. Examples include Twilio call IDs, LiveKit room IDs, n8n execution IDs, and customer chat session IDs.
 
-TrustLoopGuard generates and owns `run_id`. `external_id` is searchable support context and may be used by gateway integrations to find an existing run for the same observed upstream session. It is never used for authorization. Run list and detail responses include environment fields so dashboard rows and analytics can show where each execution happened.
+Featherlane AI generates and owns `run_id`. `external_id` is searchable support context and may be used by gateway integrations to find an existing run for the same observed upstream session. It is never used for authorization. Run list and detail responses include environment fields so dashboard rows and analytics can show where each execution happened.

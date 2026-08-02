@@ -1,4 +1,4 @@
-// Public surface of the TrustLoopGuard TypeScript SDK.
+// Public surface of the Featherlane AI TypeScript SDK.
 // Type definitions are generated from Rust by `cargo run -p tl-codegen`.
 // See README.md in src/generated for regen instructions.
 

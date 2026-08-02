@@ -1,4 +1,4 @@
-"""TrustLoopGuard middleware for the current async-first AG2 framework."""
+"""Featherlane AI middleware for the current async-first AG2 framework."""
 
 from __future__ import annotations
 
@@ -28,15 +28,15 @@ from ag2.middleware import (
 from ag2.tools.final import FunctionTool, FunctionToolSchema
 from ag2.tools.tool import Tool
 
-from trustloopguard._generated.types import (
+from featherlane_ai._generated.types import (
     Principal,
     SideEffectClass,
     ToolIdentity,
 )
-from trustloopguard.client import AsyncClient
-from trustloopguard.errors import SdkError
-from trustloopguard.guard import GuardLogEvent, guard_async
-from trustloopguard.integrations._core import (
+from featherlane_ai.client import AsyncClient
+from featherlane_ai.errors import SdkError
+from featherlane_ai.guard import GuardLogEvent, guard_async
+from featherlane_ai.integrations._core import (
     AdapterLogEvent,
     AdapterWarning,
     AdapterWarningCode,
@@ -78,7 +78,7 @@ class _AG2Config:
     warned: set[str]
 
 
-class _TrustLoopAG2Middleware(BaseMiddleware):
+class _FeatherlaneAIAG2Middleware(BaseMiddleware):
     def __init__(
         self,
         event: BaseEvent,
@@ -151,7 +151,7 @@ class _TrustLoopAG2Middleware(BaseMiddleware):
                 warn_once(
                     AdapterWarningCode.lease_completion_failed_after_execution,
                     message=(
-                        "The tool executed, but TrustLoopGuard could not report "
+                        "The tool executed, but Featherlane AI could not report "
                         "lease completion. The tool will not be retried."
                     ),
                     framework="ag2",
@@ -334,10 +334,10 @@ def guard_ag2(
     on_warning: Callable[[AdapterWarning], None] | None = None,
     log: Callable[[AdapterLogEvent], None] | None = None,
 ) -> AgentT:
-    """Attach one outer TrustLoopGuard middleware and return ``agent`` unchanged."""
+    """Attach one outer Featherlane AI middleware and return ``agent`` unchanged."""
 
     if not isinstance(client, AsyncClient):
-        raise TypeError("guard_ag2 requires trustloopguard.AsyncClient")
+        raise TypeError("guard_ag2 requires featherlane_ai.AsyncClient")
     if agent in _GUARDED_AGENTS:
         if agent not in _DUPLICATE_WARNED:
             _DUPLICATE_WARNED.add(agent)
@@ -345,7 +345,7 @@ def guard_ag2(
                 on_warning,
                 AdapterWarning(
                     code=AdapterWarningCode.already_guarded,
-                    message="This AG2 agent already has TrustLoopGuard middleware.",
+                    message="This AG2 agent already has Featherlane AI middleware.",
                     framework="ag2",
                 ),
             )
@@ -372,7 +372,7 @@ def guard_ag2(
         warned=set(),
     )
     agent.insert_middleware(
-        Middleware(_TrustLoopAG2Middleware, config=config)
+        Middleware(_FeatherlaneAIAG2Middleware, config=config)
     )
     _GUARDED_AGENTS.add(agent)
     return agent

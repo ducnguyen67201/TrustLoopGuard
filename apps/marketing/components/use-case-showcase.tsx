@@ -38,8 +38,8 @@ export function UseCaseShowcase({
       : TAB_LABELS;
   const showcaseLabel =
     locale === 'vi'
-      ? 'Các tình huống sử dụng nổi bật của TrustLoopGuard'
-      : 'Featured TrustLoopGuard use cases';
+      ? 'Các tình huống sử dụng nổi bật của Featherlane AI'
+      : 'Featured Featherlane AI use cases';
   const exploreLabel = locale === 'vi' ? 'Xem đầy đủ tình huống này' : 'Explore the full use case';
 
   function selectTab(index: number) {

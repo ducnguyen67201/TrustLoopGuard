@@ -7,10 +7,10 @@ import {
   type CallToolResult,
 } from '@modelcontextprotocol/sdk/types.js';
 import {
-  Client as TrustLoopClient,
+  Client as FeatherlaneAIClient,
   type AuthorizedActionOptions,
   type AuthorizedActionResult,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import { schemaHash } from './canonical-json';
 import type { ProxyConfig } from './config';
@@ -39,7 +39,7 @@ export function createProxyServer(
   guard: AuthorizationGuard,
 ): Server {
   const server = new Server(
-    { name: 'trustloopguard-mcp-proxy', version: '0.0.0' },
+    { name: 'featherlane-ai-mcp-proxy', version: '0.0.0' },
     { capabilities: { tools: {} } },
   );
 
@@ -74,10 +74,10 @@ export function createProxyServer(
       if (result.executed && result.value) return result.value;
       const requestId = result.decision.approval?.id;
       return blocked(
-        `TrustLoopGuard decision: ${result.decision.effect}${requestId ? ` (${requestId})` : ''}`,
+        `Featherlane AI decision: ${result.decision.effect}${requestId ? ` (${requestId})` : ''}`,
       );
     } catch {
-      return blocked('TrustLoopGuard could not authorize this tool call');
+      return blocked('Featherlane AI could not authorize this tool call');
     }
   });
 
@@ -89,7 +89,7 @@ export async function createProxy(config: ProxyConfig): Promise<{
   close: () => Promise<void>;
 }> {
   const downstream = new McpClient(
-    { name: 'trustloopguard-mcp-proxy', version: '0.0.0' },
+    { name: 'featherlane-ai-mcp-proxy', version: '0.0.0' },
     { capabilities: {} },
   );
   const transport = new StdioClientTransport({
@@ -99,7 +99,7 @@ export async function createProxy(config: ProxyConfig): Promise<{
   });
   await downstream.connect(transport);
 
-  const guard = new TrustLoopClient({ baseUrl: config.baseUrl, apiKey: config.apiKey });
+  const guard = new FeatherlaneAIClient({ baseUrl: config.baseUrl, apiKey: config.apiKey });
   const server = createProxyServer(config, downstream, guard);
 
   return { server, close: () => downstream.close() };

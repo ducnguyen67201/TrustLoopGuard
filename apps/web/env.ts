@@ -17,14 +17,14 @@ const appEnvSchema = z.enum(['dev', 'development', 'staging', 'prod', 'productio
 
 const appUrls: Record<CanonicalAppEnv, string> = {
   dev: 'http://localhost:3000',
-  staging: 'https://staging3.gettrustloop.app',
-  prod: 'https://app.gettrustloop.app',
+  staging: 'https://staging3.featherlane.ai',
+  prod: 'https://app.featherlane.ai',
 };
 
 const docsUrls: Record<CanonicalAppEnv, string> = {
   dev: 'http://localhost:3001/docs',
-  staging: 'https://staging3.gettrustloop.app/apps/doc',
-  prod: 'https://app.gettrustloop.app/apps/doc',
+  staging: 'https://staging3.featherlane.ai/apps/doc',
+  prod: 'https://app.featherlane.ai/apps/doc',
 };
 
 const publicUrlOrPath = z

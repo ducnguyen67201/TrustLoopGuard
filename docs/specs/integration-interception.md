@@ -1,6 +1,6 @@
 # Integration interception points
 
-TrustLoopGuard can intercept agent behavior at three boundaries. All three converge on the Rust authorization coordinator and the same effect vocabulary.
+Featherlane AI can intercept agent behavior at three boundaries. All three converge on the Rust authorization coordinator and the same effect vocabulary.
 
 | Lane | Integration | Evidence fidelity | Execution owner |
 |---|---|---:|---|

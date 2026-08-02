@@ -25,7 +25,7 @@ fn post_json(uri: &str, body: &serde_json::Value) -> Request<Body> {
         .method("POST")
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json")
-        .header("x-tlg-workspace-id", "ws")
+        .header("x-featherlane-ai-workspace-id", "ws")
         .body(Body::from(body.to_string()))
         .unwrap()
 }
@@ -129,7 +129,7 @@ async fn traces_endpoint_plumbs_session_filter_to_store() {
                 Request::builder()
                     .method("GET")
                     .uri(uri)
-                    .header("x-tlg-workspace-id", "ws_x")
+                    .header("x-featherlane-ai-workspace-id", "ws_x")
                     .body(Body::empty())
                     .unwrap(),
             )

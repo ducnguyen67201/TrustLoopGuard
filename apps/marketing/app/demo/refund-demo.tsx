@@ -249,7 +249,7 @@ export function RefundDemo({ locale = 'en' }: { locale?: MarketingLocale }) {
           />
           <WorkflowStep
             number="03"
-            title="TrustLoopGuard"
+            title="Featherlane AI"
             detail={localizedTraceDetail(
               traceSummary(response, 'prepare_refund'),
               locale,

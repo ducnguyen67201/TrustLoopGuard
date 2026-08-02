@@ -1,4 +1,4 @@
-# Graph Report - TrustLoopGuard  (2026-07-30)
+# Graph Report - Featherlane AI  (2026-07-30)
 
 ## Corpus Check
 - 1727 files · ~1,077,896 words
@@ -54,7 +54,7 @@
 - latest_review_outcomes
 - dashboard-data.ts
 - code:text (id: id must use lowercase letters, numbers, '-' or '_')
-- code:python (import trustloopguard as trustloop)
+- code:python (import featherlane_ai)
 - redteam/tests.rs
 - create_knowledge_source
 - label.rs
@@ -145,7 +145,7 @@
 - event_policy.rs
 - company-profile.ts
 - MemoryPolicyStore
-- code:bash (npm view @trustloopguard/sdk version)
+- code:bash (npm view @featherlane-ai/sdk version)
 - use-cases/content.ts
 - package.json
 - create_invite
@@ -165,7 +165,7 @@
 - RedteamJobStoreError
 - properties
 - healthcare/contract.ts
-- code:block1 (agent proposes output → trustloop.check(...) → allow | block)
+- code:block1 (agent proposes output → featherlane_ai.check(...) → allow | block)
 - evaluate_tool_policies
 - Runtime Refactor Jobs
 - agents
@@ -244,7 +244,7 @@
 - MokaCache
 - GuardEvent.ts
 - tl-core/src/lib.rs
-- code:text (app -> /v1/gateway/<route_id>/openai -> TrustLoopGuard -> pr)
+- code:text (app -> /v1/gateway/<route_id>/openai -> Featherlane AI -> pr)
 - src/github_integration.rs
 - event
 - tool.rs
@@ -254,7 +254,7 @@
 - trust-band.tsx
 - code:text (Dashboard / customer integration)
 - properties
-- code:bash (npm install @trustloopguard/sdk)
+- code:bash (npm install @featherlane-ai/sdk)
 - harden.rs
 - src/gateway.rs
 - tests/writer.rs
@@ -271,7 +271,7 @@
 - precommit-secretlint.sh
 - budget_alerts/handlers.rs
 - dashboard_admin_repo/api_keys.rs
-- code:py (import trustloopguard as trustloop)
+- code:py (import featherlane_ai)
 - plan.rs
 - .with_authorized_action
 - harden-job-card.tsx
@@ -324,7 +324,7 @@
 - Security Policy
 - provider_record_to_wire
 - RunnerDocumentTemplate
-- TrustLoopGuard Hardening v2 — Attack-Grounded Policy Synthesis
+- Featherlane AI Hardening v2 — Attack-Grounded Policy Synthesis
 - workspace_id_from_headers
 - components.json
 - fresh_repo
@@ -361,7 +361,7 @@
 - TierResult
 - hosts/types.ts
 - scripts
-- code:sh (pnpm --filter @trustloopguard/example-typescript start \)
+- code:sh (pnpm --filter @featherlane-ai/example-typescript start \)
 - tl-core/src/human_review.rs
 - .from_response
 - put_llm_price
@@ -416,7 +416,7 @@
 - DashboardAdminStoreError
 - LlmPricingRepo
 - tl-stream/src/lib.rs
-- trustloopguard
+- featherlane-ai
 - tl-cli/src/http.rs
 - policy
 - ManagementPages.tsx
@@ -463,7 +463,7 @@
 - theme-provider.tsx
 - scripts
 - src/mcp_gateway.rs
-- code:bash (curl -X POST $TLG_URL/v1/check \)
+- code:bash (curl -X POST $FEATHERLANE_AI_URL/v1/check \)
 - TeamStoreError
 - semantic_policy_batch.md
 - tests/authorization_repo.rs
@@ -604,9 +604,9 @@
 - code:ts (import Anthropic from '@anthropic-ai/sdk';)
 - code:text (POST /v1/gateway/{route_id}/anthropic/v1/messages)
 - Dashboard setup
-- code:ts (import { GuardMode, guard } from '@trustloopguard/sdk';)
+- code:ts (import { GuardMode, guard } from '@featherlane-ai/sdk';)
 - code:ts (const guardrail = guard({)
-- code:python (async def regenerate_reply(feedback: trustloop.RegenerateFee)
+- code:python (async def regenerate_reply(feedback: featherlane_ai.RegenerateFee)
 - ._send_json_model
 - index.mdx
 - required
@@ -954,7 +954,7 @@
 - UserNameRow
 - str
 - str
-- code:ts (import { GuardMode, guard } from '@trustloopguard/sdk';)
+- code:ts (import { GuardMode, guard } from '@featherlane-ai/sdk';)
 - code:sh (pip install -e sdks/python)
 - code:sh (TL_API_KEY=dev-admin \)
 - code:json ({)
@@ -1015,19 +1015,19 @@
 - exports
 - MemoryAgentStore
 - code:block1 (one-time, off the hot path)
-- code:bash (pip install trustloopguard)
+- code:bash (pip install featherlane-ai)
 - code:python (import os)
-- code:bash (curl -X POST $TLG_URL/v1/agents \)
+- code:bash (curl -X POST $FEATHERLANE_AI_URL/v1/agents \)
 - code:ts (onError: (_err, _draft) => "I'm having trouble right now — l)
 - code:python (on_error=lambda _err, _draft: "I'm having trouble right now )
 - code:yaml (# policies/agents/acme-support-v3.yaml)
-- code:bash (curl -X POST https://your-trustloopguard/v1/agents \)
-- code:python (import trustloopguard as trustloop)
-- code:ts (import { GuardMode, guard } from "@trustloopguard/sdk";)
-- code:python (async def regenerate_reply(feedback: trustloop.RegenerateFee)
+- code:bash (curl -X POST https://your-featherlane-ai/v1/agents \)
+- code:python (import featherlane_ai)
+- code:ts (import { GuardMode, guard } from "@featherlane-ai/sdk";)
+- code:python (async def regenerate_reply(feedback: featherlane_ai.RegenerateFee)
 - code:ts (const guardrail = guard({)
-- code:bash (pnpm add @trustloopguard/sdk)
-- code:ts (import { Client, guard } from "@trustloopguard/sdk";)
+- code:bash (pnpm add @featherlane-ai/sdk)
+- code:ts (import { Client, guard } from "@featherlane-ai/sdk";)
 - code:bash (curl -X POST \)
 - code:bash (curl -H "Authorization: Bearer $TL_API_KEY" \)
 - code:bash (curl -X DELETE \)
@@ -1087,9 +1087,9 @@
 - int
 - str
 - float
-- code:ts (import { guard, GuardMode } from '@trustloopguard/sdk';)
-- code:ts (import { guard } from '@trustloopguard/sdk';)
-- code:ts (import { Client } from '@trustloopguard/sdk';)
+- code:ts (import { guard, GuardMode } from '@featherlane-ai/sdk';)
+- code:ts (import { guard } from '@featherlane-ai/sdk';)
+- code:ts (import { Client } from '@featherlane-ai/sdk';)
 - code:ts (import OpenAI from 'openai';)
 - code:ts (import Anthropic from '@anthropic-ai/sdk';)
 - client
@@ -1142,8 +1142,8 @@
 - code:bash (pnpm install)
 - code:block7 (verdict       : block)
 - Repo philosophy
-- TrustLoopGuard
-- What is TrustLoopGuard?
+- Featherlane AI
+- What is Featherlane AI?
 - rules
 - openapi.rs
 - Red-Team Runner Contract v1
@@ -1247,7 +1247,7 @@
 - guard-event.schema.json
 - [...model]/route.ts
 - TraceSummary
-- @trustloopguard/sdk
+- @featherlane-ai/sdk
 - $defs
 - .create_financial_policy
 - MemoryStore
@@ -1267,7 +1267,7 @@
 - coding-agent-tool-gates.mdx
 - CLI publishing
 - @monaco-editor/react
-- TrustLoopGuard CLI
+- Featherlane AI CLI
 - cli/scripts/package-smoke.mjs
 
 ## God Nodes (most connected - your core abstractions)
@@ -1286,7 +1286,7 @@
 - `createOutputGuard()` --indirect_call--> `decision()`  [INFERRED]
   sdks/typescript/src/guard.ts → apps/mcp-server/src/handlers.test.ts
 - `entrypoint()` --calls--> `RetryConfig`  [INFERRED]
-  demo/livekit/guarded_healthcare_agent.py → sdks/python/src/trustloopguard/retry.py
+  demo/livekit/guarded_healthcare_agent.py → sdks/python/src/featherlane_ai/retry.py
 - `DecisionHandler` --indirect_call--> `decision()`  [INFERRED]
   sdks/typescript/src/guard.ts → apps/mcp-server/src/handlers.test.ts
 - `runtime_reads_and_lease_completion_are_principal_scoped()` --calls--> `State`  [EXTRACTED]
@@ -1782,7 +1782,7 @@ Nodes (70): AgentStore, Send, Sync, AnalyticsStore, Send, Sync, Send, Sync (+62 
 
 ### Community 164 - "ToolHandlers"
 Cohesion: 0.13
-Nodes (5): ToolHandlers, registerTrustLoopTools(), runEventRequest(), runRequest(), traceInput()
+Nodes (5): ToolHandlers, registerFeatherlaneAITools(), runEventRequest(), runRequest(), traceInput()
 
 ### Community 165 - "HandlerCtx"
 Cohesion: 0.06
@@ -1982,7 +1982,7 @@ Nodes (15): BudgetConfig, ConfigError, empty_budgets_section_uses_default(), Pro
 
 ### Community 237 - "mcp-server/package.json"
 Cohesion: 0.06
-Nodes (32): bin, trustloopguard-mcp-server, dependencies, @modelcontextprotocol/sdk, @trustloopguard/sdk, zod, description, devDependencies (+24 more)
+Nodes (32): bin, featherlane-ai-mcp-server, dependencies, @modelcontextprotocol/sdk, @featherlane-ai/sdk, zod, description, devDependencies (+24 more)
 
 ### Community 238 - "entrypoint"
 Cohesion: 0.18
@@ -2010,11 +2010,11 @@ Nodes (36): default_retry_policy_is_five_attempts(), deliver_one(), delivery_loo
 
 ### Community 248 - "cli/package.json"
 Cohesion: 0.04
-Nodes (48): bin, trustloopguard, bugs, url, description, devDependencies, @opencode-ai/plugin, @types/node (+40 more)
+Nodes (48): bin, featherlane-ai, bugs, url, description, devDependencies, @opencode-ai/plugin, @types/node (+40 more)
 
 ### Community 249 - "guard_agno"
 Cohesion: 0.22
-Nodes (22): AgnoAgentT, guard_agno(), Client, SideEffectClass, Install hooks selected by the TrustLoopGuard client type., _decision(), asyncio, mock (+14 more)
+Nodes (22): AgnoAgentT, guard_agno(), Client, SideEffectClass, Install hooks selected by the Featherlane AI client type., _decision(), asyncio, mock (+14 more)
 
 ### Community 250 - "KnowledgeRepo"
 Cohesion: 0.15
@@ -2246,7 +2246,7 @@ Nodes (151): ReportShareCardProps, TTL_OPTIONS, CredentialsFormProps, SignupForm
 
 ### Community 326 - "mcp-proxy/package.json"
 Cohesion: 0.07
-Nodes (27): bin, trustloopguard-mcp-proxy, dependencies, @modelcontextprotocol/sdk, @trustloopguard/sdk, zod, description, devDependencies (+19 more)
+Nodes (27): bin, featherlane-ai-mcp-proxy, dependencies, @modelcontextprotocol/sdk, @featherlane-ai/sdk, zod, description, devDependencies (+19 more)
 
 ### Community 327 - "parse_retry_after"
 Cohesion: 0.26
@@ -2332,7 +2332,7 @@ Nodes (24): parse_provider_kind(), provider_record_to_wire(), route_record_to_wi
 Cohesion: 0.09
 Nodes (23): type, type, RunnerDocumentTemplate, additionalProperties, type, type, default, type (+15 more)
 
-### Community 352 - "TrustLoopGuard Hardening v2 — Attack-Grounded Policy Synthesis"
+### Community 352 - "Featherlane AI Hardening v2 — Attack-Grounded Policy Synthesis"
 Cohesion: 0.11
 Nodes (18): 1. Attack taxonomy → remediation substrate, 2. Synthesis pipeline, 3. Generalization (concrete → class), 4. Verify-before-recommend (loop closure), 5. LLM usage: synthesis-time vs runtime (two planes), Architecture, Background: how v1 hardening works, and why it can't generalize, Concept-doc / contract impact when this ships (+10 more)
 
@@ -2562,7 +2562,7 @@ Nodes (19): store_mcp_error(), McpGatewayStoreError, error(), PostgresMcpGateway
 
 ### Community 421 - "dependencies"
 Cohesion: 0.15
-Nodes (13): dependencies, openai, @openai/agents, pdfjs-dist, @trustloopguard/sdk, yaml, zod, @trustloopguard/sdk (+5 more)
+Nodes (13): dependencies, openai, @openai/agents, pdfjs-dist, @featherlane-ai/sdk, yaml, zod, @featherlane-ai/sdk (+5 more)
 
 ### Community 422 - "SessionAutomaticRunController"
 Cohesion: 0.16
@@ -2758,7 +2758,7 @@ Nodes (19): event_text(), MemoryRedteamJobStore, HashMap, JobCounts, JobStatus, 
 
 ### Community 477 - "guard_ag2"
 Cohesion: 0.28
-Nodes (24): AgentT, ModelRequest, guard_ag2(), Any, SideEffectClass, Attach one outer TrustLoopGuard middleware and return ``agent`` unchanged., _decision(), _middleware() (+16 more)
+Nodes (24): AgentT, ModelRequest, guard_ag2(), Any, SideEffectClass, Attach one outer Featherlane AI middleware and return ``agent`` unchanged., _decision(), _middleware() (+16 more)
 
 ### Community 478 - ".upsert_any_in"
 Cohesion: 0.20
@@ -2918,7 +2918,7 @@ Nodes (12): OutboundDemoProfile, HEALTHCARE_PAGE_COPY, HEALTHCARE_UI_COPY, Healt
 
 ### Community 523 - "LiveKitSupportAgent"
 Cohesion: 0.28
-Nodes (3): LiveKitSupportAgent, AuthorizationDecision, Smallest possible LiveKit-style TrustLoopGuard integration. This is the shape…
+Nodes (3): LiveKitSupportAgent, AuthorizationDecision, Smallest possible LiveKit-style Featherlane AI integration. This is the shape…
 
 ### Community 525 - "PostgresBudgetAlertAdapter"
 Cohesion: 0.18
@@ -3238,7 +3238,7 @@ Nodes (9): AG2, Agno async, Agno sync, Approval behavior, Classify your tools, I
 
 ### Community 693 - "mcp-server/src/client.ts"
 Cohesion: 0.43
-Nodes (5): ClientEnv, createTrustLoopClient(), readClientOptions(), main(), createTrustLoopMcpServer()
+Nodes (5): ClientEnv, createFeatherlaneAIClient(), readClientOptions(), main(), createFeatherlaneAIMcpServer()
 
 ### Community 915 - "HardenCandidate.ts"
 Cohesion: 0.24
@@ -3574,7 +3574,7 @@ Nodes (11): AgentState, delete_agent(), get_agent(), list_agents(), Arc, HeaderM
 
 ### Community 1910 - "commands.test.ts"
 Cohesion: 0.20
-Nodes (6): directories, RUNTIME_FILES, fixture(), resolveTrustLoopPaths(), directories, CliError
+Nodes (6): directories, RUNTIME_FILES, fixture(), resolveFeatherlaneAIPaths(), directories, CliError
 
 ### Community 1911 - "tl-engine/src/tests.rs"
 Cohesion: 0.36
@@ -3692,9 +3692,9 @@ Nodes (4): Failure behavior, Install, Remove, Verify
 Cohesion: 0.33
 Nodes (5): Before tagging, CLI publishing, First publication, Publish and verify, Release contract
 
-### Community 1945 - "TrustLoopGuard CLI"
+### Community 1945 - "Featherlane AI CLI"
 Cohesion: 0.50
-Nodes (3): Commands, TrustLoopGuard CLI, Verify
+Nodes (3): Commands, Featherlane AI CLI, Verify
 
 ## Knowledge Gaps
 - **3366 isolated node(s):** `printWidth`, `tabWidth`, `useTabs`, `semi`, `singleQuote` (+3361 more)

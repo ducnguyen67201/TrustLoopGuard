@@ -1,5 +1,5 @@
 import { IconArrowRight, IconLockAccess, IconPlugConnected } from '@tabler/icons-react';
-import type { McpGatewayConnection } from '@trustloopguard/sdk';
+import type { McpGatewayConnection } from '@featherlane-ai/sdk';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

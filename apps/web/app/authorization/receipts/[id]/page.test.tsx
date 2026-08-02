@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react';
-import type { AuthorizationReceipt } from '@trustloopguard/sdk';
+import type { AuthorizationReceipt } from '@featherlane-ai/sdk';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

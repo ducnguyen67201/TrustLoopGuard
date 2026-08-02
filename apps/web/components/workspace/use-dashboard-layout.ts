@@ -10,7 +10,7 @@ export type DashboardLayout = {
   hidden: WidgetKey[];
 };
 
-const STORAGE_PREFIX = 'tlg:dashboard-layout:';
+const STORAGE_PREFIX = 'featherlane-ai:dashboard-layout:';
 
 function storageKey(workspaceSlug: string): string {
   return `${STORAGE_PREFIX}${workspaceSlug}`;

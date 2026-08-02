@@ -3,7 +3,7 @@ import {
   type ApiKeyListResponse,
   type CreateApiKeyResponse,
   type DashboardApiKey,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import {
   ADMIN_USER_ID,
@@ -226,8 +226,8 @@ function adminHeaders(
   if (config.internalApiKey !== undefined && config.internalApiKey.trim() !== '') {
     headers.set('authorization', `Bearer ${config.internalApiKey}`);
   }
-  headers.set('x-tlg-user-id', config.adminUserId);
-  if (workspaceId !== undefined) headers.set('x-tlg-workspace-id', workspaceId);
-  if (environmentId !== undefined) headers.set('x-tlg-environment-id', environmentId);
+  headers.set('x-featherlane-ai-user-id', config.adminUserId);
+  if (workspaceId !== undefined) headers.set('x-featherlane-ai-workspace-id', workspaceId);
+  if (environmentId !== undefined) headers.set('x-featherlane-ai-environment-id', environmentId);
   return headers;
 }

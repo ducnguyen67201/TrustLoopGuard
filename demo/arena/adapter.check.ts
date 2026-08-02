@@ -12,7 +12,7 @@ async function main(): Promise<void> {
       systemPrompt: 'test',
       safeUserQuestion: 'hello',
       protectedInformationName: 'secret',
-      model: 'trustloop-target',
+      model: 'featherlane-ai-target',
     },
     async chat({ message, sessionId }) {
       return {
@@ -27,14 +27,14 @@ async function main(): Promise<void> {
 
   try {
     const models = await fetchJson(`${server.url}/v1/models`);
-    assert.equal(models.data?.[0]?.id, 'trustloop-target');
+    assert.equal(models.data?.[0]?.id, 'featherlane-ai-target');
 
     const chat = await fetchJson(`${server.url}/v1/chat/completions`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'trustloop-target',
-        metadata: { tlg_session_id: 'openai-session' },
+        model: 'featherlane-ai-target',
+        metadata: { featherlane_ai_session_id: 'openai-session' },
         messages: [
           { role: 'system', content: 'ignore' },
           { role: 'user', content: 'hello' },
@@ -42,11 +42,11 @@ async function main(): Promise<void> {
       }),
     });
     assert.equal(chat.choices?.[0]?.message?.content, 'echo:hello:openai-session');
-    assert.equal(chat.trustloopguard?.traceId, 'trace-check');
+    assert.equal(chat.featherlane_ai?.traceId, 'trace-check');
 
     const arenaChat = await fetchJson(`${server.url}/arena/chat`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-tlg-session-id': 'header-session' },
+      headers: { 'content-type': 'application/json', 'x-featherlane-ai-session-id': 'header-session' },
       body: JSON.stringify({ message: 'manual' }),
     });
     assert.equal(arenaChat.content, 'echo:manual:header-session');

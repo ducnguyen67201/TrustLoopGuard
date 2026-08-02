@@ -54,21 +54,21 @@ pub(super) fn handle_provider_failure(error: String) -> Response {
 fn apply_enforcement_headers(response: &mut Response, headers: &EnforcementHeaders<'_>) {
     let response_headers = response.headers_mut();
     response_headers.insert(
-        HeaderName::from_static("x-trustloopguard-effect"),
+        HeaderName::from_static("x-featherlane-ai-effect"),
         HeaderValue::from_static(headers.effect),
     );
     response_headers.insert(
-        HeaderName::from_static("x-trustloopguard-trace-id"),
+        HeaderName::from_static("x-featherlane-ai-trace-id"),
         HeaderValue::from_str(headers.trace_id).unwrap_or_else(|_| HeaderValue::from_static("")),
     );
     response_headers.insert(
-        HeaderName::from_static("x-trustloopguard-phase"),
+        HeaderName::from_static("x-featherlane-ai-phase"),
         HeaderValue::from_static(headers.phase),
     );
 
     if let Some(policy_id) = headers.policy_id {
         if let Ok(value) = HeaderValue::from_str(policy_id) {
-            response_headers.insert(HeaderName::from_static("x-trustloopguard-policy-id"), value);
+            response_headers.insert(HeaderName::from_static("x-featherlane-ai-policy-id"), value);
         }
     }
 }

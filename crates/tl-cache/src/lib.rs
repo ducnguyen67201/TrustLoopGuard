@@ -1,4 +1,4 @@
-//! TrustLoopGuard decision cache.
+//! Featherlane AI decision cache.
 //!
 //! Two pieces:
 //! - [`MokaCache`] — in-process Moka-backed cache holding `Decision`

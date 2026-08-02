@@ -8,7 +8,7 @@ import type {
   PolicyValidateResponse,
   PolicyValidationIssue,
   Severity,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 import { z } from 'zod';
 import { http } from './http';
 import { policyDraftSchema, type PolicyDraft } from './policy-draft';

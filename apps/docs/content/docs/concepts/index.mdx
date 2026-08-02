@@ -3,18 +3,18 @@ title: Concepts
 description: Architecture, policy model, agent profiles, and the plugin contract.
 ---
 
-TrustLoopGuard is a runtime safety layer for production agents. The important
+Featherlane AI is a runtime safety layer for production agents. The important
 moment is the boundary before an agent speaks, sends, writes, or takes another
 externally visible action.
 
-![TrustLoopGuard in one decision](/diagrams/trustloop-concept.svg)
+![Featherlane AI in one decision](/diagrams/featherlane-ai-concept.svg)
 
 ## Core Ideas
 
 | Concept                | Meaning                                                                                                                                                 |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Check                  | One request asking whether a proposed output is safe to deliver.                                                                                        |
-| Authorization decision | The typed response from TrustLoopGuard. It includes the effect, reason, findings, latency, trace id, and durable authority references when applicable.  |
+| Authorization decision | The typed response from Featherlane AI. It includes the effect, reason, findings, latency, trace id, and durable authority references when applicable.  |
 | Authorization effect   | One of `permit`, `deny`, `transform`, `require_approval`, or `defer`. Approval can satisfy only `require_approval`; it cannot bypass `deny` or `defer`. |
 | Policy                 | A YAML rule that scopes when it applies, what it matches, and which action to take.                                                                     |
 | Agent profile          | Context about the agent's domain, authority, tone, and constraints.                                                                                     |
@@ -28,18 +28,18 @@ externally visible action.
 | Approval              | A pending human decision. Approving creates authority but does not execute the action.                                     |
 | Grant                 | Revocable authority for one exact action or a bounded reusable scope. It never overrides current policy.                   |
 | Authorization claim   | The grant and attempt identifiers the caller presents when retrying the action.                                            |
-| Lease                 | A one-attempt execution right issued only after TrustLoopGuard rechecks current policy and live state.                     |
+| Lease                 | A one-attempt execution right issued only after Featherlane AI rechecks current policy and live state.                     |
 | Authorization receipt | Audit evidence explaining the decision and linking its intent, approval, grant, and lease. It carries no execution rights. |
 
 The complete flow is:
 
-1. The agent proposes an executable action and TrustLoopGuard records its intent.
+1. The agent proposes an executable action and Featherlane AI records its intent.
 2. Policies and live checks evaluate the action.
 3. If authority is missing, one domain-labeled item appears in **Approvals**.
 4. Approval creates an exact-once or bounded scoped grant.
-5. The caller retries with that grant; TrustLoopGuard rechecks current policy and live state.
+5. The caller retries with that grant; Featherlane AI rechecks current policy and live state.
 6. A one-attempt lease prevents duplicate execution.
-7. TrustLoopGuard writes an authorization receipt, while the domain records its own result.
+7. Featherlane AI writes an authorization receipt, while the domain records its own result.
 
 Financial actions use this same approval flow. **Approvals** is the only place a
 person approves or denies them; **Financial actions** remains the ledger and
@@ -55,7 +55,7 @@ display data, but it does not own policy evaluation or trace storage.
 
 ## Latency Model
 
-TrustLoopGuard is designed around channel budgets:
+Featherlane AI is designed around channel budgets:
 
 | Channel        | Target                                                        |
 | -------------- | ------------------------------------------------------------- |

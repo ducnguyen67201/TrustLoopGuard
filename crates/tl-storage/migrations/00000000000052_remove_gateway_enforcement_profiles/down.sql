@@ -36,7 +36,7 @@ SELECT DISTINCT
     'closed',
     'metadata_only',
     'regular',
-    'Blocked by TrustLoopGuard.',
+    'Blocked by Featherlane AI.',
     0
 FROM gateway_routes;
 

@@ -1,12 +1,12 @@
 {
-  "name": "@trustloopguard/mcp-proxy",
+  "name": "@featherlane-ai/mcp-proxy",
   "version": "0.0.0",
   "private": true,
   "description": "Transparent approval-enforcing proxy for one downstream MCP server.",
   "license": "Apache-2.0",
   "type": "module",
   "bin": {
-    "trustloopguard-mcp-proxy": "./dist/index.js"
+    "featherlane-ai-mcp-proxy": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
-    "@trustloopguard/sdk": "workspace:*",
+    "@featherlane-ai/sdk": "workspace:*",
     "zod": "4.4.3"
   },
   "devDependencies": {

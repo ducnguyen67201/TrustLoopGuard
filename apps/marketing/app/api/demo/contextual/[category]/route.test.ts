@@ -4,7 +4,7 @@ import test from 'node:test';
 import type {
   HostedContextualDemoResponse,
   HostedContextualPolicyInventoryResponse,
-} from '@trustloopguard/demo/contextual-agent/hosted';
+} from '@featherlane-ai/demo/contextual-agent/hosted';
 
 import type { OutboundDemoProfile } from '@/app/demo/company-profile';
 import {
@@ -142,7 +142,7 @@ function profile(): OutboundDemoProfile {
     company_name: 'Backblaze',
     company_domain: 'backblaze.com',
     scenario_id: 'internal-agent-tool-action-v1',
-    demo_url: 'https://gettrustloop.app/demo/cloud-storage-security',
+    demo_url: 'https://featherlane.ai/demo/cloud-storage-security',
     user_profile: 'Cloud operations lead',
     workflow: 'Internal agent access to shared storage operations',
     risk_boundary: 'Shared changes need an explicit control decision.',
@@ -232,7 +232,7 @@ function inventoryPayload(): HostedContextualPolicyInventoryResponse {
     source: 'rust',
     runtime: {
       agent: 'openai-responses',
-      guard: 'trustloopguard-rust-api',
+      guard: 'featherlane-ai-rust-api',
       workspace: 'shared-contextual-demo',
       data: 'synthetic-only',
     },

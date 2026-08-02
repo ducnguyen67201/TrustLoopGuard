@@ -11,14 +11,14 @@ import type {
   JsonObject,
   JsonValue,
 } from '../types.js';
-import type { TrustLoopPaths } from '../paths.js';
+import type { FeatherlaneAIPaths } from '../paths.js';
 
 const execFileAsync = promisify(execFile);
-const MANAGED_STATUS = 'TrustLoopGuard is authorizing this tool';
+const MANAGED_STATUS = 'Featherlane AI is authorizing this tool';
 
 export interface HostContext {
   env: CliEnvironment;
-  paths: TrustLoopPaths;
+  paths: FeatherlaneAIPaths;
   platform: NodeJS.Platform;
   runtimePresent: boolean;
 }

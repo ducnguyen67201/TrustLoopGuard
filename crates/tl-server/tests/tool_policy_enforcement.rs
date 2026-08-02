@@ -110,10 +110,10 @@ async fn request_in_workspace(
         .method(method)
         .uri(uri)
         .header(header::CONTENT_TYPE, content_type)
-        .header("x-tlg-workspace-id", workspace_id)
-        .header("x-tlg-environment-id", "production");
+        .header("x-featherlane-ai-workspace-id", workspace_id)
+        .header("x-featherlane-ai-environment-id", "production");
     if let Some(user_id) = user_id {
-        builder = builder.header("x-tlg-user-id", user_id.to_string());
+        builder = builder.header("x-featherlane-ai-user-id", user_id.to_string());
     }
     let response = app
         .clone()

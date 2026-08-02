@@ -1,13 +1,13 @@
 ---
 title: Hosted MCP Access
-description: Connect employee AI clients to assigned remote MCP tools through OAuth and live TrustLoopGuard policy enforcement.
+description: Connect employee AI clients to assigned remote MCP tools through OAuth and live Featherlane AI policy enforcement.
 ---
 
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
 Hosted MCP Access gives a workspace one managed MCP endpoint. Employees connect an OAuth-capable
 AI client to that endpoint instead of connecting directly to every remote MCP server.
-TrustLoopGuard uses the signed-in member to personalize tool discovery, then evaluates every tool
+Featherlane AI uses the signed-in member to personalize tool discovery, then evaluates every tool
 call against current assignments and runtime policy before contacting the upstream server.
 
 ![Hosted MCP access gateway](/diagrams/hosted-mcp-access-gateway.svg)
@@ -20,17 +20,17 @@ call against current assignments and runtime policy before contacting the upstre
 
 You need:
 
-- A TrustLoopGuard workspace with **MCP Access** enabled.
+- A Featherlane AI workspace with **MCP Access** enabled.
 - Owner or Admin access to configure servers and assignments.
-- A publicly reachable HTTPS Streamable HTTP MCP server. TrustLoopGuard does not launch stdio
+- A publicly reachable HTTPS Streamable HTTP MCP server. Featherlane AI does not launch stdio
   commands or connect to legacy HTTP+SSE servers.
 - An OAuth-capable Streamable HTTP client. Use one of the verified clients below, or another client
   that supports OAuth discovery, dynamic client registration, and PKCE.
 
-TrustLoop Cloud uses this managed endpoint:
+Featherlane AI Cloud uses this managed endpoint:
 
 ```text
-https://api.gettrustloop.app/mcp
+https://api.featherlane.ai/mcp
 ```
 
 Self-hosted installations use `$TL_PUBLIC_URL/mcp` and must configure `TL_PUBLIC_URL`,
@@ -38,7 +38,7 @@ Self-hosted installations use `$TL_PUBLIC_URL/mcp` and must configure `TL_PUBLIC
 
 ## Connect a remote MCP server
 
-1. Open your workspace in the TrustLoopGuard dashboard and select the intended environment.
+1. Open your workspace in the Featherlane AI dashboard and select the intended environment.
 2. Open **MCP Access → Servers**.
 3. Select **Connect server**.
 4. Enter a display name, stable slug, and the server's full HTTPS MCP endpoint.
@@ -64,7 +64,7 @@ still evaluates every assigned `tools/call`.
 ## Connect an AI client
 
 Choose your client. Each option connects to the same managed endpoint and opens the
-TrustLoopGuard authorization page in your browser.
+Featherlane AI authorization page in your browser.
 
 <Tabs
   items={[
@@ -84,15 +84,15 @@ TrustLoopGuard authorization page in your browser.
     Add the managed endpoint once:
 
     ```sh
-    codex mcp add trustloopguard \
-      --url https://api.gettrustloop.app/mcp \
-      --oauth-resource https://api.gettrustloop.app/mcp
+    codex mcp add featherlane-ai \
+      --url https://api.featherlane.ai/mcp \
+      --oauth-resource https://api.featherlane.ai/mcp
     ```
 
     Complete OAuth:
 
     ```sh
-    codex mcp login trustloopguard --scopes mcp:tools
+    codex mcp login featherlane-ai --scopes mcp:tools
     ```
 
     Confirm that the server is connected:
@@ -108,10 +108,10 @@ TrustLoopGuard authorization page in your browser.
 
     ```sh
     claude mcp add --scope user --transport http \
-      trustloopguard https://api.gettrustloop.app/mcp
+      featherlane-ai https://api.featherlane.ai/mcp
     ```
 
-    Start Claude Code, run `/mcp`, select `trustloopguard`, and choose **Authenticate** to complete
+    Start Claude Code, run `/mcp`, select `featherlane-ai`, and choose **Authenticate** to complete
     OAuth in your browser.
 
     Confirm that the server is connected:
@@ -129,19 +129,19 @@ TrustLoopGuard authorization page in your browser.
     ```json
     {
       "mcpServers": {
-        "trustloopguard": {
-          "url": "https://api.gettrustloop.app/mcp"
+        "featherlane-ai": {
+          "url": "https://api.featherlane.ai/mcp"
         }
       }
     }
     ```
 
-    Enable `trustloopguard` in MCP Tools and complete the browser sign-in. Cursor Agent users can
+    Enable `featherlane-ai` in MCP Tools and complete the browser sign-in. Cursor Agent users can
     trigger OAuth and inspect the connected catalog from the terminal:
 
     ```sh
-    cursor-agent mcp login trustloopguard
-    cursor-agent mcp list-tools trustloopguard
+    cursor-agent mcp login featherlane-ai
+    cursor-agent mcp list-tools featherlane-ai
     ```
 
   </Tab>
@@ -153,9 +153,9 @@ TrustLoopGuard authorization page in your browser.
     {
       "$schema": "https://opencode.ai/config.json",
       "mcp": {
-        "trustloopguard": {
+        "featherlane-ai": {
           "type": "remote",
-          "url": "https://api.gettrustloop.app/mcp",
+          "url": "https://api.featherlane.ai/mcp",
           "enabled": true
         }
       }
@@ -165,26 +165,26 @@ TrustLoopGuard authorization page in your browser.
     Complete OAuth and confirm the connection:
 
     ```sh
-    opencode mcp auth trustloopguard
+    opencode mcp auth featherlane-ai
     opencode mcp list
     ```
 
   </Tab>
 
   <Tab value="Hermes">
-    Add TrustLoopGuard to `~/.hermes/config.yaml`:
+    Add Featherlane AI to `~/.hermes/config.yaml`:
 
     ```yaml
     mcp_servers:
-      trustloopguard:
-        url: "https://api.gettrustloop.app/mcp"
+      featherlane-ai:
+        url: "https://api.featherlane.ai/mcp"
         auth: oauth
     ```
 
     Complete OAuth from a fresh terminal, then start a new Hermes session:
 
     ```sh
-    hermes mcp login trustloopguard
+    hermes mcp login featherlane-ai
     hermes chat
     ```
 
@@ -198,13 +198,13 @@ TrustLoopGuard authorization page in your browser.
 
     ```sh
     gemini mcp add --scope user --transport http \
-      trustloopguard https://api.gettrustloop.app/mcp
+      featherlane-ai https://api.featherlane.ai/mcp
     ```
 
     Start Gemini CLI and complete OAuth:
 
     ```text
-    /mcp auth trustloopguard
+    /mcp auth featherlane-ai
     /mcp list
     ```
 
@@ -217,15 +217,15 @@ TrustLoopGuard authorization page in your browser.
     ```json
     {
       "servers": {
-        "trustloopguard": {
+        "featherlane-ai": {
           "type": "http",
-          "url": "https://api.gettrustloop.app/mcp"
+          "url": "https://api.featherlane.ai/mcp"
         }
       }
     }
     ```
 
-    Run **MCP: List Servers**, start `trustloopguard`, and complete the browser authorization flow.
+    Run **MCP: List Servers**, start `featherlane-ai`, and complete the browser authorization flow.
     Use **MCP: Reset Cached Tools** after a grant when you need to refresh discovery immediately.
 
   </Tab>
@@ -236,14 +236,14 @@ TrustLoopGuard authorization page in your browser.
     ```json
     {
       "mcpServers": {
-        "trustloopguard": {
-          "serverUrl": "https://api.gettrustloop.app/mcp"
+        "featherlane-ai": {
+          "serverUrl": "https://api.featherlane.ai/mcp"
         }
       }
     }
     ```
 
-    Refresh the MCP list, select `trustloopguard`, and complete OAuth in your browser.
+    Refresh the MCP list, select `featherlane-ai`, and complete OAuth in your browser.
 
   </Tab>
 
@@ -253,10 +253,10 @@ TrustLoopGuard authorization page in your browser.
     1. Open **Customize → Connectors**.
     2. Select **Add custom connector**. Team and Enterprise workspaces require an Owner to add it
        from **Organization settings → Connectors** first.
-    3. Name it `TrustLoopGuard` and enter:
+    3. Name it `Featherlane AI` and enter:
 
        ```text
-       https://api.gettrustloop.app/mcp
+       https://api.featherlane.ai/mcp
        ```
 
     4. Select **Connect**, complete OAuth, and enable the connector for the conversation.
@@ -267,7 +267,7 @@ TrustLoopGuard authorization page in your browser.
     Use this endpoint in any client that supports remote MCP over Streamable HTTP and OAuth 2.1:
 
     ```text
-    https://api.gettrustloop.app/mcp
+    https://api.featherlane.ai/mcp
     ```
 
     The client must support protected-resource and authorization-server discovery, dynamic client
@@ -282,7 +282,7 @@ Then start a fresh client session so it discovers the current assigned catalog. 
 prompt is useful when demonstrating a particular tool:
 
 ```text
-Use the `trustloopguard` MCP server. Call `company__read_engineering_docs`
+Use the `featherlane-ai` MCP server. Call `company__read_engineering_docs`
 with {"topic":"intern onboarding"}. Do not inspect local files or run shell commands.
 ```
 
@@ -296,13 +296,13 @@ MCP discovery and MCP execution are separate:
 ```text
 Client starts
   → tools/list
-  → TrustLoopGuard returns the member's active assigned tools
+  → Featherlane AI returns the member's active assigned tools
   → the client registers those tool schemas for the model session
 
 Model selects a known tool
   → tools/call
-  → TrustLoopGuard rechecks membership and assignment
-  → TrustLoopGuard evaluates current runtime policy
+  → Featherlane AI rechecks membership and assignment
+  → Featherlane AI evaluates current runtime policy
   → the upstream server is called only after permit
 ```
 
@@ -313,7 +313,7 @@ result.
 | Administrative change          | Existing client session                             | Server behavior on the next call                 |
 | ------------------------------ | --------------------------------------------------- | ------------------------------------------------ |
 | Grant a previously hidden tool | The tool remains hidden until the client refreshes. | A direct call is allowed only after live checks. |
-| Revoke a visible tool          | The stale tool may remain visible in the client.    | TrustLoopGuard denies the call immediately.      |
+| Revoke a visible tool          | The stale tool may remain visible in the client.    | Featherlane AI denies the call immediately.      |
 | Change runtime policy          | The visible catalog does not change.                | The current policy is evaluated immediately.     |
 | Remove workspace membership    | The stale catalog may remain visible in the client. | Every MCP request is rejected.                   |
 
@@ -321,13 +321,13 @@ After granting a new tool, exit and restart the AI client to refresh discovery. 
 remains stored; you do not need to authorize again. Clearing the terminal display or starting a new
 prompt in the same session does not refresh the catalog.
 
-A stale client catalog is not an authorization grant. TrustLoopGuard resolves the current tool
+A stale client catalog is not an authorization grant. Featherlane AI resolves the current tool
 assignment when `tools/call` arrives and rechecks authority immediately before upstream execution.
 A revoked tool cannot execute even when an older client still displays it.
 
 ## Runtime enforcement
 
-For every assigned call, TrustLoopGuard:
+For every assigned call, Featherlane AI:
 
 1. Rechecks the OAuth member's workspace access and the workspace feature flag.
 2. Resolves the current assignment and pinned tool schema.
@@ -353,5 +353,5 @@ upstream server. Approved calls are also re-evaluated before execution.
 - **A policy does not block a call** — verify the tool's side-effect classification and that the
   policy is enabled in the environment named on the **Connect** tab.
 - **Another MCP server fails during Codex startup** — failures from unrelated integrations do not
-  invalidate a successful TrustLoopGuard OAuth login. Disable or repair those integrations
+  invalidate a successful Featherlane AI OAuth login. Disable or repair those integrations
   separately.

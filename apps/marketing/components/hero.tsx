@@ -9,7 +9,7 @@ const COPY = {
     titleAccent: 'approvals',
     titleAfter: 'for AI agents.',
     intro:
-      'TrustLoopGuard checks consequential actions, routes exceptions to the right person, and returns a decision before anything happens.',
+      'Featherlane AI checks consequential actions, routes exceptions to the right person, and returns a decision before anything happens.',
     founderProof: 'Built by a former engineer at YC / a16z-backed companies',
     demo: 'Try the demo',
     app: 'Get started',
@@ -19,7 +19,7 @@ const COPY = {
     titleAccent: 'Phê duyệt',
     titleAfter: 'theo chính sách cho tác nhân AI.',
     intro:
-      'TrustLoopGuard kiểm tra các hành động quan trọng, chuyển ngoại lệ đến đúng người và trả về quyết định trước khi bất kỳ điều gì xảy ra.',
+      'Featherlane AI kiểm tra các hành động quan trọng, chuyển ngoại lệ đến đúng người và trả về quyết định trước khi bất kỳ điều gì xảy ra.',
     founderProof: 'Được xây dựng bởi cựu kỹ sư tại các công ty được YC / a16z hậu thuẫn',
     demo: 'Thử bản demo',
     app: 'Bắt đầu',

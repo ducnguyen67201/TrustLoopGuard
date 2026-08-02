@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-const COMMAND = 'npm install @trustloopguard/sdk';
+const COMMAND = 'npm install @featherlane-ai/sdk';
 
 const COPY = {
   en: { label: 'Install the SDK', copy: 'Copy', copied: 'Copied' },

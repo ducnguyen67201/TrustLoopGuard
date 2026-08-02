@@ -1,4 +1,4 @@
-import type { AuthorizationEffect, GuardLogEvent } from '@trustloopguard/sdk';
+import type { AuthorizationEffect, GuardLogEvent } from '@featherlane-ai/sdk';
 
 interface DemoMetric {
   label: string;

@@ -1,4 +1,4 @@
-import type { AgentProfile } from '@trustloopguard/sdk';
+import type { AgentProfile } from '@featherlane-ai/sdk';
 
 export const HEALTHCARE_AGENT_ID = 'healthcare-demo-agent';
 export const HEALTHCARE_AGENT_DISPLAY_NAME = 'CareDesk Healthcare Demo';
@@ -52,7 +52,7 @@ export const HEALTHCARE_AGENT_INSTRUCTIONS = [
 export function healthcareAgentInstructions(locale: HealthcareDemoLocale = 'en'): string {
   const languageInstruction =
     locale === 'vi'
-      ? 'Respond in natural Vietnamese. Keep product names such as CareDesk, OpenAI, and TrustLoopGuard unchanged.'
+      ? 'Respond in natural Vietnamese. Keep product names such as CareDesk, OpenAI, and Featherlane AI unchanged.'
       : 'Respond in English.';
   return `${HEALTHCARE_AGENT_INSTRUCTIONS} ${languageInstruction}`;
 }

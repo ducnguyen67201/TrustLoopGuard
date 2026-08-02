@@ -34,7 +34,7 @@ fn json_request(
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json");
     if let Some(ws) = workspace_id {
-        builder = builder.header("x-tlg-workspace-id", ws);
+        builder = builder.header("x-featherlane-ai-workspace-id", ws);
     }
     builder
 }
@@ -54,7 +54,7 @@ fn metadata_body(tool: &str) -> serde_json::Value {
 
 fn upsert_request(body: &serde_json::Value, workspace_id: &str, owner_id: Uuid) -> Request<Body> {
     json_request("POST", "/v1/tool-metadata", Some(workspace_id))
-        .header("x-tlg-user-id", owner_id.to_string())
+        .header("x-featherlane-ai-user-id", owner_id.to_string())
         .body(Body::from(body.to_string()))
         .unwrap()
 }
@@ -219,7 +219,7 @@ async fn delete_then_get_returns_404() {
                 "/v1/tool-metadata/send_email",
                 Some(&workspace_id),
             )
-            .header("x-tlg-user-id", owner_id.to_string())
+            .header("x-featherlane-ai-user-id", owner_id.to_string())
             .body(Body::empty())
             .unwrap(),
         )
@@ -245,7 +245,7 @@ async fn delete_then_get_returns_404() {
                 "/v1/tool-metadata/send_email",
                 Some(&workspace_id),
             )
-            .header("x-tlg-user-id", owner_id.to_string())
+            .header("x-featherlane-ai-user-id", owner_id.to_string())
             .body(Body::empty())
             .unwrap(),
         )

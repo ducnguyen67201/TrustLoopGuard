@@ -1,4 +1,4 @@
-//! Retry policy for the TrustLoopGuard Rust SDK.
+//! Retry policy for the Featherlane AI Rust SDK.
 //!
 //! Decisions live in [`RetryConfig::next_delay`], a pure function: given
 //! the attempt number, elapsed time, and the error that just occurred,

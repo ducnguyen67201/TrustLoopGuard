@@ -13,7 +13,7 @@ The private marketing Postgres database owns the page profile. `apps/marketing` 
 
 Provenance sources remain in the server-side profile and outbound review packet. Prospect-facing pages do not render those URLs as navigation links.
 
-The profile does not define or execute a TrustLoopGuard policy. Runtime policies, authorization decisions, traces, agents, and API keys remain owned by the Rust service and `crates/tl-storage`. A profile names a trusted `scenario_id`; the server maps that identifier to a fixed, reviewed Rust-owned runtime scenario. Company fields provide bounded model context but never add, remove, select, or rewrite runtime policies.
+The profile does not define or execute a Featherlane AI policy. Runtime policies, authorization decisions, traces, agents, and API keys remain owned by the Rust service and `crates/tl-storage`. A profile names a trusted `scenario_id`; the server maps that identifier to a fixed, reviewed Rust-owned runtime scenario. Company fields provide bounded model context but never add, remove, select, or rewrite runtime policies.
 
 The trusted category-to-scenario mappings are:
 

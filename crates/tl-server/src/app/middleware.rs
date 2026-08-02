@@ -12,8 +12,8 @@ pub(crate) async fn log_http_response(request: Request, next: Next) -> Response 
     let content_type = header_value(request.headers(), "content-type");
     let content_length = header_value(request.headers(), "content-length");
     let user_agent = header_value(request.headers(), "user-agent");
-    let workspace_id = header_value(request.headers(), "x-tlg-workspace-id");
-    let user_id = header_value(request.headers(), "x-tlg-user-id");
+    let workspace_id = header_value(request.headers(), "x-featherlane-ai-workspace-id");
+    let user_id = header_value(request.headers(), "x-featherlane-ai-user-id");
     let has_authorization = request.headers().contains_key("authorization");
 
     tracing::debug!(

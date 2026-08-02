@@ -410,7 +410,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("clock")
             .as_nanos();
-        let directory = std::env::temp_dir().join(format!("tlg-policy-load-{unique}"));
+        let directory = std::env::temp_dir().join(format!("featherlane-ai-policy-load-{unique}"));
         std::fs::create_dir(&directory).expect("create policy directory");
         let path = directory.join("command-policy.yaml");
         std::fs::write(

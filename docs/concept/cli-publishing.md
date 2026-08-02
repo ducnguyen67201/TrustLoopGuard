@@ -1,6 +1,6 @@
 # CLI publishing
 
-This doc owns the release process for `@trustloopguard/cli`. The automated npm release lives in
+This doc owns the release process for `@featherlane-ai/cli`. The automated npm release lives in
 `.github/workflows/publish-cli-npm.yml` and runs only for tags matching `cli-v*`.
 
 ## Release contract
@@ -10,7 +10,7 @@ This doc owns the release process for `@trustloopguard/cli`. The automated npm r
 - The tagged commit must be an ancestor of `origin/main`.
 - The workflow installs locked dependencies, typechecks, builds, runs tests, and executes the
   packed-artifact smoke test before publishing with npm provenance.
-- `pnpm --filter @trustloopguard/cli test:package` extracts the exact tarball, verifies the bin and
+- `pnpm --filter @featherlane-ai/cli test:package` extracts the exact tarball, verifies the bin and
   copied runtime modules, and runs install/status/uninstall against isolated user directories.
 - The package contains `dist/**`, `README.md`, and `LICENSE`, not TypeScript sources or tests.
 - npm versions are immutable. Increment the package and runtime version before requesting another
@@ -22,11 +22,11 @@ protected GitHub environment remain explicit operator actions.
 ## First publication
 
 npm trusted publishing is configured from an existing package's settings page. Before the first
-workflow release, publish one version with an npm account that can write to the `trustloopguard`
+workflow release, publish one version with an npm account that can write to the `featherlane-ai`
 organization, then configure the package's GitHub Actions trusted publisher with:
 
 - GitHub organization or user: `ducnguyen67201`
-- Repository: `TrustLoopGuard`
+- Repository: `Featherlane AI`
 - Workflow filename: `publish-cli-npm.yml`
 - Environment: `cli-publish`
 - Allowed action: `npm publish`
@@ -37,12 +37,12 @@ the tag workflow and do not require a long-lived npm token.
 ## Before tagging
 
 ```bash
-npm view @trustloopguard/cli@X.Y.Z version
+npm view @featherlane-ai/cli@X.Y.Z version
 git tag -l 'cli-vX.Y.Z'
 git ls-remote --tags origin 'cli-vX.Y.Z'
-pnpm --filter @trustloopguard/cli typecheck
-pnpm --filter @trustloopguard/cli test
-pnpm --filter @trustloopguard/cli test:package
+pnpm --filter @featherlane-ai/cli typecheck
+pnpm --filter @featherlane-ai/cli test
+pnpm --filter @featherlane-ai/cli test:package
 ```
 
 The npm query should return `E404` for a new version, and the tag queries should be empty.
@@ -62,7 +62,7 @@ Watch the `Publish CLI` workflow and confirm the resulting package:
 ```bash
 gh run list --workflow "Publish CLI" --limit 5
 gh run watch <run-id> --exit-status
-npm view @trustloopguard/cli version
+npm view @featherlane-ai/cli version
 ```
 
 Never move a tag after npm has accepted that version.

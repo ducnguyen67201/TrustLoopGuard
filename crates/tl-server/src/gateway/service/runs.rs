@@ -11,7 +11,7 @@ use crate::AppState;
 use super::super::normalization::provider_kind_text;
 use super::super::store::ResolvedGatewayRoute;
 
-const GATEWAY_RUN_EXTERNAL_ID_HEADER: &str = "x-tlg-run-external-id";
+const GATEWAY_RUN_EXTERNAL_ID_HEADER: &str = "x-featherlane-ai-run-external-id";
 
 pub(super) async fn create_gateway_run(
     state: &AppState,

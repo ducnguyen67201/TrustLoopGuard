@@ -25,7 +25,7 @@ import type {
   McpGatewayConnectionListResponse,
   McpGatewayTool,
   McpGatewayToolListResponse,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 import {
   isUserApprovalRequiredError,
   normalizeWorkspaceSlug,

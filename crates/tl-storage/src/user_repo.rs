@@ -96,7 +96,7 @@ impl UserRepo {
 
     /// Resolve an OAuth identity to a local app user. The provider has
     /// already authenticated the browser user; this only establishes
-    /// which TrustLoopGuard `users.id` owns app memberships.
+    /// which Featherlane AI `users.id` owns app memberships.
     pub async fn ensure_oauth_identity(
         &self,
         provider: &str,

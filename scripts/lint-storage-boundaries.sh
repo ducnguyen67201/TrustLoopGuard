@@ -7,7 +7,7 @@ cd "$ROOT"
 SELF="scripts/lint-storage-boundaries.sh"
 SQL_FILE_ALLOWLIST='^crates/tl-storage/migrations/[0-9_]+_[^/]+/(up|down)\.sql$'
 # Local demo fixtures may use SQLite directly to mimic a customer backend.
-# Durable TrustLoopGuard product/runtime storage must still go through tl-storage.
+# Durable Featherlane AI product/runtime storage must still go through tl-storage.
 RAW_QUERY_FILE_ALLOWLIST='^demo/stripe-refund-agent/order-db\.ts$'
 
 fail() {

@@ -3,7 +3,7 @@ import type {
   BudgetAlertConfigListResponse,
   BudgetAlertFiring,
   BudgetAlertFiringListResponse,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import { AppLayout } from '@/components/AppLayout';
 import { BudgetAlertsCard } from '@/components/workspace/BudgetAlertsCard';

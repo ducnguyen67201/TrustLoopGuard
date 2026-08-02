@@ -5,12 +5,12 @@ import { atomicWriteText } from '../managed-json.js';
 import { baseStatus, compatibilityRemediation, detectHost, type HostAdapter } from './types.js';
 
 const MINIMUM_VERSION = '1.18.5';
-const LOADER_MARKER = 'TrustLoopGuard managed OpenCode tool gate';
+const LOADER_MARKER = 'Featherlane AI managed OpenCode tool gate';
 
 export function openCodeLoader(pluginFile: string, runtimeFile: string): string {
   let importPath = relative(dirname(pluginFile), runtimeFile).replaceAll('\\', '/');
   if (!importPath.startsWith('.')) importPath = `./${importPath}`;
-  return `// ${LOADER_MARKER}\nexport { TrustLoopGuardPlugin } from ${JSON.stringify(importPath)};\n`;
+  return `// ${LOADER_MARKER}\nexport { FeatherlaneAIPlugin } from ${JSON.stringify(importPath)};\n`;
 }
 
 export const openCodeAdapter: HostAdapter = {
@@ -30,7 +30,7 @@ export const openCodeAdapter: HostAdapter = {
     const existing = await readLoader(context.paths.openCodePluginFile);
     if (existing !== undefined && !existing.startsWith(`// ${LOADER_MARKER}\n`)) {
       throw new Error(
-        `${context.paths.openCodePluginFile} already exists and is not managed by TrustLoopGuard`,
+        `${context.paths.openCodePluginFile} already exists and is not managed by Featherlane AI`,
       );
     }
     await atomicWriteText(

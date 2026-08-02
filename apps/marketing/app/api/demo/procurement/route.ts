@@ -4,7 +4,7 @@ import {
   runHostedProcurementDemo,
   type HostedProcurementDemoResponse,
   type HostedProcurementPolicyInventoryResponse,
-} from '@trustloopguard/demo/procurement-agent/hosted';
+} from '@featherlane-ai/demo/procurement-agent/hosted';
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 

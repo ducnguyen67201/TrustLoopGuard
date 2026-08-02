@@ -9,13 +9,13 @@ interface BrandLogoProps {
 }
 
 export function BrandLogo({
-  alt = 'TrustLoopGuard',
+  alt = 'Featherlane AI',
   className,
   priority = false,
 }: BrandLogoProps) {
   return (
     <Image
-      src="/trustloop-logo.svg"
+      src="/featherlane-ai-logo.svg"
       alt={alt}
       width={40}
       height={40}

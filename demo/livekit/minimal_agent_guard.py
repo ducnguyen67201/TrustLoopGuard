@@ -1,9 +1,9 @@
-"""Smallest possible LiveKit-style TrustLoopGuard integration.
+"""Smallest possible LiveKit-style Featherlane AI integration.
 
 This is the shape we want users to copy:
 
-    import trustloopguard as trustloop
-    guardrail = trustloop.guard(agent_id="demo-livekit-agent")
+    import featherlane_ai
+    guardrail = featherlane_ai.guard(agent_id="demo-livekit-agent")
     guarded_reply = await guardrail(input=user_text, draft=agent_draft)
     await session.say(guarded_reply)
 
@@ -14,13 +14,13 @@ from __future__ import annotations
 
 import os
 
-import trustloopguard as trustloop
-from trustloopguard import AuthorizationDecision, Channel, RetryConfig
+import featherlane_ai
+from featherlane_ai import AuthorizationDecision, Channel, RetryConfig
 
 
 class LiveKitSupportAgent:
     def __init__(self) -> None:
-        self.guardrail = trustloop.guard(
+        self.guardrail = featherlane_ai.guard(
             agent_id=os.getenv("TL_AGENT_ID", "demo-livekit-agent"),
             base_url=os.getenv("TL_SERVER_URL"),
             api_key=os.getenv("TL_API_KEY"),

@@ -50,7 +50,7 @@ export async function createStripeRefund(input: CreateRefundInput): Promise<Stri
     payment_intent: input.paymentIntentId,
     amount: String(input.amountMinor),
   });
-  body.set('metadata[trustloopguard_reason]', input.reason);
+  body.set('metadata[featherlane_ai_reason]', input.reason);
 
   const json = await stripePost(
     'https://api.stripe.com/v1/refunds',
@@ -78,7 +78,7 @@ export async function createTestPaymentIntent(
     payment_method: 'pm_card_visa',
     'automatic_payment_methods[enabled]': 'true',
     'automatic_payment_methods[allow_redirects]': 'never',
-    description: 'TrustLoopGuard Stripe refund agent demo order',
+    description: 'Featherlane AI Stripe refund agent demo order',
   });
   for (const [key, value] of Object.entries(input.metadata)) {
     body.set(`metadata[${key}]`, value);
@@ -88,7 +88,7 @@ export async function createTestPaymentIntent(
     'https://api.stripe.com/v1/payment_intents',
     input.secretKey,
     body,
-    input.idempotencyKey ?? `tlg-demo-pi:${input.metadata.order_id ?? 'order'}`,
+    input.idempotencyKey ?? `featherlane-ai-demo-pi:${input.metadata.order_id ?? 'order'}`,
     input.fetchImpl ?? fetch,
   );
   if (json.id === undefined) throw new Error('stripe payment intent response did not include an id');

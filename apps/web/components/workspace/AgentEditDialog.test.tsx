@@ -21,7 +21,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mocks.replace, refresh: mocks.refresh }),
   useSearchParams: () =>
     new URLSearchParams(
-      'workspace=trustloopguard-demo&environment=production&agent=agent-1&editAgent=agent-1',
+      'workspace=featherlane-ai-demo&environment=production&agent=agent-1&editAgent=agent-1',
     ),
 }));
 
@@ -72,7 +72,7 @@ describe('AgentEditDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(mocks.replace).toHaveBeenCalledWith(
-      '/agents?workspace=trustloopguard-demo&environment=production&agent=agent-1',
+      '/agents?workspace=featherlane-ai-demo&environment=production&agent=agent-1',
     );
   });
 });

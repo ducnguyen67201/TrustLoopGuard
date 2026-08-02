@@ -66,16 +66,16 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        run: pnpm --filter @trustloopguard/cli typecheck
+        run: pnpm --filter @featherlane-ai/cli typecheck
 
       - name: Build
-        run: pnpm --filter @trustloopguard/cli build
+        run: pnpm --filter @featherlane-ai/cli build
 
       - name: Test
-        run: pnpm --filter @trustloopguard/cli test
+        run: pnpm --filter @featherlane-ai/cli test
 
       - name: Verify packed npm artifact
-        run: pnpm --filter @trustloopguard/cli test:package
+        run: pnpm --filter @featherlane-ai/cli test:package
 
       - name: Publish to npm
         working-directory: apps/cli

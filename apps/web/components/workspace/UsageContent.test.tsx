@@ -1,7 +1,7 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import type { LlmUsageBucket } from '@trustloopguard/sdk';
+import type { LlmUsageBucket } from '@featherlane-ai/sdk';
 import { toast } from 'sonner';
 
 import { UsageContent } from './UsageContent';

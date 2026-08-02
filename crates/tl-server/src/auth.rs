@@ -213,7 +213,7 @@ pub async fn require_bearer(
     // 2. User JWT — only attempted if a signer is configured.
     //    On success, attach UserContext to the request extension so
     //    handlers (e.g. /v1/team/my-workspaces) can read user_id
-    //    without trusting raw X-TLG-User-Id headers.
+    //    without trusting raw X-FEATHERLANE-AI-User-Id headers.
     if let Some(signer) = cfg.jwt.as_ref() {
         if let Ok(claims) = signer.verify(token) {
             // Parsed in JwtSigner::verify, but redo here so the type
@@ -233,7 +233,8 @@ pub async fn require_bearer(
                     if let Some(ws) = token_workspace.as_deref() {
                         let ws_header = HeaderValue::from_str(ws)
                             .map_err(|_| unauthorized("invalid workspace in access token"))?;
-                        req.headers_mut().insert("x-tlg-workspace-id", ws_header);
+                        req.headers_mut()
+                            .insert("x-featherlane-ai-workspace-id", ws_header);
                         return Ok(next.run(req).await);
                     }
                     return Err(unauthorized("access token missing workspace scope"));
@@ -260,11 +261,11 @@ pub async fn require_bearer(
                     let workspace_header = HeaderValue::from_str(&context.workspace_id)
                         .map_err(|_| unauthorized("invalid workspace attached to API key"))?;
                     req.headers_mut()
-                        .insert("x-tlg-workspace-id", workspace_header);
+                        .insert("x-featherlane-ai-workspace-id", workspace_header);
                     let environment_header = HeaderValue::from_str(&context.environment_id)
                         .map_err(|_| unauthorized("invalid environment attached to API key"))?;
                     req.headers_mut()
-                        .insert("x-tlg-environment-id", environment_header);
+                        .insert("x-featherlane-ai-environment-id", environment_header);
                     req.extensions_mut().insert(context);
                     return Ok(next.run(req).await);
                 }
@@ -349,7 +350,7 @@ pub async fn require_mcp_bearer(
     let workspace_header = HeaderValue::from_str(&workspace_id)
         .map_err(|_| unauthorized_mcp("invalid bearer token"))?;
     req.headers_mut()
-        .insert("x-tlg-workspace-id", workspace_header);
+        .insert("x-featherlane-ai-workspace-id", workspace_header);
     req.extensions_mut().insert(UserContext {
         user_id,
         username: claims.username.clone(),

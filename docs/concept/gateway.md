@@ -1,6 +1,6 @@
 # Gateway
 
-Gateway is TrustLoopGuard's provider-proxy integration. It lets an application send OpenAI-compatible
+Gateway is Featherlane AI's provider-proxy integration. It lets an application send OpenAI-compatible
 or Anthropic traffic through the Rust runtime instead of applying a returned `AuthorizationDecision` itself.
 
 ## Ownership
@@ -97,7 +97,7 @@ Gateway applies the `AuthorizationDecision` from the shared event service direct
 | `defer` | Do not call the provider until evidence/system state changes | Suppress provider content |
 
 A transform without `transformed_value` fails closed. Denied responses use the stable message
-`Denied by TrustLoopGuard.` and the provider's normal content-filter shape. Gateway does not call
+`Denied by Featherlane AI.` and the provider's normal content-filter shape. Gateway does not call
 the provider again to regenerate a response.
 
 Provider failures are availability failures, not policy decisions. They return a sanitized
@@ -108,10 +108,10 @@ Provider failures are availability failures, not policy decisions. They return a
 Non-permit responses include:
 
 - provider-native `content_filter` finish/stop reason
-- `X-TrustLoopGuard-Effect`
-- `X-TrustLoopGuard-Phase`
-- `X-TrustLoopGuard-Trace-Id`
-- `X-TrustLoopGuard-Policy-Id` when a policy id is available
+- `X-Featherlane AI-Effect`
+- `X-Featherlane AI-Phase`
+- `X-Featherlane AI-Trace-Id`
+- `X-Featherlane AI-Policy-Id` when a policy id is available
 
 Transforms include the effect and correlation headers. Permitted responses carry no enforcement
 headers.
@@ -172,7 +172,7 @@ same persisted traces as SDK events, using `gateway_input` and `gateway_output` 
 UI places them in the correct guard phase.
 
 Run metadata records integration mode, route id, Gateway request id, and provider kind. Callers may
-send `X-TLG-Run-External-Id` to group multiple provider calls into one upstream session. Policy-
+send `X-FEATHERLANE-AI-Run-External-Id` to group multiple provider calls into one upstream session. Policy-
 shaped responses complete the run; provider and internal check failures mark it failed.
 
 `GET /v1/runs/{run_id}` joins the run timeline with typed Gateway evidence:
@@ -192,7 +192,7 @@ cost when the provider did not report tokens; they are never displayed as zero-c
 The dashboard's **Usage & budgets** page is the operator home for model prices, aggregate customer
 usage, guardrail overhead, `meter: llm_usage` policies, and LLM-scoped alerts. Gateway route setup
 only reports whether those spend controls are ready and links to that page. Provider invoices remain
-the final billing authority; TrustLoopGuard's per-request cost is a price-snapshot estimate.
+the final billing authority; Featherlane AI's per-request cost is a price-snapshot estimate.
 
 OpenAI-compatible input checks evaluate the latest user message. Anthropic input checks also include
 the top-level system prompt. Output checks evaluate the provider's assistant response.

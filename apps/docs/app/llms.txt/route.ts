@@ -3,9 +3,9 @@ import { listDocPages, textResponse } from '@/lib/llm-docs';
 export async function GET() {
   const pages = await listDocPages();
   const lines = [
-    '# TrustLoopGuard Docs',
+    '# Featherlane AI Docs',
     '',
-    '> Open-source policy and trust-loop runtime for agents, services, and humans in the loop.',
+    '> Open-source policy enforcement runtime for agents, services, and humans in the loop.',
     '',
     '## Documentation',
     '',

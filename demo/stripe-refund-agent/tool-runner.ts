@@ -48,7 +48,7 @@ export const refundAgentTools: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'prepare_refund',
-      description: 'Create a typed TrustLoopGuard financial authorization for a refund.',
+      description: 'Create a typed Featherlane AI financial authorization for a refund.',
       parameters: {
         type: 'object',
         additionalProperties: false,
@@ -65,7 +65,7 @@ export const refundAgentTools: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'execute_refund',
-      description: 'Execute an already-authorized TrustLoopGuard refund action.',
+      description: 'Execute an already-authorized Featherlane AI refund action.',
       parameters: {
         type: 'object',
         additionalProperties: false,

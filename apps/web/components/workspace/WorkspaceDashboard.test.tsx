@@ -33,7 +33,7 @@ beforeAll(() => {
 });
 
 const WORKSPACE_SLUG = 'demo';
-const STORAGE_KEY = `tlg:dashboard-layout:${WORKSPACE_SLUG}`;
+const STORAGE_KEY = `featherlane-ai:dashboard-layout:${WORKSPACE_SLUG}`;
 
 function makeData(): WorkspaceDashboardData {
   const workspace = {

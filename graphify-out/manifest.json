@@ -39,37 +39,37 @@
     "ast_hash": "e85e24c3793984a84547a9d190404c55",
     "semantic_hash": ""
   },
-  "sdks/python/src/trustloopguard/errors.py": {
+  "sdks/python/src/featherlane_ai/errors.py": {
     "mtime": 1785451855.5166287,
     "ast_hash": "6a93246c466b64cc2889689de01501f5",
     "semantic_hash": ""
   },
-  "sdks/python/src/trustloopguard/client.py": {
+  "sdks/python/src/featherlane_ai/client.py": {
     "mtime": 1785451855.5166287,
     "ast_hash": "6349e05e760e64421dec82b514f44861",
     "semantic_hash": ""
   },
-  "sdks/python/src/trustloopguard/guard.py": {
+  "sdks/python/src/featherlane_ai/guard.py": {
     "mtime": 1785451855.5166287,
     "ast_hash": "6d87cda67e6b6cc1d365fb267023c083",
     "semantic_hash": ""
   },
-  "sdks/python/src/trustloopguard/retry.py": {
+  "sdks/python/src/featherlane_ai/retry.py": {
     "mtime": 1785451855.5174778,
     "ast_hash": "19a08a2289983687c116cb82221b18d9",
     "semantic_hash": ""
   },
-  "sdks/python/src/trustloopguard/__init__.py": {
+  "sdks/python/src/featherlane_ai/__init__.py": {
     "mtime": 1785451855.5164442,
     "ast_hash": "60f450262d44680617184e2e7c184c65",
     "semantic_hash": ""
   },
-  "sdks/python/src/trustloopguard/_generated/types.py": {
+  "sdks/python/src/featherlane_ai/_generated/types.py": {
     "mtime": 1785451855.5166287,
     "ast_hash": "0b4fb4a637a8b57c4b4e8acbf7c160f9",
     "semantic_hash": ""
   },
-  "sdks/python/src/trustloopguard/_generated/__init__.py": {
+  "sdks/python/src/featherlane_ai/_generated/__init__.py": {
     "mtime": 1785451855.516577,
     "ast_hash": "54624e876e6c81e2a77c4ae0d2a813fe",
     "semantic_hash": ""
@@ -2204,7 +2204,7 @@
     "ast_hash": "c6ec397696cd45756d15acf9c54c79a2",
     "semantic_hash": ""
   },
-  "apps/web/public/trustloop-logo.svg": {
+  "apps/web/public/featherlane-ai-logo.svg": {
     "mtime": 1785451855.3750894,
     "ast_hash": "c72f7a69938a40d1b0fb40a1a7a74025",
     "semantic_hash": ""
@@ -2519,7 +2519,7 @@
     "ast_hash": "79c94067558cd4c0e405ab168309619f",
     "semantic_hash": ""
   },
-  "apps/marketing/public/trustloop-logo.svg": {
+  "apps/marketing/public/featherlane-ai-logo.svg": {
     "mtime": 1785451855.3491182,
     "ast_hash": "c72f7a69938a40d1b0fb40a1a7a74025",
     "semantic_hash": ""
@@ -2549,7 +2549,7 @@
     "ast_hash": "7dba63d084461367700a55ca5c74bebe",
     "semantic_hash": ""
   },
-  "docs/concept/assets/trustloop-concept.svg": {
+  "docs/concept/assets/featherlane-ai-concept.svg": {
     "mtime": 1785451855.4301186,
     "ast_hash": "a3afa49b45c3d7ad2dd26345e65e9311",
     "semantic_hash": ""
@@ -2569,7 +2569,7 @@
     "ast_hash": "7dba63d084461367700a55ca5c74bebe",
     "semantic_hash": ""
   },
-  "apps/docs/public/diagrams/trustloop-concept.svg": {
+  "apps/docs/public/diagrams/featherlane-ai-concept.svg": {
     "mtime": 1785451855.3178675,
     "ast_hash": "a3afa49b45c3d7ad2dd26345e65e9311",
     "semantic_hash": ""
@@ -3024,7 +3024,7 @@
     "ast_hash": "70dd5059f654a1f43118870fcfae1f4b",
     "semantic_hash": ""
   },
-  "apps/marketing/public/trustloop-launch-demo.mp4": {
+  "apps/marketing/public/featherlane-ai-launch-demo.mp4": {
     "mtime": 1785451855.3491182,
     "ast_hash": "02ccdba9c77d0d1965cd87552c891542",
     "semantic_hash": ""
@@ -4084,7 +4084,7 @@
     "ast_hash": "c670a7241505686b52eb10ebbf12fe7d",
     "semantic_hash": ""
   },
-  "docs/research/trustloopguard-runtime-security-architecture/main.pdf": {
+  "docs/research/featherlane-ai-runtime-security-architecture/main.pdf": {
     "mtime": 1785451855.4361186,
     "ast_hash": "0ff468faf05c8abdc268bc31c9a2835c",
     "semantic_hash": ""
@@ -4964,7 +4964,7 @@
     "ast_hash": "182bf3c47dd1caa67b1ebbc383f08a99",
     "semantic_hash": ""
   },
-  "docs/specs/trustloopguard-hardening-v2-design.md": {
+  "docs/specs/featherlane-ai-hardening-v2-design.md": {
     "mtime": 1785451855.4382994,
     "ast_hash": "56d0700ba08b9e15adebaedbf2497431",
     "semantic_hash": ""
@@ -6669,7 +6669,7 @@
     "ast_hash": "518914d321b30256deb958eba5a275eb",
     "semantic_hash": ""
   },
-  "apps/marketing/public/images/trustloop-authorization-journey.png": {
+  "apps/marketing/public/images/featherlane-ai-authorization-journey.png": {
     "mtime": 1785451855.329118,
     "ast_hash": "49294471096cda5c9c398496b134ebcd",
     "semantic_hash": ""
@@ -7509,7 +7509,7 @@
     "ast_hash": "c8ddd7e88a876b37c3955aac90d9ab2d",
     "semantic_hash": ""
   },
-  "sdks/python/src/trustloopguard/authorization.py": {
+  "sdks/python/src/featherlane_ai/authorization.py": {
     "mtime": 1785451855.5166287,
     "ast_hash": "d45a34586ac7ac721797cbf6c228257b",
     "semantic_hash": ""
@@ -8804,22 +8804,22 @@
     "ast_hash": "fe07c2747e7494b5c3637b46338d33c7",
     "semantic_hash": ""
   },
-  "sdks/python/src/trustloopguard/integrations/__init__.py": {
+  "sdks/python/src/featherlane_ai/integrations/__init__.py": {
     "mtime": 1785451855.5166287,
     "ast_hash": "d9215f42bf3b0c63932ed25dbe8782aa",
     "semantic_hash": ""
   },
-  "sdks/python/src/trustloopguard/integrations/_core.py": {
+  "sdks/python/src/featherlane_ai/integrations/_core.py": {
     "mtime": 1785451855.5174778,
     "ast_hash": "0c5c15afe977c70b727d3b46d7260c6e",
     "semantic_hash": ""
   },
-  "sdks/python/src/trustloopguard/integrations/ag2.py": {
+  "sdks/python/src/featherlane_ai/integrations/ag2.py": {
     "mtime": 1785451855.5174778,
     "ast_hash": "50a15ee8d2d0f7e30b2d5db8b64fba12",
     "semantic_hash": ""
   },
-  "sdks/python/src/trustloopguard/integrations/agno.py": {
+  "sdks/python/src/featherlane_ai/integrations/agno.py": {
     "mtime": 1785451855.5174778,
     "ast_hash": "8bca1b4bdd80a326bc2c4e2f2056d6a1",
     "semantic_hash": ""

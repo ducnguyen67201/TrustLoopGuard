@@ -1,13 +1,13 @@
-# TrustLoopGuard Hardening v2 — Attack-Grounded Policy Synthesis
+# Featherlane AI Hardening v2 — Attack-Grounded Policy Synthesis
 
 This is an implementation/design spec for the next iteration of the
 red-team → harden loop: the step that, after a red-team run, recommends a
 guardrail that actually closes the gap the attack found. It is not the canonical
 architecture source. The whitepaper
-(`docs/research/trustloopguard-runtime-security-architecture/main.pdf`, §VIII
+(`docs/research/featherlane-ai-runtime-security-architecture/main.pdf`, §VIII
 guarded events, §XXII evolving evaluation, §XXIII two planes) defines the
 direction; the differential benchmark that scores the result is specified in
-[`trustloopguard-bench-v2-design.md`](./trustloopguard-bench-v2-design.md).
+[`featherlane-ai-bench-v2-design.md`](./featherlane-ai-bench-v2-design.md).
 When code lands, add/extend a concept doc and keep the roadmap language here in
 the spec.
 
@@ -17,7 +17,7 @@ Status: **design / proposal.**
 
 ## Purpose
 
-After a red-team run, TrustLoopGuard offers to "harden" the agent by generating a
+After a red-team run, Featherlane AI offers to "harden" the agent by generating a
 guardrail from what landed. Today that recommendation is produced web-side
 (`apps/web/lib/arena-harden.ts`) and it does not close the loop:
 
@@ -66,7 +66,7 @@ Three structural limits fall out of this:
 
 ## The two enforcement substrates (the constraint that shapes everything)
 
-A policy can only protect if it reaches an evaluator. TrustLoopGuard has two,
+A policy can only protect if it reaches an evaluator. Featherlane AI has two,
 and they take different inputs:
 
 1. **Text-matcher policies.** Stored `Policy`
@@ -306,10 +306,10 @@ Small, independently-mergeable steps (each updates a concept doc when it ships):
 
 ## References
 
-Whitepaper: `docs/research/trustloopguard-runtime-security-architecture/main.pdf`
+Whitepaper: `docs/research/featherlane-ai-runtime-security-architecture/main.pdf`
 (§VIII output→events, §XXII evolving evaluation, §XXIII two planes).
 
-Companion spec: [`trustloopguard-bench-v2-design.md`](./trustloopguard-bench-v2-design.md)
+Companion spec: [`featherlane-ai-bench-v2-design.md`](./featherlane-ai-bench-v2-design.md)
 (the differential harness the verify loop reuses).
 
 External methods (primary sources; gathered via deep research, verification pass

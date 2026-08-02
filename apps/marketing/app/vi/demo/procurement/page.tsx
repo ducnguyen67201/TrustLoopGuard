@@ -5,7 +5,7 @@ import { SITE_NAME, SITE_URL } from '@/lib/seo';
 
 const TITLE = 'Demo tác nhân mua sắm AI an toàn';
 const DESCRIPTION =
-  'Trò chuyện với tác nhân mua sắm OpenAI trực tiếp và xem TrustLoopGuard cho phép, giữ để phê duyệt hoặc chặn đơn mua hàng trước khi thực thi.';
+  'Trò chuyện với tác nhân mua sắm OpenAI trực tiếp và xem Featherlane AI cho phép, giữ để phê duyệt hoặc chặn đơn mua hàng trước khi thực thi.';
 
 export const metadata: Metadata = {
   title: { absolute: `${TITLE} | ${SITE_NAME}` },

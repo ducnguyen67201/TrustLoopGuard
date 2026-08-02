@@ -49,7 +49,7 @@ export async function executePayment(req: PaymentRequest): Promise<PaymentResult
     payment_method: 'pm_card_visa',
     'automatic_payment_methods[enabled]': 'true',
     'automatic_payment_methods[allow_redirects]': 'never',
-    description: `TrustLoopGuard demo ${req.kind} to ${req.destination}`,
+    description: `Featherlane AI demo ${req.kind} to ${req.destination}`,
   });
   const res = await fetch('https://api.stripe.com/v1/payment_intents', {
     method: 'POST',

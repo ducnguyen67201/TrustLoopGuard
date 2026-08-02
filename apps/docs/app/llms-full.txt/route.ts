@@ -18,5 +18,5 @@ export async function GET() {
     })
     .join('\n---\n\n');
 
-  return textResponse(`# TrustLoopGuard Docs Full\n\n${body}`);
+  return textResponse(`# Featherlane AI Docs Full\n\n${body}`);
 }

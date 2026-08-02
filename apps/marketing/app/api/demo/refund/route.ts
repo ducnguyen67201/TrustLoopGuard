@@ -1,7 +1,7 @@
 import {
   readHostedRefundDemoStatus,
   runHostedRefundDemo,
-} from '@trustloopguard/demo/stripe-refund-agent/hosted';
+} from '@featherlane-ai/demo/stripe-refund-agent/hosted';
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import {

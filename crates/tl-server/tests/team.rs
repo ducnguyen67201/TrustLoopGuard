@@ -181,7 +181,7 @@ fn create_invite_request(
         .uri("/v1/team/invites")
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .header(header::CONTENT_TYPE, "application/json")
-        .header("x-tlg-workspace-id", workspace_id)
+        .header("x-featherlane-ai-workspace-id", workspace_id)
         .body(Body::from(
             serde_json::json!({
                 "email": email,
@@ -388,7 +388,7 @@ async fn runtime_key_cannot_delete_workspace_with_forged_owner_identity() {
                     header::AUTHORIZATION,
                     format!("Bearer {}", fixture.runtime_key),
                 )
-                .header("x-tlg-user-id", fixture.owner_id.to_string())
+                .header("x-featherlane-ai-user-id", fixture.owner_id.to_string())
                 .body(Body::empty())
                 .expect("runtime delete request"),
         )
@@ -425,7 +425,7 @@ async fn runtime_key_cannot_create_or_revoke_team_invites() {
                     header::AUTHORIZATION,
                     format!("Bearer {}", fixture.runtime_key),
                 )
-                .header("x-tlg-user-id", fixture.owner_id.to_string())
+                .header("x-featherlane-ai-user-id", fixture.owner_id.to_string())
                 .body(Body::empty())
                 .expect("runtime list request"),
         )
@@ -445,7 +445,7 @@ async fn runtime_key_cannot_create_or_revoke_team_invites() {
                     format!("Bearer {}", fixture.runtime_key),
                 )
                 .header(header::CONTENT_TYPE, "application/json")
-                .header("x-tlg-user-id", fixture.owner_id.to_string())
+                .header("x-featherlane-ai-user-id", fixture.owner_id.to_string())
                 .body(Body::from(
                     serde_json::json!({
                         "email": "attacker@example.com",
@@ -470,7 +470,7 @@ async fn runtime_key_cannot_create_or_revoke_team_invites() {
                     header::AUTHORIZATION,
                     format!("Bearer {}", fixture.runtime_key),
                 )
-                .header("x-tlg-user-id", fixture.owner_id.to_string())
+                .header("x-featherlane-ai-user-id", fixture.owner_id.to_string())
                 .body(Body::empty())
                 .expect("runtime revoke request"),
         )

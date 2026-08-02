@@ -5,7 +5,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "TrustLoopGuard streaming engine: incremental checks for voice/text streams"
+description = "Featherlane AI streaming engine: incremental checks for voice/text streams"
 
 [dependencies]
 tl-core = { workspace = true }

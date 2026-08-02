@@ -4,7 +4,7 @@ import {
   guardAgent,
   type AgentProfile,
   type RunDetail,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import { createClient } from '../shared/env';
 

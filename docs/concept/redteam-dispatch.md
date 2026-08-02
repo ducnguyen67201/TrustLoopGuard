@@ -57,7 +57,7 @@ Dispatch never blocks on runner execution. When `REDTEAM_RUNNER_URL` is unset or
 invalid, the worker is not spawned and dispatch returns `503` with:
 
 ```text
-red-team execution is not configured for this deployment; contact TrustLoopGuard
+red-team execution is not configured for this deployment; contact Featherlane AI
 to enable managed or enterprise execution
 ```
 

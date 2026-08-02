@@ -21,8 +21,8 @@ version = "0.0.1"
 edition = "2021"
 rust-version = "1.78"
 license = "Apache-2.0"
-repository = "https://github.com/ducnguyen67201/TrustLoopGuard"
-authors = ["TrustLoopGuard contributors"]
+repository = "https://github.com/ducnguyen67201/FeatherlaneAI"
+authors = ["Featherlane AI contributors"]
 
 [workspace.dependencies]
 tl-core = { path = "crates/tl-core" }

@@ -1,6 +1,6 @@
 # Product analytics
 
-Product analytics measure how people use the TrustLoopGuard marketing site and dashboard. They are separate from customer guardrail analytics: PostHog never owns policies, traces, decisions, runs, settings, or any other runtime product state.
+Product analytics measure how people use the Featherlane AI marketing site and dashboard. They are separate from customer guardrail analytics: PostHog never owns policies, traces, decisions, runs, settings, or any other runtime product state.
 
 ## Ownership and flow
 

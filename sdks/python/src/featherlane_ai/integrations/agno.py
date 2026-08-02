@@ -1,4 +1,4 @@
-"""TrustLoopGuard tool and output hooks for Agno Agent."""
+"""Featherlane AI tool and output hooks for Agno Agent."""
 
 from __future__ import annotations
 
@@ -17,15 +17,15 @@ from agno.run.agent import RunOutput
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 
-from trustloopguard._generated.types import (
+from featherlane_ai._generated.types import (
     Principal,
     SideEffectClass,
     ToolIdentity,
 )
-from trustloopguard.client import AsyncClient, Client
-from trustloopguard.errors import SdkError
-from trustloopguard.guard import GuardLogEvent, guard, guard_async
-from trustloopguard.integrations._core import (
+from featherlane_ai.client import AsyncClient, Client
+from featherlane_ai.errors import SdkError
+from featherlane_ai.guard import GuardLogEvent, guard, guard_async
+from featherlane_ai.integrations._core import (
     AdapterLogEvent,
     AdapterWarning,
     AdapterWarningCode,
@@ -570,10 +570,10 @@ def guard_agno(
     on_warning: Callable[[AdapterWarning], None] | None = None,
     log: Callable[[AdapterLogEvent], None] | None = None,
 ) -> AgnoAgentT:
-    """Install hooks selected by the TrustLoopGuard client type."""
+    """Install hooks selected by the Featherlane AI client type."""
 
     if not isinstance(client, (Client, AsyncClient)):
-        raise TypeError("guard_agno requires trustloopguard.Client or AsyncClient")
+        raise TypeError("guard_agno requires featherlane_ai.Client or AsyncClient")
     if agent in _GUARDED_AGENTS:
         if agent not in _DUPLICATE_WARNED:
             _DUPLICATE_WARNED.add(agent)
@@ -581,7 +581,7 @@ def guard_agno(
                 on_warning,
                 AdapterWarning(
                     code=AdapterWarningCode.already_guarded,
-                    message="This Agno agent already has TrustLoopGuard hooks.",
+                    message="This Agno agent already has Featherlane AI hooks.",
                     framework="agno",
                 ),
             )
@@ -681,7 +681,7 @@ def _collect_schemas(
                 AdapterWarningCode.provider_hosted_tool_unavailable,
                 message=(
                     "A provider-hosted dictionary tool has no local function "
-                    "boundary for TrustLoopGuard to intercept."
+                    "boundary for Featherlane AI to intercept."
                 ),
                 framework=framework,
                 warned=warned,
@@ -761,7 +761,7 @@ def _warn_completion_failure(
     warn_once(
         AdapterWarningCode.lease_completion_failed_after_execution,
         message=(
-            "The tool executed, but TrustLoopGuard could not report lease "
+            "The tool executed, but Featherlane AI could not report lease "
             "completion. The tool will not be retried."
         ),
         framework="agno",

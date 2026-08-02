@@ -5,7 +5,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "TrustLoopGuard CLI: tl policy lint, tl replay"
+description = "Featherlane AI CLI: tl policy lint, tl replay"
 
 [[bin]]
 name = "tl"

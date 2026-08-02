@@ -1,4 +1,4 @@
-# TrustLoopGuard — local stack.
+# Featherlane AI — local stack.
 #
 # `docker compose up` brings up:
 #   - db     — Postgres 16 (data persisted in named volume `tl-data`)
@@ -15,21 +15,21 @@
 # Edit policies: edit ./policies/*.yaml then `docker compose restart server`
 # (compose mounts ./policies on top of the baked image copy)
 
-name: trustloopguard
+name: featherlane-ai
 
 services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: trustloop
+      POSTGRES_USER: featherlane_ai
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting Compose}
-      POSTGRES_DB: trustloop
+      POSTGRES_DB: featherlane_ai
     volumes:
       - tl-data:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U trustloop -d trustloop"]
+      test: ["CMD-SHELL", "pg_isready -U featherlane_ai -d featherlane_ai"]
       interval: 2s
       timeout: 2s
       retries: 15
@@ -40,13 +40,13 @@ services:
       context: .
       dockerfile: crates/tl-server/Dockerfile
     environment:
-      DATABASE_URL: postgres://trustloop:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting Compose}@db:5432/trustloop
+      DATABASE_URL: postgres://featherlane_ai:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting Compose}@db:5432/featherlane_ai
       RUST_LOG: ${RUST_LOG:-info}
       TL_API_KEY: ${TL_API_KEY:?Set TL_API_KEY before starting Compose}
       TL_SERVER_ADDR: 0.0.0.0:8080
       TL_PUBLIC_URL: ${TL_PUBLIC_URL:-http://localhost:8080}
       TL_DASHBOARD_URL: ${TL_DASHBOARD_URL:-http://localhost:3000}
-      TL_GATEWAY_CREDENTIAL_KEY: ${TL_GATEWAY_CREDENTIAL_KEY:-trustloopguard-local-gateway-credential-key}
+      TL_GATEWAY_CREDENTIAL_KEY: ${TL_GATEWAY_CREDENTIAL_KEY:-featherlane-ai-local-gateway-credential-key}
       TL_LLM_CONFIG: ${TL_LLM_CONFIG:-}
       TL_ESCALATION_WEBHOOK_URL: ${TL_ESCALATION_WEBHOOK_URL:-}
       REDTEAM_RUNNER_URL: ${REDTEAM_RUNNER_URL:-}
@@ -60,7 +60,7 @@ services:
     volumes:
       # Override the baked policies bundle so `edit YAML + restart` is
       # the dev loop. Read-only on purpose — the server never writes here.
-      - ./policies:/etc/trustloopguard/policies:ro
+      - ./policies:/etc/featherlane-ai/policies:ro
     depends_on:
       db:
         condition: service_healthy
@@ -88,7 +88,7 @@ services:
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
       TL_SERVER_URL: http://server:8080
       TL_API_KEY: ${TL_API_KEY:?Set TL_API_KEY before starting Compose}
-      AUTH_SECRET: ${AUTH_SECRET:-trustloopguard-local-auth-secret-change-me}
+      AUTH_SECRET: ${AUTH_SECRET:-featherlane-ai-local-auth-secret-change-me}
       AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
       AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
       AUTH_GITHUB_ID: ${AUTH_GITHUB_ID:-}

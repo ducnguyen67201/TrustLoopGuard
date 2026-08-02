@@ -1,4 +1,4 @@
-// Retry policy for the TrustLoopGuard TypeScript SDK.
+// Retry policy for the Featherlane AI TypeScript SDK.
 //
 // Mirrors `tl-sdk-rust`'s `RetryConfig` exactly. Same defaults
 // (4 attempts, 30s budget, 200ms base, 8s cap), same `nextDelay`
@@ -33,7 +33,7 @@ export const DEFAULT_RETRY: Readonly<RetryConfig> = Object.freeze({
 /**
  * Compute the delay before the next attempt, or `undefined` to stop.
  * Pure mirror of `tl_sdk_rust::RetryConfig::next_delay` and
- * `trustloopguard.retry.RetryConfig.next_delay`.
+ * `featherlane_ai.retry.RetryConfig.next_delay`.
  */
 export function nextDelay(
   cfg: RetryConfig,

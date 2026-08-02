@@ -115,7 +115,7 @@ impl HostedMcpHandler {
 impl ServerHandler for HostedMcpHandler {
     fn get_info(&self) -> ServerInfo {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build()).with_instructions(
-            "Tools are assigned to your signed user-and-agent identity. Every call must include the required __trustloop governance context and is evaluated before execution and again before result disclosure.",
+            "Tools are assigned to your signed user-and-agent identity. Every call must include the required __featherlane_ai governance context and is evaluated before execution and again before result disclosure.",
         )
     }
 
@@ -825,7 +825,7 @@ fn build_disclosure_event(
         .cloned()
         .expect("policy parameters are an object");
     parameters
-        .get_mut("__trustloop")
+        .get_mut("__featherlane_ai")
         .and_then(serde_json::Value::as_object_mut)
         .expect("governance metadata is an object")
         .insert(
@@ -882,7 +882,7 @@ fn build_result_validation_event(
         .as_object()
         .cloned()
         .expect("policy parameters are an object");
-    parameters.remove("__trustloop");
+    parameters.remove("__featherlane_ai");
     parameters.insert(
         "validation".into(),
         serde_json::Value::String("uninspectable_result".into()),

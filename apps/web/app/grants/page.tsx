@@ -1,4 +1,4 @@
-import type { AuthorizationGrantListResponse } from '@trustloopguard/sdk';
+import type { AuthorizationGrantListResponse } from '@featherlane-ai/sdk';
 
 import { AppLayout } from '@/components/AppLayout';
 import { AuthorizationGrantsContent } from '@/components/workspace/AuthorizationGrantsContent';

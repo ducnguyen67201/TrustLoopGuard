@@ -41,7 +41,7 @@ fn seal_key_material(
             "SECURITY: TL_GATEWAY_ALLOW_INSECURE_DEV_KEY enabled. \
              Using an insecure dev-only gateway credential key."
         );
-        return Ok(Sha256::digest(b"trustloopguard-local-gateway-key").into());
+        return Ok(Sha256::digest(b"featherlane-ai-local-gateway-key").into());
     }
     Err(
         "TL_GATEWAY_CREDENTIAL_KEY must be set before gateway provider credentials can be sealed"

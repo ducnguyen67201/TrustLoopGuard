@@ -1,4 +1,4 @@
-// Typed errors for the TrustLoopGuard TypeScript SDK.
+// Typed errors for the Featherlane AI TypeScript SDK.
 //
 // Mirrors `tl-sdk-rust`'s `SdkError` and the Python SDK's exception
 // hierarchy. Callers branch on `instanceof` (or on `error.code`) instead

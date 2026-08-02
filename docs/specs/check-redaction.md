@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Allow customers with hard data-residency or privacy constraints to use TrustLoopGuard without sending raw sensitive values such as SINs, tax forms, personal identifiers, or financial records to the hosted TrustLoopGuard service.
+Allow customers with hard data-residency or privacy constraints to use Featherlane AI without sending raw sensitive values such as SINs, tax forms, personal identifiers, or financial records to the hosted Featherlane AI service.
 
 The key product rule is:
 
@@ -20,8 +20,8 @@ The key product rule is:
 ## Non-goals
 
 - Redaction is not a guarantee that all sensitive data is removed perfectly.
-- Hosted TrustLoopGuard cannot claim "raw data never leaves customer infrastructure" if redaction only happens after the request reaches hosted `tl-server`.
-- TrustLoopGuard does not validate tax correctness, SIN ownership, identity matching, or document authenticity in hosted mode.
+- Hosted Featherlane AI cannot claim "raw data never leaves customer infrastructure" if redaction only happens after the request reaches hosted `tl-server`.
+- Featherlane AI does not validate tax correctness, SIN ownership, identity matching, or document authenticity in hosted mode.
 - This spec does not add human review analytics. See `human-review-analytics.md`.
 
 ## Deployment Modes
@@ -34,13 +34,13 @@ The SDK redacts before sending `POST /v1/events`.
 
 ```text
 Customer app raw data
-  -> TrustLoopGuard SDK redactor
+  -> Featherlane AI SDK redactor
   -> sanitized GuardEvent
   -> hosted /v1/events
   -> engine
 ```
 
-This is the default mode for customers who cannot send raw data to TrustLoopGuard.
+This is the default mode for customers who cannot send raw data to Featherlane AI.
 
 ### 2. Customer-environment redaction service
 
@@ -67,7 +67,7 @@ POST /v1/events raw or sanitized GuardEvent
   -> engine
 ```
 
-This is defense-in-depth for hosted TrustLoopGuard and useful for private deployments. It does not satisfy customers whose hard rule is that raw sensitive values must not leave their infrastructure.
+This is defense-in-depth for hosted Featherlane AI and useful for private deployments. It does not satisfy customers whose hard rule is that raw sensitive values must not leave their infrastructure.
 
 ## Pipeline Design
 
@@ -120,7 +120,7 @@ Initial entity types:
 - `GOVERNMENT_ID`
 - `CUSTOM`
 
-Numbering is scoped to one check request. The raw-to-token map stays local to the redactor and must not be sent to hosted TrustLoopGuard.
+Numbering is scoped to one check request. The raw-to-token map stays local to the redactor and must not be sent to hosted Featherlane AI.
 
 ## Wire Contract
 
@@ -210,7 +210,7 @@ The redactor should fail closed when a configured required field cannot be safel
 
 ## Hosted Cloud Behavior
 
-For hosted TrustLoopGuard:
+For hosted Featherlane AI:
 
 - SDK-local redaction is the primary privacy path.
 - Server-side redaction is defense-in-depth only.
@@ -220,7 +220,7 @@ For hosted TrustLoopGuard:
 
 ## Local-Only Checks
 
-Some checks require raw values and cannot be done by hosted TrustLoopGuard after redaction:
+Some checks require raw values and cannot be done by hosted Featherlane AI after redaction:
 
 - SIN format or ownership validation.
 - Name, address, and SIN matching across forms.
@@ -236,7 +236,7 @@ These checks should run in one of these places:
 - embedded `tl-engine`
 - private Azure deployment
 
-Hosted TrustLoopGuard should receive the result as metadata, not the raw value:
+Hosted Featherlane AI should receive the result as metadata, not the raw value:
 
 ```json
 {

@@ -57,7 +57,7 @@ const tools = [
 function headers(): Record<string, string> {
   const result: Record<string, string> = { 'content-type': 'application/json' };
   if (API_KEY) result.authorization = `Bearer ${API_KEY}`;
-  if (WORKSPACE_ID) result['x-tlg-workspace-id'] = WORKSPACE_ID;
+  if (WORKSPACE_ID) result['x-featherlane-ai-workspace-id'] = WORKSPACE_ID;
   return result;
 }
 
@@ -78,7 +78,7 @@ async function enforceModes(): Promise<void> {
   }
   const res = await fetch(`${SERVER_URL}/v1/settings`, {
     method: 'PATCH',
-    headers: { ...headers(), 'x-tlg-user-id': userId },
+    headers: { ...headers(), 'x-featherlane-ai-user-id': userId },
     body: JSON.stringify({ param_checker_mode: 'enforce', approval_checker_mode: 'enforce' }),
   });
   if (!res.ok) {

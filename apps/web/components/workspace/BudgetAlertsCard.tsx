@@ -33,7 +33,7 @@ import type {
   BudgetAlertFiring,
   BudgetAlertThresholdType,
   BudgetAlertWindow,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import { safeError } from './financial-utils';
 

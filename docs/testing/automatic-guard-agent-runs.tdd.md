@@ -9,7 +9,7 @@ agent once should make its executions visible under `/runs` without adding
 ## User journeys
 
 - As an SDK integrator, I can wrap an agent once and keep calling
-  `agent.reply(...)` while TrustLoopGuard creates a Run carrying the configured
+  `agent.reply(...)` while Featherlane AI creates a Run carrying the configured
   agent ID.
 - As a multi-turn or framework integrator, an explicit active Run is reused
   rather than nested.
@@ -22,7 +22,7 @@ agent once should make its executions visible under `/runs` without adding
 
 | Behavior | RED evidence | GREEN evidence |
 | --- | --- | --- |
-| Automatic lifecycle | `pnpm --filter @trustloopguard/sdk test -- guard.test.ts` failed because only `POST /v1/events` occurred; no Run was created or completed. | The same command passed with `POST /v1/runs`, a run-linked event, and `PATCH /v1/runs/{id}` covered. |
+| Automatic lifecycle | `pnpm --filter @featherlane-ai/sdk test -- guard.test.ts` failed because only `POST /v1/events` occurred; no Run was created or completed. | The same command passed with `POST /v1/runs`, a run-linked event, and `PATCH /v1/runs/{id}` covered. |
 | Failed agent execution | The reproducer observed no Run requests when the wrapped agent threw. | The automatic Run is patched to `failed`, while the original agent error remains the caller-visible error. |
 | Best-effort bookkeeping | Start and completion failure tests returned typed SDK errors instead of the guarded reply. | Both tests pass; enforcement continues after a Run start failure, and a completion failure does not hide the guarded reply. |
 
@@ -43,19 +43,19 @@ Checkpoint commits on `codex/automatic-guard-agent-runs` preserve the cycles:
 | 4 | `run: false` preserves ungrouped trace behavior | `sdks/typescript/test/guard.test.ts` | Unit | PASS |
 | 5 | Agent exceptions mark the Run failed and remain the primary error | `sdks/typescript/test/guard.test.ts` | Error path | PASS |
 | 6 | Run start/finish transport failures do not replace enforcement results | `sdks/typescript/test/guard.test.ts` | Error path | PASS |
-| 7 | The package artifact exports the updated typed decorator surface | `pnpm --filter @trustloopguard/sdk test:package` | Package integration | PASS |
+| 7 | The package artifact exports the updated typed decorator surface | `pnpm --filter @featherlane-ai/sdk test:package` | Package integration | PASS |
 
 ## Verification
 
-- `pnpm --filter @trustloopguard/sdk test`: PASS, 98 tests.
-- `pnpm --filter @trustloopguard/sdk typecheck`: PASS.
-- `pnpm --filter @trustloopguard/sdk test:package`: PASS, 339 packed files.
+- `pnpm --filter @featherlane-ai/sdk test`: PASS, 98 tests.
+- `pnpm --filter @featherlane-ai/sdk typecheck`: PASS.
+- `pnpm --filter @featherlane-ai/sdk test:package`: PASS, 339 packed files.
 - `pnpm --filter web test -- lib/onboarding.test.ts components/onboarding/ConnectAgentStep.test.tsx`: PASS, 243 tests in the configured web suite.
 - `pnpm --filter docs exec fumadocs-mdx && pnpm --filter docs typecheck`: PASS.
 
 ## Coverage and known gaps
 
-`pnpm --filter @trustloopguard/sdk exec vitest run --coverage` could not run
+`pnpm --filter @featherlane-ai/sdk exec vitest run --coverage` could not run
 because the repository does not install `@vitest/coverage-v8`. The focused
 lifecycle, nesting, opt-out, agent-error, Run-start-error, and Run-finish-error
 branches are covered by executable tests, but no percentage is claimed.

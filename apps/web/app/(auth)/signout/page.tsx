@@ -14,7 +14,7 @@ export default async function SignOutPage() {
         <div className="grid gap-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <BrandLogo className="size-7" priority />
-            <span>TrustLoopGuard</span>
+            <span>Featherlane AI</span>
           </div>
           <h1 className="text-2xl font-semibold">Sign out</h1>
         </div>

@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Show whether TrustLoopGuard reduces customer risk after an agent decision, not only whether the guardrail engine returned `allow`, `rewrite`, `block`, or `escalate`.
+Show whether Featherlane AI reduces customer risk after an agent decision, not only whether the guardrail engine returned `allow`, `rewrite`, `block`, or `escalate`.
 
-The existing dashboard already has an "intervention rate" chart, but that metric currently means automated guardrail interventions: `block + rewrite + escalate`. This spec adds the missing human outcome layer: what a reviewer did after TrustLoopGuard escalated or flagged a risky step.
+The existing dashboard already has an "intervention rate" chart, but that metric currently means automated guardrail interventions: `block + rewrite + escalate`. This spec adds the missing human outcome layer: what a reviewer did after Featherlane AI escalated or flagged a risky step.
 
 ## Goals
 
@@ -16,8 +16,8 @@ The existing dashboard already has an "intervention rate" chart, but that metric
 
 ## Non-goals
 
-- TrustLoopGuard does not become the customer's review queue or workflow orchestrator.
-- TrustLoopGuard does not decide whether a tax return, filing, claim, or document is correct.
+- Featherlane AI does not become the customer's review queue or workflow orchestrator.
+- Featherlane AI does not decide whether a tax return, filing, claim, or document is correct.
 - The dashboard does not store review outcomes in a web-owned database.
 - This spec does not add redaction or no-log behavior. See `check-redaction.md`.
 
@@ -25,12 +25,12 @@ The existing dashboard already has an "intervention rate" chart, but that metric
 
 Automated intervention:
 
-- A TrustLoopGuard decision with effect `deny`, `transform`, `require_approval`, or `defer`.
+- A Featherlane AI decision with effect `deny`, `transform`, `require_approval`, or `defer`.
 - Derived from persisted traces.
 
 Human intervention:
 
-- A customer reviewer changed, rejected, confirmed, or otherwise acted on an agent output after a TrustLoopGuard decision.
+- A customer reviewer changed, rejected, confirmed, or otherwise acted on an agent output after a Featherlane AI decision.
 - Stored as an append-only review event linked to a trace and optionally a run event.
 
 Human review outcome:
@@ -70,8 +70,8 @@ Outcome values:
 - `accepted` - reviewer accepted the agent output.
 - `corrected` - reviewer changed the output before use.
 - `rejected` - reviewer discarded the output.
-- `false_positive` - reviewer judged the TrustLoopGuard escalation unnecessary.
-- `missed_issue` - reviewer found a problem TrustLoopGuard did not flag.
+- `false_positive` - reviewer judged the Featherlane AI escalation unnecessary.
+- `missed_issue` - reviewer found a problem Featherlane AI did not flag.
 - `ignored` - escalation was not acted on.
 
 Reason code examples:
@@ -164,7 +164,7 @@ Add or revise the analytics surface so the labels are precise:
 - Add breakdown by workflow step, using `run_event.kind`, `run_event.label`, or `run_event.metadata.workflow_step`.
 - On run detail pages, show the latest review outcome beside each trace when available.
 
-UI copy should avoid implying TrustLoopGuard owns the customer's review workflow. Use language like "review outcome recorded" instead of "assigned reviewer" unless assignment exists in the customer integration.
+UI copy should avoid implying Featherlane AI owns the customer's review workflow. Use language like "review outcome recorded" instead of "assigned reviewer" unless assignment exists in the customer integration.
 
 ## Implementation Scope
 

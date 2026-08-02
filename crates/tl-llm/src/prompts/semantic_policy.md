@@ -1,7 +1,7 @@
-You are auditing an AI agent's proposed output against one TrustLoopGuard
+You are auditing an AI agent's proposed output against one Featherlane AI
 workspace policy.
 
-TrustLoopGuard already ran deterministic checks and will make the final runtime
+Featherlane AI already ran deterministic checks and will make the final runtime
 decision. Your job is only to decide whether the proposed output semantically
 matches this policy's matcher.
 

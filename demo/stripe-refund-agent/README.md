@@ -6,15 +6,15 @@ scripted animation. Every request:
 1. creates and captures a fresh `$100` PaymentIntent in Stripe test mode;
 2. sends the customer's message to an OpenAI tool-calling agent;
 3. looks up trusted order evidence in the demo customer backend;
-4. submits a typed refund to the TrustLoopGuard Rust API;
-5. calls Stripe's refund API only when TrustLoopGuard authorizes execution.
+4. submits a typed refund to the Featherlane AI Rust API;
+5. calls Stripe's refund API only when Featherlane AI authorizes execution.
 
 The Stripe and OpenAI keys remain server-side in Doppler. The code refuses `sk_live_` keys and the
 public route redacts internal order, payment-intent, and provider-credential fields.
 
 ## Run locally
 
-The `trustloopguard/dev_stripe_demo` Doppler config must contain `OPENAI_API_KEY`,
+The `featherlane-ai/dev_stripe_demo` Doppler config must contain `OPENAI_API_KEY`,
 `STRIPE_SECRET_KEY`, `TL_API_KEY`, `TL_SERVER_URL`, `TL_ADMIN_USER_ID`, `DATABASE_URL`, and
 `TL_GATEWAY_CREDENTIAL_KEY`. It must also contain a dedicated, randomly generated
 `REFUND_DEMO_PROXY_SECRET` of at least 32 characters. Do not reuse another application key.
@@ -22,14 +22,14 @@ The `trustloopguard/dev_stripe_demo` Doppler config must contain `OPENAI_API_KEY
 Start the Rust API:
 
 ```bash
-doppler run --project trustloopguard --config dev_stripe_demo -- cargo run -p tl-server
+doppler run --project featherlane-ai --config dev_stripe_demo -- cargo run -p tl-server
 ```
 
 In a second terminal, install the refund policy and local provider connection:
 
 ```bash
-doppler run --project trustloopguard --config dev_stripe_demo -- \
-  pnpm --filter @trustloopguard/demo stripe-refund-agent:setup
+doppler run --project featherlane-ai --config dev_stripe_demo -- \
+  pnpm --filter @featherlane-ai/demo stripe-refund-agent:setup
 ```
 
 `TL_ADMIN_USER_ID` is only needed while running setup. Do not set
@@ -39,13 +39,13 @@ against policy so `$75` remains held for human approval.
 Start the Stripe provider adapter and refund-agent service:
 
 ```bash
-pnpm --filter @trustloopguard/demo stripe-refund-agent:live
+pnpm --filter @featherlane-ai/demo stripe-refund-agent:live
 ```
 
 Start the marketing app:
 
 ```bash
-doppler run --project trustloopguard --config dev_stripe_demo -- \
+doppler run --project featherlane-ai --config dev_stripe_demo -- \
   pnpm --filter marketing dev
 ```
 
@@ -69,10 +69,10 @@ or when an exact daily quota is required. The refund service separately retains 
 circuit breaker per 10-minute window.
 
 The deployed refund-agent service must read a production-scoped `TL_API_KEY` from Doppler and set
-`TL_SERVER_URL=https://api.gettrustloop.app`. Run setup with `TL_ADMIN_USER_ID` set to a workspace
+`TL_SERVER_URL=https://api.featherlane.ai`. Run setup with `TL_ADMIN_USER_ID` set to a workspace
 owner/admin user id; do not set `TL_ADMIN_USER_ID` or `TL_REFUND_GRANT_ID` on the public runtime.
-The Rust `/v1` API lives on `api.gettrustloop.app`;
-`https://app.gettrustloop.app` is the authenticated dashboard and is used only for held-action review
+The Rust `/v1` API lives on `api.featherlane.ai`;
+`https://app.featherlane.ai` is the authenticated dashboard and is used only for held-action review
 links. Do not copy either key into the marketing app or expose it through a `NEXT_PUBLIC_*` variable.
 
 Railway deploys the service with `demo/stripe-refund-agent/Dockerfile`. Set `PORT=8080`,

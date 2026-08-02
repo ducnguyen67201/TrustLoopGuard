@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 import respx
 
-from trustloopguard import (
+from featherlane_ai import (
     AuthorizationClaim,
     AuthorizationEffect,
     AuthorizationIntentStatus,

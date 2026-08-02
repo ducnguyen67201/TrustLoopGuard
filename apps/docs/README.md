@@ -1,6 +1,6 @@
 # docs
 
-The TrustLoopGuard documentation site, built with [Fumadocs](https://fumadocs.dev).
+The Featherlane AI documentation site, built with [Fumadocs](https://fumadocs.dev).
 
 ## Develop
 

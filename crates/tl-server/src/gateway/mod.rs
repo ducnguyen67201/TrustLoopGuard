@@ -1,7 +1,7 @@
 //! Gateway/proxy integration surface.
 //!
 //! SDK callers receive a `Decision` and handle it in their code. Gateway
-//! callers route provider traffic through TrustLoopGuard, so this module
+//! callers route provider traffic through Featherlane AI, so this module
 //! resolves dashboard config and applies the decision before returning a
 //! provider-compatible response.
 

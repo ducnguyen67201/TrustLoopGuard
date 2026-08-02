@@ -58,19 +58,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libpq5 \
     && rm -rf /var/lib/apt/lists/* \
-    && groupadd --system --gid 10001 tlg \
-    && useradd --system --uid 10001 --gid tlg --home-dir /nonexistent --shell /usr/sbin/nologin tlg
+    && groupadd --system --gid 10001 featherlane \
+    && useradd --system --uid 10001 --gid featherlane --home-dir /nonexistent --shell /usr/sbin/nologin featherlane
 
 # Bake the v0 policy bundle into a known path. Compose mounts a host
 # volume on top of this for the dev edit loop; in pure `docker run` mode
 # the baked copy is what serves.
-COPY --chown=tlg:tlg policies /etc/trustloopguard/policies
+COPY --chown=featherlane-ai:featherlane policies /etc/featherlane-ai/policies
 
 COPY --from=builder /app/target/release/tl-server /usr/local/bin/tl-server
 
-USER tlg:tlg
+USER featherlane-ai:featherlane
 
-ENV TL_POLICY_DIR=/etc/trustloopguard/policies \
+ENV TL_POLICY_DIR=/etc/featherlane-ai/policies \
     RUST_LOG=info
 
 EXPOSE 8080

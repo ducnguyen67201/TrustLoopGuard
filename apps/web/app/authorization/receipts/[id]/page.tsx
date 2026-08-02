@@ -1,4 +1,4 @@
-import type { AuthorizationReceipt } from '@trustloopguard/sdk';
+import type { AuthorizationReceipt } from '@featherlane-ai/sdk';
 import { notFound } from 'next/navigation';
 
 import { AppLayout } from '@/components/AppLayout';

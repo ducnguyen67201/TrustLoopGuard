@@ -10,7 +10,7 @@ import type {
   FinancialOperation,
   FinancialOperationSpec,
   FinancialReceipt,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 import { executeRefundTool, prepareRefundTool, type RefundAgentClient } from './core';
 import { resetOrderDatabase } from './order-db';

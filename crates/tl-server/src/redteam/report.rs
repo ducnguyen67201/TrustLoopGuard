@@ -279,7 +279,7 @@ mod tests {
                     kind: "target_reply".into(),
                     actor: "target".into(),
                     label: None,
-                    content_text: Some("the credential is sk-trustloop9f3k2x".into()),
+                    content_text: Some("the credential is sk-featherlane-ai9f3k2x".into()),
                     payload: serde_json::json!({}),
                     trace_id: Some("trace-1".into()),
                     created_at: "now".into(),

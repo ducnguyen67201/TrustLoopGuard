@@ -1,4 +1,4 @@
-//! TrustLoopGuard Rust SDK.
+//! Featherlane AI Rust SDK.
 //!
 //! Async client over reqwest with typed errors, exponential-backoff
 //! retries (honoring `Retry-After`), bearer-token auth, and `tracing`

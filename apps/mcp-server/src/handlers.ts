@@ -8,7 +8,7 @@ import {
   type AgentScope,
   type AgentTone,
   type RunStatus,
-} from '@trustloopguard/sdk';
+} from '@featherlane-ai/sdk';
 
 type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -16,7 +16,7 @@ export type JsonObject = { [key: string]: JsonValue };
 
 export type ToolResult = CallToolResult;
 
-export type TrustLoopClient = Pick<
+export type FeatherlaneAIClient = Pick<
   Client,
   | 'submitEvent'
   | 'startRun'
@@ -57,13 +57,13 @@ export interface ListTracesInput {
 }
 
 export interface ToolHandlers {
-  submit_guard_event(input: { event: Parameters<TrustLoopClient['submitEvent']>[0] }): Promise<ToolResult>;
-  start_run(input: Parameters<TrustLoopClient['startRun']>[0]): Promise<ToolResult>;
+  submit_guard_event(input: { event: Parameters<FeatherlaneAIClient['submitEvent']>[0] }): Promise<ToolResult>;
+  start_run(input: Parameters<FeatherlaneAIClient['startRun']>[0]): Promise<ToolResult>;
   list_runs(): Promise<ToolResult>;
   get_run(input: { run_id: string }): Promise<ToolResult>;
   create_run_event(input: {
     run_id: string;
-    event: Parameters<TrustLoopClient['createRunEvent']>[1];
+    event: Parameters<FeatherlaneAIClient['createRunEvent']>[1];
   }): Promise<ToolResult>;
   finish_run(input: {
     run_id: string;
@@ -77,12 +77,12 @@ export interface ToolHandlers {
   list_agents(): Promise<ToolResult>;
   upsert_agent(input: UpsertAgentInput): Promise<ToolResult>;
   list_tool_metadata(): Promise<ToolResult>;
-  upsert_tool_metadata(input: Parameters<TrustLoopClient['upsertToolMetadata']>[0]): Promise<ToolResult>;
+  upsert_tool_metadata(input: Parameters<FeatherlaneAIClient['upsertToolMetadata']>[0]): Promise<ToolResult>;
   list_traces(input: ListTracesInput): Promise<ToolResult>;
   list_run_traces(input: { run_id: string }): Promise<ToolResult>;
 }
 
-export function createToolHandlers(client: TrustLoopClient): ToolHandlers {
+export function createToolHandlers(client: FeatherlaneAIClient): ToolHandlers {
   return {
     submit_guard_event: (input) => runTool(() => client.submitEvent(input.event)),
     start_run: (input) => runTool(() => client.startRun(input)),
@@ -138,7 +138,7 @@ async function runTool(call: () => Promise<JsonValue | object>): Promise<ToolRes
   }
 }
 
-function traceOptions(input: ListTracesInput): Parameters<TrustLoopClient['listTraces']>[0] {
+function traceOptions(input: ListTracesInput): Parameters<FeatherlaneAIClient['listTraces']>[0] {
   return {
     ...(input.limit !== undefined ? { limit: input.limit } : {}),
     ...(input.session_id !== undefined ? { sessionId: input.session_id } : {}),

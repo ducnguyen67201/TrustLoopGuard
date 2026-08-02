@@ -18,14 +18,14 @@ from ag2.events import (
 )
 from ag2.middleware import BaseMiddleware, Middleware
 
-from trustloopguard import AsyncClient, RetryConfig, SideEffectClass, Transport
-from trustloopguard.integrations import (
+from featherlane_ai import AsyncClient, RetryConfig, SideEffectClass, Transport
+from featherlane_ai.integrations import (
     AdapterLogEvent,
     AdapterWarning,
     AdapterWarningCode,
     tool_schema_hash,
 )
-from trustloopguard.integrations.ag2 import guard_ag2
+from featherlane_ai.integrations.ag2 import guard_ag2
 
 
 def _decision(
@@ -407,5 +407,5 @@ def test_ag2_guard_is_inserted_outside_existing_middleware() -> None:
     request = ModelRequest([TextInput("confirm it")])
     outer = agent._middleware[0](request, cast(Context, object()))  # noqa: SLF001
     inner = agent._middleware[1](request, cast(Context, object()))  # noqa: SLF001
-    assert type(outer).__name__ == "_TrustLoopAG2Middleware"
+    assert type(outer).__name__ == "_FeatherlaneAIAG2Middleware"
     assert isinstance(inner, ExistingMiddleware)

@@ -6,7 +6,7 @@ import {
   HealthcareDemoBudgetExceededError,
   type HostedHealthcareDemoResponse,
   type HostedHealthcarePolicyInventoryResponse,
-} from '@trustloopguard/demo/healthcare-agent/hosted';
+} from '@featherlane-ai/demo/healthcare-agent/hosted';
 
 import type { HealthcareDemoRequest } from '@/app/demo/healthcare/contract';
 import { createHealthcareDemoHandlers } from './route';
@@ -230,7 +230,7 @@ test('the page exposes chat, policies, boundaries, and synthetic-data warnings',
   const source = `${page}\n${pageContent}\n${demo}\n${content}`;
 
   assert.match(source, /CareDesk chat/i);
-  assert.match(source, /TrustLoopGuard policy monitor/i);
+  assert.match(source, /Featherlane AI policy monitor/i);
   assert.match(source, /Input boundary/i);
   assert.match(source, /Output boundary/i);
   assert.match(source, /Policies checked/i);
@@ -275,7 +275,7 @@ test('the Vietnamese healthcare route reuses the guarded demo with localized met
   );
   assert.match(source, /Trò chuyện với tác nhân bệnh viện được bảo vệ/);
   assert.match(source, /Các chính sách được kiểm tra/);
-  assert.match(source, /Gửi qua TrustLoopGuard/);
+  assert.match(source, /Gửi qua Featherlane AI/);
   assert.match(source, /body: JSON\.stringify\(\{ locale,/);
   assert.match(sitemap, /url: absoluteUrl\('\/vi\/demo\/healthcare'\)/);
 });
@@ -368,7 +368,7 @@ function workflowPayload(): HostedHealthcareDemoResponse {
     policies: inventoryPayload().policies,
     runtime: {
       agent: 'openai-responses',
-      guard: 'trustloopguard-rust-api',
+      guard: 'featherlane-ai-rust-api',
       data: 'synthetic-only',
     },
   };
@@ -389,7 +389,7 @@ function inventoryPayload(): HostedHealthcarePolicyInventoryResponse {
     source: 'rust',
     runtime: {
       agent: 'openai-responses',
-      guard: 'trustloopguard-rust-api',
+      guard: 'featherlane-ai-rust-api',
       data: 'synthetic-only',
     },
   };

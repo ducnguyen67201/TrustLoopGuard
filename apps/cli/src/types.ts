@@ -30,12 +30,12 @@ export interface CliEnvironment {
   HOME?: string;
   PATH?: string;
   PATHEXT?: string;
-  TLG_AGENT_ID?: string;
-  TLG_API_KEY?: string;
-  TLG_APPROVAL_POLL_MS?: string;
-  TLG_APPROVAL_TIMEOUT_MS?: string;
-  TLG_REQUEST_TIMEOUT_MS?: string;
-  TLG_URL?: string;
+  FEATHERLANE_AI_AGENT_ID?: string;
+  FEATHERLANE_AI_API_KEY?: string;
+  FEATHERLANE_AI_APPROVAL_POLL_MS?: string;
+  FEATHERLANE_AI_APPROVAL_TIMEOUT_MS?: string;
+  FEATHERLANE_AI_REQUEST_TIMEOUT_MS?: string;
+  FEATHERLANE_AI_URL?: string;
   XDG_CONFIG_HOME?: string;
 }
 

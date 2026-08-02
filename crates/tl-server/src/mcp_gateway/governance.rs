@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
-pub(super) const RESERVED_FIELD: &str = "__trustloop";
+pub(super) const RESERVED_FIELD: &str = "__featherlane_ai";
 pub(super) const MAX_ARGUMENT_BYTES: usize = 64 * 1024;
 pub(super) const MAX_RESULT_BYTES: usize = 1024 * 1024;
 pub(super) const MAX_POLICY_TEXT_BYTES: usize = 128 * 1024;
@@ -75,7 +75,7 @@ pub(super) fn governed_input_schema(original: &Value) -> Result<Value, String> {
         .as_object_mut()
         .ok_or_else(|| "The pinned input schema has invalid properties".to_string())?;
     if properties.contains_key(RESERVED_FIELD) {
-        return Err("The upstream tool uses the reserved __trustloop argument".into());
+        return Err("The upstream tool uses the reserved __featherlane_ai argument".into());
     }
     properties.insert(RESERVED_FIELD.into(), governance_schema());
     let required = schema
@@ -250,7 +250,7 @@ pub(super) fn extract_result_policy_text(
 }
 
 pub(super) fn managed_description(description: Option<&str>) -> String {
-    let instruction = "Managed by TrustLoopGuard. Every call must include __trustloop.user_intent (the latest user instruction), __trustloop.purpose, and optional __trustloop.destination. TrustLoopGuard removes this object before forwarding the call.";
+    let instruction = "Managed by Featherlane AI. Every call must include __featherlane_ai.user_intent (the latest user instruction), __featherlane_ai.purpose, and optional __featherlane_ai.destination. Featherlane AI removes this object before forwarding the call.";
     match description.map(str::trim).filter(|value| !value.is_empty()) {
         Some(description) => format!("{description}\n\n{instruction}"),
         None => instruction.to_string(),
@@ -325,7 +325,7 @@ mod tests {
             .any(|value| value == RESERVED_FIELD));
         let args = serde_json::json!({
             "query": "customers",
-            "__trustloop": {
+            "__featherlane_ai": {
                 "user_intent": "List active customers",
                 "purpose": "answer_user"
             }
@@ -348,7 +348,7 @@ mod tests {
     fn reserved_schema_collision_is_rejected() {
         let collision = serde_json::json!({
             "type":"object",
-            "properties":{"__trustloop":{"type":"string"}}
+            "properties":{"__featherlane_ai":{"type":"string"}}
         });
         assert!(governed_input_schema(&collision).is_err());
     }

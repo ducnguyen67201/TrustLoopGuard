@@ -79,8 +79,8 @@ fn create_request(workspace_id: &str, user_id: Uuid, title: &str) -> Request<Bod
         .uri("/v1/knowledge-sources")
         .header(header::AUTHORIZATION, "Bearer sk-internal")
         .header(header::CONTENT_TYPE, "application/json")
-        .header("x-tlg-workspace-id", workspace_id)
-        .header("x-tlg-user-id", user_id.to_string())
+        .header("x-featherlane-ai-workspace-id", workspace_id)
+        .header("x-featherlane-ai-user-id", user_id.to_string())
         .body(Body::from(
             serde_json::json!({
                 "title": title,

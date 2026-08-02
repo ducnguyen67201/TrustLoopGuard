@@ -68,13 +68,13 @@ export interface RegenerateFeedback {
   /** The draft that failed the guard check. */
   draft: string;
 
-  /** Full TrustLoopGuard decision for the failed draft. */
+  /** Full Featherlane AI decision for the failed draft. */
   decision: Decision;
 
-  /** Human-readable reason returned by TrustLoopGuard. */
+  /** Human-readable reason returned by Featherlane AI. */
   reason: string;
 
-  /** Safe output returned by TrustLoopGuard, when available. */
+  /** Safe output returned by Featherlane AI, when available. */
   safeOutput: string | null;
 
   /** 1-based regeneration attempt number. */
@@ -195,7 +195,7 @@ export interface GuardFactoryOptions {
   /** Existing client. Pass this when you want to own transport lifecycle/config. */
   client?: Client;
 
-  /** TrustLoopGuard server URL. Defaults to env or localhost. */
+  /** Featherlane AI server URL. Defaults to env or localhost. */
   baseUrl?: string;
 
   /** Bearer token. Defaults to env when available. */
@@ -239,7 +239,7 @@ export interface GuardFactoryOptions {
    */
   mode?: GuardMode;
 
-  /** Called by rewrite_or_regenerate when TrustLoopGuard has no safeOutput. */
+  /** Called by rewrite_or_regenerate when Featherlane AI has no safeOutput. */
   regenerate?: RegenerateHandler;
 
   /** Hard cap for model regeneration loops. Defaults to 1. */
@@ -411,7 +411,7 @@ export function guard(opts: GuardFactoryOptions | GuardOptions): OutputGuard | P
  *
  * The returned object keeps the agent's public interface. When `reply()` is
  * present, its input and proposed output are recorded as Run events, and the
- * final string passes through TrustLoopGuard before it reaches the caller.
+ * final string passes through Featherlane AI before it reaches the caller.
  * Input observation never creates an authorization decision. Supported local
  * tool registries are discovered and their `execute()` methods are authorized
  * before side effects run.
@@ -765,16 +765,9 @@ function env(...names: string[]): string | undefined {
 
 function clientOptions(opts: GuardFactoryOptions): ClientOptions {
   const clientOpts: ClientOptions = {
-    baseUrl:
-      opts.baseUrl ??
-      env('TLG_URL', 'TL_SERVER_URL', 'TRUSTLOOPGUARD_URL', 'TRUSTLOOP_URL') ??
-      'http://127.0.0.1:8080',
+    baseUrl: opts.baseUrl ?? env('FEATHERLANE_AI_URL', 'TL_SERVER_URL') ?? 'http://127.0.0.1:8080',
   };
-  addDefined(
-    clientOpts,
-    'apiKey',
-    opts.apiKey ?? env('TLG_API_KEY', 'TL_API_KEY', 'TRUSTLOOPGUARD_API_KEY', 'TRUSTLOOP_API_KEY'),
-  );
+  addDefined(clientOpts, 'apiKey', opts.apiKey ?? env('FEATHERLANE_AI_API_KEY', 'TL_API_KEY'));
   addDefined(clientOpts, 'retry', opts.retry);
   addDefined(clientOpts, 'fetchImpl', opts.fetchImpl);
   addDefined(clientOpts, 'onRetry', opts.onRetry);

@@ -107,7 +107,7 @@ fn post_json(uri: &str, body: &serde_json::Value) -> Request<Body> {
         .method("POST")
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json")
-        .header("x-tlg-workspace-id", "ws")
+        .header("x-featherlane-ai-workspace-id", "ws")
         .body(Body::from(body.to_string()))
         .unwrap()
 }
@@ -412,7 +412,7 @@ fn post_json_as(uri: &str, body: &serde_json::Value, workspace_id: &str) -> Requ
         .method("POST")
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json")
-        .header("x-tlg-workspace-id", workspace_id)
+        .header("x-featherlane-ai-workspace-id", workspace_id)
         .body(Body::from(body.to_string()))
         .unwrap()
 }
@@ -427,8 +427,8 @@ fn post_json_as_owner(
         .method("POST")
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json")
-        .header("x-tlg-workspace-id", workspace_id)
-        .header("x-tlg-user-id", owner_id.to_string())
+        .header("x-featherlane-ai-workspace-id", workspace_id)
+        .header("x-featherlane-ai-user-id", owner_id.to_string())
         .body(Body::from(body.to_string()))
         .unwrap()
 }

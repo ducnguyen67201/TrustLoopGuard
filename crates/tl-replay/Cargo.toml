@@ -5,7 +5,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "TrustLoopGuard replay: re-run stored decisions against a new policy version"
+description = "Featherlane AI replay: re-run stored decisions against a new policy version"
 
 [dependencies]
 tl-core = { workspace = true }

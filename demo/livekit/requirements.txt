@@ -4,7 +4,7 @@
 #   cd demo/livekit && python3 -m venv .venv && source .venv/bin/activate
 #   pip install -r requirements.txt
 #
-# The TrustLoopGuard Python SDK is the repo's source of truth and is NOT
+# The Featherlane AI Python SDK is the repo's source of truth and is NOT
 # vendored here — it is installed editable from the workspace package two
 # levels up. (`-e` paths in a requirements file resolve relative to the
 # directory you run pip from, hence ../../sdks/python.)

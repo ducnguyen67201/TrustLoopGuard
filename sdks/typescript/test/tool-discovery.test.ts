@@ -222,7 +222,7 @@ describe('guardAgent() tool discovery', () => {
       server_id: 'mastra',
       tool_name: 'get-weather',
     });
-    expect(body.action.tool_identity.schema_hash).toMatch(/^tlg-schema:fnv1a64:/);
+    expect(body.action.tool_identity.schema_hash).toMatch(/^featherlane-ai-schema:fnv1a64:/);
   });
 
   it('wraps tools returned by Mastra getToolsForExecution()', async () => {

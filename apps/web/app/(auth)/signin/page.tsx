@@ -23,7 +23,7 @@ export default async function SignInPage({
     <AuthScreen
       eyebrow="Safety checks for your AI apps"
       title="Welcome back."
-      description="TrustLoopGuard adds safety checks to your AI apps — it can block, rewrite, or flag risky requests automatically. Sign in to see what's been happening and adjust your rules."
+      description="Featherlane AI adds safety checks to your AI apps — it can block, rewrite, or flag risky requests automatically. Sign in to see what's been happening and adjust your rules."
       cardTitle="Sign in"
       cardDescription={
         authCapabilities.credentials
@@ -53,7 +53,7 @@ export default async function SignInPage({
       {!oauthConfigured && !authCapabilities.credentials ? (
         <p className="text-sm text-muted-foreground">
           This deployment doesn&apos;t have a sign-in method set up yet. Ask whoever set up
-          TrustLoopGuard to add one.
+          Featherlane AI to add one.
         </p>
       ) : null}
       <p className="text-center text-sm text-muted-foreground">

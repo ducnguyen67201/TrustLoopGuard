@@ -80,13 +80,13 @@ insecure development switch accepts only loopback hosts.
 Administrator synchronization pins tool names, descriptions, annotations,
 input/output schemas, and schema hashes. Catalog limits are 500 tools, 4 KiB
 per description, and 64 KiB per schema. External `$ref` values, deeply nested
-schemas, non-object input schemas, and an upstream `__trustloop` property are
+schemas, non-object input schemas, and an upstream `__featherlane_ai` property are
 rejected. Missing or changed tools are hidden until resynchronized. Catalog and
 execution HTTP bodies are bounded while streaming, before buffering.
 
 ## Governance context
 
-Every advertised input schema adds a required `__trustloop` object:
+Every advertised input schema adds a required `__featherlane_ai` object:
 
 ```json
 {
@@ -99,7 +99,7 @@ Every advertised input schema adds a required `__trustloop` object:
 The MCP protocol does not carry the surrounding chat prompt. This governance
 context is a client declaration, not cryptographic proof of the original
 prompt. Rust validates the managed schema, derives `policy_text` from
-`user_intent`, removes `__trustloop`, then validates and forwards only the
+`user_intent`, removes `__featherlane_ai`, then validates and forwards only the
 original upstream arguments. The full public arguments are limited to 64 KiB;
 intent and destination are limited to 8,192 and 2,048 characters.
 

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# TrustLoopGuard docs (Next.js + Fumadocs) multi-stage image.
+# Featherlane AI docs (Next.js + Fumadocs) multi-stage image.
 
 ARG NODE_VERSION=22
 ARG ALPINE_VERSION=3.20

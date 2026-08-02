@@ -5,7 +5,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "TrustLoopGuard LLM provider clients (OpenAI, OpenRouter) behind a single trait"
+description = "Featherlane AI LLM provider clients (OpenAI, OpenRouter) behind a single trait"
 
 [features]
 default = []

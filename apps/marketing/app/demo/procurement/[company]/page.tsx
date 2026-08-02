@@ -22,8 +22,8 @@ export async function generateMetadata({
       ? `${profile.company_name} Procurement Concept`
       : 'Personalized Procurement Demo',
     description: profile
-      ? `A private, public-source TrustLoopGuard procurement concept for ${profile.company_name}.`
-      : 'A private TrustLoopGuard procurement concept.',
+      ? `A private, public-source Featherlane AI procurement concept for ${profile.company_name}.`
+      : 'A private Featherlane AI procurement concept.',
     alternates: { canonical: '/demo/procurement' },
     robots: { index: false, follow: false },
   };

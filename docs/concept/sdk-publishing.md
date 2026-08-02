@@ -1,7 +1,7 @@
 # SDK publishing
 
 This doc owns the release process for the TypeScript SDK package
-`@trustloopguard/sdk`.
+`@featherlane-ai/sdk`.
 
 The source of truth for the automated npm release is
 `.github/workflows/publish-sdk-npm.yml`. The workflow runs only when a tag that
@@ -12,14 +12,14 @@ matches `sdk-v*` is pushed.
 - The git tag is the release request. Use `sdk-vX.Y.Z`.
 - The tag version is the npm package version. The workflow strips `sdk-v` and
   runs `npm version X.Y.Z --no-git-tag-version` inside `sdks/typescript`.
-- npm versions are immutable. If `@trustloopguard/sdk@X.Y.Z` already exists,
+- npm versions are immutable. If `@featherlane-ai/sdk@X.Y.Z` already exists,
   the publish step will fail with `E403`.
 - The `sdk-publish` environment is an approval gate. A reviewer must approve
   the pending deployment before npm publish runs.
 - The npm token lives in the `NPM_TOKEN` GitHub Actions secret.
 - `package.json` uses one export map for local and published consumers. Runtime
   imports resolve to `dist/index.js`; declarations resolve to `dist/index.d.ts`.
-- `pnpm --filter @trustloopguard/sdk test:package` packs the exact npm artifact,
+- `pnpm --filter @featherlane-ai/sdk test:package` packs the exact npm artifact,
   imports it in Node, compiles a TypeScript consumer, verifies `guardAgent` and
   its tool-discovery exports, and rejects source or generated runtime files
   that should not ship.
@@ -31,8 +31,8 @@ matches `sdk-v*` is pushed.
 Confirm the version you want to publish is not already on npm:
 
 ```bash
-npm view @trustloopguard/sdk version
-npm view @trustloopguard/sdk@X.Y.Z version
+npm view @featherlane-ai/sdk version
+npm view @featherlane-ai/sdk@X.Y.Z version
 ```
 
 The second command should return `E404` for a new release version.
@@ -47,9 +47,9 @@ git ls-remote --tags origin 'sdk-vX.Y.Z'
 Verify the SDK and the exact packed artifact:
 
 ```bash
-pnpm --filter @trustloopguard/sdk typecheck
-pnpm --filter @trustloopguard/sdk test
-pnpm --filter @trustloopguard/sdk test:package
+pnpm --filter @featherlane-ai/sdk typecheck
+pnpm --filter @featherlane-ai/sdk test
+pnpm --filter @featherlane-ai/sdk test:package
 ```
 
 Choose a target commit that contains the SDK code you want to publish and the
@@ -99,7 +99,7 @@ gh run watch <run-id> --exit-status
 Confirm npm shows the new version:
 
 ```bash
-npm view @trustloopguard/sdk version
+npm view @featherlane-ai/sdk version
 ```
 
 ## Common failures

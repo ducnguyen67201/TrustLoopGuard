@@ -1,4 +1,4 @@
-import { Client } from '@trustloopguard/sdk';
+import { Client } from '@featherlane-ai/sdk';
 
 import { HEALTHCARE_DEMO_API_KEY, SERVER_URL } from '../shared/env';
 

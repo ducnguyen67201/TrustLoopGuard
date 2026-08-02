@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import type { CliEnvironment } from './types.js';
 
-export interface TrustLoopPaths {
+export interface FeatherlaneAIPaths {
   configRoot: string;
   registryFile: string;
   lockFile: string;
@@ -18,16 +18,16 @@ export interface TrustLoopPaths {
   openCodePluginFile: string;
 }
 
-export function resolveTrustLoopPaths(
+export function resolveFeatherlaneAIPaths(
   env: CliEnvironment = process.env,
   platform: NodeJS.Platform = process.platform,
   homeDirectory: string = homedir(),
-): TrustLoopPaths {
+): FeatherlaneAIPaths {
   const platformConfigRoot =
     platform === 'win32'
       ? env.APPDATA?.trim() || join(homeDirectory, 'AppData', 'Roaming')
       : env.XDG_CONFIG_HOME?.trim() || join(homeDirectory, '.config');
-  const configRoot = join(platformConfigRoot, 'trustloopguard');
+  const configRoot = join(platformConfigRoot, 'featherlane-ai');
   const runtimeDirectory = join(configRoot, 'runtime');
   const codexHome = env.CODEX_HOME?.trim() || join(homeDirectory, '.codex');
   const openCodeRoot = join(platformConfigRoot, 'opencode');
@@ -43,7 +43,7 @@ export function resolveTrustLoopPaths(
     stateDirectory: join(configRoot, 'state'),
     claudeSettingsFile: join(homeDirectory, '.claude', 'settings.json'),
     codexHooksFile: join(codexHome, 'hooks.json'),
-    openCodePluginFile: join(openCodeRoot, 'plugins', 'trustloopguard.mjs'),
+    openCodePluginFile: join(openCodeRoot, 'plugins', 'featherlane-ai.mjs'),
   };
 }
 

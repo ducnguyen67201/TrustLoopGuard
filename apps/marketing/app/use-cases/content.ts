@@ -83,7 +83,7 @@ export const SHELL_COMMAND_USE_CASE = {
     {
       label: 'Analyze',
       title: 'Derive bounded shell facts',
-      body: 'TrustLoopGuard parses executable syntax without running the command, then identifies targets, wrappers, destructive operations, dynamic evaluation, and incomplete analysis.',
+      body: 'Featherlane AI parses executable syntax without running the command, then identifies targets, wrappers, destructive operations, dynamic evaluation, and incomplete analysis.',
     },
     {
       label: 'Decide',
@@ -104,11 +104,11 @@ export const SHELL_COMMAND_USE_CASE = {
   ],
   result: 'Deny, hold, or permit before execution.',
   resultDetail:
-    'The coding agent still owns execution. TrustLoopGuard treats the command as structured data, returns the policy decision, and never runs the shell while analyzing it.',
+    'The coding agent still owns execution. Featherlane AI treats the command as structured data, returns the policy decision, and never runs the shell while analyzing it.',
   proof: ['Proposed command', 'Shell facts', 'Policy finding', 'Lease outcome'],
   ctaLabel: 'See shell command safety',
   ctaHref:
-    'https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/concept/command-safety.md#operator-demo',
+    'https://github.com/ducnguyen67201/FeatherlaneAI/blob/main/docs/concept/command-safety.md#operator-demo',
   demo: {
     kind: 'shell',
     proposalTitle: 'Bash proposes a destructive action',
@@ -183,11 +183,11 @@ export const EMAIL_USE_CASE = {
   ],
   result: 'Permit the safe draft or return a policy-approved rewrite.',
   resultDetail:
-    'Your existing email system still sends the message. TrustLoopGuard evaluates the proposed content and never sends the email itself.',
+    'Your existing email system still sends the message. Featherlane AI evaluates the proposed content and never sends the email itself.',
   proof: ['Original draft', 'Matched policy', 'Decision reason', 'Safe replacement'],
   ctaLabel: 'Try the email policy demo',
   ctaHref:
-    'https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/policies/README.md#email-policy-demo',
+    'https://github.com/ducnguyen67201/FeatherlaneAI/blob/main/docs/policies/README.md#email-policy-demo',
   demo: {
     kind: 'email',
     proposalTitle: 'The agent proposes a customer email',
@@ -209,7 +209,7 @@ export const EMAIL_USE_CASE = {
     executionTitle: 'The customer mailer applies the result',
     executionDetail:
       'The application sends the original permitted draft or the policy-approved replacement.',
-    boundary: 'TrustLoopGuard evaluates the proposed message and never sends the email.',
+    boundary: 'Featherlane AI evaluates the proposed message and never sends the email.',
   },
 } as const satisfies UseCaseData;
 
@@ -258,11 +258,11 @@ export const AGENT_SPENDING_CAPS_USE_CASE = {
   ],
   result: '$25 permit. $75 hold. $150 deny.',
   resultDetail:
-    'The payment provider still moves the money. TrustLoopGuard owns the pre-spend decision, approval requirement, live budget check, and linked authorization receipt.',
+    'The payment provider still moves the money. Featherlane AI owns the pre-spend decision, approval requirement, live budget check, and linked authorization receipt.',
   proof: ['Financial action', 'Policy finding', 'Reviewer grant', 'Execution receipt'],
   ctaLabel: 'See the spending cap demo',
   ctaHref:
-    'https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/concept/financial-authorization.md#spending-cap-demo',
+    'https://github.com/ducnguyen67201/FeatherlaneAI/blob/main/docs/concept/financial-authorization.md#spending-cap-demo',
   demo: {
     kind: 'spend',
     proposalTitle: 'The agent proposes a vendor payment',
@@ -300,18 +300,18 @@ export const USE_CASES = [
     eyebrow: 'AI inference spend',
     title: 'Put a hard ceiling on model usage.',
     summary:
-      'Route OpenAI-compatible model traffic through TrustLoopGuard to meter cost, warn before the limit, and stop new requests before provider spend crosses the cap.',
-    trigger: 'Every model request sent through a TrustLoopGuard gateway route.',
+      'Route OpenAI-compatible model traffic through Featherlane AI to meter cost, warn before the limit, and stop new requests before provider spend crosses the cap.',
+    trigger: 'Every model request sent through a Featherlane AI gateway route.',
     failure:
       'An agent loop, user, or team keeps consuming tokens while the provider dashboard only explains the bill after the fact.',
     control:
       'Customer-owned model pricing, a visible usage dashboard, an 80% alert, and a hard cap enforced before the upstream call.',
-    flow: ['Your app', 'TrustLoopGuard gateway', 'Budget decision', 'Model provider'],
+    flow: ['Your app', 'Featherlane AI gateway', 'Budget decision', 'Model provider'],
     steps: [
       {
         label: 'Route',
         title: 'Keep the client shape you already use',
-        body: 'Point the OpenAI-compatible base URL at TrustLoopGuard. The route binds the caller, agent, model, and provider without changing the chat payload.',
+        body: 'Point the OpenAI-compatible base URL at Featherlane AI. The route binds the caller, agent, model, and provider without changing the chat payload.',
       },
       {
         label: 'Meter',
@@ -326,7 +326,7 @@ export const USE_CASES = [
       {
         label: 'Stop',
         title: 'Reject the request before provider spend',
-        body: 'When the hard cap would be exceeded, TrustLoopGuard returns budget_exceeded and never forwards the request upstream.',
+        body: 'When the hard cap would be exceeded, Featherlane AI returns budget_exceeded and never forwards the request upstream.',
       },
     ],
     checks: ['Caller and agent', 'Exact model price', 'Committed spend', 'Requested token ceiling'],
@@ -340,7 +340,7 @@ export const USE_CASES = [
       'Provider response ID',
     ],
     ctaLabel: 'Read the gateway setup',
-    ctaHref: 'https://github.com/ducnguyen67201/TrustLoopGuard#gateway-proxy-quickstart',
+    ctaHref: 'https://github.com/ducnguyen67201/FeatherlaneAI#gateway-proxy-quickstart',
   },
   {
     slug: 'x402-payments',
@@ -349,7 +349,7 @@ export const USE_CASES = [
     eyebrow: 'x402 agent payments',
     title: 'Authorize the purchase before the agent signs.',
     summary:
-      'An x402 rail tells the agent how to pay. TrustLoopGuard decides whether this agent should pay this amount, to this endpoint, for this task, right now.',
+      'An x402 rail tells the agent how to pay. Featherlane AI decides whether this agent should pay this amount, to this endpoint, for this task, right now.',
     trigger: 'An agent receives an HTTP 402 payment requirement for a paid API or tool.',
     failure:
       'Parallel discovery, duplicate retries, merchant drift, or a runaway tool loop consumes the session budget without a reliable pre-spend decision.',
@@ -365,7 +365,7 @@ export const USE_CASES = [
       {
         label: 'Authorize',
         title: 'Check grant and standing policy',
-        body: 'TrustLoopGuard compares the request with the allowed host, resource, network, asset, counterparty, amount, and task scope.',
+        body: 'Featherlane AI compares the request with the allowed host, resource, network, asset, counterparty, amount, and task scope.',
       },
       {
         label: 'Reserve',
@@ -381,7 +381,7 @@ export const USE_CASES = [
     checks: ['Grant scope', 'Endpoint and payee', 'Session budget', 'Duplicate requirement hash'],
     result: 'Allow, hold, or block before wallet signing.',
     resultDetail:
-      'The payment rail still moves the money. TrustLoopGuard owns the pre-spend judgment, concurrent budget reservation, and proof of why the payment was authorized.',
+      'The payment rail still moves the money. Featherlane AI owns the pre-spend judgment, concurrent budget reservation, and proof of why the payment was authorized.',
     proof: [
       'Normalized requirement',
       'Policy and grant result',
@@ -390,7 +390,7 @@ export const USE_CASES = [
     ],
     ctaLabel: 'Inspect x402 authorization',
     ctaHref:
-      'https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/concept/financial-authorization.md#agentic-x402-payments',
+      'https://github.com/ducnguyen67201/FeatherlaneAI/blob/main/docs/concept/financial-authorization.md#agentic-x402-payments',
   },
   {
     slug: 'action-authorization',
@@ -432,11 +432,11 @@ export const USE_CASES = [
     checks: ['Principal authority', 'Action policy', 'Trusted evidence', 'Approval requirement'],
     result: 'Authorize, hold, or deny before the one-way door.',
     resultDetail:
-      'Your existing system still performs the action. TrustLoopGuard supplies the control boundary and receipts that show who approved what, under which policy, and with which evidence.',
+      'Your existing system still performs the action. Featherlane AI supplies the control boundary and receipts that show who approved what, under which policy, and with which evidence.',
     proof: ['Proposed action', 'Decision reason', 'Approver identity', 'Execution outcome'],
     ctaLabel: 'Read the authorization contract',
     ctaHref:
-      'https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/concept/financial-authorization.md',
+      'https://github.com/ducnguyen67201/FeatherlaneAI/blob/main/docs/concept/financial-authorization.md',
   },
 ] as const satisfies readonly UseCaseData[];
 

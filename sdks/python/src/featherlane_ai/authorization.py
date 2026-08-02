@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-from trustloopguard._generated.types import AuthorizationDecision
+from featherlane_ai._generated.types import AuthorizationDecision
 
 ResultT = TypeVar("ResultT")
 
