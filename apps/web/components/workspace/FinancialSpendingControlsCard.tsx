@@ -1,7 +1,7 @@
 'use client';
 
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { InfoHint } from '@/components/ui/info-hint';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -126,6 +127,7 @@ export function FinancialPolicyCreateDialog({
   onCreated?: (policy: FamilyPolicyRow) => void;
   meter?: FinancialControlForm['meter'];
 }) {
+  const dialogContentRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FinancialControlForm>(DEFAULT_FORM);
   const policyIds = useMemo(() => new Set(existingPolicyIds), [existingPolicyIds]);
@@ -170,7 +172,14 @@ export function FinancialPolicyCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent
+        ref={dialogContentRef}
+        className="max-w-3xl"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          dialogContentRef.current?.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit financial policy' : 'Create financial policy'}</DialogTitle>
           <DialogDescription>
@@ -359,36 +368,39 @@ export function FinancialPolicyCreateDialog({
           </div>
           {form.meter === 'actions' ? (
             <div className="rounded-md border p-3">
-              <label className="flex items-start gap-3 text-sm">
+              <div className="flex items-center gap-3 text-sm">
                 <Checkbox
+                  id="financial-policy-grant-required"
                   checked={form.grantRequired}
                   onCheckedChange={(checked) =>
                     setFormValue(setForm, 'grantRequired', checked === true)
                   }
                 />
-                <span className="grid gap-2">
-                  <span className="font-medium">Require user intent proof</span>
-                  <span className="text-muted-foreground">
-                    Turn this on when each payment must point back to the user&apos;s request, such
-                    as “buy this article” or “buy this coffee.”
-                  </span>
-                  <span className="grid gap-1 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
-                    <span>
-                      <span className="font-medium text-foreground">Where it comes from:</span> The
-                      customer app can create a reusable authorization grant from verified user
-                      intent and pass its grant and attempt ids with the action.
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="financial-policy-grant-required">Require user intent proof</Label>
+                  <InfoHint label="More information about Require user intent proof">
+                    <span className="grid gap-2">
+                      <span>
+                        Turn this on when each payment must point back to the user&apos;s request,
+                        such as “buy this article” or “buy this coffee.”
+                      </span>
+                      <span>
+                        <span className="font-semibold">Where it comes from:</span> The customer app
+                        can create a reusable authorization grant from verified user intent and pass
+                        its grant and attempt ids with the action.
+                      </span>
+                      <span>
+                        <span className="font-semibold">What this policy does:</span> Requires a
+                        matching, active grant before the common kernel permits signing.
+                      </span>
+                      <span>
+                        <span className="font-semibold">What gets checked:</span> Agent, amount,
+                        rail, merchant/resource, pay-to, and x402 network/asset.
+                      </span>
                     </span>
-                    <span>
-                      <span className="font-medium text-foreground">What this policy does:</span>{' '}
-                      requires a matching, active grant before the common kernel permits signing.
-                    </span>
-                    <span>
-                      <span className="font-medium text-foreground">What gets checked:</span> agent,
-                      amount, rail, merchant/resource, pay-to, and x402 network/asset.
-                    </span>
-                  </span>
-                </span>
-              </label>
+                  </InfoHint>
+                </div>
+              </div>
             </div>
           ) : null}
           <div className="grid gap-3 md:grid-cols-3">
@@ -423,11 +435,13 @@ export function FinancialPolicyCreateDialog({
           </div>
           {form.meter === 'actions' && form.actionKind === 'refund' ? (
             <div className="grid gap-2">
-              <Label>Required refund evidence</Label>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Select the facts the caller must provide and satisfy before a refund can be
-                authorized.
-              </p>
+              <div className="flex items-center gap-1.5">
+                <Label>Required refund evidence</Label>
+                <InfoHint label="More information about Required refund evidence">
+                  Select the facts the caller must provide and satisfy before a refund can be
+                  authorized.
+                </InfoHint>
+              </div>
               <div className="grid gap-2 md:grid-cols-2">
                 {REFUND_PRECONDITIONS.map((item) => (
                   <label
@@ -567,9 +581,11 @@ function pick<T extends string>(
 function Field({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
   return (
     <div className="grid gap-1.5">
-      <Label>{label}</Label>
+      <div className="flex items-center gap-1.5">
+        <Label>{label}</Label>
+        <InfoHint label={`More information about ${label}`}>{hint}</InfoHint>
+      </div>
       {children}
-      <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>
     </div>
   );
 }

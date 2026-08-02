@@ -242,13 +242,14 @@ authorization and execution as separate read-only columns.
 The dashboard is full of domain words a non-technical teammate will not know on sight (effect, grant, policy, agent, gateway, trace). Two pieces keep those explained consistently:
 
 - `apps/web/lib/glossary.ts` — the **one** home for "what does this word mean?". Each entry is `{ label, short }` where `short` is a single jargon-free sentence. Add a term here once; never re-explain the same word with different wording at a call site.
-- `apps/web/components/ui/info-hint.tsx` — `<InfoHint term="policy" />` renders a small "?" affordance that reveals the glossary definition on hover/focus. It is a real, keyboard- and touch-accessible button. Pass `term` for a glossary word, or `children` for one-off help text.
+- `apps/web/components/ui/info-hint.tsx` — `<InfoHint term="policy" />` renders a small information icon that reveals the glossary definition on hover/focus. It is a real, keyboard- and touch-accessible button. Pass `term` for a glossary word, or `children` for one-off help text.
 
 ### When to use it
 
 - Beside a `PageHeader` title via the `help` prop, when the page's name is itself jargon.
 - Next to a table column header or form-field label whose meaning is not obvious (`Effect`, `Severity`, `Scope`).
-- Do **not** scatter it on every label — only where a first-time user would genuinely pause. Over-hinting is as noisy as no hints.
+- Do **not** scatter it on every label in ordinary forms — only where a first-time user would genuinely pause.
+- A dense domain authoring form may place one beside every field when each control changes runtime evaluation and inline descriptions would make rows uneven. Keep each tooltip concise and link to a full guide for deeper explanation.
 
 ## AuthorizationEffectLegend
 

@@ -51,6 +51,10 @@ multiple matchers, tool policies, or other typed fields.
 
 ### Financial Authorization Fields
 
+In the dashboard, hover or focus the information icon beside any field label for
+a concise explanation without expanding the form. Use this reference when you
+need to compare several fields at once.
+
 | Field | What To Enter |
 | --- | --- |
 | **Applies to** | Choose **Financial actions** for refunds, payments, and payouts, or **LLM usage (gateway)** for provider-spend budgets. |
