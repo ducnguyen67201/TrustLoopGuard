@@ -18,7 +18,7 @@ export function RefundDemoPageContent({ locale }: { locale: MarketingLocale }) {
           className={styles['wordmark']}
           aria-label={copy.homeLabel}
         >
-          <img src="/featherlane-ai-logo.svg" alt="" aria-hidden="true" />
+          <img src="/featherlane-ai-logo.png" alt="" aria-hidden="true" />
           <span>Featherlane AI</span>
         </Link>
         <div className={styles['stackStatus']}>

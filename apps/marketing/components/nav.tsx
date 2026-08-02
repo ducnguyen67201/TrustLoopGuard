@@ -35,7 +35,7 @@ export async function Nav({ locale = 'en' }: { locale?: MarketingLocale }) {
     <header className="site-header sticky top-0 inset-x-0 z-40">
       <nav aria-label={copy.navigationLabel} className="site-nav">
         <Link href={homeHref} className="wordmark" aria-label={copy.homeLabel}>
-          <img src="/featherlane-ai-logo.svg" alt="" aria-hidden="true" className="wordmark-logo" />
+          <img src="/featherlane-ai-logo.png" alt="" aria-hidden="true" className="wordmark-logo" />
           <span>Featherlane AI</span>
         </Link>
         <ul className="site-nav-links">

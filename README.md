@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="apps/web/public/featherlane-ai-logo.svg" alt="Featherlane AI" width="80" />
+  <img src="apps/web/public/featherlane-ai-logo.png" alt="Featherlane AI" width="80" />
   <h1>Featherlane AI</h1>
   <p><strong>The runtime firewall for AI agents.</strong><br/>
   Guard local tool calls and the final reply <em>before</em> they ship — then <code>allow</code>, <code>block</code>, <code>rewrite</code>, or <code>escalate</code>.</p>

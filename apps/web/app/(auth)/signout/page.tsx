@@ -13,7 +13,7 @@ export default async function SignOutPage() {
       <div className="grid w-full max-w-md gap-4">
         <div className="grid gap-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <BrandLogo className="size-7" priority />
+            <BrandLogo alt="" className="h-7 w-auto" priority />
             <span>Featherlane AI</span>
           </div>
           <h1 className="text-2xl font-semibold">Sign out</h1>

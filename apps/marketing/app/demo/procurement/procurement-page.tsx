@@ -42,7 +42,7 @@ export function ProcurementDemoPageContent({
           className={sharedStyles['wordmark']}
           aria-label="Featherlane AI home"
         >
-          <img src="/featherlane-ai-logo.svg" alt="" aria-hidden="true" />
+          <img src="/featherlane-ai-logo.png" alt="" aria-hidden="true" />
           <span>Featherlane AI</span>
         </Link>
         <div className={sharedStyles['stackStatus']}>

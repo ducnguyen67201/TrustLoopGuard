@@ -463,7 +463,7 @@ export function organizationJsonLd() {
     '@type': 'Organization',
     name: SITE_NAME,
     url: SITE_URL,
-    logo: absoluteUrl('/featherlane-ai-logo.svg'),
+    logo: absoluteUrl('/featherlane-ai-logo-dark.png'),
     sameAs: [GITHUB_URL],
   };
 }
