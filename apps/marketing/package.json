@@ -13,7 +13,6 @@
     "@t3-oss/env-nextjs": "0.13.11",
     "@featherlane-ai/demo": "workspace:*",
     "@featherlane-ai/sdk": "workspace:*",
-    "geist": "^1.7.0",
     "next": "16.2.12",
     "postgres": "3.4.8",
     "posthog-js": "^1.399.4",

@@ -159,19 +159,18 @@
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
 
-  /* Two-face typography: Inter for UI/prose, Departure Mono for data/code. */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono:
-    var(--font-pixel), var(--font-ibm-plex-mono), ui-monospace, 'SFMono-Regular', monospace;
+  /* Two-face typography: Instrument Sans for UI/prose, IBM Plex Mono for data/code. */
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, 'SFMono-Regular', monospace;
   /* Bare <code>/<pre> use Tailwind's preflight default, not the font-mono
-     utility — point it at the same stack so they get the pixel face too. */
+     utility — point it at the same stack too. */
   --default-mono-font-family: var(--font-mono);
 
   /* Micro-type: de-facto sizes below Tailwind's text-xs floor, used across
      badges, table meta, and eyebrow labels. rem-based so they scale with root. */
-  --text-2xs: 0.6875rem; /* 11px */
-  --text-3xs: 0.625rem; /* 10px */
+  --text-2xs: 0.75rem; /* 12px */
+  --text-3xs: 0.6875rem; /* 11px */
   --tracking-label: 0.14em; /* uppercase eyebrow/label tracking */
 
   --shadow-2xs: 0 1px 2px 0 rgb(28 25 23 / 0.04);
@@ -187,9 +186,6 @@ body {
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* Departure Mono ships weight 400 only; faux-bold smears a pixel grid.
-     font-bold on mono renders as regular instead. Inter is variable, unaffected. */
-  font-synthesis-weight: none;
 }
 
 /* Numeric/data surfaces opt into mono + tabular figures for stable digits. */
