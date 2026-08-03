@@ -169,7 +169,27 @@ async fn openrouter_sends_configured_reasoning_effort() {
 
     let received = &server.received_requests().await.unwrap()[0];
     let body: Value = serde_json::from_slice(&received.body).unwrap();
-    assert_eq!(body["reasoning_effort"], "high");
+    assert_eq!(body["reasoning"]["effort"], "high");
+    assert!(body.get("reasoning_effort").is_none());
+}
+
+#[test]
+fn reasoning_effort_as_str_matches_serde_representation() {
+    for effort in [
+        ReasoningEffort::None,
+        ReasoningEffort::Low,
+        ReasoningEffort::Medium,
+        ReasoningEffort::High,
+        ReasoningEffort::XHigh,
+        ReasoningEffort::Max,
+    ] {
+        let serialized = serde_json::to_value(effort).expect("serialize reasoning effort");
+        assert_eq!(
+            serialized,
+            json!(effort.as_str()),
+            "mismatch for {effort:?}"
+        );
+    }
 }
 
 #[tokio::test]

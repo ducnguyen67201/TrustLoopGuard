@@ -1,6 +1,6 @@
 //! Verify the embedded canonical routing manifest stays in sync with the schema.
 
-use tl_llm::{ReasoningEffort, RouterConfig, ROUTER_CONFIG_SCHEMA_VERSION};
+use tl_llm::{LlmRouter, ReasoningEffort, RouterConfig, ROUTER_CONFIG_SCHEMA_VERSION};
 
 #[test]
 fn committed_example_config_parses() {
@@ -41,6 +41,22 @@ fn committed_example_config_parses() {
             assert!(fallback.deadline_ms > 0);
         }
     }
+}
+
+#[test]
+fn committed_example_config_builds_the_router() {
+    let previous_key = std::env::var_os("OPENAI_API_KEY");
+    std::env::set_var("OPENAI_API_KEY", "bundled-manifest-test-key");
+
+    let config = RouterConfig::bundled().expect("parse bundled manifest");
+    let result = LlmRouter::from_config(&config);
+
+    if let Some(previous_key) = previous_key {
+        std::env::set_var("OPENAI_API_KEY", previous_key);
+    } else {
+        std::env::remove_var("OPENAI_API_KEY");
+    }
+    result.expect("build router from bundled manifest");
 }
 
 #[test]

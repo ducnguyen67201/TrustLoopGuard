@@ -85,6 +85,26 @@ struct BlockingClient {
     release: Arc<Notify>,
 }
 
+struct DelayedFailureClient {
+    calls: Arc<AtomicUsize>,
+    delay: Duration,
+}
+
+#[async_trait]
+impl LlmClient for DelayedFailureClient {
+    async fn complete(
+        &self,
+        _model: &str,
+        _prompt: &str,
+        _schema: &JsonSchema,
+        _deadline: Duration,
+    ) -> Result<LlmOutput, LlmError> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        tokio::time::sleep(self.delay).await;
+        Err(LlmError::Status(500, "delayed failure".into()))
+    }
+}
+
 #[async_trait]
 impl LlmClient for BlockingClient {
     async fn complete(
@@ -111,6 +131,25 @@ fn target(provider: &str, model: &str) -> ProviderTarget {
         model: model.into(),
         deadline_ms: 1_000,
         reasoning_effort: None,
+    }
+}
+
+#[test]
+fn route_kind_strings_round_trip() {
+    for kind in [
+        LlmRouteKind::Hallucination,
+        LlmRouteKind::Tone,
+        LlmRouteKind::Authority,
+        LlmRouteKind::SemanticPolicy,
+        LlmRouteKind::PolicyDraft,
+        LlmRouteKind::PolicyAiEdit,
+        LlmRouteKind::GuardrailGeneration,
+        LlmRouteKind::GitHubIntegration,
+        LlmRouteKind::DemoDefault,
+        LlmRouteKind::DemoDispute,
+        LlmRouteKind::DemoLivekit,
+    ] {
+        assert_eq!(LlmRouteKind::parse(kind.as_str()), Some(kind));
     }
 }
 
@@ -167,6 +206,54 @@ async fn primary_failure_falls_back_to_secondary() {
     assert_eq!(p_calls.load(Ordering::SeqCst), 1);
     assert_eq!(f_calls.load(Ordering::SeqCst), 1);
     assert_eq!(router.budget().used("acme"), 3);
+}
+
+#[tokio::test]
+async fn primary_and_fallback_share_one_route_deadline() {
+    let primary_calls = Arc::new(AtomicUsize::new(0));
+    let fallback_calls = Arc::new(AtomicUsize::new(0));
+    let entered = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let mut providers: HashMap<String, Arc<dyn LlmClient>> = HashMap::new();
+    providers.insert(
+        "p".into(),
+        Arc::new(DelayedFailureClient {
+            calls: primary_calls.clone(),
+            delay: Duration::from_millis(50),
+        }),
+    );
+    providers.insert(
+        "f".into(),
+        Arc::new(BlockingClient {
+            calls: fallback_calls.clone(),
+            entered,
+            release,
+        }),
+    );
+    let mut primary = target("p", "m1");
+    primary.deadline_ms = 80;
+    let mut fallback = target("f", "m2");
+    fallback.deadline_ms = 80;
+    let mut routes = HashMap::new();
+    routes.insert(
+        LlmRouteKind::PolicyDraft,
+        ResolvedRoute {
+            primary,
+            fallback: Some(fallback),
+        },
+    );
+    let router = LlmRouter::new(providers, routes, Arc::new(TokenBudget::new(0)));
+
+    let completion = tokio::time::timeout(
+        Duration::from_millis(130),
+        router.complete_route(LlmRouteKind::PolicyDraft, "prompt", &schema()),
+    )
+    .await
+    .expect("router must enforce the combined route deadline");
+
+    assert!(matches!(completion, Err(LlmError::Timeout(_))));
+    assert_eq!(primary_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(fallback_calls.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]

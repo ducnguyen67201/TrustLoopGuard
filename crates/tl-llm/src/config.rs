@@ -173,6 +173,18 @@ mod tests {
     }
 
     #[test]
+    fn rejects_future_schema_before_future_fields() {
+        let invalid = SAMPLE.replace(
+            "\"schema_version\": 1",
+            "\"schema_version\": 2, \"future_option\": true",
+        );
+        assert!(matches!(
+            RouterConfig::parse(&invalid),
+            Err(ConfigError::UnsupportedSchemaVersion { actual: 2, .. })
+        ));
+    }
+
+    #[test]
     fn bundled_manifest_parses() {
         let config = RouterConfig::bundled().expect("bundled manifest");
         assert_eq!(config.schema_version, ROUTER_CONFIG_SCHEMA_VERSION);
