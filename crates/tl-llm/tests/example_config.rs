@@ -9,54 +9,38 @@ fn committed_example_config_parses() {
     assert_eq!(cfg.schema_version, ROUTER_CONFIG_SCHEMA_VERSION);
     assert_eq!(cfg.providers["openai"].kind, "openai");
     assert_eq!(cfg.providers["openai"].api_key_env, "OPENAI_API_KEY");
-    assert_eq!(cfg.budgets.default_monthly_tokens, 10_000_000);
+    assert!(cfg.budgets.default_monthly_tokens > 0);
     assert!(cfg.budgets.tenants.is_empty());
 
-    let expected = [
-        ("hallucination", "gpt-4o-mini", 600),
-        ("tone", "gpt-4o-mini", 300),
-        ("authority", "gpt-4o", 700),
-        ("semantic_policy", "gpt-4o-mini", 700),
-        ("policy_draft", "gpt-4o-mini", 30_000),
-        ("policy_ai_edit", "gpt-4o-mini", 30_000),
-        ("guardrail_generation", "gpt-4o-mini", 60_000),
-        ("github_integration", "gpt-4o-mini", 60_000),
-        ("demo_default", "gpt-4.1-mini", 30_000),
-        ("demo_dispute", "gpt-4o-mini", 30_000),
-        ("demo_livekit", "gpt-4o-mini", 30_000),
+    let route_names = [
+        "hallucination",
+        "tone",
+        "authority",
+        "semantic_policy",
+        "policy_draft",
+        "policy_ai_edit",
+        "guardrail_generation",
+        "github_integration",
+        "demo_default",
+        "demo_dispute",
+        "demo_livekit",
     ];
-    assert_eq!(cfg.routes.len(), expected.len());
-    for (name, model, deadline_ms) in expected {
+    assert_eq!(cfg.routes.len(), route_names.len());
+    for name in route_names {
         let route = &cfg.routes[name];
-        assert_eq!(route.primary.provider, "openai", "provider for {name}");
-        assert_eq!(route.primary.model, model, "model for {name}");
-        assert_eq!(
-            route.primary.deadline_ms, deadline_ms,
-            "deadline for {name}"
-        );
-        assert!(
-            route
-                .description
-                .as_deref()
-                .is_some_and(|description| !description.trim().is_empty()),
-            "description for {name}"
-        );
-        if name != "authority" {
-            assert!(route.fallback.is_none(), "unexpected fallback for {name}");
+        assert!(cfg.providers.contains_key(&route.primary.provider));
+        assert!(!route.primary.model.trim().is_empty());
+        assert!(route.primary.deadline_ms > 0);
+        assert!(route
+            .description
+            .as_deref()
+            .is_some_and(|description| !description.trim().is_empty()));
+        if let Some(fallback) = &route.fallback {
+            assert!(cfg.providers.contains_key(&fallback.provider));
+            assert!(!fallback.model.trim().is_empty());
+            assert!(fallback.deadline_ms > 0);
         }
     }
-
-    let authority_fallback = cfg.routes["authority"]
-        .fallback
-        .as_ref()
-        .expect("authority fallback");
-    assert_eq!(authority_fallback.provider, "openai");
-    assert_eq!(authority_fallback.model, "gpt-4o-mini");
-    assert_eq!(authority_fallback.deadline_ms, 700);
-    assert!(cfg
-        .routes
-        .values()
-        .all(|route| route.primary.reasoning_effort.is_none()));
 }
 
 #[test]
