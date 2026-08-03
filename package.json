@@ -46,7 +46,7 @@
     "test:backend": "make backend-test",
     "coverage:backend": "make backend-coverage",
     "coverage:backend:lcov": "make backend-coverage-lcov",
-    "lint:boundaries": "scripts/lint-storage-boundaries.sh && scripts/lint-no-internal-imports.sh && scripts/lint-api-contracts.sh && scripts/lint-web-backend-only.sh",
+    "lint:boundaries": "scripts/lint-storage-boundaries.sh && scripts/lint-no-internal-imports.sh && scripts/lint-no-internal-imports.test.sh && scripts/lint-api-contracts.sh && scripts/lint-web-backend-only.sh",
     "lint:rust": "cargo fmt --all -- --check && cargo clippy --locked --workspace --all-targets --all-features -- -D warnings",
     "lint": "pnpm lint:boundaries && pnpm lint:rust",
     "precommit:check": "lefthook run pre-commit --no-auto-install",

@@ -385,11 +385,14 @@ async fn control_plane_route_does_not_charge_runtime_budget() {
 }
 
 #[test]
-fn build_from_config_rejects_unknown_route() {
+fn build_from_config_rejects_unknown_route_without_provider_credentials() {
     let source = r#"{
       "schema_version": 1,
       "providers": {
-        "openai": { "kind": "openai", "api_key_env": "OPENAI_API_KEY" }
+        "openai": {
+          "kind": "openai",
+          "api_key_env": "TL_LLM_TEST_INTENTIONALLY_MISSING_CREDENTIAL"
+        }
       },
       "routes": {
         "policy_darft": {
@@ -397,7 +400,6 @@ fn build_from_config_rejects_unknown_route() {
         }
       }
     }"#;
-    std::env::set_var("OPENAI_API_KEY", "test-key");
     let config = RouterConfig::parse(source).expect("config");
     let error = LlmRouter::from_config(&config).expect_err("unknown route");
     assert!(matches!(error, RouterBuildError::UnknownRouteKind(_)));

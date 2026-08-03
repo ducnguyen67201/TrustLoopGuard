@@ -35,3 +35,25 @@ test('rejects invalid reasoning effort', () => {
 
   assert.throws(() => parseDemoModelRoute(fixture, 'demo_default'), /Invalid LLM routing manifest/);
 });
+
+test('resolves an OpenAI provider alias through the provider map', () => {
+  const fixture = structuredClone(routingManifest);
+  Object.assign(fixture.providers, {
+    first_party: { kind: 'openai' as const, api_key_env: 'OPENAI_API_KEY' },
+  });
+  fixture.routes.demo_default.primary.provider = 'first_party';
+
+  assert.deepEqual(parseDemoModelRoute(fixture, 'demo_default'), {
+    model: 'gpt-4.1-mini',
+  });
+});
+
+test('rejects a provider identifier backed by a non-OpenAI provider', () => {
+  const fixture = structuredClone(routingManifest);
+  Object.assign(fixture.providers.openai, { kind: 'openrouter' as const });
+
+  assert.throws(
+    () => parseDemoModelRoute(fixture, 'demo_default'),
+    /must use an openai provider/,
+  );
+});
