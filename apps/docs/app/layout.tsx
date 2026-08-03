@@ -1,14 +1,19 @@
 import './global.css';
 import { RootProvider } from 'fumadocs-ui/provider/next';
-import localFont from 'next/font/local';
+import { IBM_Plex_Mono, Instrument_Sans } from 'next/font/google';
 import type { ReactNode } from 'react';
 
-// Departure Mono (SIL OFL) — pixel-grid mono for code blocks, matching the app.
-const departureMono = localFont({
-  src: '../public/fonts/DepartureMono-Regular.woff2',
-  variable: '--font-pixel',
+const instrumentSans = Instrument_Sans({
+  subsets: ['latin'],
+  variable: '--font-instrument-sans',
   display: 'swap',
-  weight: '400',
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  variable: '--font-ibm-plex-mono',
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
 });
 
 export const metadata = {
@@ -19,8 +24,12 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={departureMono.variable} suppressHydrationWarning>
-      <body className="flex min-h-screen flex-col">
+    <html
+      lang="en"
+      className={`${instrumentSans.variable} ${ibmPlexMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="flex min-h-screen flex-col font-sans">
         <RootProvider>{children}</RootProvider>
       </body>
     </html>

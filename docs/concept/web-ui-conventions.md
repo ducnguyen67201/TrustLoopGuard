@@ -99,9 +99,9 @@ page needs a different readable measure, while leaving the shared default intact
 
 ### Typography
 
-UI text and prose use the `Inter` sans face (the default). Data — IDs, hashes, metrics, code, and effect labels — uses `font-mono` (Departure Mono, a pixel-grid face; IBM Plex Mono remains the metric fallback while it loads); pair numeric columns with `tabular-nums` (or the `.font-data` helper) for stable digits. Do not set monospace on prose.
+UI text and prose use `Instrument Sans` through the default `font-sans` token. Data — IDs, hashes, metrics, code, and effect labels — uses `font-mono`, backed by IBM Plex Mono; pair numeric columns with `tabular-nums` (or the `.font-data` helper) for stable digits. Do not set monospace on prose or ordinary navigation labels.
 
-Departure Mono ships weight 400 only, so `html, body` sets `font-synthesis-weight: none` — a `font-bold` on a mono element renders at regular weight rather than as smeared faux-bold. Emphasise mono text with color or a background tint, never with weight. Inter is a variable font and is unaffected.
+Both faces load real weights from 400 through 700. The dashboard's shared micro-type floor is 11px (`text-3xs`); use 12px (`text-2xs`/`text-xs`) for labels whenever the layout permits. All dashboard pages inherit this pair from the root layout and the tokens in `apps/web/app/globals.css`.
 
 ## DataTable
 

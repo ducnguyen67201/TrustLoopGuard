@@ -7,13 +7,9 @@
 @source '../node_modules/fumadocs-openapi/dist/**/*.js';
 
 @theme inline {
-  --font-mono: var(--font-pixel), ui-monospace, 'SFMono-Regular', monospace;
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, 'SFMono-Regular', monospace;
   /* Bare <code>/<pre> use Tailwind's preflight default, not the font-mono
-     utility — point it at the same stack so code blocks get the pixel face. */
+     utility — point it at the same stack so code blocks use IBM Plex Mono. */
   --default-mono-font-family: var(--font-mono);
-}
-
-/* Departure Mono ships weight 400 only; faux-bold smears a pixel grid. */
-html {
-  font-synthesis-weight: none;
 }

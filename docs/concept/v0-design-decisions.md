@@ -520,6 +520,9 @@ and will be *fully* caught later (at retrieval even if stored). This is the
 
 ## 19. Dashboard visual language: "Instrument" (locked)
 
+This section records the original redesign. Its typography bullet is superseded by §22;
+the remaining visual-language decisions still apply.
+
 The dashboard's original look was the off-the-shelf tweakcn "Terminal" theme:
 0-radius everywhere, IBM Plex Mono as the body font, flat neutrals, and no
 loading/empty/error states. It read as a re-skin, not a designed product.
@@ -554,3 +557,13 @@ Featherlane AI durably authorizes one immutable invocation but does not execute 
 The earlier tool-approval and financial-mandate implementations proved the need for durable sign-off but duplicated vocabulary, storage, routes, SDK helpers, and UI queues. Before production usage, they were replaced by one Rust-owned kernel with `AuthorizationEffect`, `AuthorizationIntentStatus`, approvals, grants, execution leases, and receipts.
 
 Typed policy families and domain adapters remain separate. A grant is generalized authority, not a policy exception: effective authority is the intersection of the proposed request, the active typed grant scope, and current policy. `require_approval` can be satisfied by a matching grant; `defer` and `deny` cannot. Financial execution and ledger state remain a separate axis. `/approvals` is the only actionable queue and reviewer signing is an authenticated, hash-bound state transition rather than a portable bearer signature. See [authorization-kernel.md](authorization-kernel.md).
+
+## 22. One readable type system across product surfaces (locked)
+
+Marketing, dashboard, documentation, and maintained interactive demos share one type
+system: Instrument Sans for headings, UI, and prose; IBM Plex Mono only for code, IDs,
+metrics, and other machine-shaped data. This replaces Inter, Space Grotesk, Geist Mono,
+and the pixel-grid Departure Mono in active UI wiring. It keeps the technical character
+in code and data without making ordinary labels harder to scan. The current dashboard
+contract, including the minimum micro-text sizes, lives in
+[web-ui-conventions.md](web-ui-conventions.md#typography).

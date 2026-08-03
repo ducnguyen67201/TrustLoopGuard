@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { Inter, Space_Grotesk } from 'next/font/google';
-import localFont from 'next/font/local';
-import { GeistMono } from 'geist/font/mono';
+import { IBM_Plex_Mono, Instrument_Sans } from 'next/font/google';
 import { env } from '@/env';
 import {
   DEFAULT_DESCRIPTION,
@@ -15,18 +13,17 @@ import {
 } from '@/lib/seo';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
-const spaceGrotesk = Space_Grotesk({
+const instrumentSans = Instrument_Sans({
   subsets: ['latin'],
   variable: '--font-display',
   display: 'swap',
 });
-// Departure Mono (SIL OFL) — pixel-grid mono for terminal/decision surfaces.
-const departureMono = localFont({
-  src: '../public/fonts/DepartureMono-Regular.woff2',
-  variable: '--font-pixel',
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  variable: '--font-ibm-plex-mono',
   display: 'swap',
-  weight: '400',
+  weight: ['400', '500', '600', '700'],
 });
 
 export const metadata: Metadata = {
@@ -70,10 +67,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
   const gtmId = env.NEXT_PUBLIC_GTM_ID;
 
   return (
-    <html
-      lang="en"
-      className={`${inter.variable} ${spaceGrotesk.variable} ${GeistMono.variable} ${departureMono.variable}`}
-    >
+    <html lang="en" className={`${instrumentSans.variable} ${ibmPlexMono.variable}`}>
       {gtmId ? (
         <script
           dangerouslySetInnerHTML={{

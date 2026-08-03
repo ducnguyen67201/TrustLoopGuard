@@ -32,10 +32,10 @@
 @theme inline {
   --color-background: var(--color-page);
   --color-foreground: var(--color-ink);
-  --font-sans: var(--font-inter, ui-sans-serif, system-ui, sans-serif);
-  --font-mono: var(--font-pixel), var(--font-geist-mono, ui-monospace, SFMono-Regular, monospace);
+  --font-sans: var(--font-display, ui-sans-serif, system-ui, sans-serif);
+  --font-mono: var(--font-ibm-plex-mono, ui-monospace, 'SFMono-Regular', monospace);
   /* Bare <code>/<pre> use Tailwind's preflight default, not the font-mono
-     utility — point it at the same stack so they get the pixel face too. */
+     utility — point it at the same stack too. */
   --default-mono-font-family: var(--font-mono);
 }
 
@@ -55,9 +55,6 @@ body {
   font-feature-settings: 'cv01', 'ss01';
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* Departure Mono ships weight 400 only; faux-bold smears a pixel grid.
-     Bold mono renders as regular instead. Inter/Space Grotesk are unaffected. */
-  font-synthesis-weight: none;
 }
 
 /* Headings default to the display face. Component rules that want mono
@@ -68,7 +65,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
 }
 
 a {
@@ -112,7 +109,7 @@ input {
   display: inline-flex;
   align-items: center;
   gap: 0.7rem;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: 0.95rem;
   font-weight: 650;
   letter-spacing: -0.02em;
@@ -234,7 +231,7 @@ input {
 
 .site-nav-mega-header strong {
   color: var(--color-ink);
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -304,7 +301,7 @@ input {
 
 .site-nav-mega-grid strong {
   color: var(--color-ink);
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -423,7 +420,7 @@ input {
 .section-title {
   max-width: 52rem;
   margin: 1rem 0 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(2.25rem, 6.5vw, 4.35rem);
   font-weight: 560;
   line-height: 1.02;
@@ -639,7 +636,7 @@ input {
 .hero-title {
   max-width: 70rem;
   margin: 0 auto;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(3rem, 7.4vw, 6.5rem);
   font-weight: 560;
   line-height: 0.98;
@@ -704,7 +701,7 @@ input {
 .hero-backing-chip-a16z {
   min-width: 3rem;
   padding-inline: 0.55rem;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: 0.8rem;
   font-weight: 780;
   letter-spacing: -0.045em;
@@ -830,7 +827,7 @@ input {
 
 .home-demo-heading h2 {
   margin: 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(2rem, 4vw, 3.5rem);
   font-weight: 560;
   letter-spacing: -0.055em;
@@ -945,7 +942,7 @@ input {
 }
 
 .quote-intent-copy > strong {
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: 1.2rem;
   font-weight: 600;
   letter-spacing: -0.015em;
@@ -1546,7 +1543,7 @@ input {
   position: relative;
   z-index: 1;
   margin: 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(1.55rem, 4.5vw, 2.5rem);
   font-weight: 520;
   line-height: 1.22;
@@ -2757,7 +2754,7 @@ input {
 }
 
 .use-case-showcase-tabs strong {
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: 1.02rem;
   font-weight: 650;
   letter-spacing: -0.025em;
@@ -2810,7 +2807,7 @@ input {
 .use-case-showcase-heading h3 {
   max-width: 18ch;
   margin: 0.6rem 0 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(1.8rem, 4vw, 2.65rem);
   font-weight: 560;
   line-height: 1.03;
@@ -2997,7 +2994,7 @@ input {
 .use-case-flow-demo-stage h3 {
   margin: 0;
   color: #f5f8fb;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: 1rem;
   font-weight: 600;
   line-height: 1.3;
@@ -3673,7 +3670,7 @@ input {
 .use-cases-hero h1 {
   max-width: 12ch;
   margin: 1.2rem 0 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(3.4rem, 10vw, 6.7rem);
   font-weight: 560;
   line-height: 0.93;
@@ -3818,7 +3815,7 @@ input {
 .use-case-detail-heading h1 {
   max-width: 15ch;
   margin: 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(2.6rem, 7vw, 5rem);
   font-weight: 550;
   line-height: 0.98;
@@ -3938,7 +3935,7 @@ input {
 .use-case-demo-heading h2 {
   max-width: 18ch;
   margin: 0.75rem 0 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(1.9rem, 4vw, 2.9rem);
   font-weight: 560;
   line-height: 1.04;

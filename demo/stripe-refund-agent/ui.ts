@@ -276,6 +276,9 @@ function pageHtml(proxySecret: string): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Stripe Refund Agent Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
       color-scheme: light;
@@ -293,7 +296,7 @@ function pageHtml(proxySecret: string): string {
       margin: 0;
       background: var(--bg);
       color: var(--text);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
     }
     main {
       width: min(1180px, calc(100vw - 32px));
@@ -312,7 +315,7 @@ function pageHtml(proxySecret: string): string {
     h1 { margin: 0; font-size: 28px; line-height: 1.1; }
     h2 { margin: 0 0 12px; font-size: 16px; }
     p { margin: 6px 0 0; color: var(--muted); }
-    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     .grid {
       display: grid;
       grid-template-columns: minmax(0, 1.25fr) minmax(360px, 0.75fr);

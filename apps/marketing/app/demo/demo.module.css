@@ -58,7 +58,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.65rem;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: 0.95rem;
   font-weight: 680;
 }
@@ -114,7 +114,7 @@
 
 .intro h1 {
   margin: 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: 1.2rem;
   line-height: 1.2;
   letter-spacing: -0.035em;
@@ -192,7 +192,7 @@
 
 .panelHeader h2 {
   margin: 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: 1.1rem;
   letter-spacing: -0.03em;
   overflow-wrap: anywhere;
@@ -466,7 +466,7 @@
 
 .workflowStep h3 {
   margin: 0 0 0.3rem;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: 0.9rem;
 }
 
@@ -1079,7 +1079,7 @@
 .meetingPromptCard h2 {
   max-width: 22rem;
   margin: 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(1.6rem, 5vw, 2.15rem);
   line-height: 1.08;
   letter-spacing: -0.045em;
