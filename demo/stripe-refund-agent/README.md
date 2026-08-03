@@ -22,13 +22,13 @@ The `featherlane-ai/dev_stripe_demo` Doppler config must contain `OPENAI_API_KEY
 Start the Rust API:
 
 ```bash
-doppler run --project featherlane-ai --config dev_stripe_demo -- cargo run -p tl-server
+doppler run --project trustloopguard --config dev_stripe_demo -- cargo run -p tl-server
 ```
 
 In a second terminal, install the refund policy and local provider connection:
 
 ```bash
-doppler run --project featherlane-ai --config dev_stripe_demo -- \
+doppler run --project trustloopguard --config dev_stripe_demo -- \
   pnpm --filter @featherlane-ai/demo stripe-refund-agent:setup
 ```
 
@@ -45,7 +45,7 @@ pnpm --filter @featherlane-ai/demo stripe-refund-agent:live
 Start the marketing app:
 
 ```bash
-doppler run --project featherlane-ai --config dev_stripe_demo -- \
+doppler run --project trustloopguard --config dev_stripe_demo -- \
   pnpm --filter marketing dev
 ```
 

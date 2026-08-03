@@ -7,6 +7,7 @@ use axum::{
 #[allow(unused_imports)]
 use tl_core::ApiError;
 use tl_core::{ApiErrorCode, PolicyDraft, PolicyDraftRequest, PolicyDraftResponse};
+use tl_llm::LlmRouteKind;
 
 use super::draft::{policy_draft_json_schema, POLICY_DRAFT_SYSTEM_PROMPT};
 use super::response::api_error_response;
@@ -48,23 +49,19 @@ pub async fn draft_policy(State(state): State<PolicyState>, body: bytes::Bytes) 
         );
     }
 
-    let Some(client) = state.draft_llm.clone() else {
+    if !state.llm.has_workload_route(LlmRouteKind::PolicyDraft) {
         return api_error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             ApiErrorCode::Unavailable,
             "policy drafting is not configured on this deployment (no LLM key)".into(),
         );
-    };
+    }
 
     let composed = format!("{POLICY_DRAFT_SYSTEM_PROMPT}\nUser request:\n{prompt}");
     let schema = policy_draft_json_schema();
-    let out = match client
-        .complete(
-            &state.draft_model,
-            &composed,
-            &schema,
-            std::time::Duration::from_secs(30),
-        )
+    let out = match state
+        .llm
+        .complete_route(LlmRouteKind::PolicyDraft, &composed, &schema)
         .await
     {
         Ok(out) => out,

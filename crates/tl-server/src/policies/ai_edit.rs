@@ -5,6 +5,7 @@ use axum::{
     Json,
 };
 use tl_core::{AiEditRequest, AiEditResponse, ApiErrorCode};
+use tl_llm::LlmRouteKind;
 
 use super::{api_error_response, PolicyState};
 
@@ -38,13 +39,13 @@ pub async fn ai_edit_policy(State(state): State<PolicyState>, body: bytes::Bytes
         );
     }
 
-    let Some(client) = state.draft_llm.clone() else {
+    if !state.llm.has_workload_route(LlmRouteKind::PolicyAiEdit) {
         return api_error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             ApiErrorCode::Unavailable,
             "AI editing is not configured on this deployment (no LLM key)".into(),
         );
-    };
+    }
 
     let user_prompt = format!(
         "Current YAML:\n{}\n\nInstruction: {}",
@@ -65,12 +66,12 @@ pub async fn ai_edit_policy(State(state): State<PolicyState>, body: bytes::Bytes
         }),
     };
 
-    let out = match client
-        .complete(
-            &state.draft_model,
+    let out = match state
+        .llm
+        .complete_route(
+            LlmRouteKind::PolicyAiEdit,
             &format!("{AI_EDIT_SYSTEM_PROMPT}\n\n{user_prompt}"),
             &schema,
-            std::time::Duration::from_secs(30),
         )
         .await
     {

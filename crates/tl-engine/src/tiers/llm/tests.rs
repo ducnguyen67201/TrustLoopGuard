@@ -112,6 +112,7 @@ fn router_with_client(client: Arc<dyn LlmClient>, budget_limit: u64) -> LlmRoute
         provider: "p".into(),
         model: "m".into(),
         deadline_ms: 1_000,
+        reasoning_effort: None,
     };
     let mut routes = HashMap::new();
     for kind in [
@@ -120,7 +121,7 @@ fn router_with_client(client: Arc<dyn LlmClient>, budget_limit: u64) -> LlmRoute
         JudgeKind::Authority,
     ] {
         routes.insert(
-            kind,
+            kind.into(),
             ResolvedRoute {
                 primary: target.clone(),
                 fallback: None,
@@ -137,6 +138,7 @@ fn failing_router() -> LlmRouter {
         provider: "p".into(),
         model: "m".into(),
         deadline_ms: 1_000,
+        reasoning_effort: None,
     };
     let mut routes = HashMap::new();
     for kind in [
@@ -145,7 +147,7 @@ fn failing_router() -> LlmRouter {
         JudgeKind::Authority,
     ] {
         routes.insert(
-            kind,
+            kind.into(),
             ResolvedRoute {
                 primary: target.clone(),
                 fallback: None,

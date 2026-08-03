@@ -1,41 +1,19 @@
-//! TOML config schema for `LlmRouter::from_toml`. Loaded once at server
-//! boot. Hot-reload is deferred to v1 — restart to pick up changes.
+//! Versioned JSON configuration for [`crate::LlmRouter`].
 //!
-//! Shape:
-//!
-//! ```toml
-//! [providers.openai]
-//! kind = "openai"
-//! api_key_env = "OPENAI_API_KEY"
-//!
-//! [providers.openrouter]
-//! kind = "openrouter"
-//! api_key_env = "OPENROUTER_API_KEY"
-//!
-//! [routes.hallucination]
-//! primary  = { provider = "openai",     model = "gpt-4o-mini",       deadline_ms = 600 }
-//! fallback = { provider = "openrouter", model = "openai/gpt-4o-mini", deadline_ms = 800 }
-//!
-//! [routes.tone]
-//! primary = { provider = "openrouter", model = "openai/gpt-4o-mini", deadline_ms = 300 }
-//!
-//! [routes.authority]
-//! primary  = { provider = "openai", model = "gpt-4o",      deadline_ms = 700 }
-//! fallback = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 700 }
-//!
-//! [budgets]
-//! default_monthly_tokens = 10_000_000
-//!
-//! [budgets.tenants]
-//! acme = 100_000_000
-//! ```
+//! The canonical manifest is `config/llm-routing.json`. It is embedded in the
+//! crate at compile time so production deployments cannot lose routing because
+//! a runtime file was omitted from an image.
 
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+pub const ROUTER_CONFIG_SCHEMA_VERSION: u32 = 1;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RouterConfig {
+    pub schema_version: u32,
     pub providers: HashMap<String, ProviderConfig>,
     pub routes: HashMap<String, RouteConfig>,
     #[serde(default)]
@@ -43,11 +21,11 @@ pub struct RouterConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProviderConfig {
     /// One of `"openai"`, `"openrouter"`. Future: `"tenant:<id>"` for BYOK.
     pub kind: String,
-    /// Env var name to read the API key from. Reading is deferred to
-    /// router build time so configs are safe to commit and copy.
+    /// Environment variable that contains the provider credential.
     pub api_key_env: String,
     /// Optional override; defaults to the provider's canonical URL.
     #[serde(default)]
@@ -55,7 +33,10 @@ pub struct ProviderConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RouteConfig {
+    #[serde(default)]
+    pub description: Option<String>,
     pub primary: ProviderTarget,
     #[serde(default)]
     pub fallback: Option<ProviderTarget>,
@@ -64,37 +45,73 @@ pub struct RouteConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProviderTarget {
     pub provider: String,
     pub model: String,
     pub deadline_ms: u32,
+    #[serde(default)]
+    pub reasoning_effort: Option<ReasoningEffort>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ReasoningEffort {
+    None,
+    Low,
+    Medium,
+    High,
+    #[serde(rename = "xhigh")]
+    XHigh,
+    Max,
+}
+
+impl ReasoningEffort {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Low => "low",
+            Self::Medium => "medium",
+            Self::High => "high",
+            Self::XHigh => "xhigh",
+            Self::Max => "max",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BudgetConfig {
     /// Tokens per tenant per month when no override is set. `0` = unlimited.
     #[serde(default)]
     pub default_monthly_tokens: u64,
-    /// Per-tenant overrides. Key is the tenant id.
+    /// Per-tenant overrides keyed by tenant id.
     #[serde(default)]
     pub tenants: HashMap<String, u64>,
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
-    #[error("io: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("toml parse: {0}")]
-    Parse(#[from] toml::de::Error),
+    #[error("json parse: {0}")]
+    Parse(#[from] serde_json::Error),
+    #[error("unsupported llm-routing schema version {actual}; expected {expected}")]
+    UnsupportedSchemaVersion { actual: u32, expected: u32 },
 }
 
 impl RouterConfig {
     pub fn parse(src: &str) -> Result<Self, ConfigError> {
-        Ok(toml::from_str(src)?)
+        let config: Self = serde_json::from_str(src)?;
+        if config.schema_version != ROUTER_CONFIG_SCHEMA_VERSION {
+            return Err(ConfigError::UnsupportedSchemaVersion {
+                actual: config.schema_version,
+                expected: ROUTER_CONFIG_SCHEMA_VERSION,
+            });
+        }
+        Ok(config)
     }
 
-    pub fn from_path(path: impl AsRef<std::path::Path>) -> Result<Self, ConfigError> {
-        Self::parse(&std::fs::read_to_string(path)?)
+    pub fn bundled() -> Result<Self, ConfigError> {
+        Self::parse(include_str!("../../../config/llm-routing.json"))
     }
 }
 
@@ -102,74 +119,62 @@ impl RouterConfig {
 mod tests {
     use super::*;
 
-    const SAMPLE: &str = r#"
-[providers.openai]
-kind = "openai"
-api_key_env = "OPENAI_API_KEY"
-
-[providers.openrouter]
-kind = "openrouter"
-api_key_env = "OPENROUTER_API_KEY"
-
-[routes.hallucination]
-primary  = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 600 }
-fallback = { provider = "openrouter", model = "openai/gpt-4o-mini", deadline_ms = 800 }
-
-[routes.tone]
-primary = { provider = "openrouter", model = "openai/gpt-4o-mini", deadline_ms = 300 }
-
-[budgets]
-default_monthly_tokens = 10_000_000
-
-[budgets.tenants]
-acme = 100_000_000
-"#;
+    const SAMPLE: &str = r#"{
+      "schema_version": 1,
+      "providers": {
+        "openai": { "kind": "openai", "api_key_env": "OPENAI_API_KEY" }
+      },
+      "routes": {
+        "hallucination": {
+          "primary": {
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "deadline_ms": 600,
+            "reasoning_effort": "low"
+          }
+        }
+      },
+      "budgets": {
+        "default_monthly_tokens": 10000000,
+        "tenants": { "acme": 100000000 }
+      }
+    }"#;
 
     #[test]
-    fn round_trips_sample_config() {
-        let cfg = RouterConfig::parse(SAMPLE).expect("parse");
-        assert_eq!(cfg.providers.len(), 2);
-        assert_eq!(cfg.providers["openai"].kind, "openai");
-        assert_eq!(cfg.providers["openai"].api_key_env, "OPENAI_API_KEY");
-
-        let hallu = &cfg.routes["hallucination"];
-        assert_eq!(hallu.primary.provider, "openai");
-        assert_eq!(hallu.primary.model, "gpt-4o-mini");
-        assert_eq!(hallu.primary.deadline_ms, 600);
-        assert!(hallu.fallback.is_some());
-        assert_eq!(hallu.fallback.as_ref().unwrap().provider, "openrouter");
-
-        let tone = &cfg.routes["tone"];
-        assert!(tone.fallback.is_none());
-
-        assert_eq!(cfg.budgets.default_monthly_tokens, 10_000_000);
-        assert_eq!(cfg.budgets.tenants["acme"], 100_000_000);
+    fn parses_versioned_json_config() {
+        let config = RouterConfig::parse(SAMPLE).expect("parse");
+        assert_eq!(config.schema_version, ROUTER_CONFIG_SCHEMA_VERSION);
+        assert_eq!(config.providers["openai"].kind, "openai");
+        let target = &config.routes["hallucination"].primary;
+        assert_eq!(target.model, "gpt-4o-mini");
+        assert_eq!(target.reasoning_effort, Some(ReasoningEffort::Low));
+        assert_eq!(config.budgets.tenants["acme"], 100_000_000);
     }
 
     #[test]
-    fn missing_required_field_errors() {
-        let bad = r#"
-[providers.openai]
-kind = "openai"
-"#; // api_key_env missing
+    fn rejects_unknown_fields() {
+        let invalid = SAMPLE.replace(
+            "\"schema_version\": 1",
+            "\"schema_version\": 1, \"typo\": true",
+        );
         assert!(matches!(
-            RouterConfig::parse(bad),
+            RouterConfig::parse(&invalid),
             Err(ConfigError::Parse(_))
         ));
     }
 
     #[test]
-    fn empty_budgets_section_uses_default() {
-        let minimal = r#"
-[providers.openai]
-kind = "openai"
-api_key_env = "OPENAI_API_KEY"
+    fn rejects_unsupported_schema_version() {
+        let invalid = SAMPLE.replace("\"schema_version\": 1", "\"schema_version\": 2");
+        assert!(matches!(
+            RouterConfig::parse(&invalid),
+            Err(ConfigError::UnsupportedSchemaVersion { actual: 2, .. })
+        ));
+    }
 
-[routes.hallucination]
-primary = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 600 }
-"#;
-        let cfg = RouterConfig::parse(minimal).expect("parse");
-        assert_eq!(cfg.budgets.default_monthly_tokens, 0); // 0 = unlimited
-        assert!(cfg.budgets.tenants.is_empty());
+    #[test]
+    fn bundled_manifest_parses() {
+        let config = RouterConfig::bundled().expect("bundled manifest");
+        assert_eq!(config.schema_version, ROUTER_CONFIG_SCHEMA_VERSION);
     }
 }

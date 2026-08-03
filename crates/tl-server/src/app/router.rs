@@ -36,10 +36,6 @@ pub fn router(
     let trusted_identity_routes = route_groups::auth_identity_routes(&state, jwt_signer.clone())
         .merge(crate::oauth::oauth_protected_routes(state.clone()));
 
-    let draft_llm = build_policy_draft_llm();
-    let draft_model =
-        std::env::var("TL_POLICY_DRAFT_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
-
     let mut protected = Router::new()
         .route(
             "/v1/events",
@@ -58,16 +54,8 @@ pub fn router(
         .merge(route_groups::tool_metadata_routes(&state))
         .merge(route_groups::authorization_routes(&state))
         .merge(route_groups::label_policy_routes(&state))
-        .merge(route_groups::policy_routes(
-            &state,
-            draft_llm.clone(),
-            draft_model.clone(),
-        ))
-        .merge(route_groups::guardrail_routes(
-            &state,
-            draft_llm,
-            draft_model,
-        ))
+        .merge(route_groups::policy_routes(&state))
+        .merge(route_groups::guardrail_routes(&state))
         .merge(route_groups::run_routes(&state))
         .merge(route_groups::redteam_routes(&state))
         .merge(route_groups::github_integration_routes(&state))
@@ -112,20 +100,4 @@ pub fn router(
         ),
     }
     app.layer(from_fn(log_http_response))
-}
-
-fn build_policy_draft_llm() -> Option<Arc<dyn tl_llm::LlmClient>> {
-    match tl_llm::OpenAiClient::from_env() {
-        Ok(client) => {
-            tracing::info!("policy-draft LLM enabled (OpenAI)");
-            Some(Arc::new(client))
-        }
-        Err(e) => {
-            tracing::info!(
-                error = %e,
-                "policy-draft LLM not configured; POST /v1/policies/draft will return 503"
-            );
-            None
-        }
-    }
 }

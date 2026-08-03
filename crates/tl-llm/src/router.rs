@@ -1,9 +1,8 @@
 //! Central LLM dispatcher.
 //!
-//! Tier 3 in `tl-engine` calls `LlmRouter::judge(kind, tenant, prompt, schema)`
-//! and gets back an `LlmOutput`. Everything else — provider selection,
-//! per-judge model choice, failover on primary error/timeout, per-tenant
-//! token budgets, telemetry to `tracing` — lives in here.
+//! Tier 3 in `tl-engine` uses the budgeted judge API. Server control-plane
+//! workloads use the unbudgeted route API. Provider selection, model choice,
+//! optional reasoning effort, failover, and telemetry live here.
 //!
 //! See `docs/concept/v0-design-decisions.md §9` for the rationale.
 
@@ -19,17 +18,79 @@ use std::time::Instant;
 use tracing::Span;
 
 use crate::budget::{BudgetExceeded, TokenBudget, TokenBudgetReservation};
-use crate::client::{JsonSchema, LlmClient, LlmError, LlmOutput};
+use crate::client::{JsonSchema, LlmClient, LlmCompletionOptions, LlmError, LlmOutput};
 use crate::config::ProviderTarget;
 
-/// Which judge is calling. String-keyed so `routes.<kind>` keys in TOML
-/// match these names case-insensitively.
+/// Runtime judge identity. This remains separate from the general route key
+/// because `LlmCallAudit.judge` is part of the persisted runtime trace contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum JudgeKind {
     Hallucination,
     Tone,
     Authority,
     SemanticPolicy,
+}
+
+/// A first-party model-selection workload in the canonical routing manifest.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LlmRouteKind {
+    Hallucination,
+    Tone,
+    Authority,
+    SemanticPolicy,
+    PolicyDraft,
+    PolicyAiEdit,
+    GuardrailGeneration,
+    GitHubIntegration,
+    DemoDefault,
+    DemoDispute,
+    DemoLivekit,
+}
+
+impl LlmRouteKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Hallucination => "hallucination",
+            Self::Tone => "tone",
+            Self::Authority => "authority",
+            Self::SemanticPolicy => "semantic_policy",
+            Self::PolicyDraft => "policy_draft",
+            Self::PolicyAiEdit => "policy_ai_edit",
+            Self::GuardrailGeneration => "guardrail_generation",
+            Self::GitHubIntegration => "github_integration",
+            Self::DemoDefault => "demo_default",
+            Self::DemoDispute => "demo_dispute",
+            Self::DemoLivekit => "demo_livekit",
+        }
+    }
+
+    pub(crate) fn parse(value: &str) -> Option<Self> {
+        match value {
+            "hallucination" => Some(Self::Hallucination),
+            "tone" => Some(Self::Tone),
+            "authority" => Some(Self::Authority),
+            "semantic_policy" => Some(Self::SemanticPolicy),
+            "policy_draft" => Some(Self::PolicyDraft),
+            "policy_ai_edit" => Some(Self::PolicyAiEdit),
+            "guardrail_generation" => Some(Self::GuardrailGeneration),
+            "github_integration" => Some(Self::GitHubIntegration),
+            "demo_default" => Some(Self::DemoDefault),
+            "demo_dispute" => Some(Self::DemoDispute),
+            "demo_livekit" => Some(Self::DemoLivekit),
+            _ => None,
+        }
+    }
+}
+
+impl From<JudgeKind> for LlmRouteKind {
+    fn from(value: JudgeKind) -> Self {
+        match value {
+            JudgeKind::Hallucination => Self::Hallucination,
+            JudgeKind::Tone => Self::Tone,
+            JudgeKind::Authority => Self::Authority,
+            JudgeKind::SemanticPolicy => Self::SemanticPolicy,
+        }
+    }
 }
 
 impl JudgeKind {
@@ -51,8 +112,20 @@ pub struct ResolvedRoute {
 
 pub struct LlmRouter {
     providers: HashMap<String, Arc<dyn LlmClient>>,
-    routes: HashMap<JudgeKind, ResolvedRoute>,
+    routes: HashMap<LlmRouteKind, ResolvedRoute>,
     budget: Arc<TokenBudget>,
+}
+
+struct DispatchedLlmOutput {
+    output: LlmOutput,
+    target: ProviderTarget,
+    fallback_used: bool,
+}
+
+struct DispatchedLlmError {
+    error: LlmError,
+    target: Option<ProviderTarget>,
+    fallback_used: bool,
 }
 
 /// One atomically admitted tenant evaluation.
@@ -102,7 +175,7 @@ impl std::fmt::Debug for LlmRouter {
 impl LlmRouter {
     pub fn new(
         providers: HashMap<String, Arc<dyn LlmClient>>,
-        routes: HashMap<JudgeKind, ResolvedRoute>,
+        routes: HashMap<LlmRouteKind, ResolvedRoute>,
         budget: Arc<TokenBudget>,
     ) -> Self {
         Self {
@@ -119,7 +192,12 @@ impl LlmRouter {
     /// True when a route is configured for `kind`. Tier 3 uses this to
     /// decide whether to call a judge or report `Skipped`.
     pub fn has_route(&self, kind: JudgeKind) -> bool {
-        self.routes.contains_key(&kind)
+        self.has_workload_route(kind.into())
+    }
+
+    /// True when the canonical manifest contains a route for this workload.
+    pub fn has_workload_route(&self, route: LlmRouteKind) -> bool {
+        self.routes.contains_key(&route)
     }
 
     /// Atomically admit one tenant evaluation.
@@ -201,74 +279,149 @@ impl LlmRouter {
         reservation: &TokenBudgetReservation<'_>,
         started: Instant,
     ) -> Result<AuditedLlmOutput, AuditedLlmError> {
-        let route = self.routes.get(&kind).ok_or_else(|| AuditedLlmError {
-            error: LlmError::Http(format!("no route configured for judge `{}`", kind.as_str())),
-            audit: failed_audit(kind, None, false, started.elapsed(), "route_missing"),
-        })?;
+        let route_kind = LlmRouteKind::from(kind);
+        let route = self
+            .routes
+            .get(&route_kind)
+            .ok_or_else(|| AuditedLlmError {
+                error: LlmError::Http(format!("no route configured for judge `{}`", kind.as_str())),
+                audit: failed_audit(kind, None, false, started.elapsed(), "route_missing"),
+            })?;
 
-        // Try primary.
-        match self.call_target(&route.primary, prompt, schema).await {
-            Ok(out) => {
-                self.record(reservation, tenant, kind, &route.primary, &out, false);
+        match self.dispatch(route_kind, route, prompt, schema).await {
+            Ok(dispatched) => {
+                self.record(
+                    reservation,
+                    tenant,
+                    kind,
+                    &dispatched.target,
+                    &dispatched.output,
+                    dispatched.fallback_used,
+                );
                 Ok(AuditedLlmOutput {
-                    audit: successful_audit(kind, &route.primary, &out, false, started.elapsed()),
-                    output: out,
+                    audit: successful_audit(
+                        kind,
+                        &dispatched.target,
+                        &dispatched.output,
+                        dispatched.fallback_used,
+                        started.elapsed(),
+                    ),
+                    output: dispatched.output,
                 })
             }
-            Err(primary_err) => {
-                if let Some(fallback) = &route.fallback {
-                    tracing::info!(
-                        judge = kind.as_str(),
-                        primary_provider = %route.primary.provider,
-                        primary_error = %primary_err,
-                        "primary failed, trying fallback"
-                    );
-                    match self.call_target(fallback, prompt, schema).await {
-                        Ok(out) => {
-                            self.record(reservation, tenant, kind, fallback, &out, true);
-                            Ok(AuditedLlmOutput {
-                                audit: successful_audit(
-                                    kind,
-                                    fallback,
-                                    &out,
-                                    true,
-                                    started.elapsed(),
-                                ),
-                                output: out,
-                            })
-                        }
-                        Err(fallback_err) => {
-                            tracing::error!(
-                                judge = kind.as_str(),
-                                primary_error = %primary_err,
-                                fallback_error = %fallback_err,
-                                "both primary and fallback failed"
-                            );
-                            let code = error_code(&fallback_err);
-                            Err(AuditedLlmError {
-                                error: fallback_err,
-                                audit: failed_audit(
-                                    kind,
-                                    Some(fallback),
-                                    true,
-                                    started.elapsed(),
-                                    code,
-                                ),
-                            })
-                        }
+            Err(dispatched) => {
+                let code = error_code(&dispatched.error);
+                Err(AuditedLlmError {
+                    error: dispatched.error,
+                    audit: failed_audit(
+                        kind,
+                        dispatched.target.as_ref(),
+                        dispatched.fallback_used,
+                        started.elapsed(),
+                        code,
+                    ),
+                })
+            }
+        }
+    }
+
+    /// Complete a pre-existing control-plane workload through the canonical
+    /// route without charging the Tier 3 runtime judge budget.
+    pub async fn complete_route(
+        &self,
+        route_kind: LlmRouteKind,
+        prompt: &str,
+        schema: &JsonSchema,
+    ) -> Result<LlmOutput, LlmError> {
+        let started = Instant::now();
+        let span = Span::current();
+        span.record("llm.route", route_kind.as_str());
+        let route = self.routes.get(&route_kind).ok_or_else(|| {
+            LlmError::Http(format!(
+                "no route configured for llm workload `{}`",
+                route_kind.as_str()
+            ))
+        })?;
+        let dispatched = match self.dispatch(route_kind, route, prompt, schema).await {
+            Ok(dispatched) => dispatched,
+            Err(dispatched) => {
+                if let Some(target) = &dispatched.target {
+                    span.record("llm.provider", target.provider.as_str());
+                    span.record("llm.model", target.model.as_str());
+                }
+                span.record("llm.fallback_used", dispatched.fallback_used);
+                tracing::warn!(
+                    route = route_kind.as_str(),
+                    fallback_used = dispatched.fallback_used,
+                    latency_ms = started.elapsed().as_millis() as u64,
+                    error = %dispatched.error,
+                    "llm workload failed"
+                );
+                return Err(dispatched.error);
+            }
+        };
+        span.record("llm.provider", dispatched.target.provider.as_str());
+        span.record("llm.model", dispatched.target.model.as_str());
+        span.record("llm.fallback_used", dispatched.fallback_used);
+        tracing::info!(
+            route = route_kind.as_str(),
+            provider = %dispatched.target.provider,
+            model = %dispatched.target.model,
+            prompt_tokens = dispatched.output.prompt_tokens,
+            completion_tokens = dispatched.output.completion_tokens,
+            fallback_used = dispatched.fallback_used,
+            latency_ms = started.elapsed().as_millis() as u64,
+            "llm workload completed"
+        );
+        Ok(dispatched.output)
+    }
+
+    async fn dispatch(
+        &self,
+        route_kind: LlmRouteKind,
+        route: &ResolvedRoute,
+        prompt: &str,
+        schema: &JsonSchema,
+    ) -> Result<DispatchedLlmOutput, DispatchedLlmError> {
+        match self.call_target(&route.primary, prompt, schema).await {
+            Ok(output) => Ok(DispatchedLlmOutput {
+                output,
+                target: route.primary.clone(),
+                fallback_used: false,
+            }),
+            Err(primary_error) => {
+                let Some(fallback) = &route.fallback else {
+                    return Err(DispatchedLlmError {
+                        error: primary_error,
+                        target: Some(route.primary.clone()),
+                        fallback_used: false,
+                    });
+                };
+                tracing::info!(
+                    route = route_kind.as_str(),
+                    primary_provider = %route.primary.provider,
+                    primary_error = %primary_error,
+                    "primary failed, trying fallback"
+                );
+                match self.call_target(fallback, prompt, schema).await {
+                    Ok(output) => Ok(DispatchedLlmOutput {
+                        output,
+                        target: fallback.clone(),
+                        fallback_used: true,
+                    }),
+                    Err(fallback_error) => {
+                        tracing::error!(
+                            route = route_kind.as_str(),
+                            primary_error = %primary_error,
+                            fallback_error = %fallback_error,
+                            "both primary and fallback failed"
+                        );
+                        Err(DispatchedLlmError {
+                            error: fallback_error,
+                            target: Some(fallback.clone()),
+                            fallback_used: true,
+                        })
                     }
-                } else {
-                    let code = error_code(&primary_err);
-                    Err(AuditedLlmError {
-                        error: primary_err,
-                        audit: failed_audit(
-                            kind,
-                            Some(&route.primary),
-                            false,
-                            started.elapsed(),
-                            code,
-                        ),
-                    })
                 }
             }
         }
@@ -285,8 +438,11 @@ impl LlmRouter {
             .get(&target.provider)
             .ok_or_else(|| LlmError::Http(format!("provider `{}` not found", target.provider)))?;
         let deadline = Duration::from_millis(target.deadline_ms as u64);
+        let options = LlmCompletionOptions {
+            reasoning_effort: target.reasoning_effort,
+        };
         client
-            .complete(&target.model, prompt, schema, deadline)
+            .complete_with_options(&target.model, prompt, schema, deadline, &options)
             .await
     }
 
@@ -305,12 +461,14 @@ impl LlmRouter {
         // Attach structured fields. Consumers query these in tracing logs.
         span.record("llm.provider", target.provider.as_str());
         span.record("llm.model", target.model.as_str());
+        span.record("llm.route", LlmRouteKind::from(kind).as_str());
         span.record("llm.judge", kind.as_str());
         span.record("llm.prompt_tokens", out.prompt_tokens as u64);
         span.record("llm.completion_tokens", out.completion_tokens as u64);
         span.record("llm.fallback_used", fallback_used);
         tracing::info!(
             tenant = tenant,
+            route = LlmRouteKind::from(kind).as_str(),
             judge = kind.as_str(),
             provider = %target.provider,
             model = %target.model,
@@ -401,8 +559,8 @@ pub enum RouterBuildError {
     MissingEnv(String),
     #[error("unknown provider kind `{0}` (expected openai|openrouter)")]
     UnknownProviderKind(String),
-    #[error("unknown judge kind `{0}` (expected hallucination|tone|authority|semantic_policy)")]
-    UnknownJudgeKind(String),
+    #[error("unknown llm route kind `{0}`")]
+    UnknownRouteKind(String),
     #[error("route references unknown provider `{0}`")]
     UnknownProvider(String),
     #[error("provider init failed: {0}")]

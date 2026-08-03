@@ -209,8 +209,9 @@ doppler secrets set -p featherlane_ai_demo_agent -c dev_livekit \
   FEATHERLANE_AI_API_KEY=tl_live_...
 ```
 
-`TL_SERVER_URL` and `OPENAI_MODEL` already live in that config; set
-`OPENAI_API_KEY` and the three `LIVEKIT_*` values there too before running.
+`TL_SERVER_URL` already lives in that config; set `OPENAI_API_KEY` and the three
+`LIVEKIT_*` values there too before running. The demo model comes from the
+`demo_livekit` route in `config/llm-routing.json`.
 
 Then run the LiveKit gateway demo from `demo/livekit/`:
 

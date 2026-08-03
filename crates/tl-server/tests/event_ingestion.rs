@@ -156,12 +156,13 @@ fn semantic_router(response: CannedLlmResponse) -> Arc<LlmRouter> {
     providers.insert("test".into(), Arc::new(CannedLlmClient { response }));
     let mut routes = HashMap::new();
     routes.insert(
-        JudgeKind::SemanticPolicy,
+        JudgeKind::SemanticPolicy.into(),
         ResolvedRoute {
             primary: ProviderTarget {
                 provider: "test".into(),
                 model: "semantic".into(),
                 deadline_ms: 1_000,
+                reasoning_effort: None,
             },
             fallback: None,
         },

@@ -26,6 +26,7 @@
     "marketing:build": "pnpm --filter marketing build",
     "test:marketing-use-cases": "tsx --test apps/marketing/app/use-cases/use-cases.test.ts",
     "test:marketing-nav": "tsx --test apps/marketing/components/nav.test.ts",
+    "test:model-routing": "tsx --test demo/shared/model-routing.test.ts",
     "test:healthcare-demo": "tsx --tsconfig apps/marketing/tsconfig.json --test demo/healthcare-agent/agent.test.ts demo/healthcare-agent/workspace.test.ts apps/marketing/app/api/demo/healthcare/route.test.ts apps/marketing/single-service-deployment.test.ts",
     "test:contextual-demo": "tsx --tsconfig apps/marketing/tsconfig.json --test demo/contextual-agent/agent.test.ts demo/contextual-agent/workspace.test.ts 'apps/marketing/app/api/demo/contextual/[category]/route.test.ts' apps/marketing/app/demo/company-profile.test.ts apps/marketing/single-service-deployment.test.ts",
     "test:refund-demo": "tsx --tsconfig apps/marketing/tsconfig.json --test demo/stripe-refund-agent/agent.test.ts demo/stripe-refund-agent/auth.test.ts demo/stripe-refund-agent/core.test.ts demo/stripe-refund-agent/deployment.test.ts demo/stripe-refund-agent/hosted.test.ts demo/stripe-refund-agent/status.test.ts apps/marketing/app/demo/company-profile.test.ts apps/marketing/app/demo/demo-contract.test.ts apps/marketing/app/demo/demo-meeting-prompt-state.test.ts apps/marketing/app/demo/status-model.test.ts apps/marketing/app/api/demo/refund/route.test.ts apps/marketing/app/api/demo/refund/provider/payments/route.test.ts apps/marketing/single-service-deployment.test.ts",

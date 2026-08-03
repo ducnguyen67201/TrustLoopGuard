@@ -16,6 +16,7 @@ test('packages the public demos and SDK inside the Marketing image', () => {
   assert.match(dockerfile, /COPY demo\/package\.json \.\/demo\//);
   assert.match(dockerfile, /COPY sdks\/typescript\/package\.json \.\/sdks\/typescript\//);
   assert.match(dockerfile, /COPY demo \.\/demo/);
+  assert.match(dockerfile, /COPY config \.\/config/);
   assert.match(dockerfile, /COPY sdks\/typescript \.\/sdks\/typescript/);
   assert.match(
     dockerfile,

@@ -6,10 +6,10 @@ use crate::client::LlmClient;
 use crate::config::RouterConfig;
 use crate::{OpenAiClient, OpenRouterClient};
 
-use super::{JudgeKind, LlmRouter, ResolvedRoute, RouterBuildError};
+use super::{LlmRouteKind, LlmRouter, ResolvedRoute, RouterBuildError};
 
 impl LlmRouter {
-    /// Build a router from parsed TOML config. Reads API keys from the
+    /// Build a router from parsed canonical config. Reads API keys from the
     /// env vars named in each provider's `api_key_env` at this point -
     /// missing keys produce a `RouterBuildError::MissingEnv`.
     pub fn from_config(config: &RouterConfig) -> Result<Self, RouterBuildError> {
@@ -60,10 +60,11 @@ fn build_provider(
 fn build_routes(
     config: &RouterConfig,
     providers: &HashMap<String, Arc<dyn LlmClient>>,
-) -> Result<HashMap<JudgeKind, ResolvedRoute>, RouterBuildError> {
+) -> Result<HashMap<LlmRouteKind, ResolvedRoute>, RouterBuildError> {
     let mut routes = HashMap::new();
     for (name, route) in &config.routes {
-        let kind = judge_kind(name)?;
+        let kind = LlmRouteKind::parse(name)
+            .ok_or_else(|| RouterBuildError::UnknownRouteKind(name.clone()))?;
         // Validate referenced providers now so misconfigs fail at boot, not on
         // the first request.
         ensure_provider_exists(providers, &route.primary.provider)?;
@@ -79,16 +80,6 @@ fn build_routes(
         );
     }
     Ok(routes)
-}
-
-fn judge_kind(name: &str) -> Result<JudgeKind, RouterBuildError> {
-    match name {
-        "hallucination" => Ok(JudgeKind::Hallucination),
-        "tone" => Ok(JudgeKind::Tone),
-        "authority" => Ok(JudgeKind::Authority),
-        "semantic_policy" => Ok(JudgeKind::SemanticPolicy),
-        other => Err(RouterBuildError::UnknownJudgeKind(other.into())),
-    }
 }
 
 fn ensure_provider_exists(

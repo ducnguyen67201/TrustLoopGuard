@@ -120,6 +120,9 @@ scan_typescript() {
   # Imports that escape the example: `from '../../something'` etc.
   while IFS= read -r hit; do
     [[ -z "${hit}" ]] && continue
+    # First-party demo model selection intentionally reads the versioned,
+    # data-only routing manifest. This is configuration, not an internal API.
+    [[ "${hit}" == *"../../config/llm-routing.json"* ]] && continue
     violations+=("ts    : ${hit} (escapes example dir — use the published SDK)")
   done < <(
     echo "${ts_files}" |

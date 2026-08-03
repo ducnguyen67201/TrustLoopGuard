@@ -7,7 +7,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde_json::json;
 
-use crate::client::{JsonSchema, LlmClient, LlmError, LlmOutput};
+use crate::client::{JsonSchema, LlmClient, LlmCompletionOptions, LlmError, LlmOutput};
 use crate::wire::{call_chat_completions, RequestParts};
 
 const DEFAULT_BASE_URL: &str = "https://openrouter.ai/api";
@@ -60,7 +60,25 @@ impl LlmClient for OpenRouterClient {
         schema: &JsonSchema,
         deadline: Duration,
     ) -> Result<LlmOutput, LlmError> {
-        let body = json!({
+        self.complete_with_options(
+            model,
+            prompt,
+            schema,
+            deadline,
+            &LlmCompletionOptions::default(),
+        )
+        .await
+    }
+
+    async fn complete_with_options(
+        &self,
+        model: &str,
+        prompt: &str,
+        schema: &JsonSchema,
+        deadline: Duration,
+        options: &LlmCompletionOptions,
+    ) -> Result<LlmOutput, LlmError> {
+        let mut body = json!({
             "model": model,
             "messages": [{ "role": "user", "content": prompt }],
             "response_format": {
@@ -72,6 +90,9 @@ impl LlmClient for OpenRouterClient {
                 }
             }
         });
+        if let Some(effort) = options.reasoning_effort {
+            body["reasoning_effort"] = json!(effort.as_str());
+        }
         call_chat_completions(RequestParts {
             http: &self.http,
             url: format!("{}/v1/chat/completions", self.base_url),

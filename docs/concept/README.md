@@ -34,6 +34,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 | Product usage analytics | [product-analytics.md](product-analytics.md) | PostHog observes marketing and dashboard use without owning guardrail/runtime data. |
 | Policy authoring | [../policies/README.md](../policies/README.md) | YAML policies are validated, saved, evaluated, and then surfaced in traces. |
 | Customer integration | [../INTEGRATION.md](../INTEGRATION.md) | Teams install an SDK, register an agent, decorate it once, then tune from traces. |
+| First-party LLM selection | [llm-routing.md](llm-routing.md) | One manifest routes runtime judges, control-plane assistance, and bundled demos. |
 
 ## Reading order
 
@@ -52,6 +53,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 13. [sdk-publishing.md](sdk-publishing.md) — how `@featherlane-ai/sdk` is released to npm.
 14. [cli-publishing.md](cli-publishing.md) — how `@featherlane-ai/cli` is released to npm.
 15. [sdk-agent-adapters.md](sdk-agent-adapters.md) — how TypeScript agent wrappers discover local tools and where visibility stops.
+16. [llm-routing.md](llm-routing.md) — how first-party LLM workloads select providers, models, reasoning, deadlines, and fallbacks.
 
 ## When to update these docs
 
@@ -69,6 +71,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 - Changed TypeScript framework discovery or automatic tool wrapping? → update `sdk-agent-adapters.md`.
 - Changed the raw-vs-guarded comparison concept or the agent adapter contract? → update `agent-breakaway-arena.md`.
 - Changed PostHog initialization, identity, or product event names? → update `product-analytics.md`.
+- Changed first-party LLM route selection or budget boundaries? → update `llm-routing.md`.
 
 ## Diagram workflow
 
