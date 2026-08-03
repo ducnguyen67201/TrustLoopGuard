@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import type { AuthorizationDecision, Client, GuardEvent, Source } from '@featherlane-ai/sdk';
 
 import { createClient, DEFAULT_AGENT_ID } from '../shared/env';
+import { demoModelRoute } from '../shared/model-routing';
 
 export interface RefundRequest {
   /**
@@ -51,6 +52,7 @@ const SYSTEM_PROMPT = [
 ].join(' ');
 
 const DEFAULT_SESSION_ID = process.env.DISPUTE_SESSION_ID?.trim() || 'northpay-dispute-local';
+const DEMO_MODEL_ROUTE = demoModelRoute('demo_dispute');
 
 const source: Source = {
   id: 'conversation',
@@ -88,13 +90,16 @@ export async function runDisputeAgent(
         baseURL: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
       });
       const response = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+        model: DEMO_MODEL_ROUTE.model,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: message },
         ],
         tools: [refundTool],
         tool_choice: 'auto',
+        ...(DEMO_MODEL_ROUTE.reasoningEffort === undefined
+          ? {}
+          : { reasoning_effort: DEMO_MODEL_ROUTE.reasoningEffort }),
       });
       const assistant = response.choices[0]?.message;
       const toolCall = assistant?.tool_calls?.find(

@@ -116,8 +116,7 @@ fn build_app() -> Router {
             agent_store: agent_store.clone(),
             policy_store,
             environment_store: environment_store.clone(),
-            draft_llm: None,
-            draft_model: "stub-model".to_string(),
+            llm: Arc::new(tl_llm::LlmRouter::empty()),
         });
 
     let plan_routes = Router::new()

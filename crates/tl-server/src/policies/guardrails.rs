@@ -9,7 +9,7 @@ use axum::{
 #[allow(unused_imports)]
 use tl_core::ApiError;
 use tl_core::{ApiErrorCode, GuardrailGenerateResponse, GuardrailListResponse};
-use tl_llm::LlmClient;
+use tl_llm::{LlmRouteKind, LlmRouter};
 
 use crate::agents::{AgentStore, AgentStoreError};
 use crate::environments::EnvironmentStore;
@@ -23,14 +23,13 @@ use super::{
 };
 
 /// State for the `/v1/agents/{id}/guardrails*` endpoints. Carries both
-/// stores plus the LLM client used to derive the policy set.
+/// stores plus the shared LLM router used to derive the policy set.
 #[derive(Clone)]
 pub struct GuardrailState {
     pub agent_store: Arc<dyn AgentStore>,
     pub policy_store: Arc<dyn PolicyStore>,
     pub environment_store: Arc<dyn EnvironmentStore>,
-    pub draft_llm: Option<Arc<dyn LlmClient>>,
-    pub draft_model: String,
+    pub llm: Arc<LlmRouter>,
 }
 
 /// `POST /v1/agents/{id}/guardrails/generate` — derive a set of
@@ -99,22 +98,26 @@ pub async fn generate_guardrails(
         }
     };
 
-    let Some(client) = state.draft_llm.clone() else {
+    if !state
+        .llm
+        .has_workload_route(LlmRouteKind::GuardrailGeneration)
+    {
         return api_error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             ApiErrorCode::Unavailable,
             "guardrail generation is not configured on this deployment (no LLM key)".into(),
         );
-    };
+    }
 
     let composed = format!("{POLICY_SET_DRAFT_SYSTEM_PROMPT}\nAgent system prompt:\n{prompt}");
     let schema = policy_set_draft_json_schema();
-    let out = match client
-        .complete(
-            &state.draft_model,
+    let out = match state
+        .llm
+        .complete_route(
+            LlmRouteKind::GuardrailGeneration,
+            &workspace_id,
             &composed,
             &schema,
-            std::time::Duration::from_secs(60),
         )
         .await
     {

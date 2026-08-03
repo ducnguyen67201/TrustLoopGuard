@@ -85,6 +85,26 @@ struct BlockingClient {
     release: Arc<Notify>,
 }
 
+struct DelayedFailureClient {
+    calls: Arc<AtomicUsize>,
+    delay: Duration,
+}
+
+#[async_trait]
+impl LlmClient for DelayedFailureClient {
+    async fn complete(
+        &self,
+        _model: &str,
+        _prompt: &str,
+        _schema: &JsonSchema,
+        _deadline: Duration,
+    ) -> Result<LlmOutput, LlmError> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        tokio::time::sleep(self.delay).await;
+        Err(LlmError::Status(500, "delayed failure".into()))
+    }
+}
+
 #[async_trait]
 impl LlmClient for BlockingClient {
     async fn complete(
@@ -110,6 +130,26 @@ fn target(provider: &str, model: &str) -> ProviderTarget {
         provider: provider.into(),
         model: model.into(),
         deadline_ms: 1_000,
+        reasoning_effort: None,
+    }
+}
+
+#[test]
+fn route_kind_strings_round_trip() {
+    for kind in [
+        LlmRouteKind::Hallucination,
+        LlmRouteKind::Tone,
+        LlmRouteKind::Authority,
+        LlmRouteKind::SemanticPolicy,
+        LlmRouteKind::PolicyDraft,
+        LlmRouteKind::PolicyAiEdit,
+        LlmRouteKind::GuardrailGeneration,
+        LlmRouteKind::GitHubIntegration,
+        LlmRouteKind::DemoDefault,
+        LlmRouteKind::DemoDispute,
+        LlmRouteKind::DemoLivekit,
+    ] {
+        assert_eq!(LlmRouteKind::parse(kind.as_str()), Some(kind));
     }
 }
 
@@ -122,7 +162,7 @@ async fn primary_success_records_budget_and_skips_fallback() {
     providers.insert("f".into(), Arc::new(fallback));
     let mut routes = HashMap::new();
     routes.insert(
-        JudgeKind::Hallucination,
+        LlmRouteKind::Hallucination,
         ResolvedRoute {
             primary: target("p", "m1"),
             fallback: Some(target("f", "m2")),
@@ -150,7 +190,7 @@ async fn primary_failure_falls_back_to_secondary() {
     providers.insert("f".into(), Arc::new(fallback));
     let mut routes = HashMap::new();
     routes.insert(
-        JudgeKind::Hallucination,
+        LlmRouteKind::Hallucination,
         ResolvedRoute {
             primary: target("p", "m1"),
             fallback: Some(target("f", "m2")),
@@ -169,13 +209,61 @@ async fn primary_failure_falls_back_to_secondary() {
 }
 
 #[tokio::test]
+async fn primary_and_fallback_share_one_route_deadline() {
+    let primary_calls = Arc::new(AtomicUsize::new(0));
+    let fallback_calls = Arc::new(AtomicUsize::new(0));
+    let entered = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let mut providers: HashMap<String, Arc<dyn LlmClient>> = HashMap::new();
+    providers.insert(
+        "p".into(),
+        Arc::new(DelayedFailureClient {
+            calls: primary_calls.clone(),
+            delay: Duration::from_millis(50),
+        }),
+    );
+    providers.insert(
+        "f".into(),
+        Arc::new(BlockingClient {
+            calls: fallback_calls.clone(),
+            entered,
+            release,
+        }),
+    );
+    let mut primary = target("p", "m1");
+    primary.deadline_ms = 80;
+    let mut fallback = target("f", "m2");
+    fallback.deadline_ms = 80;
+    let mut routes = HashMap::new();
+    routes.insert(
+        LlmRouteKind::PolicyDraft,
+        ResolvedRoute {
+            primary,
+            fallback: Some(fallback),
+        },
+    );
+    let router = LlmRouter::new(providers, routes, Arc::new(TokenBudget::new(0)));
+
+    let completion = tokio::time::timeout(
+        Duration::from_millis(130),
+        router.complete_route(LlmRouteKind::PolicyDraft, "acme", "prompt", &schema()),
+    )
+    .await
+    .expect("router must enforce the combined route deadline");
+
+    assert!(matches!(completion, Err(LlmError::Timeout(_))));
+    assert_eq!(primary_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(fallback_calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
 async fn no_fallback_propagates_primary_error() {
     let (primary, _) = MockClient::fail();
     let mut providers: HashMap<String, Arc<dyn LlmClient>> = HashMap::new();
     providers.insert("p".into(), Arc::new(primary));
     let mut routes = HashMap::new();
     routes.insert(
-        JudgeKind::Tone,
+        LlmRouteKind::Tone,
         ResolvedRoute {
             primary: target("p", "m1"),
             fallback: None,
@@ -196,7 +284,7 @@ async fn over_budget_blocks_request_before_calling_provider() {
     providers.insert("p".into(), Arc::new(primary));
     let mut routes = HashMap::new();
     routes.insert(
-        JudgeKind::Hallucination,
+        LlmRouteKind::Hallucination,
         ResolvedRoute {
             primary: target("p", "m1"),
             fallback: None,
@@ -234,7 +322,7 @@ async fn concurrent_requests_cannot_claim_the_same_remaining_budget() {
     );
     let mut routes = HashMap::new();
     routes.insert(
-        JudgeKind::Hallucination,
+        LlmRouteKind::Hallucination,
         ResolvedRoute {
             primary: target("p", "m1"),
             fallback: None,
@@ -275,7 +363,7 @@ async fn concurrent_requests_cannot_claim_the_same_remaining_budget() {
 #[tokio::test]
 async fn missing_route_yields_http_error() {
     let providers: HashMap<String, Arc<dyn LlmClient>> = HashMap::new();
-    let routes: HashMap<JudgeKind, ResolvedRoute> = HashMap::new();
+    let routes: HashMap<LlmRouteKind, ResolvedRoute> = HashMap::new();
     let router = LlmRouter::new(providers, routes, Arc::new(TokenBudget::new(0)));
     let err = router
         .judge(JudgeKind::Authority, "acme", "p", &schema())
@@ -291,7 +379,7 @@ async fn semantic_policy_route_uses_configured_provider() {
     providers.insert("p".into(), Arc::new(primary));
     let mut routes = HashMap::new();
     routes.insert(
-        JudgeKind::SemanticPolicy,
+        LlmRouteKind::SemanticPolicy,
         ResolvedRoute {
             primary: target("p", "semantic-model"),
             fallback: None,
@@ -312,33 +400,117 @@ async fn semantic_policy_route_uses_configured_provider() {
 
 #[test]
 fn build_from_config_validates_referenced_providers() {
-    let bad = r#"
-[providers.openai]
-kind = "openai"
-api_key_env = "OPENAI_API_KEY"
-
-[routes.hallucination]
-primary = { provider = "ghost", model = "x", deadline_ms = 100 }
-"#;
-    std::env::set_var("OPENAI_API_KEY", "test-key");
+    let bad = r#"{
+      "schema_version": 1,
+      "providers": {
+        "openai": {
+          "kind": "openai",
+          "api_key_env": "TL_LLM_TEST_INTENTIONALLY_MISSING_CREDENTIAL"
+        }
+      },
+      "routes": {
+        "hallucination": {
+          "primary": { "provider": "ghost", "model": "x", "deadline_ms": 100 }
+        }
+      }
+    }"#;
     let cfg = RouterConfig::parse(bad).unwrap();
     let err = LlmRouter::from_config(&cfg).unwrap_err();
     assert!(matches!(err, RouterBuildError::UnknownProvider(_)));
 }
 
 #[test]
-fn build_from_config_accepts_semantic_policy_route() {
-    let src = r#"
-[providers.openai]
-kind = "openai"
-api_key_env = "OPENAI_API_KEY"
+fn build_from_config_rejects_unknown_provider_kind_without_credentials() {
+    let source = r#"{
+      "schema_version": 1,
+      "providers": {
+        "local": {
+          "kind": "local",
+          "api_key_env": "TL_LLM_TEST_INTENTIONALLY_MISSING_CREDENTIAL"
+        }
+      },
+      "routes": {
+        "hallucination": {
+          "primary": { "provider": "local", "model": "m", "deadline_ms": 100 }
+        }
+      }
+    }"#;
+    let config = RouterConfig::parse(source).expect("config");
+    let error = LlmRouter::from_config(&config).expect_err("unknown provider kind");
+    assert!(matches!(error, RouterBuildError::UnknownProviderKind(_)));
+}
 
-[routes.semantic_policy]
-primary = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 700 }
-"#;
+#[test]
+fn build_from_config_accepts_semantic_policy_route() {
+    let src = r#"{
+      "schema_version": 1,
+      "providers": {
+        "openai": { "kind": "openai", "api_key_env": "OPENAI_API_KEY" }
+      },
+      "routes": {
+        "semantic_policy": {
+          "primary": {
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "deadline_ms": 700
+          }
+        }
+      }
+    }"#;
     std::env::set_var("OPENAI_API_KEY", "test-key");
     let cfg = RouterConfig::parse(src).unwrap();
     let router = LlmRouter::from_config(&cfg).expect("semantic policy route parses");
 
     assert!(router.has_route(JudgeKind::SemanticPolicy));
+}
+
+#[tokio::test]
+async fn control_plane_route_does_not_charge_runtime_budget() {
+    let (primary, primary_calls) = MockClient::fail();
+    let (fallback, fallback_calls) = MockClient::ok(8, 2);
+    let mut providers: HashMap<String, Arc<dyn LlmClient>> = HashMap::new();
+    providers.insert("p".into(), Arc::new(primary));
+    providers.insert("f".into(), Arc::new(fallback));
+    let mut routes = HashMap::new();
+    routes.insert(
+        LlmRouteKind::PolicyDraft,
+        ResolvedRoute {
+            primary: target("p", "draft-model"),
+            fallback: Some(target("f", "fallback-draft-model")),
+        },
+    );
+    let budget = TokenBudget::new(10);
+    budget.record("acme", 10);
+    let router = LlmRouter::new(providers, routes, Arc::new(budget));
+
+    let output = router
+        .complete_route(LlmRouteKind::PolicyDraft, "acme", "prompt", &schema())
+        .await
+        .expect("control-plane completion");
+
+    assert_eq!(output.prompt_tokens, 8);
+    assert_eq!(primary_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(fallback_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(router.budget().used("acme"), 10);
+}
+
+#[test]
+fn build_from_config_rejects_unknown_route_without_provider_credentials() {
+    let source = r#"{
+      "schema_version": 1,
+      "providers": {
+        "openai": {
+          "kind": "openai",
+          "api_key_env": "TL_LLM_TEST_INTENTIONALLY_MISSING_CREDENTIAL"
+        }
+      },
+      "routes": {
+        "policy_darft": {
+          "primary": { "provider": "openai", "model": "m", "deadline_ms": 100 }
+        }
+      }
+    }"#;
+    let config = RouterConfig::parse(source).expect("config");
+    let error = LlmRouter::from_config(&config).expect_err("unknown route");
+    assert!(matches!(error, RouterBuildError::UnknownRouteKind(_)));
 }

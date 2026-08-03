@@ -5,10 +5,48 @@
 
 use std::time::Duration;
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use tokio::time::timeout;
 
-use crate::client::{LlmError, LlmOutput};
+use crate::client::{JsonSchema, LlmCompletionOptions, LlmError, LlmOutput};
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum ReasoningWireFormat {
+    OpenAi,
+    OpenRouter,
+}
+
+pub(crate) fn chat_completion_body(
+    model: &str,
+    prompt: &str,
+    schema: &JsonSchema,
+    options: &LlmCompletionOptions,
+    reasoning_format: ReasoningWireFormat,
+) -> Value {
+    let mut body = json!({
+        "model": model,
+        "messages": [{ "role": "user", "content": prompt }],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": schema.name,
+                "strict": true,
+                "schema": schema.schema,
+            }
+        }
+    });
+    if let Some(effort) = options.reasoning_effort {
+        match reasoning_format {
+            ReasoningWireFormat::OpenAi => {
+                body["reasoning_effort"] = json!(effort.as_str());
+            }
+            ReasoningWireFormat::OpenRouter => {
+                body["reasoning"] = json!({ "effort": effort.as_str() });
+            }
+        }
+    }
+    body
+}
 
 pub(crate) struct RequestParts<'a> {
     pub http: &'a reqwest::Client,

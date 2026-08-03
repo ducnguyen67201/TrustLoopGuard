@@ -310,12 +310,15 @@ The Tier 2 primitives. Three small pieces:
 
 **Files:** [`crates/tl-llm/src/`](../../crates/tl-llm/src/)
 
-The Tier 3 surface. Two layers:
+The first-party LLM surface. Two layers:
 
 1. **`LlmClient` trait** with concrete implementations: `OpenAiClient`, `OpenRouterClient`. Both speak OpenAI-compatible chat completions with `response_format: { json_schema, strict: true }`.
-2. **`LlmRouter`** — the *chokepoint*. Routes by `JudgeKind` (Hallucination, Tone, Authority), handles primary/fallback failover, enforces per-tenant `TokenBudget`, emits structured tracing fields per call. Tier 3 calls one method: `router.judge(kind, tenant, prompt, schema)`.
+2. **`LlmRouter`** — the *chokepoint*. It dispatches typed runtime-judge and control-plane workload routes with shared primary/fallback, deadline, reasoning, and telemetry behavior. Tier 3 uses the budgeted judge API; existing policy/GitHub assistance uses the unbudgeted control-plane API.
 
-Routing is configured in TOML (`config/llm-routing.toml` is the canonical example).
+Routing is configured only by the embedded, versioned
+`config/llm-routing.json` manifest. See
+[first-party LLM routing](llm-routing.md) for route ownership and budget
+boundaries.
 
 **Why it's its own crate:** keeping LLM transport, prompts, and the router together means swapping providers or adding a third never touches `tl-engine`. The trait is the seam.
 

@@ -29,6 +29,7 @@ FROM chef AS planner
 # Copy only the manifest data needed to compute the dep graph. cargo-chef
 # walks the workspace, so we need every Cargo.toml, but no source files.
 COPY Cargo.toml Cargo.lock rust-toolchain.toml clippy.toml rustfmt.toml ./
+COPY config ./config
 COPY crates ./crates
 RUN cargo chef prepare --recipe-path recipe.json
 
@@ -47,6 +48,7 @@ RUN cargo chef cook --release --recipe-path recipe.json -p tl-server --features 
 
 # Now bring in the actual sources and build only tl-server.
 COPY Cargo.toml Cargo.lock rust-toolchain.toml clippy.toml rustfmt.toml ./
+COPY config ./config
 COPY crates ./crates
 RUN cargo build --release -p tl-server --features postgres \
     && strip target/release/tl-server

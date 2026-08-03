@@ -30,6 +30,7 @@ COPY --from=deps /app/sdks/typescript/node_modules ./sdks/typescript/node_module
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY apps/marketing ./apps/marketing
+COPY config ./config
 COPY demo ./demo
 COPY sdks/typescript ./sdks/typescript
 

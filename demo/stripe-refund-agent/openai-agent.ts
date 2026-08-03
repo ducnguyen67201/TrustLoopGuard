@@ -4,7 +4,8 @@ import type {
   ChatCompletionMessageParam,
 } from 'openai/resources/chat/completions';
 
-import { OPENAI_API_KEY, OPENAI_MODEL } from '../shared/env';
+import { OPENAI_API_KEY } from '../shared/env';
+import { demoModelRoute } from '../shared/model-routing';
 import type { RefundAgentClient } from './core';
 import { refundAgentTools, runRefundTool } from './tool-runner';
 import type { AgentRunOptions, AgentRunResult, ToolTrace } from './types';
@@ -16,6 +17,7 @@ const SYSTEM_PROMPT = [
   'Only execute refunds through Featherlane AI.',
   'Never ask for or mention Stripe secret keys.',
 ].join(' ');
+const DEMO_MODEL_ROUTE = demoModelRoute('demo_default');
 
 export async function runOpenAiRefundAgent(
   prompt: string,
@@ -83,10 +85,13 @@ async function nextAssistantMessage(
   messages: ChatCompletionMessageParam[],
 ): Promise<ChatCompletionMessage | undefined> {
   const response = await openai.chat.completions.create({
-    model: OPENAI_MODEL,
+    model: DEMO_MODEL_ROUTE.model,
     messages,
     tools: refundAgentTools,
     tool_choice: 'auto',
+    ...(DEMO_MODEL_ROUTE.reasoningEffort === undefined
+      ? {}
+      : { reasoning_effort: DEMO_MODEL_ROUTE.reasoningEffort }),
   });
   return response.choices[0]?.message;
 }

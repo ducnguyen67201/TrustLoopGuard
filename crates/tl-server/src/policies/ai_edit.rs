@@ -1,12 +1,13 @@
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
 use tl_core::{AiEditRequest, AiEditResponse, ApiErrorCode};
+use tl_llm::LlmRouteKind;
 
-use super::{api_error_response, PolicyState};
+use super::{api_error_response, workspace_id_from_headers, PolicyState};
 
 const AI_EDIT_SYSTEM_PROMPT: &str = concat!(
     "You are a Featherlane AI policy YAML editor. ",
@@ -19,7 +20,15 @@ const AI_EDIT_SYSTEM_PROMPT: &str = concat!(
 /// `POST /v1/policies/ai-edit` — apply a natural-language instruction to existing
 /// policy YAML via LLM and return the modified YAML. Stateless; the caller decides
 /// whether to save the result via the normal upsert endpoint.
-pub async fn ai_edit_policy(State(state): State<PolicyState>, body: bytes::Bytes) -> Response {
+pub async fn ai_edit_policy(
+    State(state): State<PolicyState>,
+    headers: HeaderMap,
+    body: bytes::Bytes,
+) -> Response {
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let req: AiEditRequest = match serde_json::from_slice(&body) {
         Ok(r) => r,
         Err(e) => {
@@ -38,13 +47,13 @@ pub async fn ai_edit_policy(State(state): State<PolicyState>, body: bytes::Bytes
         );
     }
 
-    let Some(client) = state.draft_llm.clone() else {
+    if !state.llm.has_workload_route(LlmRouteKind::PolicyAiEdit) {
         return api_error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             ApiErrorCode::Unavailable,
             "AI editing is not configured on this deployment (no LLM key)".into(),
         );
-    };
+    }
 
     let user_prompt = format!(
         "Current YAML:\n{}\n\nInstruction: {}",
@@ -65,12 +74,13 @@ pub async fn ai_edit_policy(State(state): State<PolicyState>, body: bytes::Bytes
         }),
     };
 
-    let out = match client
-        .complete(
-            &state.draft_model,
+    let out = match state
+        .llm
+        .complete_route(
+            LlmRouteKind::PolicyAiEdit,
+            &workspace_id,
             &format!("{AI_EDIT_SYSTEM_PROMPT}\n\n{user_prompt}"),
             &schema,
-            std::time::Duration::from_secs(30),
         )
         .await
     {
