@@ -57,7 +57,7 @@
 .panelHeader p {
   margin: 0 0 0.3rem;
   color: var(--color-accent-deep);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -66,7 +66,7 @@
 
 .panelHeader h2 {
   margin: 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.3rem;
   letter-spacing: -0.03em;
 }
@@ -81,7 +81,7 @@
   padding: 0.42rem 0.7rem;
   background: var(--color-panel);
   color: var(--color-muted);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -147,7 +147,7 @@
   display: block;
   margin-bottom: 0.35rem;
   color: var(--color-muted);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -279,7 +279,7 @@
 
 .monitorSectionHeading span {
   color: var(--color-muted);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -393,7 +393,7 @@
   display: block;
   margin-top: 0.4rem;
   color: var(--color-muted);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -405,7 +405,7 @@
   justify-items: end;
   gap: 0.25rem;
   color: var(--color-muted);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.58rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -440,7 +440,7 @@
 
 .workflowStep > span {
   color: var(--color-muted);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
 }
 
@@ -508,7 +508,7 @@
 
 .proofGrid article > span {
   color: var(--color-muted);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -519,7 +519,7 @@
   display: block;
   margin: 0.5rem 0 0.9rem;
   overflow: hidden;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -548,7 +548,7 @@
 .proofGrid dd {
   margin: 0;
   overflow: hidden;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;

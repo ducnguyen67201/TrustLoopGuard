@@ -58,9 +58,11 @@
   display: inline-flex;
   align-items: center;
   gap: 0.65rem;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-mono);
   font-size: 0.95rem;
-  font-weight: 680;
+  font-weight: 400;
+  letter-spacing: 0.025em;
+  white-space: nowrap;
 }
 
 .wordmark img {
@@ -73,7 +75,7 @@
   align-items: center;
   gap: 0.65rem;
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -100,7 +102,7 @@
 .panelHeader p {
   margin: 0 0 0.7rem;
   color: var(--color-accent-deep);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -114,7 +116,7 @@
 
 .intro h1 {
   margin: 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.2rem;
   line-height: 1.2;
   letter-spacing: -0.035em;
@@ -133,7 +135,7 @@
   padding: 0.42rem 0.65rem;
   background: color-mix(in srgb, var(--color-allow) 6%, var(--color-panel));
   color: var(--color-allow);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -192,7 +194,7 @@
 
 .panelHeader h2 {
   margin: 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.1rem;
   letter-spacing: -0.03em;
   overflow-wrap: anywhere;
@@ -208,7 +210,7 @@
   padding: 0.42rem 0.7rem;
   background: var(--color-panel);
   color: var(--color-muted);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -274,7 +276,7 @@
   display: block;
   margin-bottom: 0.35rem;
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -406,7 +408,7 @@
   background: var(--color-panel-2);
   color: var(--color-muted);
   cursor: pointer;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
 }
 
@@ -460,13 +462,13 @@
 
 .workflowStep > span {
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
 }
 
 .workflowStep h3 {
   margin: 0 0 0.3rem;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.9rem;
 }
 
@@ -529,7 +531,7 @@
 
 .proofGrid article > span {
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -540,7 +542,7 @@
   display: block;
   margin: 0.35rem 0 0.6rem;
   overflow: hidden;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -564,13 +566,13 @@
 
 .proofGrid dt {
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
 }
 
 .proofGrid dd {
   margin: 0;
   overflow: hidden;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -673,7 +675,7 @@
 
 .monitorSectionHeading span {
   color: var(--color-muted);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -703,7 +705,7 @@
 .checkStep > span {
   padding-top: 0.15rem;
   color: var(--color-muted);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
 }
 
@@ -721,7 +723,7 @@
 
 .checkStep strong {
   color: var(--color-muted);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -739,7 +741,7 @@
   margin-top: 0.4rem;
   overflow-wrap: anywhere;
   color: var(--color-muted);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
 }
 
@@ -872,7 +874,7 @@
   display: block;
   margin-top: 0.4rem;
   color: var(--color-muted);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -895,7 +897,7 @@
   justify-items: end;
   gap: 0.25rem;
   color: var(--color-muted);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.58rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -916,7 +918,7 @@
   padding: 0.45rem 0.65rem;
   background: var(--color-panel);
   color: var(--company-accent);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -938,7 +940,7 @@
   display: block;
   margin-bottom: 0.45rem;
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1009,7 +1011,7 @@
 
 .companyPolicyRecord strong {
   color: var(--color-muted);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1069,7 +1071,7 @@
 .meetingPromptKicker {
   margin: 0 0 0.6rem;
   color: var(--color-accent-deep);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -1079,7 +1081,7 @@
 .meetingPromptCard h2 {
   max-width: 22rem;
   margin: 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(1.6rem, 5vw, 2.15rem);
   line-height: 1.08;
   letter-spacing: -0.045em;
@@ -1244,7 +1246,9 @@
   }
 
   .safetyNote {
+    max-width: 100%;
     justify-self: start;
+    white-space: normal;
   }
 
   .shell {

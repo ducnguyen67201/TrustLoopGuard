@@ -32,11 +32,12 @@
 @theme inline {
   --color-background: var(--color-page);
   --color-foreground: var(--color-ink);
-  --font-sans: var(--font-inter, ui-sans-serif, system-ui, sans-serif);
-  --font-mono: var(--font-pixel), var(--font-geist-mono, ui-monospace, SFMono-Regular, monospace);
-  /* Bare <code>/<pre> use Tailwind's preflight default, not the font-mono
-     utility — point it at the same stack so they get the pixel face too. */
-  --default-mono-font-family: var(--font-mono);
+  /* One face, one source token: every Tailwind and browser font role resolves
+     through Departure Mono so changing --font-primary updates the whole UI. */
+  --font-sans: var(--font-primary), ui-monospace, 'SFMono-Regular', monospace;
+  --font-mono: var(--font-sans);
+  --default-font-family: var(--font-sans);
+  --default-mono-font-family: var(--font-sans);
 }
 
 * {
@@ -55,20 +56,18 @@ body {
   font-feature-settings: 'cv01', 'ss01';
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* Departure Mono ships weight 400 only; faux-bold smears a pixel grid.
-     Bold mono renders as regular instead. Inter/Space Grotesk are unaffected. */
+  /* Departure Mono ships weight 400 only; faux-bold smears a pixel grid. */
   font-synthesis-weight: none;
 }
 
-/* Headings default to the display face. Component rules that want mono
-   (footer link groups) or another face still win on specificity. */
+/* Every type role resolves through the same global token. */
 h1,
 h2,
 h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
 }
 
 a {
@@ -77,7 +76,9 @@ a {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -112,10 +113,11 @@ input {
   display: inline-flex;
   align-items: center;
   gap: 0.7rem;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-mono);
   font-size: 0.95rem;
-  font-weight: 650;
-  letter-spacing: -0.02em;
+  font-weight: 400;
+  letter-spacing: 0.025em;
+  white-space: nowrap;
 }
 
 .wordmark-logo {
@@ -123,6 +125,21 @@ input {
   height: 2rem;
   width: auto;
   flex: 0 0 auto;
+}
+
+@media (max-width: 480px) {
+  .site-nav {
+    gap: 0.5rem;
+  }
+
+  .wordmark {
+    gap: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .wordmark-logo {
+    height: 1.5rem;
+  }
 }
 
 .site-nav-links {
@@ -225,7 +242,7 @@ input {
 
 .site-nav-mega-header small {
   color: var(--color-accent-deep);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -234,7 +251,7 @@ input {
 
 .site-nav-mega-header strong {
   color: var(--color-ink);
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -296,7 +313,7 @@ input {
 
 .site-nav-mega-grid small {
   color: var(--color-accent-deep);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -304,7 +321,7 @@ input {
 
 .site-nav-mega-grid strong {
   color: var(--color-ink);
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -402,7 +419,7 @@ input {
   gap: 0.55rem;
   margin: 0;
   color: var(--color-accent);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -423,7 +440,7 @@ input {
 .section-title {
   max-width: 52rem;
   margin: 1rem 0 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(2.25rem, 6.5vw, 4.35rem);
   font-weight: 560;
   line-height: 1.02;
@@ -591,7 +608,7 @@ input {
   align-items: center;
   gap: 0.55rem;
   margin: 0;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.64rem;
   font-weight: 700;
   letter-spacing: 0.09em;
@@ -639,9 +656,9 @@ input {
 .hero-title {
   max-width: 70rem;
   margin: 0 auto;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-mono);
   font-size: clamp(3rem, 7.4vw, 6.5rem);
-  font-weight: 560;
+  font-weight: 400;
   line-height: 0.98;
   letter-spacing: -0.068em;
 }
@@ -704,7 +721,7 @@ input {
 .hero-backing-chip-a16z {
   min-width: 3rem;
   padding-inline: 0.55rem;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   font-weight: 780;
   letter-spacing: -0.045em;
@@ -830,7 +847,7 @@ input {
 
 .home-demo-heading h2 {
   margin: 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(2rem, 4vw, 3.5rem);
   font-weight: 560;
   letter-spacing: -0.055em;
@@ -874,7 +891,7 @@ input {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.95rem 1rem;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.61rem;
 }
 
@@ -921,7 +938,7 @@ input {
   border-left: 2px solid #5d8ef0;
   padding-left: 0.65rem;
   color: #9dbdff;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
 }
@@ -937,7 +954,7 @@ input {
 .quote-terms header p {
   margin: 0;
   color: #89a0b2;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -945,7 +962,7 @@ input {
 }
 
 .quote-intent-copy > strong {
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.2rem;
   font-weight: 600;
   letter-spacing: -0.015em;
@@ -973,7 +990,7 @@ input {
   padding: 0.3rem 0.58rem;
   background: rgb(242 184 75 / 0.1);
   color: #f2c66d;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.54rem;
   font-weight: 700;
   letter-spacing: 0.07em;
@@ -999,7 +1016,7 @@ input {
 .quote-rate-primary > strong {
   margin-top: 0.18rem;
   color: #f2c66d;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: clamp(2.3rem, 4vw, 3.25rem);
   font-weight: 600;
   letter-spacing: -0.065em;
@@ -1036,7 +1053,7 @@ input {
 
 .quote-exposure dt {
   color: #71899c;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   line-height: 1.4;
 }
@@ -1045,7 +1062,7 @@ input {
   min-width: 0;
   margin: 0;
   color: #dce6ed;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.85rem;
   font-weight: 650;
   overflow-wrap: anywhere;
@@ -1087,7 +1104,7 @@ input {
 
 .quote-terms li strong {
   color: #77dcaf;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.54rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1135,7 +1152,7 @@ input {
 
 .quote-authorization > strong {
   color: #f2c66d;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.58rem;
   text-align: right;
 }
@@ -1159,7 +1176,7 @@ input {
   min-width: 0;
   gap: 0.16rem;
   color: #71899c;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
 }
 
 .quote-flow li:not(:last-child)::after {
@@ -1204,7 +1221,7 @@ input {
   padding: 0.35rem 0.65rem;
   background: rgb(98 84 163 / 0.08);
   color: var(--color-escalate);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -1243,7 +1260,7 @@ input {
 
 .proof-number {
   color: var(--color-accent);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
 }
@@ -1276,7 +1293,7 @@ input {
   border-radius: 50%;
   background: var(--color-ink);
   color: #fff;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   font-weight: 650;
 }
@@ -1535,7 +1552,7 @@ input {
   right: -3rem;
   bottom: -6.5rem;
   color: rgb(255 255 255 / 0.07);
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-sans);
   font-size: 22rem;
   line-height: 1;
   content: '“';
@@ -1546,7 +1563,7 @@ input {
   position: relative;
   z-index: 1;
   margin: 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(1.55rem, 4.5vw, 2.5rem);
   font-weight: 520;
   line-height: 1.22;
@@ -1597,7 +1614,7 @@ input {
   padding: 1.25rem 1.4rem;
   border-bottom: 1px solid var(--color-line);
   background: var(--color-panel-2);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1622,14 +1639,14 @@ input {
 
 .principle > span {
   color: var(--color-accent);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   font-weight: 700;
 }
 
 .principle h3 {
   margin: 0;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.15rem;
   letter-spacing: -0.02em;
 }
@@ -1695,7 +1712,7 @@ input {
 .auth-node h3 {
   margin: 1.15rem 0 0;
   color: #fff;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.28rem;
   font-weight: 560;
   letter-spacing: -0.03em;
@@ -1715,7 +1732,7 @@ input {
 .auth-flow-arrow,
 .auth-proof-line,
 .generic-path-note code {
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
 }
 
 .auth-node-label span {
@@ -1804,7 +1821,7 @@ input {
 }
 
 .auth-outcomes strong {
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2001,7 +2018,7 @@ input {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   text-transform: uppercase;
 }
 
@@ -2020,7 +2037,7 @@ input {
 .journey-card h3 {
   margin: 1.1rem 0 0;
   color: var(--color-ink);
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(1.35rem, 3vw, 1.75rem);
   font-weight: 580;
   letter-spacing: -0.035em;
@@ -2055,7 +2072,7 @@ input {
 .journey-card code,
 .journey-receipts,
 .journey-footnote code {
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
 }
 
 .journey-action dt,
@@ -2121,7 +2138,7 @@ input {
 }
 
 .journey-outcomes strong {
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2332,7 +2349,7 @@ input {
 .trace-sheet > header span:first-child {
   margin-bottom: 0.3rem;
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2371,7 +2388,7 @@ input {
 
 .trace-event-title small {
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2379,7 +2396,7 @@ input {
 
 .trace-event-title strong {
   margin-top: 0.22rem;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.95rem;
 }
 
@@ -2401,7 +2418,7 @@ input {
 .decision-fields dt,
 .decision-fields dd {
   margin: 0;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.7rem;
   line-height: 1.5;
 }
@@ -2431,7 +2448,7 @@ input {
 
 .trace-sheet > footer {
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
 }
 
@@ -2480,14 +2497,14 @@ input {
 
 .evidence-notes article > span {
   color: var(--color-accent);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   font-weight: 700;
 }
 
 .evidence-notes h3 {
   margin: 0;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.05rem;
   letter-spacing: -0.02em;
 }
@@ -2562,7 +2579,7 @@ input {
 
 .integration-tab > span {
   color: var(--color-accent);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   font-weight: 700;
 }
@@ -2590,7 +2607,7 @@ input {
 
 .integration-copy h3 {
   margin: 0;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.7rem;
   font-weight: 560;
   letter-spacing: -0.04em;
@@ -2627,7 +2644,7 @@ input {
 }
 
 .integration-copy dd {
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
 
@@ -2641,7 +2658,7 @@ input {
 
 .code-panel-label {
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -2757,7 +2774,7 @@ input {
 }
 
 .use-case-showcase-tabs strong {
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.02rem;
   font-weight: 650;
   letter-spacing: -0.025em;
@@ -2800,7 +2817,7 @@ input {
 .use-case-showcase-heading > div:first-child > p {
   margin: 0;
   color: var(--color-accent);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.64rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -2810,7 +2827,7 @@ input {
 .use-case-showcase-heading h3 {
   max-width: 18ch;
   margin: 0.6rem 0 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(1.8rem, 4vw, 2.65rem);
   font-weight: 560;
   line-height: 1.03;
@@ -2953,7 +2970,7 @@ input {
   background: #0a1420;
   color: var(--demo-accent);
   content: '↓';
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   transform: translateX(-50%);
 }
@@ -2972,7 +2989,7 @@ input {
 
 .use-case-flow-demo-stage > header span {
   color: var(--demo-accent);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
 }
@@ -2980,7 +2997,7 @@ input {
 .use-case-flow-demo-stage > header p {
   margin: 0;
   color: #9eb0bf;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.07em;
@@ -2997,7 +3014,7 @@ input {
 .use-case-flow-demo-stage h3 {
   margin: 0;
   color: #f5f8fb;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1rem;
   font-weight: 600;
   line-height: 1.3;
@@ -3012,7 +3029,7 @@ input {
   border-radius: 8px;
   background: #050a10;
   color: var(--demo-accent);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.76rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -3040,13 +3057,13 @@ input {
 
 .use-case-flow-demo-fields dt {
   color: #708697;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   text-transform: uppercase;
 }
 
 .use-case-flow-demo-fields dd {
   color: #c8d3dc;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
 
@@ -3110,12 +3127,12 @@ input {
 
 .use-case-flow-demo-decisions span {
   color: #d7e0e7;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.64rem;
 }
 
 .use-case-flow-demo-decisions strong {
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.56rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -3172,7 +3189,7 @@ input {
 
 .use-case-flow-demo-boundary span {
   color: var(--demo-accent);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.07em;
@@ -3252,7 +3269,7 @@ input {
 .cta-card h2 {
   max-width: 46rem;
   margin: 1rem 0 0;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(2.15rem, 6vw, 4.2rem);
   font-weight: 550;
   line-height: 1.03;
@@ -3386,7 +3403,7 @@ input {
 .footer-link-group h2 {
   margin: 0;
   color: var(--color-ink);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -3500,7 +3517,7 @@ input {
   padding-inline: 0.55rem;
   background: #fff;
   color: var(--color-ink);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
 }
 
@@ -3512,7 +3529,7 @@ input {
   padding-top: 1.25rem;
   border-top: 1px solid var(--color-line);
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
 }
 
@@ -3583,7 +3600,7 @@ input {
   border-radius: 8px;
   padding: 0.8rem;
   background: var(--color-panel-2);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.75rem;
   text-align: center;
 }
@@ -3673,7 +3690,7 @@ input {
 .use-cases-hero h1 {
   max-width: 12ch;
   margin: 1.2rem 0 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(3.4rem, 10vw, 6.7rem);
   font-weight: 560;
   line-height: 0.93;
@@ -3724,7 +3741,7 @@ input {
 
 .use-case-index-card > span {
   color: var(--color-accent);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   font-weight: 700;
 }
@@ -3732,7 +3749,7 @@ input {
 .use-case-index-card strong {
   margin-top: 2.5rem;
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.63rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3740,7 +3757,7 @@ input {
 
 .use-case-index-card h2 {
   margin: 0.7rem 0 0;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.55rem;
   line-height: 1.12;
   letter-spacing: -0.035em;
@@ -3799,7 +3816,7 @@ input {
 .use-case-kicker span,
 .use-case-kicker p,
 .use-case-mini-label {
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.09em;
@@ -3818,7 +3835,7 @@ input {
 .use-case-detail-heading h1 {
   max-width: 15ch;
   margin: 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(2.6rem, 7vw, 5rem);
   font-weight: 550;
   line-height: 0.98;
@@ -3850,7 +3867,7 @@ input {
 .use-case-context p {
   margin: 0 0 0.75rem;
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -3903,7 +3920,7 @@ input {
 
 .use-case-flow-node span {
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.58rem;
 }
 
@@ -3919,7 +3936,7 @@ input {
 
 .use-case-flow-part > i {
   color: var(--color-accent);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-style: normal;
   text-align: center;
   transform: rotate(90deg);
@@ -3938,7 +3955,7 @@ input {
 .use-case-demo-heading h2 {
   max-width: 18ch;
   margin: 0.75rem 0 0;
-  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(1.9rem, 4vw, 2.9rem);
   font-weight: 560;
   line-height: 1.04;
@@ -3981,14 +3998,14 @@ input {
 
 .use-case-steps li > span {
   color: var(--color-accent);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.64rem;
   font-weight: 700;
 }
 
 .use-case-steps small {
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.07em;
@@ -3997,7 +4014,7 @@ input {
 
 .use-case-steps h2 {
   margin: 0.35rem 0 0;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.2rem;
   letter-spacing: -0.025em;
 }
@@ -4061,7 +4078,7 @@ input {
 
 .use-case-result h2 {
   margin: 0.75rem 0 0;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.5rem;
   line-height: 1.15;
   letter-spacing: -0.035em;
@@ -4131,14 +4148,14 @@ input {
 
 .use-case-boundary-grid span {
   color: #8fb3ff;
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.64rem;
   font-weight: 700;
 }
 
 .use-case-boundary-grid h3 {
   margin: 1.5rem 0 0;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.25rem;
   letter-spacing: -0.025em;
 }
@@ -4166,7 +4183,7 @@ input {
 .use-case-page-cta h2 {
   max-width: 15ch;
   margin: 1rem 0 0;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(2.5rem, 7vw, 4.8rem);
   font-weight: 550;
   line-height: 1;
@@ -4197,7 +4214,7 @@ input {
   padding: 1.25rem;
   border-bottom: 1px solid var(--color-line);
   color: var(--color-faint);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
 }
 
@@ -4213,7 +4230,7 @@ input {
 .use-case-related > h2 {
   max-width: 16ch;
   margin: 1rem 0 2.5rem;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(2.3rem, 6vw, 4.2rem);
   font-weight: 550;
   line-height: 1;
@@ -4249,7 +4266,7 @@ input {
   grid-area: number;
   align-self: center;
   color: var(--color-accent);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
 }

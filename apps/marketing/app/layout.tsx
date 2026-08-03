@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { Inter, Space_Grotesk } from 'next/font/google';
 import localFont from 'next/font/local';
-import { GeistMono } from 'geist/font/mono';
 import { env } from '@/env';
 import {
   DEFAULT_DESCRIPTION,
@@ -15,16 +13,10 @@ import {
 } from '@/lib/seo';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-display',
-  display: 'swap',
-});
-// Departure Mono (SIL OFL) — pixel-grid mono for terminal/decision surfaces.
-const departureMono = localFont({
+// Departure Mono (SIL OFL) is the only product typeface.
+const primaryFont = localFont({
   src: '../public/fonts/DepartureMono-Regular.woff2',
-  variable: '--font-pixel',
+  variable: '--font-primary',
   display: 'swap',
   weight: '400',
 });
@@ -70,10 +62,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
   const gtmId = env.NEXT_PUBLIC_GTM_ID;
 
   return (
-    <html
-      lang="en"
-      className={`${inter.variable} ${spaceGrotesk.variable} ${GeistMono.variable} ${departureMono.variable}`}
-    >
+    <html lang="en" className={primaryFont.variable}>
       {gtmId ? (
         <script
           dangerouslySetInnerHTML={{

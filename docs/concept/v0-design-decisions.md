@@ -545,6 +545,12 @@ The authorization-effect colors and the 5-color chart identity are semantic, not
 in [web-ui-conventions.md](web-ui-conventions.md). The full art direction and the
 gan-design loop that drove the per-page work live under `gan-harness/`.
 
+Departure Mono later replaced IBM Plex Mono for the monospace role and became
+the sole browser UI face across marketing and dashboard surfaces. All semantic
+font roles now alias one root token, superseding the two-face distinction so a
+single root change updates navigation, headings, prose, controls, and data. The
+current contract lives in [web-ui-conventions.md](web-ui-conventions.md#typography).
+
 ## 20. Tool execution stays caller-owned; approval is exact (locked)
 
 Featherlane AI durably authorizes one immutable invocation but does not execute customer code. SDKs and the MCP proxy hold the execution boundary, resubmit the exact action after approval, and run it once only after every current checker and policy returns `permit`. The fingerprint binds scope, caller identity, tool identity, and parameters; a consumed lease is retry-safe only for the same stable attempt id. The canonical lifecycle is [authorization-kernel.md](authorization-kernel.md).

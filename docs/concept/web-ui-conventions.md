@@ -64,7 +64,7 @@ The top bar (`apps/web/components/site-header.tsx`) renders a breadcrumb trail. 
 
 `apps/web/components/brand-logo.tsx` is the canonical Featherlane AI mark for dashboard chrome. It renders the transparent feather artwork with its intrinsic aspect ratio; callers set the displayed height with a named Tailwind utility and keep `w-auto`. Use `alt=""` when adjacent text already names Featherlane AI, and keep the default alternative text when the mark stands alone. Browser, shortcut, and Apple icon metadata use the padded dark artwork at `public/featherlane-ai-logo-dark.png`.
 
-Current adopters are the app sidebar, authentication and sign-out screens, welcome screen, and workspace onboarding header. Do not introduce inline SVGs, icon-library stand-ins, rounded masks, or page-local copies of the brand mark.
+Current adopters are the app sidebar, authentication and sign-out screens, welcome screen, and workspace onboarding header. When the text “Featherlane AI” sits beside the mark as a wordmark, use regular weight and wide tracking; it inherits the same global Departure Mono face as every other product surface. Do not introduce inline SVGs, icon-library stand-ins, rounded masks, or page-local copies of the brand mark.
 
 ## PageHeader
 
@@ -99,9 +99,9 @@ page needs a different readable measure, while leaving the shared default intact
 
 ### Typography
 
-UI text and prose use the `Inter` sans face (the default). Data — IDs, hashes, metrics, code, and effect labels — uses `font-mono` (Departure Mono, a pixel-grid face; IBM Plex Mono remains the metric fallback while it loads); pair numeric columns with `tabular-nums` (or the `.font-data` helper) for stable digits. Do not set monospace on prose.
+All browser UI uses Departure Mono: marketing navigation, headings, prose, buttons, install commands, demo surfaces, and the dashboard. Each app loads one local font as `--font-primary`; `font-sans`, `font-serif`, `font-mono`, and the browser default font variables all alias that one source token. Semantic `font-mono` classes may still identify IDs, code, and tabular data, but they no longer select a second face. A typeface change belongs at the root token, never in a component rule.
 
-Departure Mono ships weight 400 only, so `html, body` sets `font-synthesis-weight: none` — a `font-bold` on a mono element renders at regular weight rather than as smeared faux-bold. Emphasise mono text with color or a background tint, never with weight. Inter is a variable font and is unaffected.
+Departure Mono ships weight 400 only, so `html, body` sets `font-synthesis-weight: none`; heavier CSS weights do not synthesize a smeared faux-bold face. Use color, size, tracking, or a background tint when stronger hierarchy is needed.
 
 ## DataTable
 
