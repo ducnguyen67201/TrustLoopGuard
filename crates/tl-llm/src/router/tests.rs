@@ -316,7 +316,10 @@ fn build_from_config_validates_referenced_providers() {
     let bad = r#"{
       "schema_version": 1,
       "providers": {
-        "openai": { "kind": "openai", "api_key_env": "OPENAI_API_KEY" }
+        "openai": {
+          "kind": "openai",
+          "api_key_env": "TL_LLM_TEST_INTENTIONALLY_MISSING_CREDENTIAL"
+        }
       },
       "routes": {
         "hallucination": {
@@ -324,10 +327,30 @@ fn build_from_config_validates_referenced_providers() {
         }
       }
     }"#;
-    std::env::set_var("OPENAI_API_KEY", "test-key");
     let cfg = RouterConfig::parse(bad).unwrap();
     let err = LlmRouter::from_config(&cfg).unwrap_err();
     assert!(matches!(err, RouterBuildError::UnknownProvider(_)));
+}
+
+#[test]
+fn build_from_config_rejects_unknown_provider_kind_without_credentials() {
+    let source = r#"{
+      "schema_version": 1,
+      "providers": {
+        "local": {
+          "kind": "local",
+          "api_key_env": "TL_LLM_TEST_INTENTIONALLY_MISSING_CREDENTIAL"
+        }
+      },
+      "routes": {
+        "hallucination": {
+          "primary": { "provider": "local", "model": "m", "deadline_ms": 100 }
+        }
+      }
+    }"#;
+    let config = RouterConfig::parse(source).expect("config");
+    let error = LlmRouter::from_config(&config).expect_err("unknown provider kind");
+    assert!(matches!(error, RouterBuildError::UnknownProviderKind(_)));
 }
 
 #[test]

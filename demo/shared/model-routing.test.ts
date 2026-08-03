@@ -57,3 +57,13 @@ test('rejects a provider identifier backed by a non-OpenAI provider', () => {
     /must use an openai provider/,
   );
 });
+
+test('rejects a route whose provider reference is missing', () => {
+  const fixture = structuredClone(routingManifest);
+  Reflect.deleteProperty(fixture.providers, 'openai');
+
+  assert.throws(
+    () => parseDemoModelRoute(fixture, 'demo_default'),
+    /references missing provider "openai"/,
+  );
+});

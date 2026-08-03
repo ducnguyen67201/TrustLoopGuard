@@ -93,6 +93,27 @@ class ModelRoutingTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "must use an openai provider"):
                 load_demo_model_route(manifest_path=path)
 
+    def test_rejects_missing_provider_reference(self) -> None:
+        fixture = {
+            "schema_version": 1,
+            "providers": {},
+            "routes": {
+                "demo_livekit": {
+                    "primary": {
+                        "provider": "openai",
+                        "model": "gpt-4o-mini",
+                        "deadline_ms": 30000,
+                    }
+                }
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "llm-routing.json"
+            path.write_text(json.dumps(fixture), encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, 'references missing provider "openai"'):
+                load_demo_model_route(manifest_path=path)
+
 
 if __name__ == "__main__":
     unittest.main()
