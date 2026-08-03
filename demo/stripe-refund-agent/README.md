@@ -14,7 +14,7 @@ public route redacts internal order, payment-intent, and provider-credential fie
 
 ## Run locally
 
-The `featherlane-ai/dev_stripe_demo` Doppler config must contain `OPENAI_API_KEY`,
+The `trustloopguard/dev_stripe_demo` Doppler config must contain `OPENAI_API_KEY`,
 `STRIPE_SECRET_KEY`, `TL_API_KEY`, `TL_SERVER_URL`, `TL_ADMIN_USER_ID`, `DATABASE_URL`, and
 `TL_GATEWAY_CREDENTIAL_KEY`. It must also contain a dedicated, randomly generated
 `REFUND_DEMO_PROXY_SECRET` of at least 32 characters. Do not reuse another application key.

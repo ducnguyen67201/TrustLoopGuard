@@ -64,8 +64,14 @@ export function parseDemoModelRoute(
   if (route === undefined) {
     throw new Error(`LLM routing manifest is missing route "${routeName}"`);
   }
-  if (route.primary.provider !== 'openai') {
-    throw new Error(`Demo route "${routeName}" must use the openai provider`);
+  const provider = parsed.data.providers[route.primary.provider];
+  if (provider === undefined) {
+    throw new Error(
+      `Demo route "${routeName}" references missing provider "${route.primary.provider}"`,
+    );
+  }
+  if (provider.kind !== 'openai') {
+    throw new Error(`Demo route "${routeName}" must use an openai provider`);
   }
 
   return {

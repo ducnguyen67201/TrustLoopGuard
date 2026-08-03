@@ -39,6 +39,7 @@ INTERNAL_CRATES=(
 RUST_ALLOW=(tl_sdk_rust)
 PY_ALLOW=(featherlane-ai)
 TS_ALLOW=("@featherlane-ai/sdk")
+LLM_ROUTING_IMPORT_PATTERN="^demo/shared/model-routing\\.ts:[0-9]+:[[:space:]]*import[[:space:]]+routingManifest[[:space:]]+from[[:space:]]+['\"]\\.\\./\\.\\./config/llm-routing\\.json['\"];?[[:space:]]*$"
 
 violations=()
 
@@ -122,7 +123,7 @@ scan_typescript() {
     [[ -z "${hit}" ]] && continue
     # First-party demo model selection intentionally reads the versioned,
     # data-only routing manifest. This is configuration, not an internal API.
-    [[ "${hit}" == *"../../config/llm-routing.json"* ]] && continue
+    [[ "${hit}" =~ ${LLM_ROUTING_IMPORT_PATTERN} ]] && continue
     violations+=("ts    : ${hit} (escapes example dir — use the published SDK)")
   done < <(
     echo "${ts_files}" |

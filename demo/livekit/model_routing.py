@@ -47,8 +47,15 @@ def load_demo_model_route(
     primary = route.get("primary")
     if not isinstance(primary, dict):
         raise RuntimeError(f'LLM route "{route_name}" must define a primary target')
-    if primary.get("provider") != "openai":
-        raise RuntimeError(f'LLM route "{route_name}" must use the openai provider')
+    provider_id = primary.get("provider")
+    providers = manifest.get("providers")
+    provider = providers.get(provider_id) if isinstance(providers, dict) else None
+    if not isinstance(provider, dict):
+        raise RuntimeError(
+            f'LLM route "{route_name}" references missing provider "{provider_id}"'
+        )
+    if provider.get("kind") != "openai":
+        raise RuntimeError(f'LLM route "{route_name}" must use an openai provider')
 
     model = primary.get("model")
     if not isinstance(model, str) or not model.strip():
