@@ -81,7 +81,12 @@ pub async fn analyze(
 
     let prompt = prompt(connection, risk_statement, &files);
     let out = llm
-        .complete_route(LlmRouteKind::GitHubIntegration, &prompt, &proposal_schema())
+        .complete_route(
+            LlmRouteKind::GitHubIntegration,
+            &connection.workspace_id,
+            &prompt,
+            &proposal_schema(),
+        )
         .await
         .map_err(|e| {
             GitHubIntegrationStoreError::Unavailable(format!("llm provider error: {e}"))

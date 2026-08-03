@@ -122,6 +122,7 @@ async fn post_json(app: Router, path: &str, body: Value) -> (u16, Value) {
         .oneshot(
             Request::post(path)
                 .header("content-type", "application/json")
+                .header("x-featherlane-ai-workspace-id", "workspace-1")
                 .body(Body::from(body.to_string()))
                 .expect("request"),
         )

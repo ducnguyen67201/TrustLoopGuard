@@ -246,7 +246,7 @@ async fn primary_and_fallback_share_one_route_deadline() {
 
     let completion = tokio::time::timeout(
         Duration::from_millis(130),
-        router.complete_route(LlmRouteKind::PolicyDraft, "prompt", &schema()),
+        router.complete_route(LlmRouteKind::PolicyDraft, "acme", "prompt", &schema()),
     )
     .await
     .expect("router must enforce the combined route deadline");
@@ -484,7 +484,7 @@ async fn control_plane_route_does_not_charge_runtime_budget() {
     let router = LlmRouter::new(providers, routes, Arc::new(budget));
 
     let output = router
-        .complete_route(LlmRouteKind::PolicyDraft, "prompt", &schema())
+        .complete_route(LlmRouteKind::PolicyDraft, "acme", "prompt", &schema())
         .await
         .expect("control-plane completion");
 

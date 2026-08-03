@@ -330,6 +330,7 @@ impl LlmRouter {
     pub async fn complete_route(
         &self,
         route_kind: LlmRouteKind,
+        workspace_id: &str,
         prompt: &str,
         schema: &JsonSchema,
     ) -> Result<LlmOutput, LlmError> {
@@ -351,6 +352,7 @@ impl LlmRouter {
                 }
                 span.record("llm.fallback_used", dispatched.fallback_used);
                 tracing::warn!(
+                    workspace_id,
                     route = route_kind.as_str(),
                     fallback_used = dispatched.fallback_used,
                     latency_ms = started.elapsed().as_millis() as u64,
@@ -364,11 +366,14 @@ impl LlmRouter {
         span.record("llm.model", dispatched.target.model.as_str());
         span.record("llm.fallback_used", dispatched.fallback_used);
         tracing::info!(
+            workspace_id,
             route = route_kind.as_str(),
             provider = %dispatched.target.provider,
             model = %dispatched.target.model,
             prompt_tokens = dispatched.output.prompt_tokens,
             completion_tokens = dispatched.output.completion_tokens,
+            total_tokens = u64::from(dispatched.output.prompt_tokens)
+                + u64::from(dispatched.output.completion_tokens),
             fallback_used = dispatched.fallback_used,
             latency_ms = started.elapsed().as_millis() as u64,
             "llm workload completed"
@@ -383,7 +388,20 @@ impl LlmRouter {
         prompt: &str,
         schema: &JsonSchema,
     ) -> Result<DispatchedLlmOutput, DispatchedLlmError> {
-        match self.call_target(&route.primary, prompt, schema).await {
+        let started = Instant::now();
+        let route_deadline_ms = route
+            .fallback
+            .as_ref()
+            .map_or(route.primary.deadline_ms, |fallback| {
+                route.primary.deadline_ms.max(fallback.deadline_ms)
+            });
+        let route_deadline = Duration::from_millis(u64::from(route_deadline_ms));
+        let primary_deadline =
+            Duration::from_millis(u64::from(route.primary.deadline_ms)).min(route_deadline);
+        match self
+            .call_target(&route.primary, prompt, schema, primary_deadline)
+            .await
+        {
             Ok(output) => Ok(DispatchedLlmOutput {
                 output,
                 target: route.primary.clone(),
@@ -403,7 +421,19 @@ impl LlmRouter {
                     primary_error = %primary_error,
                     "primary failed, trying fallback"
                 );
-                match self.call_target(fallback, prompt, schema).await {
+                let Some(remaining) = route_deadline.checked_sub(started.elapsed()) else {
+                    return Err(DispatchedLlmError {
+                        error: LlmError::Timeout(route_deadline),
+                        target: Some(fallback.clone()),
+                        fallback_used: true,
+                    });
+                };
+                let fallback_deadline =
+                    Duration::from_millis(u64::from(fallback.deadline_ms)).min(remaining);
+                match self
+                    .call_target(fallback, prompt, schema, fallback_deadline)
+                    .await
+                {
                     Ok(output) => Ok(DispatchedLlmOutput {
                         output,
                         target: fallback.clone(),
@@ -432,18 +462,21 @@ impl LlmRouter {
         target: &ProviderTarget,
         prompt: &str,
         schema: &JsonSchema,
+        deadline: Duration,
     ) -> Result<LlmOutput, LlmError> {
         let client = self
             .providers
             .get(&target.provider)
             .ok_or_else(|| LlmError::Http(format!("provider `{}` not found", target.provider)))?;
-        let deadline = Duration::from_millis(target.deadline_ms as u64);
         let options = LlmCompletionOptions {
             reasoning_effort: target.reasoning_effort,
         };
-        client
-            .complete_with_options(&target.model, prompt, schema, deadline, &options)
-            .await
+        tokio::time::timeout(
+            deadline,
+            client.complete_with_options(&target.model, prompt, schema, deadline, &options),
+        )
+        .await
+        .map_err(|_| LlmError::Timeout(deadline))?
     }
 
     fn record(

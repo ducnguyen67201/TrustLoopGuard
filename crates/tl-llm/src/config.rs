@@ -100,14 +100,19 @@ pub enum ConfigError {
 
 impl RouterConfig {
     pub fn parse(src: &str) -> Result<Self, ConfigError> {
-        let config: Self = serde_json::from_str(src)?;
-        if config.schema_version != ROUTER_CONFIG_SCHEMA_VERSION {
+        #[derive(Deserialize)]
+        struct SchemaHeader {
+            schema_version: u32,
+        }
+
+        let header: SchemaHeader = serde_json::from_str(src)?;
+        if header.schema_version != ROUTER_CONFIG_SCHEMA_VERSION {
             return Err(ConfigError::UnsupportedSchemaVersion {
-                actual: config.schema_version,
+                actual: header.schema_version,
                 expected: ROUTER_CONFIG_SCHEMA_VERSION,
             });
         }
-        Ok(config)
+        Ok(serde_json::from_str(src)?)
     }
 
     pub fn bundled() -> Result<Self, ConfigError> {

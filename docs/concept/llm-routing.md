@@ -54,14 +54,21 @@ server available; an invalid embedded manifest is a build/startup defect.
 
 ## Dispatch and budgets
 
-`LlmRouter` is the only Rust provider/model dispatch point. Primary and fallback
-calls share the same deadline, reasoning, error, and telemetry behavior.
+`LlmRouter` is the only Rust provider/model dispatch point. Each target keeps
+its configured deadline, while one route-level wall-clock deadline equal to the
+largest configured target deadline bounds the combined primary and fallback
+attempts. Primary and fallback calls share reasoning, error, and telemetry
+behavior.
 
 Runtime Tier 3 judges use the budgeted judge API. Their completed token usage is
 charged to the per-tenant `TokenBudget`, and the persisted `LlmCallAudit.judge`
 contract remains unchanged. Existing policy-authoring and GitHub control-plane
 operations use the generic route API. Those calls are bounded by their route
-deadline but do not consume runtime judge budgets.
+deadline but do not consume runtime judge budgets. Their structured completion
+event includes the workspace, route, prompt, completion, and total token counts
+so deployments can derive per-workspace usage metrics and alerts without a
+second model-call path. A future hard cap must use a separate control-plane
+budget rather than consuming or weakening the runtime judge budget.
 
 ## Consumers and deployment
 

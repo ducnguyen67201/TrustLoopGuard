@@ -5,10 +5,9 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use serde_json::json;
 
 use crate::client::{JsonSchema, LlmClient, LlmCompletionOptions, LlmError, LlmOutput};
-use crate::wire::{call_chat_completions, RequestParts};
+use crate::wire::{call_chat_completions, chat_completion_body, ReasoningWireFormat, RequestParts};
 
 const DEFAULT_BASE_URL: &str = "https://openrouter.ai/api";
 const DEFAULT_REFERER: &str = "https://github.com/anthropics/featherlane-ai";
@@ -78,27 +77,18 @@ impl LlmClient for OpenRouterClient {
         deadline: Duration,
         options: &LlmCompletionOptions,
     ) -> Result<LlmOutput, LlmError> {
-        let mut body = json!({
-            "model": model,
-            "messages": [{ "role": "user", "content": prompt }],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": schema.name,
-                    "strict": true,
-                    "schema": schema.schema,
-                }
-            }
-        });
-        if let Some(effort) = options.reasoning_effort {
-            body["reasoning_effort"] = json!(effort.as_str());
-        }
         call_chat_completions(RequestParts {
             http: &self.http,
             url: format!("{}/v1/chat/completions", self.base_url),
             api_key: &self.api_key,
             extra_headers: &[("HTTP-Referer", &self.referer)],
-            body,
+            body: chat_completion_body(
+                model,
+                prompt,
+                schema,
+                options,
+                ReasoningWireFormat::OpenRouter,
+            ),
             deadline,
         })
         .await

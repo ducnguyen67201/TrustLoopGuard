@@ -113,7 +113,12 @@ pub async fn generate_guardrails(
     let schema = policy_set_draft_json_schema();
     let out = match state
         .llm
-        .complete_route(LlmRouteKind::GuardrailGeneration, &composed, &schema)
+        .complete_route(
+            LlmRouteKind::GuardrailGeneration,
+            &workspace_id,
+            &composed,
+            &schema,
+        )
         .await
     {
         Ok(out) => out,

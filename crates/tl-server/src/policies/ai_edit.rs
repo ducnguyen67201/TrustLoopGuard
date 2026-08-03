@@ -1,13 +1,13 @@
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
 use tl_core::{AiEditRequest, AiEditResponse, ApiErrorCode};
 use tl_llm::LlmRouteKind;
 
-use super::{api_error_response, PolicyState};
+use super::{api_error_response, workspace_id_from_headers, PolicyState};
 
 const AI_EDIT_SYSTEM_PROMPT: &str = concat!(
     "You are a Featherlane AI policy YAML editor. ",
@@ -20,7 +20,15 @@ const AI_EDIT_SYSTEM_PROMPT: &str = concat!(
 /// `POST /v1/policies/ai-edit` — apply a natural-language instruction to existing
 /// policy YAML via LLM and return the modified YAML. Stateless; the caller decides
 /// whether to save the result via the normal upsert endpoint.
-pub async fn ai_edit_policy(State(state): State<PolicyState>, body: bytes::Bytes) -> Response {
+pub async fn ai_edit_policy(
+    State(state): State<PolicyState>,
+    headers: HeaderMap,
+    body: bytes::Bytes,
+) -> Response {
+    let workspace_id = match workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
     let req: AiEditRequest = match serde_json::from_slice(&body) {
         Ok(r) => r,
         Err(e) => {
@@ -70,6 +78,7 @@ pub async fn ai_edit_policy(State(state): State<PolicyState>, body: bytes::Bytes
         .llm
         .complete_route(
             LlmRouteKind::PolicyAiEdit,
+            &workspace_id,
             &format!("{AI_EDIT_SYSTEM_PROMPT}\n\n{user_prompt}"),
             &schema,
         )
