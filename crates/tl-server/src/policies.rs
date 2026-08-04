@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tl_core::{EntityVersionDetail, EntityVersionListResponse, PolicyDocument, PolicySummary};
-use tl_llm::LlmClient;
+use tl_llm::LlmRouter;
 use tl_policy::{FamilyPolicy, Policy};
 
 use crate::environments::EnvironmentStore;
@@ -147,10 +147,6 @@ pub struct PolicyState {
     pub store: Arc<dyn PolicyStore>,
     pub environment_store: Arc<dyn EnvironmentStore>,
     pub team_store: Arc<dyn TeamStore>,
-    /// LLM used by `POST /v1/policies/draft`. `None` when no provider
-    /// key is configured — the handler returns 503 in that case.
-    pub draft_llm: Option<Arc<dyn LlmClient>>,
-    /// Model name passed to the LLM client for drafts. Defaults to
-    /// `gpt-4o-mini`; override with `TL_POLICY_DRAFT_MODEL`.
-    pub draft_model: String,
+    /// Shared first-party LLM router used by policy authoring workloads.
+    pub llm: Arc<LlmRouter>,
 }

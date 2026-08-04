@@ -46,6 +46,7 @@ These targets are committed in `docs/concept/v0-design-decisions.md §6`.
 
 ## What's NOT here
 
-- **Real LLM Tier 3** — would need an OpenAI API key + `config/llm-routing.toml`.
+- **Real LLM Tier 3** — would need an OpenAI API key; route selection comes
+  from the bundled `config/llm-routing.json` manifest.
   Locking those numbers belongs in a separate dated run, not this script.
 - **Postgres-loaded throughput** — set `DATABASE_URL` and re-run to compare.

@@ -43,7 +43,7 @@ Optional environment:
 | `TL_HEALTHCARE_DEMO_API_KEY` | unset | Workspace-scoped runtime key created by `healthcare-agent:setup`; required by the hosted healthcare demo |
 | `TL_CONTEXTUAL_DEMO_API_KEY` | unset | Agent-bound runtime key created by `contextual-agent:setup`; required by generic `/demo/{workflow-category}` chats |
 | `OPENAI_API_KEY` | unset | Enables real OpenAI-backed replies |
-| `OPENAI_MODEL` | `gpt-4.1-mini` | OpenAI model for LLM-backed replies |
+| `config/llm-routing.json` | `demo_default` / `demo_dispute` | Versioned model selection for LLM-backed replies |
 | `TL_USER_ID` | unset | Workspace owner/admin UUID — lets `dispute:setup` arm `enforce` checker modes |
 | `STRIPE_SECRET_KEY` | unset | **Test-mode only** (`sk_test_…`). When set, an allowed payment makes one real Stripe test-mode call; otherwise payments are simulated. A live key is refused. |
 | `STRIPE_REFUND_AGENT_DB` | `demo/.data/stripe-refund-agent.sqlite` | SQLite DB used by the refund-agent demo as the customer order backend |
@@ -75,7 +75,6 @@ The first setup prints `TL_CONTEXTUAL_DEMO_API_KEY` exactly once. Store it only 
 export TL_SERVER_URL=http://127.0.0.1:8080
 export TL_CONTEXTUAL_DEMO_API_KEY=<tl_live_key_printed_by_setup>
 export OPENAI_API_KEY=<openai-key>
-export OPENAI_MODEL=gpt-4.1-mini
 
 pnpm marketing:dev
 ```
@@ -134,9 +133,7 @@ eight fixed profiles. Never expose that key to the browser.
 Then start the live Marketing demo:
 
 ```sh
-OPENAI_API_KEY=<test-key> \
-OPENAI_MODEL=gpt-4.1-mini \
-pnpm marketing:dev
+OPENAI_API_KEY=<test-key> pnpm marketing:dev
 ```
 
 Try the four curated paths: approved chairs permit, high-value laptops require
@@ -393,7 +390,6 @@ setup-only management credentials from that deployment, and start the app:
 export TL_SERVER_URL=http://127.0.0.1:8080
 export TL_HEALTHCARE_DEMO_API_KEY=<tl_live_key_printed_by_setup>
 export OPENAI_API_KEY=<openai-key>
-export OPENAI_MODEL=gpt-4.1-mini
 
 pnpm marketing:dev
 ```
@@ -407,9 +403,9 @@ and API keys by switching to `Healthcare Demo` in the dashboard. The templates
 in this directory are bootstrap desired state only; the running demo reads the
 Rust registry exclusively. If that registry is unavailable, policy inventory
 is shown as unavailable rather than falling back to hard-coded policy cards.
-Store production values in the deployment secret manager and never expose them
-through `NEXT_PUBLIC_*` variables. Pin and evaluate the production model through
-the existing `OPENAI_MODEL` setting before a customer deployment.
+Store production credentials in the deployment secret manager and never expose
+them through `NEXT_PUBLIC_*` variables. Pin and evaluate first-party demo models
+through the versioned routes in `config/llm-routing.json`.
 
 Expected synthetic presets:
 

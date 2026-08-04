@@ -505,7 +505,7 @@ pub async fn create_job(
         Ok(value) => value,
         Err(message) => return api_error(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, message),
     };
-    if state.github.is_none() || state.llm.is_none() || state.worker_tx.is_none() {
+    if state.github.is_none() || state.worker_tx.is_none() {
         return api_error(
             StatusCode::SERVICE_UNAVAILABLE,
             ApiErrorCode::Unavailable,

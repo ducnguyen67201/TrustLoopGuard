@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "providers": {
+    "openai": {
+      "kind": "openai",
+      "api_key_env": "OPENAI_API_KEY"
+    }
+  },
+  "routes": {
+    "hallucination": {
+      "description": "Runtime grounding judge.",
+      "primary": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "deadline_ms": 600
+      }
+    },
+    "tone": {
+      "description": "Runtime tone judge.",
+      "primary": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "deadline_ms": 300
+      }
+    },
+    "authority": {
+      "description": "High-stakes authority judge.",
+      "primary": {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "deadline_ms": 700
+      },
+      "fallback": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "deadline_ms": 700
+      }
+    },
+    "semantic_policy": {
+      "description": "Runtime semantic-policy judge.",
+      "primary": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "deadline_ms": 700
+      }
+    },
+    "policy_draft": {
+      "description": "Natural-language policy drafting.",
+      "primary": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "deadline_ms": 30000
+      }
+    },
+    "policy_ai_edit": {
+      "description": "Natural-language policy YAML editing.",
+      "primary": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "deadline_ms": 30000
+      }
+    },
+    "guardrail_generation": {
+      "description": "Agent-specific guardrail generation.",
+      "primary": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "deadline_ms": 60000
+      }
+    },
+    "github_integration": {
+      "description": "GitHub integration proposal analysis.",
+      "primary": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "deadline_ms": 60000
+      }
+    },
+    "demo_default": {
+      "description": "Shared contextual, healthcare, procurement, and refund demos.",
+      "primary": {
+        "provider": "openai",
+        "model": "gpt-4.1-mini",
+        "deadline_ms": 30000
+      }
+    },
+    "demo_dispute": {
+      "description": "Dispute demo.",
+      "primary": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "deadline_ms": 30000
+      }
+    },
+    "demo_livekit": {
+      "description": "LiveKit gateway demo.",
+      "primary": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "deadline_ms": 30000
+      }
+    }
+  },
+  "budgets": {
+    "default_monthly_tokens": 10000000,
+    "tenants": {}
+  }
+}

@@ -22,6 +22,8 @@ from livekit.agents import Agent, AgentServer, AgentSession, JobContext, cli, in
 from livekit.agents.beta import Instructions
 from livekit.plugins import openai, silero
 
+from model_routing import load_demo_model_route
+
 logger = logging.getLogger("FeatherlaneAILiveKitProxyDemo")
 
 load_dotenv(Path(__file__).with_name(".env"))
@@ -31,7 +33,7 @@ TL_SERVER_URL = os.getenv("TL_SERVER_URL", "http://127.0.0.1:8080").rstrip("/")
 TL_GATEWAY_ROUTE_ID = os.getenv("TL_GATEWAY_ROUTE_ID")
 TL_GATEWAY_OPENAI_BASE_URL = os.getenv("TL_GATEWAY_OPENAI_BASE_URL")
 FEATHERLANE_AI_API_KEY = os.getenv("FEATHERLANE_AI_API_KEY") or os.getenv("TL_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+DEMO_MODEL_ROUTE = load_demo_model_route()
 # Local dev only: when the server runs without auth it cannot derive the
 # workspace from the runtime key, so the gateway needs the workspace id in a
 # header. With server auth enabled (production), the key carries the workspace
@@ -110,7 +112,7 @@ async def entrypoint(ctx: JobContext) -> None:
         "starting LiveKit proxy demo route=%s base_url=%s model=%s mode=refund-block-test",
         TL_GATEWAY_ROUTE_ID or "(custom)",
         gateway_base_url,
-        OPENAI_MODEL,
+        DEMO_MODEL_ROUTE.model,
     )
 
     run_external_id = livekit_run_external_id(ctx)
@@ -120,13 +122,20 @@ async def entrypoint(ctx: JobContext) -> None:
     if TL_GATEWAY_WORKSPACE_ID:
         extra_headers["x-featherlane-ai-workspace-id"] = TL_GATEWAY_WORKSPACE_ID
 
+    reasoning_options = (
+        {}
+        if DEMO_MODEL_ROUTE.reasoning_effort is None
+        else {"reasoning_effort": DEMO_MODEL_ROUTE.reasoning_effort}
+    )
+
     session = AgentSession(
         stt=inference.STT("deepgram/nova-3", language="multi"),
         llm=openai.LLM(
-            model=OPENAI_MODEL,
+            model=DEMO_MODEL_ROUTE.model,
             base_url=gateway_base_url,
             api_key=gateway_api_key(),
             extra_headers=extra_headers,
+            **reasoning_options,
         ),
         tts=inference.TTS("inworld/inworld-tts-1"),
         vad=silero.VAD.load(),

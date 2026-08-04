@@ -5,10 +5,9 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use serde_json::json;
 
-use crate::client::{JsonSchema, LlmClient, LlmError, LlmOutput};
-use crate::wire::{call_chat_completions, RequestParts};
+use crate::client::{JsonSchema, LlmClient, LlmCompletionOptions, LlmError, LlmOutput};
+use crate::wire::{call_chat_completions, chat_completion_body, ReasoningWireFormat, RequestParts};
 
 const DEFAULT_BASE_URL: &str = "https://api.openai.com";
 
@@ -54,24 +53,30 @@ impl LlmClient for OpenAiClient {
         schema: &JsonSchema,
         deadline: Duration,
     ) -> Result<LlmOutput, LlmError> {
-        let body = json!({
-            "model": model,
-            "messages": [{ "role": "user", "content": prompt }],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": schema.name,
-                    "strict": true,
-                    "schema": schema.schema,
-                }
-            }
-        });
+        self.complete_with_options(
+            model,
+            prompt,
+            schema,
+            deadline,
+            &LlmCompletionOptions::default(),
+        )
+        .await
+    }
+
+    async fn complete_with_options(
+        &self,
+        model: &str,
+        prompt: &str,
+        schema: &JsonSchema,
+        deadline: Duration,
+        options: &LlmCompletionOptions,
+    ) -> Result<LlmOutput, LlmError> {
         call_chat_completions(RequestParts {
             http: &self.http,
             url: format!("{}/v1/chat/completions", self.base_url),
             api_key: &self.api_key,
             extra_headers: &[],
-            body,
+            body: chat_completion_body(model, prompt, schema, options, ReasoningWireFormat::OpenAi),
             deadline,
         })
         .await

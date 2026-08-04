@@ -2,7 +2,8 @@ import { Agent, Runner, tool, type RunContext } from '@openai/agents';
 import type { AuthorizationDecision, Client } from '@featherlane-ai/sdk';
 import { z } from 'zod';
 
-import { OPENAI_API_KEY, OPENAI_MODEL } from '../shared/env';
+import { OPENAI_API_KEY } from '../shared/env';
+import { demoModelRoute } from '../shared/model-routing';
 import {
   findProcurementQuote,
   procurementQuotes,
@@ -14,6 +15,7 @@ import {
 
 const PURCHASE_ORDER_SCHEMA_HASH = 'featherlane-ai-schema:procurement-submit-po-v1';
 const MAX_FINAL_MESSAGE_LENGTH = 2_000;
+const DEMO_MODEL_ROUTE = demoModelRoute('demo_default');
 
 const searchCatalogInputSchema = z.object({
   query: z.string().trim().min(1).max(120),
@@ -260,8 +262,13 @@ const PROCUREMENT_AGENT = new Agent<ProcurementRunContext>({
     'For general questions, answer briefly without proposing an action.',
     "Reply in the same language as the buyer's request.",
   ].join(' '),
-  model: OPENAI_MODEL,
-  modelSettings: { parallelToolCalls: false },
+  model: DEMO_MODEL_ROUTE.model,
+  modelSettings: {
+    parallelToolCalls: false,
+    ...(DEMO_MODEL_ROUTE.reasoningEffort === undefined
+      ? {}
+      : { reasoning: { effort: DEMO_MODEL_ROUTE.reasoningEffort } }),
+  },
   tools: [searchCatalogTool, submitPurchaseOrderTool],
 });
 

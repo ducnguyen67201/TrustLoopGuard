@@ -165,11 +165,7 @@ pub(super) fn label_policy_routes(state: &AppState) -> Router {
         })
 }
 
-pub(super) fn policy_routes(
-    state: &AppState,
-    draft_llm: Option<Arc<dyn tl_llm::LlmClient>>,
-    draft_model: String,
-) -> Router {
+pub(super) fn policy_routes(state: &AppState) -> Router {
     Router::new()
         .route(
             "/v1/policies",
@@ -201,16 +197,11 @@ pub(super) fn policy_routes(
             store: state.policy_store.clone(),
             environment_store: state.environment_store.clone(),
             team_store: state.team_store.clone(),
-            draft_llm,
-            draft_model,
+            llm: state.handler_ctx.llm.clone(),
         })
 }
 
-pub(super) fn guardrail_routes(
-    state: &AppState,
-    draft_llm: Option<Arc<dyn tl_llm::LlmClient>>,
-    draft_model: String,
-) -> Router {
+pub(super) fn guardrail_routes(state: &AppState) -> Router {
     let guardrails = Router::new()
         .route(
             "/v1/agents/{id}/guardrails/generate",
@@ -227,8 +218,7 @@ pub(super) fn guardrail_routes(
             agent_store: state.agent_store.clone(),
             policy_store: state.policy_store.clone(),
             environment_store: state.environment_store.clone(),
-            draft_llm: draft_llm.clone(),
-            draft_model: draft_model.clone(),
+            llm: state.handler_ctx.llm.clone(),
         });
 
     // Attack-vector generation lives in the private runner; Rust persists each
@@ -494,9 +484,6 @@ fn github_integration_state(state: &AppState) -> github_integration::GitHubInteg
     let github = github_integration::ReqwestGitHubClient::from_env()
         .ok()
         .map(|client| Arc::new(client) as Arc<dyn github_integration::GitHubClient>);
-    let llm = tl_llm::OpenAiClient::from_env()
-        .ok()
-        .map(|client| Arc::new(client) as Arc<dyn tl_llm::LlmClient>);
     github_integration::GitHubIntegrationState {
         store: state.github_integration_store.clone(),
         team_store: state.team_store.clone(),
@@ -504,9 +491,6 @@ fn github_integration_state(state: &AppState) -> github_integration::GitHubInteg
         environment_store: state.environment_store.clone(),
         trace_store: state.trace_store.clone(),
         github,
-        llm,
-        model: std::env::var("TL_GITHUB_INTEGRATION_MODEL")
-            .unwrap_or_else(|_| "gpt-4o-mini".to_string()),
         worker_tx: state.github_integration_tx.clone(),
     }
 }

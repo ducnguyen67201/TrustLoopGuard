@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use serde::Deserialize;
 use serde_json::json;
 use tl_core::{
@@ -7,7 +5,7 @@ use tl_core::{
     GitHubProposedFileChange, GitHubProposedFileOperation,
     GITHUB_INTEGRATION_RECIPE_TYPESCRIPT_NEXTJS_V1,
 };
-use tl_llm::{JsonSchema, LlmClient};
+use tl_llm::{JsonSchema, LlmRouteKind, LlmRouter};
 
 use super::github_client::{GitHubClient, GitHubFile};
 use super::validation::{
@@ -27,8 +25,7 @@ pub struct AnalysisResult {
 
 pub async fn analyze(
     github: &dyn GitHubClient,
-    llm: &dyn LlmClient,
-    model: &str,
+    llm: &LlmRouter,
     installation_id: i64,
     connection: &GitHubConnectionSummary,
     risk_statement: &str,
@@ -84,7 +81,12 @@ pub async fn analyze(
 
     let prompt = prompt(connection, risk_statement, &files);
     let out = llm
-        .complete(model, &prompt, &proposal_schema(), Duration::from_secs(60))
+        .complete_route(
+            LlmRouteKind::GitHubIntegration,
+            &connection.workspace_id,
+            &prompt,
+            &proposal_schema(),
+        )
         .await
         .map_err(|e| {
             GitHubIntegrationStoreError::Unavailable(format!("llm provider error: {e}"))
@@ -328,5 +330,203 @@ fn github_error(error: GitHubClientError) -> GitHubIntegrationStoreError {
             GitHubIntegrationStoreError::Unavailable("GitHub authorization failed".into())
         }
         other => GitHubIntegrationStoreError::Unavailable(other.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+
+    use async_trait::async_trait;
+    use tl_core::{GitHubConnectionStatus, GITHUB_INTEGRATION_RECIPE_TYPESCRIPT_NEXTJS_V1};
+    use tl_llm::{LlmClient, LlmError, LlmOutput, ProviderTarget, ResolvedRoute, TokenBudget};
+
+    use super::*;
+    use crate::github_integration::github_client::GitHubInstallationProof;
+    use crate::github_integration::{
+        GitHubDraftPrRequest, GitHubPullRequest, GitHubRepository, GitHubTreeEntry,
+    };
+
+    struct FixtureGitHub;
+
+    #[async_trait]
+    impl GitHubClient for FixtureGitHub {
+        async fn verify_callback_installation(
+            &self,
+            _code: &str,
+            _installation_id: i64,
+        ) -> Result<GitHubInstallationProof, GitHubClientError> {
+            unreachable!("analysis does not verify installations")
+        }
+
+        async fn list_repositories(
+            &self,
+            _installation_id: i64,
+        ) -> Result<Vec<GitHubRepository>, GitHubClientError> {
+            unreachable!("analysis does not list repositories")
+        }
+
+        async fn get_tree(
+            &self,
+            _installation_id: i64,
+            _owner: &str,
+            _repo: &str,
+            _branch: &str,
+        ) -> Result<(String, Vec<GitHubTreeEntry>, bool), GitHubClientError> {
+            Ok((
+                "base-sha".into(),
+                vec![GitHubTreeEntry {
+                    path: "app/api/agent.ts".into(),
+                    sha: "file-sha".into(),
+                    kind: "blob".into(),
+                    size: Some(32),
+                }],
+                false,
+            ))
+        }
+
+        async fn get_file(
+            &self,
+            _installation_id: i64,
+            _owner: &str,
+            _repo: &str,
+            path: &str,
+            _reference: &str,
+        ) -> Result<GitHubFile, GitHubClientError> {
+            Ok(GitHubFile {
+                path: path.into(),
+                sha: "file-sha".into(),
+                bytes: b"export async function agent() {}".to_vec(),
+            })
+        }
+
+        async fn create_draft_pr(
+            &self,
+            _request: GitHubDraftPrRequest,
+        ) -> Result<GitHubPullRequest, GitHubClientError> {
+            unreachable!("analysis does not create a pull request")
+        }
+    }
+
+    struct RecordingLlm {
+        calls: Arc<Mutex<Vec<(String, Duration)>>>,
+        fail: bool,
+    }
+
+    #[async_trait]
+    impl LlmClient for RecordingLlm {
+        async fn complete(
+            &self,
+            model: &str,
+            _prompt: &str,
+            _schema: &JsonSchema,
+            deadline: Duration,
+        ) -> Result<LlmOutput, LlmError> {
+            self.calls
+                .lock()
+                .expect("calls lock poisoned")
+                .push((model.into(), deadline));
+            if self.fail {
+                return Err(LlmError::Http("fixture provider failed".into()));
+            }
+            Ok(LlmOutput {
+                json: json!({
+                    "detected_framework": "Next.js",
+                    "package_manager": "pnpm",
+                    "summary": "Add Featherlane AI guard calls",
+                    "integration_points": ["app/api/agent.ts"],
+                    "file_replacements": [{
+                        "path": "app/api/agent.ts",
+                        "operation": "update",
+                        "content_sha": "fixture-content-sha",
+                        "replacement": "const featherlane_ai_integration_id = \"connection-1\";\nconst key = process.env.FEATHERLANE_AI_API_KEY;",
+                        "rationale": "Guard the agent boundary"
+                    }],
+                    "manual_steps": [{
+                        "label": "Install SDK",
+                        "command": "pnpm install",
+                        "reason": "Refresh dependencies"
+                    }]
+                }),
+                prompt_tokens: 10,
+                completion_tokens: 5,
+            })
+        }
+    }
+
+    fn connection() -> GitHubConnectionSummary {
+        GitHubConnectionSummary {
+            id: "connection-1".into(),
+            workspace_id: "workspace-1".into(),
+            installation_id: "installation-1".into(),
+            repository_id: "repository-1".into(),
+            owner: "acme".into(),
+            name: "agent-app".into(),
+            default_branch: "main".into(),
+            root_path: String::new(),
+            agent_id: "agent-1".into(),
+            environment_id: "production".into(),
+            status: GitHubConnectionStatus::Active,
+            recipe_version: GITHUB_INTEGRATION_RECIPE_TYPESCRIPT_NEXTJS_V1.into(),
+            created_at: "2026-08-03T00:00:00Z".into(),
+            updated_at: "2026-08-03T00:00:00Z".into(),
+        }
+    }
+
+    fn router(calls: Arc<Mutex<Vec<(String, Duration)>>>, fail: bool) -> LlmRouter {
+        let mut providers: HashMap<String, Arc<dyn LlmClient>> = HashMap::new();
+        providers.insert("openai".into(), Arc::new(RecordingLlm { calls, fail }));
+        let mut routes = HashMap::new();
+        routes.insert(
+            LlmRouteKind::GitHubIntegration,
+            ResolvedRoute {
+                primary: ProviderTarget {
+                    provider: "openai".into(),
+                    model: "github-route-model".into(),
+                    deadline_ms: 60_000,
+                    reasoning_effort: None,
+                },
+                fallback: None,
+            },
+        );
+        LlmRouter::new(providers, routes, Arc::new(TokenBudget::new(0)))
+    }
+
+    #[tokio::test]
+    async fn analysis_uses_the_github_route_model_and_deadline() {
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let result = analyze(
+            &FixtureGitHub,
+            &router(calls.clone(), false),
+            7,
+            &connection(),
+            "Prevent unguarded high-stakes actions",
+        )
+        .await
+        .expect("analysis");
+
+        assert_eq!(result.base_sha, "base-sha");
+        assert_eq!(result.proposed_changes.len(), 1);
+        assert_eq!(
+            *calls.lock().expect("calls lock poisoned"),
+            vec![("github-route-model".into(), Duration::from_secs(60))]
+        );
+    }
+
+    #[tokio::test]
+    async fn provider_failure_remains_unavailable() {
+        let error = analyze(
+            &FixtureGitHub,
+            &router(Arc::new(Mutex::new(Vec::new())), true),
+            7,
+            &connection(),
+            "Prevent unguarded high-stakes actions",
+        )
+        .await
+        .expect_err("provider should fail");
+
+        assert!(matches!(error, GitHubIntegrationStoreError::Unavailable(_)));
     }
 }

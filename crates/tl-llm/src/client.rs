@@ -9,6 +9,8 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
+use crate::config::ReasoningEffort;
+
 /// JSON Schema description sent in the `response_format` field of the
 /// OpenAI-compatible chat completions API. Providers translate this
 /// into their wire-level shape; the trait surface stays neutral.
@@ -26,6 +28,11 @@ pub struct LlmOutput {
     pub json: serde_json::Value,
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct LlmCompletionOptions {
+    pub reasoning_effort: Option<ReasoningEffort>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -56,4 +63,17 @@ pub trait LlmClient: Send + Sync {
         schema: &JsonSchema,
         deadline: Duration,
     ) -> Result<LlmOutput, LlmError>;
+
+    /// Run a completion with provider-neutral optional controls. The default
+    /// preserves source compatibility for existing clients and test doubles.
+    async fn complete_with_options(
+        &self,
+        model: &str,
+        prompt: &str,
+        schema: &JsonSchema,
+        deadline: Duration,
+        _options: &LlmCompletionOptions,
+    ) -> Result<LlmOutput, LlmError> {
+        self.complete(model, prompt, schema, deadline).await
+    }
 }
