@@ -6,7 +6,9 @@
 use std::time::Duration;
 
 use serde_json::{json, Value};
-use tl_llm::{JsonSchema, LlmClient, OpenAiClient, OpenRouterClient};
+use tl_llm::{
+    JsonSchema, LlmClient, LlmCompletionOptions, OpenAiClient, OpenRouterClient, ReasoningEffort,
+};
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -72,6 +74,7 @@ async fn openai_sends_bearer_auth_and_json_schema_body() {
     assert_eq!(body["messages"][0]["content"], "judge this");
     assert_eq!(body["response_format"]["type"], "json_schema");
     assert_eq!(body["response_format"]["json_schema"]["strict"], true);
+    assert!(body.get("reasoning_effort").is_none());
     assert_eq!(
         body["response_format"]["json_schema"]["name"],
         "AuthorizationEffect"
@@ -104,6 +107,89 @@ async fn openrouter_adds_http_referer() {
         .await
         .expect("response");
     assert_eq!(out.json["verdict"], "allow");
+    let received = &server.received_requests().await.unwrap()[0];
+    let body: Value = serde_json::from_slice(&received.body).unwrap();
+    assert!(body.get("reasoning_effort").is_none());
+}
+
+#[tokio::test]
+async fn openai_sends_configured_reasoning_effort() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .respond_with(ok_response())
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = OpenAiClient::new("key")
+        .unwrap()
+        .with_base_url(server.uri());
+    client
+        .complete_with_options(
+            "reasoning-model",
+            "judge this",
+            &schema(),
+            Duration::from_secs(5),
+            &LlmCompletionOptions {
+                reasoning_effort: Some(ReasoningEffort::Low),
+            },
+        )
+        .await
+        .expect("response");
+
+    let received = &server.received_requests().await.unwrap()[0];
+    let body: Value = serde_json::from_slice(&received.body).unwrap();
+    assert_eq!(body["reasoning_effort"], "low");
+}
+
+#[tokio::test]
+async fn openrouter_sends_configured_reasoning_effort() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .respond_with(ok_response())
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = OpenRouterClient::new("key")
+        .unwrap()
+        .with_base_url(server.uri());
+    client
+        .complete_with_options(
+            "openai/reasoning-model",
+            "judge this",
+            &schema(),
+            Duration::from_secs(5),
+            &LlmCompletionOptions {
+                reasoning_effort: Some(ReasoningEffort::High),
+            },
+        )
+        .await
+        .expect("response");
+
+    let received = &server.received_requests().await.unwrap()[0];
+    let body: Value = serde_json::from_slice(&received.body).unwrap();
+    assert_eq!(body["reasoning"]["effort"], "high");
+    assert!(body.get("reasoning_effort").is_none());
+}
+
+#[test]
+fn reasoning_effort_as_str_matches_serde_representation() {
+    for effort in [
+        ReasoningEffort::None,
+        ReasoningEffort::Low,
+        ReasoningEffort::Medium,
+        ReasoningEffort::High,
+        ReasoningEffort::XHigh,
+        ReasoningEffort::Max,
+    ] {
+        let serialized = serde_json::to_value(effort).expect("serialize reasoning effort");
+        assert_eq!(
+            serialized,
+            json!(effort.as_str()),
+            "mismatch for {effort:?}"
+        );
+    }
 }
 
 #[tokio::test]

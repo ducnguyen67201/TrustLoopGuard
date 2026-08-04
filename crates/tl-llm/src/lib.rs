@@ -6,9 +6,9 @@
 //! - [`OpenRouterClient`] — OpenAI-compatible aggregator
 //!
 //! Both speak the `response_format: { type: "json_schema", strict: true }`
-//! constraint so judge outputs are structurally guaranteed. The router
-//! that picks between them — including failover, per-tenant budgets, and
-//! per-judge model selection — lands in PR 8.
+//! constraint so structured outputs are guaranteed. The router is the
+//! first-party chokepoint for failover, typed workload selection, optional
+//! reasoning, and runtime-judge budgets.
 
 pub mod budget;
 pub mod client;
@@ -20,13 +20,14 @@ pub mod router;
 mod wire;
 
 pub use budget::{BudgetExceeded, TokenBudget};
-pub use client::{JsonSchema, LlmClient, LlmError, LlmOutput};
+pub use client::{JsonSchema, LlmClient, LlmCompletionOptions, LlmError, LlmOutput};
 pub use config::{
-    BudgetConfig, ConfigError, ProviderConfig, ProviderTarget, RouteConfig, RouterConfig,
+    BudgetConfig, ConfigError, ProviderConfig, ProviderTarget, ReasoningEffort, RouteConfig,
+    RouterConfig, ROUTER_CONFIG_SCHEMA_VERSION,
 };
 pub use openai::OpenAiClient;
 pub use openrouter::OpenRouterClient;
 pub use router::{
-    AuditedLlmError, AuditedLlmOutput, JudgeKind, LlmCallAudit, LlmRouter, ResolvedRoute,
-    RouterBuildError,
+    AuditedLlmError, AuditedLlmOutput, JudgeKind, LlmCallAudit, LlmRouteKind, LlmRouter,
+    ResolvedRoute, RouterBuildError,
 };

@@ -37,7 +37,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       # Install pnpm before setup-node so the node action's pnpm cache
       # has something to cache against. Order matters here.
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.0.9
         with:
           # `version` intentionally omitted — pnpm/action-setup reads
           # `packageManager` from package.json. Specifying both here

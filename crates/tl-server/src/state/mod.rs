@@ -10,7 +10,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use tl_cache::MokaCache;
 use tl_engine::{Engine, EventPipelineCtx, FuzzyChecker, HandlerCtx, NoOpFuzzyChecker};
-use tl_llm::{LlmRouter, RouterConfig};
+use tl_llm::{LlmRouteKind, LlmRouter, RouterBuildError, RouterConfig};
 use tl_policy::Policy;
 #[cfg(feature = "postgres")]
 use tl_storage::EscalationRepo;
@@ -60,7 +60,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
     );
 
     // -- LLM Router (optional) --
-    let llm = build_llm_router(opts.llm_config_path.as_deref());
+    let llm = build_llm_router()?;
 
     // -- Cache --
     let cache: Arc<MokaCache> = Arc::new(MokaCache::with_defaults());
@@ -144,7 +144,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         profile_resolver,
         cache,
         fuzzy,
-        llm,
+        llm: llm.clone(),
     };
 
     // -- Escalation worker (optional) --
@@ -173,7 +173,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
     let redteam_dispatch_tx = build_dispatch_worker(redteam_job_store.clone());
 
     // -- GitHub-assisted installation worker (optional) --
-    let github_integration_tx = build_github_integration_worker(github_integration_store.clone());
+    let github_integration_tx =
+        build_github_integration_worker(github_integration_store.clone(), llm);
 
     let jwt_signer = crate::jwt::JwtSigner::from_env();
     if jwt_signer.is_some() {
@@ -275,6 +276,7 @@ fn build_dispatch_worker(
 
 fn build_github_integration_worker(
     store: Arc<dyn GitHubIntegrationStore>,
+    llm: Arc<LlmRouter>,
 ) -> Option<tokio_mpsc::Sender<GitHubIntegrationMessage>> {
     let github = match ReqwestGitHubClient::from_env() {
         Ok(client) => Arc::new(client),
@@ -286,19 +288,11 @@ fn build_github_integration_worker(
             return None;
         }
     };
-    let llm = match tl_llm::OpenAiClient::from_env() {
-        Ok(client) => Arc::new(client),
-        Err(error) => {
-            tracing::info!(
-                error = %error,
-                "github integration disabled; control-plane LLM config incomplete"
-            );
-            return None;
-        }
-    };
-    let model =
-        std::env::var("TL_GITHUB_INTEGRATION_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
-    let tx = spawn_github_integration_worker(store, github, llm, model);
+    if !llm.has_workload_route(LlmRouteKind::GitHubIntegration) {
+        tracing::info!("github integration disabled; canonical GitHub LLM route is unavailable");
+        return None;
+    }
+    let tx = spawn_github_integration_worker(store, github, llm);
     tracing::info!("github integration worker spawned");
     Some(tx)
 }
@@ -360,39 +354,21 @@ fn load_policies(dir: &Path) -> Result<LoadedPolicies> {
     Ok(out)
 }
 
-fn build_llm_router(explicit: Option<&str>) -> Arc<LlmRouter> {
-    let path = explicit
-        .map(String::from)
-        .or_else(|| std::env::var("TL_LLM_CONFIG").ok())
-        .unwrap_or_else(|| "./config/llm-routing.toml".to_string());
-
-    if !Path::new(&path).exists() {
-        tracing::info!(
-            path,
-            "no llm-routing config; running with empty LlmRouter (Tier 3 disabled)"
-        );
-        return Arc::new(LlmRouter::empty());
-    }
-
-    match RouterConfig::from_path(&path) {
-        Ok(cfg) => match LlmRouter::from_config(&cfg) {
-            Ok(router) => {
-                tracing::info!(path, "llm-routing config loaded");
-                Arc::new(router)
-            }
-            Err(e) => {
-                tracing::warn!(
-                    path,
-                    error = %e,
-                    "llm-routing config rejected by router; falling back to empty"
-                );
-                Arc::new(LlmRouter::empty())
-            }
-        },
-        Err(e) => {
-            tracing::warn!(path, error = %e, "failed to parse llm-routing config; falling back to empty");
-            Arc::new(LlmRouter::empty())
+fn build_llm_router() -> Result<Arc<LlmRouter>> {
+    let config = RouterConfig::bundled().context("parse bundled llm-routing manifest")?;
+    match LlmRouter::from_config(&config) {
+        Ok(router) => {
+            tracing::info!("bundled llm-routing manifest loaded");
+            Ok(Arc::new(router))
         }
+        Err(RouterBuildError::MissingEnv(name)) => {
+            tracing::info!(
+                credential_env = name,
+                "LLM routes disabled because provider credential is not configured"
+            );
+            Ok(Arc::new(LlmRouter::empty()))
+        }
+        Err(error) => Err(anyhow::anyhow!(error)).context("build bundled llm-routing manifest"),
     }
 }
 

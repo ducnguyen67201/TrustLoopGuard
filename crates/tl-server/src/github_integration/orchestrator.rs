@@ -25,11 +25,10 @@ pub enum GitHubIntegrationMessage {
 pub fn spawn_github_integration_worker(
     store: Arc<dyn GitHubIntegrationStore>,
     github: Arc<dyn GitHubClient>,
-    llm: Arc<dyn tl_llm::LlmClient>,
-    model: String,
+    llm: Arc<tl_llm::LlmRouter>,
 ) -> mpsc::Sender<GitHubIntegrationMessage> {
     let (tx, rx) = mpsc::channel(128);
-    tokio::spawn(worker_loop(store.clone(), github, llm, model, rx));
+    tokio::spawn(worker_loop(store.clone(), github, llm, rx));
     let recover_tx = tx.clone();
     tokio::spawn(async move {
         match store.list_recoverable_jobs().await {
@@ -59,8 +58,7 @@ pub fn spawn_github_integration_worker(
 async fn worker_loop(
     store: Arc<dyn GitHubIntegrationStore>,
     github: Arc<dyn GitHubClient>,
-    llm: Arc<dyn tl_llm::LlmClient>,
-    model: String,
+    llm: Arc<tl_llm::LlmRouter>,
     mut rx: mpsc::Receiver<GitHubIntegrationMessage>,
 ) {
     let limiter = Arc::new(Semaphore::new(2));
@@ -72,14 +70,13 @@ async fn worker_loop(
         let store = store.clone();
         let github = github.clone();
         let llm = llm.clone();
-        let model = model.clone();
         tokio::spawn(async move {
             let _permit = permit;
             match message {
                 GitHubIntegrationMessage::Analyze {
                     workspace_id,
                     job_id,
-                } => run_analyze(store, github, llm, model, workspace_id, job_id).await,
+                } => run_analyze(store, github, llm, workspace_id, job_id).await,
                 GitHubIntegrationMessage::Apply {
                     workspace_id,
                     job_id,
@@ -92,8 +89,7 @@ async fn worker_loop(
 async fn run_analyze(
     store: Arc<dyn GitHubIntegrationStore>,
     github: Arc<dyn GitHubClient>,
-    llm: Arc<dyn tl_llm::LlmClient>,
-    model: String,
+    llm: Arc<tl_llm::LlmRouter>,
     workspace_id: String,
     job_id: String,
 ) {
@@ -168,7 +164,6 @@ async fn run_analyze(
     match recipe::analyze(
         github.as_ref(),
         llm.as_ref(),
-        &model,
         installation_id,
         &connection,
         &job.risk_statement,

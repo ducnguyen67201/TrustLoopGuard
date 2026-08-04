@@ -131,10 +131,6 @@ pub struct BuildOptions {
     /// Path to the policy YAML directory. Defaults to `TL_POLICY_DIR`
     /// env var, then `./policies`.
     pub policy_dir: Option<String>,
-    /// Path to the LlmRouter TOML config. Defaults to `TL_LLM_CONFIG`
-    /// env var, then `./config/llm-routing.toml`. If the file is
-    /// missing the router boots empty (Tier 3 → Skipped).
-    pub llm_config_path: Option<String>,
     /// Postgres connection string. Defaults to `DATABASE_URL`. When
     /// unset, the server runs memory-only.
     #[cfg(feature = "postgres")]

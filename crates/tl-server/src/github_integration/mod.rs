@@ -198,8 +198,6 @@ pub struct GitHubIntegrationState {
     pub environment_store: Arc<dyn EnvironmentStore>,
     pub trace_store: Arc<dyn TraceStore>,
     pub github: Option<Arc<dyn GitHubClient>>,
-    pub llm: Option<Arc<dyn tl_llm::LlmClient>>,
-    pub model: String,
     pub worker_tx: Option<tokio::sync::mpsc::Sender<GitHubIntegrationMessage>>,
 }
 
