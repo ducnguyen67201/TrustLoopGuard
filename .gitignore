@@ -49,6 +49,7 @@ sdks/python/build/
 # JS/TS workspace
 node_modules/
 .pnpm-store/
+/package-lock.json
 **/dist/
 **/coverage/
 .next/
