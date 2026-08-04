@@ -61,6 +61,11 @@ All runtime paths use the **same engine contracts**. The server crate is a thin 
 
 The runtime is SDK-first and Rust-owned. Public runtime traffic enters as `GuardEvent` through `POST /v1/events`. The server resolves workspace/environment identity, validates event bounds, resolves action metadata, resolves source labels and provenance, runs mode-gated built-in safety checkers, loads policies enabled for the resolved environment, and delegates typed family evaluation to the matching authorization adapter before composing one `Decision`. Content policy evaluation first runs deterministic literal/regex matchers; semantic candidates use the configured `semantic_policy` LLM judge route in one bounded batch. If that judge is absent or disabled, high/critical semantic candidates defer instead of disappearing from enforcement. Tool policies are deterministic; shell command analysis is described in [command-safety.md](command-safety.md). See [event-engine.md](event-engine.md) for the common pipeline and trace evidence shape.
 
+First-party runtime judges, policy/GitHub assistance, and bundled demos select
+models through one versioned manifest. That mechanism and its runtime-budget
+boundary are owned by [first-party LLM routing](llm-routing.md); customer-managed
+gateway providers and models remain a separate durable product surface.
+
 Events accept an optional, additive `session_id` inside the `GuardEvent` principal so an SDK that opted into monitoring can tag all its traffic with one monitoring session; persisted traces carry it as an indexed column and `GET /v1/traces` accepts a `session_id` query filter. The id is opaque, length-bounded metadata — never an enforcement input (see the glossary's "Monitoring session" entry).
 
 ```

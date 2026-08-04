@@ -6,15 +6,18 @@ use crate::client::LlmClient;
 use crate::config::RouterConfig;
 use crate::{OpenAiClient, OpenRouterClient};
 
-use super::{JudgeKind, LlmRouter, ResolvedRoute, RouterBuildError};
+use super::{LlmRouteKind, LlmRouter, ResolvedRoute, RouterBuildError};
 
 impl LlmRouter {
-    /// Build a router from parsed TOML config. Reads API keys from the
+    /// Build a router from parsed canonical config. Reads API keys from the
     /// env vars named in each provider's `api_key_env` at this point -
     /// missing keys produce a `RouterBuildError::MissingEnv`.
     pub fn from_config(config: &RouterConfig) -> Result<Self, RouterBuildError> {
+        // Validate route names and provider references before reading credentials
+        // so malformed embedded configuration cannot be mistaken for an optional
+        // missing-key deployment.
+        let routes = build_routes(config)?;
         let providers = build_providers(config)?;
-        let routes = build_routes(config, &providers)?;
         let budget = build_budget(config);
 
         Ok(Self::new(providers, routes, Arc::new(budget)))
@@ -34,10 +37,9 @@ fn build_providers(
 fn build_provider(
     provider: &crate::config::ProviderConfig,
 ) -> Result<Arc<dyn LlmClient>, RouterBuildError> {
-    let key = std::env::var(&provider.api_key_env)
-        .map_err(|_| RouterBuildError::MissingEnv(provider.api_key_env.clone()))?;
     match provider.kind.as_str() {
         "openai" => {
+            let key = provider_key(provider)?;
             let mut client =
                 OpenAiClient::new(key).map_err(|e| RouterBuildError::Provider(e.to_string()))?;
             if let Some(base) = &provider.base_url {
@@ -46,6 +48,7 @@ fn build_provider(
             Ok(Arc::new(client))
         }
         "openrouter" => {
+            let key = provider_key(provider)?;
             let mut client = OpenRouterClient::new(key)
                 .map_err(|e| RouterBuildError::Provider(e.to_string()))?;
             if let Some(base) = &provider.base_url {
@@ -57,18 +60,23 @@ fn build_provider(
     }
 }
 
+fn provider_key(provider: &crate::config::ProviderConfig) -> Result<String, RouterBuildError> {
+    std::env::var(&provider.api_key_env)
+        .map_err(|_| RouterBuildError::MissingEnv(provider.api_key_env.clone()))
+}
+
 fn build_routes(
     config: &RouterConfig,
-    providers: &HashMap<String, Arc<dyn LlmClient>>,
-) -> Result<HashMap<JudgeKind, ResolvedRoute>, RouterBuildError> {
+) -> Result<HashMap<LlmRouteKind, ResolvedRoute>, RouterBuildError> {
     let mut routes = HashMap::new();
     for (name, route) in &config.routes {
-        let kind = judge_kind(name)?;
+        let kind = LlmRouteKind::parse(name)
+            .ok_or_else(|| RouterBuildError::UnknownRouteKind(name.clone()))?;
         // Validate referenced providers now so misconfigs fail at boot, not on
         // the first request.
-        ensure_provider_exists(providers, &route.primary.provider)?;
+        ensure_provider_exists(config, &route.primary.provider)?;
         if let Some(fallback) = &route.fallback {
-            ensure_provider_exists(providers, &fallback.provider)?;
+            ensure_provider_exists(config, &fallback.provider)?;
         }
         routes.insert(
             kind,
@@ -81,21 +89,8 @@ fn build_routes(
     Ok(routes)
 }
 
-fn judge_kind(name: &str) -> Result<JudgeKind, RouterBuildError> {
-    match name {
-        "hallucination" => Ok(JudgeKind::Hallucination),
-        "tone" => Ok(JudgeKind::Tone),
-        "authority" => Ok(JudgeKind::Authority),
-        "semantic_policy" => Ok(JudgeKind::SemanticPolicy),
-        other => Err(RouterBuildError::UnknownJudgeKind(other.into())),
-    }
-}
-
-fn ensure_provider_exists(
-    providers: &HashMap<String, Arc<dyn LlmClient>>,
-    provider: &str,
-) -> Result<(), RouterBuildError> {
-    if providers.contains_key(provider) {
+fn ensure_provider_exists(config: &RouterConfig, provider: &str) -> Result<(), RouterBuildError> {
+    if config.providers.contains_key(provider) {
         Ok(())
     } else {
         Err(RouterBuildError::UnknownProvider(provider.into()))

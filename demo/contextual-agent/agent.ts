@@ -12,7 +12,8 @@ import {
   type Severity,
 } from '@featherlane-ai/sdk';
 
-import { OPENAI_API_KEY, OPENAI_MODEL } from '../shared/env';
+import { OPENAI_API_KEY } from '../shared/env';
+import { demoModelRoute } from '../shared/model-routing';
 import {
   CONTEXTUAL_AGENT_INSTRUCTIONS,
   CONTEXTUAL_DEMO_AGENT_ID,
@@ -33,6 +34,7 @@ const MAX_REASON_CHARACTERS = 500;
 const MAX_DESCRIPTION_CHARACTERS = 300;
 const MAX_FINDINGS = 12;
 const MAX_POLICIES = 20;
+const DEMO_MODEL_ROUTE = demoModelRoute('demo_default');
 
 export interface ContextualHistoryItem {
   role: 'user' | 'assistant';
@@ -212,11 +214,14 @@ export async function generateContextualDraft(request: ContextualAgentRequest): 
 
   const openai = new OpenAI({ apiKey });
   const response = await openai.responses.create({
-    model: OPENAI_MODEL,
+    model: DEMO_MODEL_ROUTE.model,
     instructions: contextualAgentInstructions(request.locale),
     input: buildContextualModelInput(request),
     max_output_tokens: MAX_MODEL_OUTPUT_TOKENS,
     store: false,
+    ...(DEMO_MODEL_ROUTE.reasoningEffort === undefined
+      ? {}
+      : { reasoning: { effort: DEMO_MODEL_ROUTE.reasoningEffort } }),
   });
   const draft = response.output_text.trim();
   if (draft === '') throw new Error('OpenAI returned an empty contextual demo response');

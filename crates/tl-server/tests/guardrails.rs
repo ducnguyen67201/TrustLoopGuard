@@ -11,6 +11,7 @@
 //! - Generating without a `system_prompt` returns 422.
 //! - Generating for a missing agent returns 404.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -22,7 +23,10 @@ use axum::{
 };
 use http_body_util::BodyExt;
 use tl_core::{GuardrailGenerateResponse, GuardrailListResponse};
-use tl_llm::{JsonSchema, LlmClient, LlmError, LlmOutput};
+use tl_llm::{
+    JsonSchema, LlmClient, LlmError, LlmOutput, LlmRouteKind, LlmRouter, ProviderTarget,
+    ResolvedRoute, TokenBudget,
+};
 use tl_server::{
     agents::{self, AgentState},
     auth::{WorkspaceApiKeyVerifier, WorkspaceApiKeyVerifyError, WorkspaceKeyContext},
@@ -89,11 +93,14 @@ impl WorkspaceApiKeyVerifier for RuntimeKeyVerifier {
 impl LlmClient for StubLlm {
     async fn complete(
         &self,
-        _model: &str,
+        model: &str,
         _prompt: &str,
-        _schema: &JsonSchema,
-        _deadline: Duration,
+        schema: &JsonSchema,
+        deadline: Duration,
     ) -> Result<LlmOutput, LlmError> {
+        assert_eq!(model, "stub-model");
+        assert_eq!(schema.name, "policy_set_draft");
+        assert_eq!(deadline, Duration::from_secs(60));
         let json = serde_json::json!({
             "policies": [
                 {
@@ -133,6 +140,29 @@ impl LlmClient for StubLlm {
     }
 }
 
+fn guardrail_router() -> Arc<LlmRouter> {
+    let mut providers: HashMap<String, Arc<dyn LlmClient>> = HashMap::new();
+    providers.insert("stub".into(), Arc::new(StubLlm));
+    let mut routes = HashMap::new();
+    routes.insert(
+        LlmRouteKind::GuardrailGeneration,
+        ResolvedRoute {
+            primary: ProviderTarget {
+                provider: "stub".into(),
+                model: "stub-model".into(),
+                deadline_ms: 60_000,
+                reasoning_effort: None,
+            },
+            fallback: None,
+        },
+    );
+    Arc::new(LlmRouter::new(
+        providers,
+        routes,
+        Arc::new(TokenBudget::new(0)),
+    ))
+}
+
 fn build_app() -> Router {
     build_app_with_auth(None)
 }
@@ -166,8 +196,7 @@ fn build_app_with_auth(auth: Option<Arc<AuthConfig>>) -> Router {
         agent_store,
         policy_store: policy_store.clone(),
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
-        draft_llm: Some(Arc::new(StubLlm) as Arc<dyn LlmClient>),
-        draft_model: "stub-model".to_string(),
+        llm: guardrail_router(),
     };
     let guardrail_routes = Router::new()
         .route(
