@@ -255,7 +255,7 @@ pub(super) fn validate_schema(
         ));
     }
     inspect_schema(schema, 0)?;
-    jsonschema::JSONSchema::compile(schema)
+    jsonschema::validator_for(schema)
         .map_err(|_| McpGatewayStoreError::Conflict("upstream tool schema is invalid".into()))?;
     Ok(())
 }

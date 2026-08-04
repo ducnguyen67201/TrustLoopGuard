@@ -285,7 +285,7 @@ fn governance_schema() -> Value {
 }
 
 fn validate(schema: &Value, value: &Value, message: &str) -> Result<(), String> {
-    let validator = jsonschema::JSONSchema::compile(schema)
+    let validator = jsonschema::validator_for(schema)
         .map_err(|_| "The pinned schema is invalid".to_string())?;
     if validator.is_valid(value) {
         Ok(())
