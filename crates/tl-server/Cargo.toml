@@ -60,7 +60,7 @@ jsonwebtoken = { workspace = true }
 sha2 = "0.11"
 url = { workspace = true }
 ring = { workspace = true }
-jsonschema = "0.18"
+jsonschema = "0.49"
 tower-http = { version = "0.7", features = ["limit"] }
 urlencoding = "2"
 
