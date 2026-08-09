@@ -178,6 +178,7 @@ diesel::table! {
         agent_id -> Text,
         role -> Text,
         joined_at -> Timestamptz,
+        manifest_frozen_at -> Nullable<Timestamptz>,
     }
 }
 

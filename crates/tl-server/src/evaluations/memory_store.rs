@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
 use tl_core::{
@@ -12,12 +12,14 @@ use super::{EvaluationStore, EvaluationStoreError};
 
 type ProfileKey = (String, String, String);
 type RunKey = (String, String);
+type ParticipantKey = (String, String, String);
 
 #[derive(Debug, Default)]
 pub struct MemoryEvaluationStore {
     profiles: RwLock<HashMap<ProfileKey, AgentEvaluationProfile>>,
     assignments: RwLock<HashMap<ProfileKey, Vec<AgentEvaluationPolicyAssignment>>>,
     participants: RwLock<HashMap<RunKey, Vec<RunParticipantSummary>>>,
+    frozen_participants: RwLock<HashSet<ParticipantKey>>,
     manifests: RwLock<HashMap<RunKey, Vec<RunEvaluationPolicyManifestSummary>>>,
     results: RwLock<HashMap<RunKey, Vec<EvaluationResultDetail>>>,
 }
@@ -155,6 +157,14 @@ impl EvaluationStore for MemoryEvaluationStore {
         }
         drop(participants);
 
+        if !self.frozen_participants.write().await.insert((
+            workspace_id.to_string(),
+            run_id.to_string(),
+            agent_id.to_string(),
+        )) {
+            return Ok(());
+        }
+
         let key = profile_key(workspace_id, environment_id, agent_id);
         if !self
             .profiles
@@ -284,4 +294,128 @@ fn profile_key(workspace_id: &str, environment_id: &str, agent_id: &str) -> Prof
         environment_id.to_string(),
         agent_id.to_string(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tl_core::{
+        CaptureMode, ContentCaptureMode, MissingEvidenceBehavior, PutAgentEvaluationProfileRequest,
+    };
+
+    fn profile(enabled: bool) -> PutAgentEvaluationProfileRequest {
+        PutAgentEvaluationProfileRequest {
+            enabled,
+            capture_mode: CaptureMode::BestEffort,
+            content_mode: ContentCaptureMode::MetadataOnly,
+            quiet_period_ms: 2_000,
+            max_capture_wait_ms: 30_000,
+            on_incomplete: MissingEvidenceBehavior::Inconclusive,
+            expected_profile_version: None,
+        }
+    }
+
+    fn assignment(policy_id: &str) -> AgentEvaluationPolicyAssignment {
+        AgentEvaluationPolicyAssignment {
+            policy_id: policy_id.into(),
+            policy_version: Some(1),
+            weight: 1,
+            critical: false,
+            enabled: true,
+        }
+    }
+
+    #[tokio::test]
+    async fn manifest_does_not_change_after_first_participation() {
+        let store = MemoryEvaluationStore::new();
+        store
+            .put_profile("ws", "env", "agent", profile(true))
+            .await
+            .unwrap();
+        store
+            .replace_assignments("ws", "env", "agent", vec![assignment("policy-a")])
+            .await
+            .unwrap();
+        store
+            .register_participant_and_freeze_manifest(
+                "ws",
+                "env",
+                "run",
+                "agent",
+                RunParticipantRole::Primary,
+            )
+            .await
+            .unwrap();
+
+        store
+            .replace_assignments(
+                "ws",
+                "env",
+                "agent",
+                vec![assignment("policy-a"), assignment("policy-b")],
+            )
+            .await
+            .unwrap();
+        store
+            .register_participant_and_freeze_manifest(
+                "ws",
+                "env",
+                "run",
+                "agent",
+                RunParticipantRole::Primary,
+            )
+            .await
+            .unwrap();
+
+        let manifest = store
+            .list_manifest("ws", "run", Some("agent"))
+            .await
+            .unwrap();
+        assert_eq!(manifest.len(), 1);
+        assert_eq!(manifest[0].policy_id, "policy-a");
+    }
+
+    #[tokio::test]
+    async fn empty_first_manifest_stays_empty_after_configuration_changes() {
+        let store = MemoryEvaluationStore::new();
+        store
+            .put_profile("ws", "env", "agent", profile(false))
+            .await
+            .unwrap();
+        store
+            .register_participant_and_freeze_manifest(
+                "ws",
+                "env",
+                "run",
+                "agent",
+                RunParticipantRole::Primary,
+            )
+            .await
+            .unwrap();
+
+        store
+            .put_profile("ws", "env", "agent", profile(true))
+            .await
+            .unwrap();
+        store
+            .replace_assignments("ws", "env", "agent", vec![assignment("policy-a")])
+            .await
+            .unwrap();
+        store
+            .register_participant_and_freeze_manifest(
+                "ws",
+                "env",
+                "run",
+                "agent",
+                RunParticipantRole::Primary,
+            )
+            .await
+            .unwrap();
+
+        assert!(store
+            .list_manifest("ws", "run", Some("agent"))
+            .await
+            .unwrap()
+            .is_empty());
+    }
 }

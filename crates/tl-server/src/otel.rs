@@ -61,8 +61,7 @@ pub struct IngestSpanBatch {
     pub workspace_id: String,
     pub environment_id: String,
     pub run_id: String,
-    pub flush_id: Option<String>,
-    pub rejected_span_count: i32,
+    pub flush_receipts: Vec<(String, i32)>,
     pub spans: Vec<NormalizedSpan>,
 }
 
@@ -195,6 +194,8 @@ pub async fn export_traces(
     let mut rejected = 0_i64;
     let mut normalized = Vec::new();
     let mut seen = 0_usize;
+    let mut content_modes = HashMap::<String, ContentCaptureMode>::new();
+    let mut rejected_by_flush = HashMap::<(String, String), i64>::new();
     for resource_spans in request.resource_spans {
         let resource_attributes = resource_spans
             .resource
@@ -209,36 +210,52 @@ pub async fn export_traces(
             });
             for span in scope_spans.spans {
                 seen += 1;
-                if seen > state.config.max_spans {
-                    rejected += 1;
-                    continue;
-                }
                 let run_id = string_attribute(&span.attributes, ATTR_RUN_ID)
                     .or_else(|| string_attribute(&resource_attributes, ATTR_RUN_ID))
                     .map(str::to_string);
                 let agent_id = string_attribute(&span.attributes, ATTR_AGENT_ID)
                     .or_else(|| string_attribute(&resource_attributes, ATTR_AGENT_ID))
                     .map(str::to_string);
+                let flush_id = string_attribute(&span.attributes, ATTR_FLUSH_ID)
+                    .or_else(|| string_attribute(&resource_attributes, ATTR_FLUSH_ID))
+                    .map(str::to_string);
+                if seen > state.config.max_spans {
+                    rejected += 1;
+                    if let (Some(run_id), Some(flush_id)) = (&run_id, &flush_id) {
+                        *rejected_by_flush
+                            .entry((run_id.clone(), flush_id.clone()))
+                            .or_default() += 1;
+                    }
+                    continue;
+                }
                 let Some(run_id) = run_id else {
                     rejected += 1;
                     continue;
                 };
                 let Some(agent_id) = agent_id else {
                     rejected += 1;
+                    if let Some(flush_id) = flush_id {
+                        *rejected_by_flush.entry((run_id, flush_id)).or_default() += 1;
+                    }
                     continue;
                 };
-                let profile = state
-                    .evaluation_store
-                    .get_profile(&workspace_id, &environment_id, &agent_id)
-                    .await
-                    .ok()
-                    .flatten();
-                let content_mode = effective_content_mode(
-                    settings.data_handling_mode,
-                    profile.map_or(ContentCaptureMode::MetadataOnly, |profile| {
-                        profile.content_mode
-                    }),
-                );
+                let profile_mode = if let Some(mode) = content_modes.get(&agent_id) {
+                    *mode
+                } else {
+                    let mode = state
+                        .evaluation_store
+                        .get_profile(&workspace_id, &environment_id, &agent_id)
+                        .await
+                        .ok()
+                        .flatten()
+                        .map_or(ContentCaptureMode::MetadataOnly, |profile| {
+                            profile.content_mode
+                        });
+                    content_modes.insert(agent_id.clone(), mode);
+                    mode
+                };
+                let content_mode =
+                    effective_content_mode(settings.data_handling_mode, profile_mode);
                 match normalize_span(
                     span,
                     &resource_attributes,
@@ -249,24 +266,24 @@ pub async fn export_traces(
                     Ok(span) if span.run_id == run_id && span.agent_id == agent_id => {
                         normalized.push(span)
                     }
-                    _ => rejected += 1,
+                    _ => {
+                        rejected += 1;
+                        if let Some(flush_id) = flush_id {
+                            *rejected_by_flush.entry((run_id, flush_id)).or_default() += 1;
+                        }
+                    }
                 }
             }
         }
     }
 
-    let mut grouped: HashMap<(String, String, Option<String>), Vec<NormalizedSpan>> =
-        HashMap::new();
+    let mut grouped: HashMap<String, Vec<NormalizedSpan>> = HashMap::new();
     for span in normalized {
-        let flush_id = span.flush_id.clone();
-        grouped
-            .entry((span.run_id.clone(), span.agent_id.clone(), flush_id))
-            .or_default()
-            .push(span);
+        grouped.entry(span.run_id.clone()).or_default().push(span);
     }
 
     let mut storage_failed = false;
-    for ((run_id, agent_id, flush_id), spans) in grouped {
+    for (run_id, mut spans) in grouped {
         let run = match state
             .run_store
             .get(&workspace_id, &environment_id, &run_id)
@@ -275,29 +292,71 @@ pub async fn export_traces(
             Ok(run) => run,
             Err(_) => {
                 rejected += spans.len() as i64;
+                for span in &spans {
+                    if let Some(flush_id) = &span.flush_id {
+                        *rejected_by_flush
+                            .entry((run_id.clone(), flush_id.clone()))
+                            .or_default() += 1;
+                    }
+                }
                 continue;
             }
         };
-        let role = if run.agent_id == agent_id {
-            RunParticipantRole::Primary
-        } else {
-            RunParticipantRole::Participant
-        };
-        if state
-            .evaluation_store
-            .register_participant_and_freeze_manifest(
-                &workspace_id,
-                &environment_id,
-                &run_id,
-                &agent_id,
-                role,
-            )
-            .await
-            .is_err()
-        {
-            rejected += spans.len() as i64;
+        let agent_ids = spans
+            .iter()
+            .map(|span| span.agent_id.clone())
+            .collect::<std::collections::BTreeSet<_>>();
+        let mut registered_agents = std::collections::HashSet::new();
+        for agent_id in agent_ids {
+            let role = if run.agent_id == agent_id {
+                RunParticipantRole::Primary
+            } else {
+                RunParticipantRole::Participant
+            };
+            if state
+                .evaluation_store
+                .register_participant_and_freeze_manifest(
+                    &workspace_id,
+                    &environment_id,
+                    &run_id,
+                    &agent_id,
+                    role,
+                )
+                .await
+                .is_ok()
+            {
+                registered_agents.insert(agent_id);
+            }
+        }
+        spans.retain(|span| {
+            if registered_agents.contains(&span.agent_id) {
+                true
+            } else {
+                rejected += 1;
+                if let Some(flush_id) = &span.flush_id {
+                    *rejected_by_flush
+                        .entry((run_id.clone(), flush_id.clone()))
+                        .or_default() += 1;
+                }
+                false
+            }
+        });
+        if spans.is_empty() {
             continue;
         }
+        let flush_receipts = spans
+            .iter()
+            .filter_map(|span| span.flush_id.clone())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .map(|flush_id| {
+                let rejected = rejected_by_flush
+                    .get(&(run_id.clone(), flush_id.clone()))
+                    .copied()
+                    .unwrap_or_default();
+                (flush_id, i32::try_from(rejected).unwrap_or(i32::MAX))
+            })
+            .collect();
         let span_count = spans.len();
         match state
             .store
@@ -305,8 +364,7 @@ pub async fn export_traces(
                 workspace_id: workspace_id.clone(),
                 environment_id: environment_id.clone(),
                 run_id,
-                flush_id,
-                rejected_span_count: i32::try_from(rejected).unwrap_or(i32::MAX),
+                flush_receipts,
                 spans,
             })
             .await

@@ -84,6 +84,7 @@ CREATE TABLE run_participants (
     agent_id TEXT NOT NULL,
     role TEXT NOT NULL,
     joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    manifest_frozen_at TIMESTAMPTZ,
     PRIMARY KEY (workspace_id, run_id, agent_id),
     FOREIGN KEY (workspace_id, run_id)
         REFERENCES runs (workspace_id, id) ON DELETE CASCADE,
@@ -94,8 +95,10 @@ CREATE TABLE run_participants (
     CHECK (role IN ('primary', 'participant'))
 );
 
-INSERT INTO run_participants (workspace_id, environment_id, run_id, agent_id, role, joined_at)
-SELECT workspace_id, environment_id, id, agent_id, 'primary', started_at
+INSERT INTO run_participants (
+    workspace_id, environment_id, run_id, agent_id, role, joined_at, manifest_frozen_at
+)
+SELECT workspace_id, environment_id, id, agent_id, 'primary', started_at, started_at
 FROM runs
 ON CONFLICT DO NOTHING;
 

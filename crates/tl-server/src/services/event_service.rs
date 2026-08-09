@@ -426,16 +426,13 @@ async fn execute_event_submission_inner(
     }
 
     let agent_id = event.principal.agent_id.clone();
-    let durable_capture = if event.principal.run_id.is_some() {
+    let evaluation_profile = if event.principal.run_id.is_some() {
         match state
             .evaluation_store
             .get_profile(workspace_id, environment_id, &agent_id)
             .await
         {
-            Ok(Some(profile)) => {
-                profile.enabled && profile.capture_mode == tl_core::CaptureMode::Durable
-            }
-            Ok(None) => false,
+            Ok(profile) => profile,
             Err(error) => {
                 tracing::error!(workspace_id, agent_id, error = %error, "evaluation profile resolution failed");
                 return Err(api_error_response(
@@ -446,18 +443,26 @@ async fn execute_event_submission_inner(
             }
         }
     } else {
-        false
+        None
     };
+    let durable_capture = evaluation_profile.as_ref().is_some_and(|profile| {
+        profile.enabled && profile.capture_mode == tl_core::CaptureMode::Durable
+    });
     let trace_domain = trace_domain(&event);
+    let trace_run_id = event.principal.run_id.clone();
+    let trace_run_event_id = event.principal.run_event_id.clone();
+    let trace_session_id = event.principal.session_id.clone();
+    let (trace_decision, trace_event) =
+        evaluation_trace_evidence(decision.clone(), event, evaluation_profile.as_ref());
 
     // One trace seam for every path (postgres batches, memory accumulates); a
     // failed write is logged but never fails the decision.
     let trace = crate::traces::TraceWriteRequest {
-        decision: decision.clone(),
-        run_id: event.principal.run_id.clone(),
-        run_event_id: event.principal.run_event_id.clone(),
-        session_id: event.principal.session_id.clone(),
-        event: Some(event),
+        decision: trace_decision,
+        run_id: trace_run_id,
+        run_event_id: trace_run_event_id,
+        session_id: trace_session_id,
+        event: trace_event,
         workspace_id: workspace_id.to_string(),
         environment_id: environment_id.to_string(),
         agent_id: agent_id.clone(),
@@ -496,6 +501,38 @@ async fn execute_event_submission_inner(
         decision,
         authorization: authorization_decision,
     })
+}
+
+fn evaluation_trace_evidence(
+    mut decision: tl_core::Decision,
+    mut event: GuardEvent,
+    profile: Option<&tl_core::AgentEvaluationProfile>,
+) -> (tl_core::Decision, Option<GuardEvent>) {
+    let Some(profile) = profile.filter(|profile| profile.enabled) else {
+        // Preserve the existing trace contract when post-run evaluation is
+        // not enabled. Evaluation configuration must not change unrelated
+        // runtime observability.
+        return (decision, Some(event));
+    };
+    let verified_redacted = profile.content_mode == tl_core::ContentCaptureMode::Redacted
+        && decision.redaction.as_ref().is_some_and(|redaction| {
+            redaction.status == tl_core::RedactionStatus::Applied
+                && redaction.input_redacted
+                && redaction.proposed_output_redacted
+                && redaction.context_redacted
+        });
+    if verified_redacted {
+        return (decision, Some(event));
+    }
+
+    decision.safe_output = None;
+    decision.checked_input_excerpt = None;
+    decision.checked_output_excerpt = None;
+    event.action.parameters = serde_json::Value::Null;
+    event.sources.clear();
+    event.provenance = Default::default();
+    event.context = serde_json::Value::Null;
+    (decision, Some(event))
 }
 
 #[allow(clippy::result_large_err)]
@@ -1068,7 +1105,10 @@ fn serialized_len(value: &serde_json::Value) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tl_core::{Action, EventKind, Principal, ProvenanceMap, Source};
+    use tl_core::{
+        Action, CaptureMode, ContentCaptureMode, EventKind, MissingEvidenceBehavior, Principal,
+        ProvenanceMap, Source,
+    };
 
     fn event() -> GuardEvent {
         GuardEvent {
@@ -1167,5 +1207,36 @@ mod tests {
         let mut e = event();
         e.action.parameters = serde_json::json!({ "blob": "x".repeat(MAX_PARAMETERS_BYTES) });
         assert!(validate_event(&e).unwrap_err().contains("parameters"));
+    }
+
+    #[test]
+    fn metadata_only_evaluation_evidence_drops_event_bodies_and_excerpts() {
+        let mut decision = tl_core::Decision::allow("trace");
+        decision.safe_output = Some("secret output".into());
+        decision.checked_input_excerpt = Some("secret input".into());
+        let mut input = event();
+        input.context = serde_json::json!({ "secret": "context" });
+        input.sources.push(source("private-source"));
+        let profile = tl_core::AgentEvaluationProfile {
+            workspace_id: "ws_1".into(),
+            environment_id: "production".into(),
+            agent_id: "agent-1".into(),
+            enabled: true,
+            capture_mode: CaptureMode::BestEffort,
+            content_mode: ContentCaptureMode::MetadataOnly,
+            quiet_period_ms: 2_000,
+            max_capture_wait_ms: 30_000,
+            on_incomplete: MissingEvidenceBehavior::Inconclusive,
+            profile_version: 1,
+            updated_at: "2026-01-01T00:00:00Z".into(),
+        };
+
+        let (decision, event) = evaluation_trace_evidence(decision, input, Some(&profile));
+        let event = event.expect("metadata event");
+        assert!(decision.safe_output.is_none());
+        assert!(decision.checked_input_excerpt.is_none());
+        assert!(event.action.parameters.is_null());
+        assert!(event.context.is_null());
+        assert!(event.sources.is_empty());
     }
 }

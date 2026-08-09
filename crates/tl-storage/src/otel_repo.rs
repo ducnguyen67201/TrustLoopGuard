@@ -4,6 +4,7 @@
 use chrono::Utc;
 use diesel::dsl::now;
 use diesel::prelude::*;
+use diesel::upsert::excluded;
 use diesel_async::{AsyncConnection, RunQueryDsl};
 use uuid::Uuid;
 
@@ -17,8 +18,7 @@ pub struct OtelIngestBatch {
     pub workspace_id: String,
     pub environment_id: String,
     pub run_id: String,
-    pub flush_id: Option<String>,
-    pub rejected_span_count: i32,
+    pub flush_receipts: Vec<(String, i32)>,
     pub spans: Vec<NewRunSpan>,
 }
 
@@ -114,7 +114,7 @@ impl OtelRepo {
             };
             let accepted = i32::try_from(accepted).unwrap_or(i32::MAX);
 
-            if let Some(flush_id) = batch.flush_id.as_deref() {
+            for (flush_id, rejected_span_count) in &batch.flush_receipts {
                 diesel::insert_into(otel_flush_receipts::table)
                     .values((
                         otel_flush_receipts::workspace_id.eq(&batch.workspace_id),
@@ -122,9 +122,26 @@ impl OtelRepo {
                         otel_flush_receipts::run_id.eq(run_id),
                         otel_flush_receipts::flush_id.eq(flush_id),
                         otel_flush_receipts::accepted_span_count.eq(accepted),
-                        otel_flush_receipts::rejected_span_count.eq(batch.rejected_span_count),
+                        otel_flush_receipts::rejected_span_count.eq(rejected_span_count),
                     ))
-                    .on_conflict_do_nothing()
+                    .on_conflict((
+                        otel_flush_receipts::workspace_id,
+                        otel_flush_receipts::environment_id,
+                        otel_flush_receipts::run_id,
+                        otel_flush_receipts::flush_id,
+                    ))
+                    .do_update()
+                    .set((
+                        otel_flush_receipts::accepted_span_count.eq(
+                            otel_flush_receipts::accepted_span_count
+                                + excluded(otel_flush_receipts::accepted_span_count),
+                        ),
+                        otel_flush_receipts::rejected_span_count.eq(diesel::dsl::sql::<
+                            diesel::sql_types::Integer,
+                        >(
+                            "GREATEST(otel_flush_receipts.rejected_span_count, excluded.rejected_span_count)",
+                        )),
+                    ))
                     .execute(conn)
                     .await?;
             }

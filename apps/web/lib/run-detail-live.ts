@@ -280,6 +280,49 @@ export type RunDetailSnapshot = {
 
 export type TraceSide = 'input' | 'output' | 'tool' | 'other';
 
+export function currentAssuranceStatus(
+  assurance: RunDetailSnapshot['assurance'],
+): string {
+  if (assurance.eligibility === 'legacy_incomplete') return assurance.eligibility;
+
+  const agents = new Set([
+    ...assurance.jobs.map((job) => job.agent_id),
+    ...assurance.evaluations.map((evaluation) => evaluation.agent_id),
+  ]);
+  const current = [...agents].flatMap((agentId) => {
+    const result = assurance.evaluations
+      .filter((evaluation) => evaluation.agent_id === agentId)
+      .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))[0];
+    const job = assurance.jobs
+      .filter((candidate) => candidate.agent_id === agentId)
+      .sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at))[0];
+    const jobIsNewer =
+      job !== undefined &&
+      (result === undefined || Date.parse(job.updated_at) > Date.parse(result.created_at));
+    if (jobIsNewer && ['waiting_capture', 'queued', 'running', 'error'].includes(job.status)) {
+      return [job.status];
+    }
+    if (result !== undefined) return [result.verdict];
+    return job === undefined ? [] : [job.status];
+  });
+  const priority = [
+    'failed',
+    'error',
+    'inconclusive',
+    'not_configured',
+    'running',
+    'queued',
+    'waiting_capture',
+    'passed',
+    'completed',
+  ];
+  return (
+    priority.find((status) => current.includes(status)) ??
+    assurance.finalization?.capture_status ??
+    'not started'
+  );
+}
+
 export function parseRunDetailSnapshot(value: Awaited<ReturnType<Response['json']>>) {
   const parsed = runDetailWireSchema.safeParse(value);
   if (!parsed.success) {

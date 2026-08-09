@@ -139,11 +139,14 @@ pub(crate) fn evaluation_error_response(error: EvaluationStoreError) -> axum::re
             tl_core::ApiErrorCode::Invalid,
             message,
         ),
-        EvaluationStoreError::Internal(message) => (
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            tl_core::ApiErrorCode::Internal,
-            message,
-        ),
+        EvaluationStoreError::Internal(message) => {
+            tracing::error!(error = %message, "evaluation request failed");
+            (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                tl_core::ApiErrorCode::Internal,
+                "evaluation request failed".to_string(),
+            )
+        }
     };
     (
         status,

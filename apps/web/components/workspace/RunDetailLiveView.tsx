@@ -16,6 +16,7 @@ import {
   type RefreshMode,
 } from '@/components/workspace/RefreshControls';
 import {
+  currentAssuranceStatus,
   formatUsdNanos,
   parseRunDetailSnapshot,
   type RunAgentIdentity,
@@ -345,16 +346,7 @@ export function RunDetailLiveView({
 
 function AssuranceCard({ assurance }: { assurance: RunDetailSnapshot['assurance'] }) {
   const finalization = assurance.finalization;
-  const worstVerdict = assurance.evaluations.find((item) => item.verdict === 'failed')?.verdict
-    ?? assurance.evaluations.find((item) => item.verdict === 'error')?.verdict
-    ?? assurance.evaluations.find((item) => item.verdict === 'inconclusive')?.verdict
-    ?? assurance.evaluations[0]?.verdict;
-  const activeJobStatus = assurance.jobs.find((job) => job.status === 'error')?.status
-    ?? assurance.jobs.find((job) => job.status === 'running')?.status
-    ?? assurance.jobs.find((job) => job.status === 'queued')?.status;
-  const assuranceStatus = assurance.eligibility === 'legacy_incomplete'
-    ? assurance.eligibility
-    : worstVerdict ?? activeJobStatus ?? finalization?.capture_status ?? 'not started';
+  const assuranceStatus = currentAssuranceStatus(assurance);
   return (
     <Card className="gap-4 py-4">
       <CardHeader className="gap-1">

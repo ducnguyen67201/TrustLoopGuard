@@ -36,7 +36,8 @@ Evaluation policy assignments are distinct from policy ownership and runtime dep
 
 When an agent first participates in a Run, Rust resolves enabled assignments to concrete policy
 versions and freezes their YAML, hash, weight, and critical flag in the Run manifest. Later policy
-edits cannot change that Run's evidence contract.
+edits cannot change that Run's evidence contract. The first resolution freezes the manifest even
+when no policies are assigned, so later assignments cannot apply retroactively.
 
 Runs created before this pipeline was installed are returned with
 `evaluation_eligibility: legacy_incomplete`. They retain their historical evidence but do not
@@ -47,7 +48,9 @@ receive a retroactive manifest. Runs created after the migration are marked `eli
 Finalization and evidence completeness are separate states. `POST /v1/runs/{id}/finalize` records
 the terminal execution boundary and arms capture. The barrier closes after either the expected
 durable telemetry flush receipt arrives, a configured quiet period passes, or the maximum wait
-expires. Expiry or dropped required evidence produces an `incomplete` snapshot.
+expires. A flush receipt satisfies the barrier only when its whole accepted batch is committed by
+the deadline; rejected correlated spans leave capture incomplete. Expiry or dropped required
+evidence produces an `incomplete` snapshot.
 
 Snapshots contain a bounded, privacy-normalized projection of events, decision traces, spans,
 metrics, policy trigger counts, participant manifests, and evidence identifiers. Each snapshot and
@@ -63,11 +66,12 @@ The idempotency identity includes workspace, Run, agent, snapshot hash, manifest
 version, so retries cannot create a second result for the same evidence.
 
 Built-in graders cover runtime-policy observations and bounded integer Run metrics. Policy replay
-uses a server port; the built-in adapter replays the attributed, version-pinned runtime outcomes
-preserved in the snapshot rather than invoking a mutable live policy registry. Rubric policies are
-prefiltered and submitted
-in one structured batch for a Run/agent; there is never one LLM call per policy. Missing adapters,
-malformed outputs, skipped checks, and timeouts remain explicit findings.
+freezes referenced deterministic content-policy YAML, version, and hash in the Run manifest, then
+replays verified redacted `GuardEvent` evidence through the existing engine adapter. Semantic and
+unsupported policy families are rejected at assignment time rather than evaluated against a mutable
+live registry. Rubric policies are prefiltered and submitted in one structured batch for a Run/agent;
+there is never one LLM call per policy. Missing adapters, malformed outputs, skipped checks, and
+timeouts remain explicit findings.
 
 When a rubric batch is attempted, its route, provider/model, outcome, token counts, fallback flag,
 latency, and error code are stored with the immutable evaluation result as guardrail usage. Captured
@@ -75,7 +79,8 @@ content is never included in that audit object.
 
 Aggregation uses integer basis points and stable policy ordering. Any critical failure fails the
 agent result. Failed, inconclusive, errored, and not-applicable findings remain visible. Incomplete
-required evidence follows the stricter profile/policy behavior and can never produce `passed`.
+required evidence follows the stricter profile/policy behavior frozen into the snapshot and can
+never produce `passed`.
 For a multi-agent Run, each participant receives its own manifest and result; consumers project the
 worst participant verdict when they need one Run-level status.
 

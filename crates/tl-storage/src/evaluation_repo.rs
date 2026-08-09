@@ -15,6 +15,7 @@ use tl_core::{
     RunCaptureStatus, RunEvaluationPolicyManifestSummary, RunParticipantRole,
     RunParticipantSummary, Severity,
 };
+use tl_policy::{AnyPolicy, FamilyPolicy, MatchClause, Matcher};
 use uuid::Uuid;
 
 use crate::models::{
@@ -215,13 +216,14 @@ impl EvaluationRepo {
             }
 
             for assignment in &assignments {
-                require_evaluation_policy_version(
+                let (_, policy_yaml) = resolve_evaluation_policy_version(
                     conn,
                     workspace_id,
                     &assignment.policy_id,
                     assignment.policy_version,
                 )
                 .await?;
+                build_evidence_requirements(conn, workspace_id, &policy_yaml).await?;
             }
             diesel::delete(
                 agent_evaluation_policy_assignments::table
@@ -301,6 +303,18 @@ impl EvaluationRepo {
                 .execute(conn)
                 .await?;
 
+            let manifest_frozen_at = run_participants::table
+                .filter(run_participants::workspace_id.eq(workspace_id))
+                .filter(run_participants::run_id.eq(run_id))
+                .filter(run_participants::agent_id.eq(agent_id))
+                .select(run_participants::manifest_frozen_at)
+                .for_update()
+                .first::<Option<chrono::DateTime<chrono::Utc>>>(conn)
+                .await?;
+            if manifest_frozen_at.is_some() {
+                return Ok(());
+            }
+
             let enabled = agent_evaluation_profiles::table
                 .filter(agent_evaluation_profiles::workspace_id.eq(workspace_id))
                 .filter(agent_evaluation_profiles::environment_id.eq(environment_id))
@@ -310,21 +324,21 @@ impl EvaluationRepo {
                 .await
                 .optional()?
                 .unwrap_or(false);
-            if !enabled {
-                return Ok(());
-            }
-
-            let assignments = agent_evaluation_policy_assignments::table
-                .filter(agent_evaluation_policy_assignments::workspace_id.eq(workspace_id))
-                .filter(agent_evaluation_policy_assignments::environment_id.eq(environment_id))
-                .filter(agent_evaluation_policy_assignments::agent_id.eq(agent_id))
-                .filter(agent_evaluation_policy_assignments::enabled.eq(true))
-                .select(AgentEvaluationPolicyAssignmentRecord::as_select())
-                .load::<AgentEvaluationPolicyAssignmentRecord>(conn)
-                .await?;
+            let assignments = if enabled {
+                agent_evaluation_policy_assignments::table
+                    .filter(agent_evaluation_policy_assignments::workspace_id.eq(workspace_id))
+                    .filter(agent_evaluation_policy_assignments::environment_id.eq(environment_id))
+                    .filter(agent_evaluation_policy_assignments::agent_id.eq(agent_id))
+                    .filter(agent_evaluation_policy_assignments::enabled.eq(true))
+                    .select(AgentEvaluationPolicyAssignmentRecord::as_select())
+                    .load::<AgentEvaluationPolicyAssignmentRecord>(conn)
+                    .await?
+            } else {
+                Vec::new()
+            };
             let mut manifest = Vec::with_capacity(assignments.len());
             for assignment in assignments {
-                let (version, yaml) = resolve_policy_version(
+                let (version, yaml) = resolve_evaluation_policy_version(
                     conn,
                     workspace_id,
                     &assignment.policy_id,
@@ -340,16 +354,8 @@ impl EvaluationRepo {
                         assignment.policy_id
                     )));
                 }
-                let evidence_requirements = match policy {
-                    tl_policy::AnyPolicy::Family(tl_policy::FamilyPolicy::Evaluation(policy)) => {
-                        serde_json::json!({
-                            "scope": policy.scope,
-                            "on_missing_evidence": policy.on_missing_evidence,
-                            "grader": policy.grader,
-                        })
-                    }
-                    _ => unreachable!("family was checked above"),
-                };
+                let evidence_requirements =
+                    build_evidence_requirements(conn, workspace_id, &yaml).await?;
                 manifest.push(NewManifestEntry {
                     workspace_id: workspace_id.to_string(),
                     environment_id: environment_id.to_string(),
@@ -372,6 +378,15 @@ impl EvaluationRepo {
                     .execute(conn)
                     .await?;
             }
+            diesel::update(
+                run_participants::table
+                    .filter(run_participants::workspace_id.eq(workspace_id))
+                    .filter(run_participants::run_id.eq(run_id))
+                    .filter(run_participants::agent_id.eq(agent_id)),
+            )
+            .set(run_participants::manifest_frozen_at.eq(now))
+            .execute(conn)
+            .await?;
             Ok(())
         })
         .await
@@ -478,6 +493,10 @@ async fn require_agent_and_environment(
         .filter(agents::id.eq(agent_id))
         .filter(agents::deleted_at.is_null())
         .select(agents::id)
+        // Serialize evaluation-profile creation and replacement on the
+        // durable agent row, including the initial version-0 -> version-1
+        // transition where no profile row exists yet.
+        .for_update()
         .first::<String>(conn)
         .await
         .optional()?;
@@ -527,7 +546,7 @@ async fn require_evaluation_policy_version(
     Ok(())
 }
 
-async fn resolve_policy_version(
+async fn resolve_evaluation_policy_version(
     conn: &mut DbConnection<'_>,
     workspace_id: &str,
     policy_id: &str,
@@ -554,6 +573,112 @@ async fn resolve_policy_version(
         .first::<String>(conn)
         .await?;
     Ok((version, yaml))
+}
+
+async fn build_evidence_requirements(
+    conn: &mut DbConnection<'_>,
+    workspace_id: &str,
+    evaluation_policy_yaml: &str,
+) -> Result<serde_json::Value, StorageError> {
+    let policy = tl_policy::load_any_str(evaluation_policy_yaml).map_err(|error| {
+        StorageError::Internal(format!("evaluation policy version must parse: {error}"))
+    })?;
+    let AnyPolicy::Family(FamilyPolicy::Evaluation(policy)) = policy else {
+        return Err(StorageError::Internal(
+            "assigned policy must use family: evaluation".into(),
+        ));
+    };
+    let replay_policies = match &policy.grader {
+        tl_policy::family_ast::EvaluationGrader::PolicyReplay { policy_ids } => {
+            let mut frozen = Vec::with_capacity(policy_ids.len());
+            for policy_id in policy_ids {
+                let (policy_version, policy_yaml) =
+                    resolve_replay_policy_version(conn, workspace_id, policy_id).await?;
+                let parsed = tl_policy::load_any_str(&policy_yaml).map_err(|error| {
+                    StorageError::Internal(format!(
+                        "policy_replay source `{policy_id}` must parse: {error}"
+                    ))
+                })?;
+                match parsed {
+                    AnyPolicy::Content(content) if !match_uses_semantic(&content.r#match) => {}
+                    AnyPolicy::Content(_) => {
+                        return Err(StorageError::Internal(format!(
+                            "policy_replay source `{policy_id}` must use deterministic literal or regex matchers"
+                        )))
+                    }
+                    AnyPolicy::Family(FamilyPolicy::Evaluation(_)) => {
+                        return Err(StorageError::Internal(format!(
+                            "policy_replay source `{policy_id}` must not reference an evaluation policy"
+                        )))
+                    }
+                    AnyPolicy::Family(_) => {
+                        return Err(StorageError::Internal(format!(
+                            "policy_replay source `{policy_id}` must be a deterministic content policy"
+                        )))
+                    }
+                }
+                frozen.push(serde_json::json!({
+                    "policy_id": policy_id,
+                    "policy_version": policy_version,
+                    "policy_hash": hash_text(&policy_yaml),
+                    "policy_yaml": policy_yaml,
+                }));
+            }
+            frozen
+        }
+        _ => Vec::new(),
+    };
+    Ok(serde_json::json!({
+        "scope": policy.scope,
+        "on_missing_evidence": policy.on_missing_evidence,
+        "grader": policy.grader,
+        "replay_policies": replay_policies,
+    }))
+}
+
+async fn resolve_replay_policy_version(
+    conn: &mut DbConnection<'_>,
+    workspace_id: &str,
+    policy_id: &str,
+) -> Result<(i32, String), StorageError> {
+    policies::table
+        .filter(policies::workspace_id.eq(workspace_id))
+        .filter(policies::id.eq(policy_id))
+        .filter(policies::deleted_at.is_null())
+        .select(policies::id)
+        .first::<String>(conn)
+        .await
+        .optional()?
+        .ok_or(StorageError::NotFound)?;
+    let version = entity_versions::table
+        .filter(entity_versions::workspace_id.eq(workspace_id))
+        .filter(entity_versions::entity_type.eq("policy"))
+        .filter(entity_versions::entity_id.eq(policy_id))
+        .select(max(entity_versions::version))
+        .first::<Option<i32>>(conn)
+        .await?
+        .ok_or(StorageError::NotFound)?;
+    let yaml = entity_versions::table
+        .filter(entity_versions::workspace_id.eq(workspace_id))
+        .filter(entity_versions::entity_type.eq("policy"))
+        .filter(entity_versions::entity_id.eq(policy_id))
+        .filter(entity_versions::version.eq(version))
+        .select(entity_versions::content)
+        .first::<String>(conn)
+        .await?;
+    Ok((version, yaml))
+}
+
+fn match_uses_semantic(clause: &MatchClause) -> bool {
+    match clause {
+        MatchClause::Single(matcher) => matches!(matcher, Matcher::Semantic(_)),
+        MatchClause::Any { any } => any
+            .iter()
+            .any(|matcher| matches!(matcher, Matcher::Semantic(_))),
+        MatchClause::All { all } => all
+            .iter()
+            .any(|matcher| matches!(matcher, Matcher::Semantic(_))),
+    }
 }
 
 fn validate_profile_input(input: &PutAgentEvaluationProfileRequest) -> Result<(), StorageError> {

@@ -6,12 +6,13 @@ Sync and async variants share the same surface.
 from __future__ import annotations
 
 import asyncio
-import concurrent.futures
 import copy
 import contextvars
 import inspect
 import logging
+import queue
 import random
+import threading
 import time
 import uuid
 from typing import Any, Awaitable, Callable, Generic, Protocol, TypeVar
@@ -155,6 +156,39 @@ def _run_only_context(run_id: str) -> dict[str, str]:
     ctx = {**_run_context.get(), "run_id": run_id}
     ctx.pop("run_event_id", None)
     return ctx
+
+
+def _call_with_timeout(
+    callback: Callable[[dict[str, Any]], Any],
+    argument: dict[str, Any],
+    timeout: float,
+) -> Any:
+    """Run a potentially blocking telemetry hook without pinning process shutdown."""
+    if timeout <= 0:
+        raise TimeoutError("telemetry flush timed out")
+
+    result_queue: queue.Queue[tuple[bool, Any]] = queue.Queue(maxsize=1)
+
+    def invoke() -> None:
+        try:
+            result_queue.put((True, callback(argument)))
+        except BaseException as error:  # noqa: BLE001
+            result_queue.put((False, error))
+
+    threading.Thread(
+        target=invoke,
+        name="featherlane-telemetry-flush",
+        daemon=True,
+    ).start()
+    try:
+        succeeded, value = result_queue.get(timeout=timeout)
+    except queue.Empty as error:
+        raise TimeoutError("telemetry flush timed out") from error
+    if succeeded:
+        return value
+    if isinstance(value, BaseException):
+        raise value
+    raise RuntimeError("telemetry flush failed without an exception")
 
 
 def _run_request(
@@ -1135,15 +1169,21 @@ class Client:
             flush_context = copy.deepcopy(correlation)
             flush_context["attributes"]["featherlane.flush.id"] = flush_id
             flush_context["headers"]["x-featherlane-flush-id"] = flush_id
-            executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-            future = executor.submit(self._run_telemetry.force_flush, flush_context)
             try:
-                future.result(timeout=self._telemetry_flush_timeout)
+                value = _call_with_timeout(
+                    self._run_telemetry.force_flush,
+                    flush_context,
+                    self._telemetry_flush_timeout,
+                )
+                if inspect.isawaitable(value):
+                    if inspect.iscoroutine(value):
+                        value.close()
+                    raise TypeError(
+                        "synchronous telemetry hooks must not return an awaitable"
+                    )
                 expected_flush_id = flush_id
             except Exception as error:  # noqa: BLE001
                 _logger.warning("run telemetry flush failed", exc_info=error)
-            finally:
-                executor.shutdown(wait=False, cancel_futures=True)
         path = f"/v1/runs/{quote(run_id, safe='')}/finalize"
         response: FinalizeRunResponse = self._run_with_retry(
             lambda: self._send_json_model(
@@ -2218,9 +2258,21 @@ class AsyncClient:
             flush_context["attributes"]["featherlane.flush.id"] = flush_id
             flush_context["headers"]["x-featherlane-flush-id"] = flush_id
             try:
-                value = self._run_telemetry.force_flush(flush_context)
+                loop = asyncio.get_running_loop()
+                deadline = loop.time() + self._telemetry_flush_timeout
+                value = await asyncio.to_thread(
+                    _call_with_timeout,
+                    self._run_telemetry.force_flush,
+                    flush_context,
+                    self._telemetry_flush_timeout,
+                )
                 if inspect.isawaitable(value):
-                    await asyncio.wait_for(value, timeout=self._telemetry_flush_timeout)
+                    remaining = deadline - loop.time()
+                    if remaining <= 0:
+                        if inspect.iscoroutine(value):
+                            value.close()
+                        raise TimeoutError("telemetry flush timed out")
+                    await asyncio.wait_for(value, timeout=remaining)
                 expected_flush_id = flush_id
             except Exception as error:  # noqa: BLE001
                 _logger.warning("run telemetry flush failed", exc_info=error)

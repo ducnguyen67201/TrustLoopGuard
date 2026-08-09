@@ -8,11 +8,16 @@ use std::sync::Arc;
 use std::time::Duration as StdDuration;
 
 use chrono::Duration;
-use tl_core::{EvaluationFindingStatus, EvaluationVerdict, RunCaptureStatus, Severity};
+use serde::Deserialize;
+use tl_core::{
+    EvaluationFindingStatus, EvaluationVerdict, GuardEvent, MissingEvidenceBehavior,
+    RunCaptureStatus, Severity,
+};
+use tl_engine::{evaluate_event_policies, EventPolicyEvalCtx};
 use tl_eval::{FindingOutput, ManifestEntry, PolicyReplayPort, RubricGraderPort, SnapshotEvidence};
 use tl_llm::{JsonSchema, JudgeKind, LlmCallAudit, LlmRouteKind, LlmRouter};
 use tl_policy::family_ast::{EvaluationGrader, EvaluationPolicy};
-use tl_policy::{AnyPolicy, FamilyPolicy};
+use tl_policy::{AnyPolicy, FamilyPolicy, MatchClause, Matcher};
 use tl_storage::{
     EvaluationJobWork, EvaluationRepo, PersistEvaluationFinding, PersistEvaluationResult,
 };
@@ -29,7 +34,10 @@ impl Default for EvaluationWorkerConfig {
     fn default() -> Self {
         Self {
             poll_interval: StdDuration::from_millis(500),
-            lease_duration: Duration::seconds(30),
+            // The bundled rubric route permits a 30-second provider call;
+            // leave enough headroom for prompt preparation and atomic result
+            // persistence before another worker may reclaim the job.
+            lease_duration: Duration::seconds(90),
             capture_batch_size: 25,
             max_attempts: 3,
         }
@@ -151,9 +159,19 @@ async fn evaluate(
         "waiting" => RunCaptureStatus::Waiting,
         _ => RunCaptureStatus::Open,
     };
+    let on_incomplete = match work
+        .snapshot
+        .get("agent_on_incomplete")
+        .and_then(|profiles| profiles.get(&work.agent_id))
+        .and_then(serde_json::Value::as_str)
+    {
+        Some("fail") => MissingEvidenceBehavior::Fail,
+        _ => MissingEvidenceBehavior::Inconclusive,
+    };
     let snapshot = SnapshotEvidence {
         snapshot_hash: work.snapshot_hash.clone(),
         capture_status,
+        on_incomplete,
         metrics,
         triggered_policy_counts,
         evidence_ids,
@@ -171,9 +189,9 @@ async fn evaluate(
         })
         .collect::<Vec<_>>();
     let rubric = prepare_rubric_grader(work, &snapshot, &manifest, llm).await;
-    let output =
-        tl_eval::evaluate_with_adapters(&snapshot, &manifest, &SnapshotPolicyReplay, &rubric)
-            .map_err(|error| error.to_string())?;
+    let replay = prepare_policy_replay(work, &manifest).await;
+    let output = tl_eval::evaluate_with_adapters(&snapshot, &manifest, &replay, &rubric)
+        .map_err(|error| error.to_string())?;
     Ok(PersistEvaluationResult {
         verdict: verdict_text(output.verdict).to_string(),
         score_bps: output.score_bps.map(|score| score as i32),
@@ -201,52 +219,240 @@ async fn evaluate(
     })
 }
 
-#[derive(Debug)]
-struct SnapshotPolicyReplay;
+#[derive(Debug, Default)]
+struct PreparedPolicyReplay {
+    outcomes: BTreeMap<String, Result<FindingOutput, String>>,
+}
 
-impl PolicyReplayPort for SnapshotPolicyReplay {
+impl PolicyReplayPort for PreparedPolicyReplay {
     fn replay(
         &self,
-        snapshot: &SnapshotEvidence,
+        _snapshot: &SnapshotEvidence,
         entry: &ManifestEntry,
         policy: &EvaluationPolicy,
     ) -> Result<FindingOutput, String> {
-        let EvaluationGrader::PolicyReplay { policy_ids } = &policy.grader else {
+        let EvaluationGrader::PolicyReplay { .. } = &policy.grader else {
             return Err("policy replay adapter received a non-replay grader".into());
         };
-        let violations = policy_ids
-            .iter()
-            .map(|id| {
-                snapshot
-                    .triggered_policy_counts
-                    .get(id)
-                    .copied()
-                    .unwrap_or(0)
-            })
-            .sum::<i64>();
-        let passed = violations <= i64::from(policy.expect.max_violations);
-        Ok(FindingOutput {
-            policy_id: entry.policy_id.clone(),
-            policy_version: entry.policy_version,
-            policy_hash: entry.policy_hash.clone(),
-            severity: policy.severity,
-            critical: entry.critical,
-            weight: entry.weight,
-            status: if passed {
-                EvaluationFindingStatus::Passed
-            } else {
-                EvaluationFindingStatus::Failed
+        self.outcomes
+            .get(&entry.policy_id)
+            .cloned()
+            .unwrap_or_else(|| Err("prepared replay result is missing".into()))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct FrozenReplayPolicy {
+    policy_id: String,
+    policy_version: i32,
+    policy_hash: String,
+    policy_yaml: String,
+}
+
+async fn prepare_policy_replay(
+    work: &EvaluationJobWork,
+    manifest: &[ManifestEntry],
+) -> PreparedPolicyReplay {
+    let mut prepared = PreparedPolicyReplay::default();
+    for entry in manifest {
+        let Some(frozen) = work.manifest.iter().find(|item| {
+            item.policy_id == entry.policy_id && item.policy_version == entry.policy_version
+        }) else {
+            continue;
+        };
+        let policy = match tl_policy::load_any_str(&entry.policy_yaml) {
+            Ok(AnyPolicy::Family(FamilyPolicy::Evaluation(policy))) => policy,
+            _ => continue,
+        };
+        if !matches!(policy.grader, EvaluationGrader::PolicyReplay { .. }) {
+            continue;
+        }
+        let result = replay_policy(work, entry, &policy, &frozen.evidence_requirements).await;
+        prepared.outcomes.insert(entry.policy_id.clone(), result);
+    }
+    prepared
+}
+
+async fn replay_policy(
+    work: &EvaluationJobWork,
+    entry: &ManifestEntry,
+    evaluation_policy: &EvaluationPolicy,
+    evidence_requirements: &serde_json::Value,
+) -> Result<FindingOutput, String> {
+    let EvaluationGrader::PolicyReplay { policy_ids } = &evaluation_policy.grader else {
+        return Err("policy replay adapter received a non-replay grader".into());
+    };
+    let content_mode = work
+        .snapshot
+        .get("agent_content_modes")
+        .and_then(|modes| modes.get(&work.agent_id))
+        .and_then(serde_json::Value::as_str);
+    if content_mode != Some("redacted") {
+        return Err("policy replay requires redacted, verified GuardEvent evidence".into());
+    }
+    let sources = evidence_requirements
+        .get("replay_policies")
+        .cloned()
+        .map(serde_json::from_value::<Vec<FrozenReplayPolicy>>)
+        .transpose()
+        .map_err(|error| format!("frozen replay policy manifest is invalid: {error}"))?
+        .unwrap_or_default();
+    let expected_ids = policy_ids
+        .iter()
+        .cloned()
+        .collect::<std::collections::BTreeSet<_>>();
+    let actual_ids = sources
+        .iter()
+        .map(|source| source.policy_id.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    if expected_ids != actual_ids {
+        return Err("frozen replay sources do not match the evaluation policy".into());
+    }
+    let mut policies = Vec::with_capacity(sources.len());
+    for source in &sources {
+        let parsed = tl_policy::load_any_str(&source.policy_yaml).map_err(|error| {
+            format!(
+                "frozen replay source {}@{} failed to parse: {error}",
+                source.policy_id, source.policy_version
+            )
+        })?;
+        let AnyPolicy::Content(policy) = parsed else {
+            return Err(format!(
+                "frozen replay source {}@{} is not a content policy",
+                source.policy_id, source.policy_version
+            ));
+        };
+        if policy.id != source.policy_id || match_uses_semantic(&policy.r#match) {
+            return Err(format!(
+                "frozen replay source {}@{} is not a deterministic content policy",
+                source.policy_id, source.policy_version
+            ));
+        }
+        policies.push(policy);
+    }
+
+    let mut replayed_events = 0_usize;
+    let mut violations = 0_i64;
+    let mut evidence_ids = Vec::new();
+    for trace in agent_snapshot_rows(&work.snapshot, "traces", &work.agent_id) {
+        let Some(payload) = trace.get("payload") else {
+            continue;
+        };
+        if !payload_has_verified_redaction(payload) {
+            continue;
+        }
+        let Some(event) = payload.get("event") else {
+            continue;
+        };
+        let event = serde_json::from_value::<GuardEvent>(event.clone())
+            .map_err(|error| format!("frozen GuardEvent evidence is invalid: {error}"))?;
+        if !event_has_replayable_text(&event) {
+            continue;
+        }
+        replayed_events += 1;
+        let outcome = evaluate_event_policies(
+            &event,
+            policies.iter(),
+            EventPolicyEvalCtx {
+                tenant: &work.workspace_id,
+                semantic_judge: None,
             },
-            score_bps: Some(if passed { 10_000 } else { 0 }),
-            reason: format!(
-                "replayed persisted outcomes for {} policy version(s): {violations} violation(s)",
-                policy_ids.len()
-            ),
-            evidence_ids: policy_ids
-                .iter()
-                .flat_map(|id| snapshot.evidence_ids.get(id).cloned().unwrap_or_default())
-                .collect(),
+        )
+        .await;
+        let event_violations = outcome
+            .triggered
+            .iter()
+            .filter(|triggered| expected_ids.contains(&triggered.id))
+            .count() as i64;
+        violations += event_violations;
+        if event_violations > 0 {
+            if let Some(trace_id) = trace.get("trace_id").and_then(serde_json::Value::as_str) {
+                evidence_ids.push(trace_id.to_string());
+            }
+        }
+    }
+    if replayed_events == 0 {
+        return Err("snapshot contains no verified GuardEvent content that can be replayed".into());
+    }
+    evidence_ids.sort();
+    evidence_ids.dedup();
+    let passed = violations <= i64::from(evaluation_policy.expect.max_violations);
+    let frozen_versions = sources
+        .iter()
+        .map(|source| {
+            format!(
+                "{}@{} ({})",
+                source.policy_id, source.policy_version, source.policy_hash
+            )
         })
+        .collect::<Vec<_>>()
+        .join(", ");
+    Ok(FindingOutput {
+        policy_id: entry.policy_id.clone(),
+        policy_version: entry.policy_version,
+        policy_hash: entry.policy_hash.clone(),
+        severity: evaluation_policy.severity,
+        critical: entry.critical,
+        weight: entry.weight,
+        status: if passed {
+            EvaluationFindingStatus::Passed
+        } else {
+            EvaluationFindingStatus::Failed
+        },
+        score_bps: Some(if passed { 10_000 } else { 0 }),
+        reason: format!(
+            "replayed {replayed_events} verified event(s) against frozen policy version(s) [{frozen_versions}]: {violations} violation(s)"
+        ),
+        evidence_ids,
+    })
+}
+
+fn payload_has_verified_redaction(payload: &serde_json::Value) -> bool {
+    payload.get("redaction").is_some_and(|redaction| {
+        redaction.get("status").and_then(serde_json::Value::as_str) == Some("applied")
+            && redaction
+                .get("input_redacted")
+                .and_then(serde_json::Value::as_bool)
+                == Some(true)
+            && redaction
+                .get("proposed_output_redacted")
+                .and_then(serde_json::Value::as_bool)
+                == Some(true)
+            && redaction
+                .get("context_redacted")
+                .and_then(serde_json::Value::as_bool)
+                == Some(true)
+    })
+}
+
+fn event_has_replayable_text(event: &GuardEvent) -> bool {
+    match event.kind {
+        tl_core::EventKind::OutputProposed => event
+            .action
+            .parameters
+            .get("text")
+            .and_then(serde_json::Value::as_str)
+            .is_some(),
+        tl_core::EventKind::ToolCallProposed => event
+            .action
+            .parameters
+            .get("__featherlane_ai")
+            .and_then(|value| value.get("policy_text"))
+            .and_then(serde_json::Value::as_str)
+            .is_some(),
+        _ => false,
+    }
+}
+
+fn match_uses_semantic(clause: &MatchClause) -> bool {
+    match clause {
+        MatchClause::Single(matcher) => matches!(matcher, Matcher::Semantic(_)),
+        MatchClause::Any { any } => any
+            .iter()
+            .any(|matcher| matches!(matcher, Matcher::Semantic(_))),
+        MatchClause::All { all } => all
+            .iter()
+            .any(|matcher| matches!(matcher, Matcher::Semantic(_))),
     }
 }
 
@@ -341,9 +547,9 @@ async fn prepare_rubric_grader(
         "snapshot_hash": snapshot.snapshot_hash,
         "agent_id": work.agent_id,
         "metrics": snapshot.metrics,
-        "events": work.snapshot.get("events").cloned().unwrap_or_default(),
-        "traces": work.snapshot.get("traces").cloned().unwrap_or_default(),
-        "spans": work.snapshot.get("spans").cloned().unwrap_or_default(),
+        "events": agent_snapshot_rows(&work.snapshot, "events", &work.agent_id),
+        "traces": agent_snapshot_rows(&work.snapshot, "traces", &work.agent_id),
+        "spans": agent_snapshot_rows(&work.snapshot, "spans", &work.agent_id),
     });
     let prompt = match serde_json::to_string(&serde_json::json!({
         "instruction": "Score every policy exactly once using only the supplied immutable evidence. Return basis-point integer scores and concise reasons.",
@@ -549,6 +755,21 @@ fn agent_evidence_map(
         .map_err(|error| format!("snapshot agent evidence for `{agent_id}` is invalid: {error}"))
 }
 
+fn agent_snapshot_rows(
+    snapshot: &serde_json::Value,
+    key: &str,
+    agent_id: &str,
+) -> Vec<serde_json::Value> {
+    snapshot
+        .get(key)
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|row| row.get("agent_id").and_then(serde_json::Value::as_str) == Some(agent_id))
+        .cloned()
+        .collect()
+}
+
 fn verdict_text(verdict: EvaluationVerdict) -> &'static str {
     match verdict {
         EvaluationVerdict::Passed => "passed",
@@ -601,7 +822,9 @@ mod tests {
                 policy_yaml: "family: evaluation\nid: completion\nseverity: high\nscope: trajectory\ngrader:\n  kind: run_metric\n  metric: event_count\n  comparator: gte\n  value: 1\non_missing_evidence: inconclusive\n".into(),
                 weight: 1,
                 critical: false,
+                evidence_requirements: serde_json::json!({}),
             }],
+            lease_owner: "worker".into(),
             attempt: 1,
         };
         let result = evaluate(&work, &LlmRouter::empty())
@@ -609,5 +832,106 @@ mod tests {
             .expect("evaluation result");
         assert_ne!(result.verdict, "passed");
         assert!(result.llm_audit.is_none());
+    }
+
+    #[tokio::test]
+    async fn policy_replay_uses_frozen_policy_versions_and_guard_events() {
+        let evaluation_yaml = "family: evaluation\nid: replay-content\nseverity: high\nscope: trajectory\ngrader:\n  kind: policy_replay\n  policy_ids: [block-secret]\nexpect:\n  max_violations: 0\non_missing_evidence: fail\n";
+        let source_yaml =
+            "id: block-secret\nmatch:\n  literal: blocked phrase\naction: deny\nseverity: high\n";
+        let work = EvaluationJobWork {
+            workspace_id: "ws".into(),
+            environment_id: "env".into(),
+            job_id: uuid::Uuid::nil(),
+            run_id: uuid::Uuid::nil(),
+            agent_id: "agent".into(),
+            snapshot_hash: "blake3:v1:snapshot".into(),
+            manifest_hash: "blake3:v1:manifest".into(),
+            capture_status: "complete".into(),
+            snapshot: serde_json::json!({
+                "metrics": {},
+                "triggered_policy_counts": {},
+                "agent_content_modes": { "agent": "redacted" },
+                "traces": [{
+                    "trace_id": "trace-1",
+                    "agent_id": "agent",
+                    "payload": {
+                        "redaction": {
+                            "status": "applied",
+                            "input_redacted": true,
+                            "proposed_output_redacted": true,
+                            "context_redacted": true
+                        },
+                        "event": {
+                            "kind": "output.proposed",
+                            "principal": {
+                                "workspace_id": "ws",
+                                "environment_id": "env",
+                                "agent_id": "agent"
+                            },
+                            "action": {
+                                "operation": "output",
+                                "parameters": { "text": "contains blocked phrase" }
+                            },
+                            "context": { "channel": "chat" }
+                        }
+                    }
+                }]
+            }),
+            manifest: vec![tl_storage::evaluation_worker_repo::FrozenEvaluationPolicy {
+                policy_id: "replay-content".into(),
+                policy_version: 2,
+                policy_hash: "sha256:v1:evaluation".into(),
+                policy_yaml: evaluation_yaml.into(),
+                weight: 1,
+                critical: false,
+                evidence_requirements: serde_json::json!({
+                    "replay_policies": [{
+                        "policy_id": "block-secret",
+                        "policy_version": 7,
+                        "policy_hash": "sha256:v1:source",
+                        "policy_yaml": source_yaml
+                    }]
+                }),
+            }],
+            lease_owner: "worker".into(),
+            attempt: 1,
+        };
+
+        let result = evaluate(&work, &LlmRouter::empty())
+            .await
+            .expect("evaluation result");
+        assert_eq!(result.verdict, "failed");
+        assert_eq!(result.findings[0].status, "failed");
+        assert!(result.findings[0].reason.contains("block-secret@7"));
+        assert_eq!(
+            result.findings[0].evidence,
+            serde_json::json!([
+                { "kind": "trace_or_span", "id": "trace-1" }
+            ])
+        );
+    }
+
+    #[test]
+    fn rubric_evidence_is_scoped_to_the_evaluated_agent() {
+        let snapshot = serde_json::json!({
+            "events": [
+                { "id": "event-a", "agent_id": "agent-a" },
+                { "id": "event-b", "agent_id": "agent-b" }
+            ],
+            "traces": [
+                { "trace_id": "trace-a", "agent_id": "agent-a" },
+                { "trace_id": "trace-b", "agent_id": "agent-b" }
+            ]
+        });
+
+        assert_eq!(
+            agent_snapshot_rows(&snapshot, "events", "agent-a"),
+            vec![serde_json::json!({ "id": "event-a", "agent_id": "agent-a" })]
+        );
+        assert_eq!(
+            agent_snapshot_rows(&snapshot, "traces", "agent-b"),
+            vec![serde_json::json!({ "trace_id": "trace-b", "agent_id": "agent-b" })]
+        );
     }
 }

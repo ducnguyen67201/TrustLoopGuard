@@ -38,6 +38,7 @@ pub struct FrozenEvaluationPolicy {
     pub policy_yaml: String,
     pub weight: u32,
     pub critical: bool,
+    pub evidence_requirements: serde_json::Value,
 }
 
 #[derive(Debug, Clone)]
@@ -52,6 +53,7 @@ pub struct EvaluationJobWork {
     pub capture_status: String,
     pub snapshot: serde_json::Value,
     pub manifest: Vec<FrozenEvaluationPolicy>,
+    pub lease_owner: String,
     pub attempt: i32,
 }
 
@@ -178,33 +180,60 @@ impl EvaluationRepo {
                 .iter()
                 .map(|participant| participant.agent_id.clone())
                 .collect::<Vec<_>>();
-            let quiet_period_ms = if agent_ids.is_empty() {
-                2_000
+            let profile_rows = if agent_ids.is_empty() {
+                Vec::new()
             } else {
                 agent_evaluation_profiles::table
                     .filter(agent_evaluation_profiles::workspace_id.eq(workspace_id))
                     .filter(agent_evaluation_profiles::environment_id.eq(environment_id))
                     .filter(agent_evaluation_profiles::agent_id.eq_any(&agent_ids))
                     .filter(agent_evaluation_profiles::enabled.eq(true))
-                    .select(max(agent_evaluation_profiles::quiet_period_ms))
-                    .first::<Option<i64>>(conn)
+                    .select((
+                        agent_evaluation_profiles::agent_id,
+                        agent_evaluation_profiles::quiet_period_ms,
+                        agent_evaluation_profiles::on_incomplete,
+                        agent_evaluation_profiles::content_mode,
+                    ))
+                    .load::<(String, i64, String, String)>(conn)
                     .await?
+            };
+            let quiet_period_ms = if agent_ids.is_empty() {
+                2_000
+            } else {
+                profile_rows
+                    .iter()
+                    .map(|(_, quiet_period_ms, _, _)| *quiet_period_ms)
+                    .max()
                     .unwrap_or(2_000)
             };
-            let receipt_ready = match run.expected_flush_id.as_deref() {
+            let agent_on_incomplete = profile_rows
+                .iter()
+                .map(|(agent_id, _, behavior, _)| (agent_id.clone(), behavior.clone()))
+                .collect::<BTreeMap<_, _>>();
+            let agent_content_modes = profile_rows
+                .iter()
+                .map(|(agent_id, _, _, mode)| (agent_id.clone(), mode.clone()))
+                .collect::<BTreeMap<_, _>>();
+            let receipt = match run.expected_flush_id.as_deref() {
                 Some(flush_id) => otel_flush_receipts::table
                     .filter(otel_flush_receipts::workspace_id.eq(workspace_id))
                     .filter(otel_flush_receipts::environment_id.eq(environment_id))
                     .filter(otel_flush_receipts::run_id.eq(run_id))
                     .filter(otel_flush_receipts::flush_id.eq(flush_id))
-                    .select(otel_flush_receipts::flush_id)
-                    .first::<String>(conn)
+                    .select((
+                        otel_flush_receipts::accepted_at,
+                        otel_flush_receipts::rejected_span_count,
+                    ))
+                    .first::<(chrono::DateTime<Utc>, i32)>(conn)
                     .await
-                    .optional()?
-                    .is_some(),
-                None => false,
+                    .optional()?,
+                None => None,
             };
             let current = Utc::now();
+            let receipt_ready = receipt
+                .as_ref()
+                .is_some_and(|(accepted_at, _)| *accepted_at <= deadline);
+            let receipt_rejected_spans = receipt.as_ref().map_or(0, |(_, rejected)| *rejected);
             let latest_evidence = run.last_evidence_at.unwrap_or(finalized_at);
             let quiet_ready = run.expected_flush_id.is_none()
                 && current - latest_evidence >= Duration::milliseconds(quiet_period_ms);
@@ -213,8 +242,9 @@ impl EvaluationRepo {
                 return Ok(CaptureAdvanceResult::Waiting);
             }
 
-            let barrier_incomplete =
-                deadline_reached && !receipt_ready && !quiet_ready || run.dropped_trace_count > 0;
+            let barrier_incomplete = deadline_reached && !receipt_ready && !quiet_ready
+                || run.dropped_trace_count > 0
+                || receipt_rejected_spans > 0;
             let event_rows = run_events::table
                 .filter(run_events::workspace_id.eq(workspace_id))
                 .filter(run_events::run_id.eq(run_id))
@@ -319,6 +349,12 @@ impl EvaluationRepo {
                                 }
                             }
                         }
+                        let payload = minimize_snapshot_payload(
+                            payload.clone(),
+                            agent_id
+                                .as_ref()
+                                .and_then(|agent_id| agent_content_modes.get(agent_id)),
+                        );
                         serde_json::json!({
                             "trace_id": trace_id,
                             "agent_id": agent_id,
@@ -335,11 +371,16 @@ impl EvaluationRepo {
                 .ended_at
                 .map(|ended| (ended - run.started_at).num_milliseconds().max(0))
                 .unwrap_or(0);
+            let tool_call_count = event_rows
+                .iter()
+                .filter(|event| event.kind == "tool_call")
+                .count() as i64;
             let metrics = BTreeMap::from([
                 ("denied_decisions".to_string(), denied),
                 ("event_count".to_string(), event_rows.len() as i64),
                 ("trace_count".to_string(), trace_rows.len() as i64),
                 ("span_count".to_string(), span_rows.len() as i64),
+                ("tool_call_count".to_string(), tool_call_count),
                 ("duration_ms".to_string(), duration_ms),
             ]);
             let mut agent_metrics = agent_ids
@@ -352,6 +393,7 @@ impl EvaluationRepo {
                             ("event_count".to_string(), 0_i64),
                             ("trace_count".to_string(), 0_i64),
                             ("span_count".to_string(), 0_i64),
+                            ("tool_call_count".to_string(), 0_i64),
                             ("duration_ms".to_string(), duration_ms),
                         ]),
                     )
@@ -363,6 +405,13 @@ impl EvaluationRepo {
                     .or_default()
                     .entry("event_count".into())
                     .or_default() += 1;
+                if event.kind == "tool_call" {
+                    *agent_metrics
+                        .entry(event.agent_id.clone())
+                        .or_default()
+                        .entry("tool_call_count".into())
+                        .or_default() += 1;
+                }
             }
             for (_, agent_id, decision, _, _, _, _) in &trace_rows {
                 let Some(agent_id) = agent_id else {
@@ -395,7 +444,12 @@ impl EvaluationRepo {
                 "capture_status": capture_status,
                 "cutoff": current,
                 "participants": participants,
-                "events": event_rows,
+                "events": event_rows.iter().map(|event| {
+                    minimize_snapshot_event(
+                        serde_json::to_value(event).unwrap_or(serde_json::Value::Null),
+                        agent_content_modes.get(&event.agent_id),
+                    )
+                }).collect::<Vec<_>>(),
                 "traces": trace_json,
                 "spans": span_rows,
                 "metrics": metrics,
@@ -404,6 +458,8 @@ impl EvaluationRepo {
                 "agent_triggered_policy_counts": agent_triggered_counts,
                 "evidence_ids": evidence_ids,
                 "agent_evidence_ids": agent_evidence_ids,
+                "agent_on_incomplete": agent_on_incomplete,
+                "agent_content_modes": agent_content_modes,
                 "unattributed_trace_count": trace_rows.iter().filter(|row| row.1.is_none()).count(),
             });
             let manifest_body = serde_json::to_value(&manifest)
@@ -527,6 +583,21 @@ impl EvaluationRepo {
         let mut conn = self.connection().await?;
         conn.transaction::<Option<EvaluationJobWork>, StorageError, _>(async |conn| {
             let current = Utc::now();
+            diesel::update(
+                evaluation_jobs::table
+                    .filter(evaluation_jobs::status.eq("running"))
+                    .filter(evaluation_jobs::attempts.ge(max_attempts))
+                    .filter(evaluation_jobs::lease_expires_at.lt(Some(current))),
+            )
+            .set((
+                evaluation_jobs::status.eq("error"),
+                evaluation_jobs::lease_owner.eq::<Option<String>>(None),
+                evaluation_jobs::lease_expires_at.eq::<Option<chrono::DateTime<Utc>>>(None),
+                evaluation_jobs::error.eq("evaluation lease expired after the maximum attempts"),
+                evaluation_jobs::updated_at.eq(now),
+            ))
+            .execute(conn)
+            .await?;
             let record = evaluation_jobs::table
                 .filter(evaluation_jobs::available_at.le(current))
                 .filter(evaluation_jobs::attempts.lt(max_attempts))
@@ -584,6 +655,7 @@ impl EvaluationRepo {
                     policy_yaml: policy.policy_yaml,
                     weight: policy.weight as u32,
                     critical: policy.critical,
+                    evidence_requirements: policy.evidence_requirements,
                 })
                 .collect();
             Ok(Some(EvaluationJobWork {
@@ -597,6 +669,7 @@ impl EvaluationRepo {
                 capture_status: snapshot.capture_status,
                 snapshot: snapshot.snapshot,
                 manifest,
+                lease_owner: worker_id.to_string(),
                 attempt: leased.attempts,
             }))
         })
@@ -610,6 +683,24 @@ impl EvaluationRepo {
     ) -> Result<Uuid, StorageError> {
         let mut conn = self.connection().await?;
         conn.transaction::<Uuid, StorageError, _>(async |conn| {
+            let lease = evaluation_jobs::table
+                .filter(evaluation_jobs::workspace_id.eq(&work.workspace_id))
+                .filter(evaluation_jobs::id.eq(work.job_id))
+                .select(EvaluationJobRecord::as_select())
+                .for_update()
+                .first::<EvaluationJobRecord>(conn)
+                .await
+                .optional()?
+                .ok_or(StorageError::NotFound)?;
+            if lease.status != "running"
+                || lease.lease_owner.as_deref() != Some(work.lease_owner.as_str())
+                || lease.attempts != work.attempt
+                || lease
+                    .lease_expires_at
+                    .map_or(true, |lease_expires_at| lease_expires_at <= Utc::now())
+            {
+                return Err(StorageError::Conflict);
+            }
             let result_id = Uuid::now_v7();
             diesel::insert_into(evaluation_results::table)
                 .values((
@@ -692,10 +783,14 @@ impl EvaluationRepo {
     ) -> Result<(), StorageError> {
         let mut conn = self.connection().await?;
         let terminal = work.attempt >= max_attempts;
-        diesel::update(
+        let updated = diesel::update(
             evaluation_jobs::table
                 .filter(evaluation_jobs::workspace_id.eq(&work.workspace_id))
-                .filter(evaluation_jobs::id.eq(work.job_id)),
+                .filter(evaluation_jobs::id.eq(work.job_id))
+                .filter(evaluation_jobs::status.eq("running"))
+                .filter(evaluation_jobs::lease_owner.eq(&work.lease_owner))
+                .filter(evaluation_jobs::attempts.eq(work.attempt))
+                .filter(evaluation_jobs::lease_expires_at.gt(Some(Utc::now()))),
         )
         .set((
             evaluation_jobs::status.eq(if terminal { "error" } else { "queued" }),
@@ -708,6 +803,9 @@ impl EvaluationRepo {
         ))
         .execute(&mut conn)
         .await?;
+        if updated != 1 {
+            return Err(StorageError::Conflict);
+        }
         Ok(())
     }
 
@@ -781,6 +879,69 @@ impl EvaluationRepo {
     }
 }
 
+fn minimize_snapshot_payload(
+    mut payload: serde_json::Value,
+    content_mode: Option<&String>,
+) -> serde_json::Value {
+    let verified_redacted = content_mode.is_some_and(|mode| mode == "redacted")
+        && payload.get("redaction").is_some_and(|redaction| {
+            redaction.get("status").and_then(serde_json::Value::as_str) == Some("applied")
+                && redaction
+                    .get("input_redacted")
+                    .and_then(serde_json::Value::as_bool)
+                    == Some(true)
+                && redaction
+                    .get("proposed_output_redacted")
+                    .and_then(serde_json::Value::as_bool)
+                    == Some(true)
+                && redaction
+                    .get("context_redacted")
+                    .and_then(serde_json::Value::as_bool)
+                    == Some(true)
+        });
+    if verified_redacted {
+        return payload;
+    }
+    if let Some(object) = payload.as_object_mut() {
+        object.remove("safe_output");
+        object.remove("checked_input_excerpt");
+        object.remove("checked_output_excerpt");
+        if let Some(event) = object.get_mut("event") {
+            *event = minimize_snapshot_event(std::mem::take(event), content_mode);
+        }
+    }
+    payload
+}
+
+fn minimize_snapshot_event(
+    mut event: serde_json::Value,
+    _content_mode: Option<&String>,
+) -> serde_json::Value {
+    let Some(object) = event.as_object_mut() else {
+        return event;
+    };
+    for key in ["label", "input_summary", "output_summary", "context"] {
+        if object.contains_key(key) {
+            object.insert(key.into(), serde_json::Value::Null);
+        }
+    }
+    for key in ["metadata", "provenance"] {
+        if object.contains_key(key) {
+            object.insert(key.into(), serde_json::json!({}));
+        }
+    }
+    if object.contains_key("sources") {
+        object.insert("sources".into(), serde_json::json!([]));
+    }
+    if let Some(action) = object
+        .get_mut("action")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        action.insert("parameters".into(), serde_json::Value::Null);
+    }
+    event
+}
+
 fn blake3_hash(value: &serde_json::Value) -> Result<String, StorageError> {
     let bytes = serde_json::to_vec(value)
         .map_err(|error| StorageError::Internal(format!("canonical json encode: {error}")))?;
@@ -799,5 +960,47 @@ fn parse_job_status(value: &str) -> Result<EvaluationJobStatus, StorageError> {
         other => Err(StorageError::Internal(format!(
             "unknown evaluation job status `{other}`"
         ))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn redacted_snapshot_requires_verified_redaction_report() {
+        let mode = "redacted".to_string();
+        let payload = serde_json::json!({
+            "safe_output": "secret",
+            "event": {
+                "action": { "parameters": { "secret": true } },
+                "context": { "secret": true }
+            }
+        });
+
+        let minimized = minimize_snapshot_payload(payload, Some(&mode));
+        assert!(minimized.get("safe_output").is_none());
+        assert!(minimized["event"]["action"]["parameters"].is_null());
+        assert!(minimized["event"]["context"].is_null());
+    }
+
+    #[test]
+    fn verified_redacted_snapshot_retains_redacted_content() {
+        let mode = "redacted".to_string();
+        let payload = serde_json::json!({
+            "safe_output": "[REDACTED]",
+            "redaction": {
+                "status": "applied",
+                "input_redacted": true,
+                "proposed_output_redacted": true,
+                "context_redacted": true
+            },
+            "event": { "context": { "account": "[REDACTED]" } }
+        });
+
+        assert_eq!(
+            minimize_snapshot_payload(payload.clone(), Some(&mode)),
+            payload
+        );
     }
 }

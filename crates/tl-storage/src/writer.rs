@@ -15,7 +15,8 @@
 
 use std::time::Duration;
 
-use diesel_async::RunQueryDsl;
+use diesel::prelude::*;
+use diesel_async::{AsyncConnection, RunQueryDsl};
 use tl_core::{Decision, GuardEvent};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
@@ -91,7 +92,7 @@ async fn writer_loop(pool: DbPool, mut rx: mpsc::Receiver<TraceWrite>, config: W
     loop {
         tokio::select! {
             // Drain the channel as quickly as possible, batching as we go.
-            received = rx.recv() => match received {
+            received = rx.recv(), if buf.len() < config.batch_size => match received {
                 Some(t) => {
                     buf.push(t);
                     if buf.len() >= config.batch_size {
@@ -115,6 +116,13 @@ async fn writer_loop(pool: DbPool, mut rx: mpsc::Receiver<TraceWrite>, config: W
                 if !buf.is_empty() {
                     if let Err(e) = flush(&pool, &mut buf).await {
                         tracing::error!(error = %e, "trace writer interval flush failed");
+                        if rx.is_closed() {
+                            tracing::error!(
+                                buffered_traces = buf.len(),
+                                "trace writer stopped with unflushed evidence after channel closure"
+                            );
+                            return;
+                        }
                     }
                 }
             }
@@ -127,7 +135,10 @@ async fn flush(pool: &DbPool, buf: &mut Vec<TraceWrite>) -> Result<(), StorageEr
         return Ok(());
     }
 
-    let rows = std::mem::take(buf);
+    // Keep the original writes buffered until the transaction commits. A
+    // transient database failure must not silently discard evaluation
+    // evidence that already passed the bounded channel.
+    let rows = buf.clone();
     let mut traces_to_insert: Vec<NewTrace> = rows.into_iter().map(trace_write_to_new).collect();
 
     let mut conn = pool
@@ -135,44 +146,76 @@ async fn flush(pool: &DbPool, buf: &mut Vec<TraceWrite>) -> Result<(), StorageEr
         .await
         .map_err(|e| StorageError::Internal(format!("db pool: {e}")))?;
 
-    let run_ids = traces_to_insert
-        .iter()
-        .filter_map(|trace| trace.run_id)
-        .collect::<std::collections::HashSet<_>>();
-    if !run_ids.is_empty() {
-        use diesel::{ExpressionMethods, QueryDsl};
-        let run_id_values = run_ids.iter().copied().collect::<Vec<_>>();
-        let closed_runs = runs::table
-            .filter(runs::id.eq_any(&run_id_values))
-            .filter(runs::capture_status.eq_any(["complete", "incomplete"]))
-            .select(runs::id)
-            .load::<uuid::Uuid>(&mut conn)
-            .await?
-            .into_iter()
-            .collect::<std::collections::HashSet<_>>();
-        for trace in &mut traces_to_insert {
-            trace.late_evidence = trace
-                .run_id
-                .is_some_and(|run_id| closed_runs.contains(&run_id));
+    let mut run_groups = std::collections::BTreeMap::<
+        (String, String),
+        std::collections::BTreeSet<uuid::Uuid>,
+    >::new();
+    for trace in &traces_to_insert {
+        if let Some(run_id) = trace.run_id {
+            run_groups
+                .entry((trace.workspace_id.clone(), trace.environment_id.clone()))
+                .or_default()
+                .insert(run_id);
         }
-        diesel::update(runs::table.filter(runs::id.eq_any(&run_id_values)))
-            .set((
-                runs::last_evidence_at.eq(chrono::Utc::now()),
-                runs::updated_at.eq(chrono::Utc::now()),
-            ))
-            .execute(&mut conn)
-            .await?;
     }
 
-    diesel::insert_into(traces::table)
-        .values(&traces_to_insert)
-        .on_conflict((traces::trace_id, traces::created_at))
-        .do_nothing()
-        .execute(&mut conn)
-        .await
-        .map_err(|e| StorageError::Internal(format!("trace flush: {e}")))?;
+    let result = conn
+        .transaction::<(), StorageError, _>(async |conn| {
+            let evidence_at = chrono::Utc::now();
+            for ((workspace_id, environment_id), run_ids) in &run_groups {
+                let run_id_values = run_ids.iter().copied().collect::<Vec<_>>();
+                let states = runs::table
+                    .filter(runs::workspace_id.eq(workspace_id))
+                    .filter(runs::environment_id.eq(environment_id))
+                    .filter(runs::id.eq_any(&run_id_values))
+                    .select((runs::id, runs::capture_status))
+                    .order(runs::id.asc())
+                    .for_update()
+                    .load::<(uuid::Uuid, String)>(conn)
+                    .await?;
+                let closed_runs = states
+                    .into_iter()
+                    .filter_map(|(run_id, status)| {
+                        matches!(status.as_str(), "complete" | "incomplete").then_some(run_id)
+                    })
+                    .collect::<std::collections::HashSet<_>>();
+                for trace in &mut traces_to_insert {
+                    if trace.workspace_id == *workspace_id
+                        && trace.environment_id == *environment_id
+                    {
+                        trace.late_evidence = trace
+                            .run_id
+                            .is_some_and(|run_id| closed_runs.contains(&run_id));
+                    }
+                }
+                diesel::update(
+                    runs::table
+                        .filter(runs::workspace_id.eq(workspace_id))
+                        .filter(runs::environment_id.eq(environment_id))
+                        .filter(runs::id.eq_any(&run_id_values)),
+                )
+                .set((
+                    runs::last_evidence_at.eq(evidence_at),
+                    runs::updated_at.eq(evidence_at),
+                ))
+                .execute(conn)
+                .await?;
+            }
 
-    Ok(())
+            diesel::insert_into(traces::table)
+                .values(&traces_to_insert)
+                .on_conflict((traces::trace_id, traces::created_at))
+                .do_nothing()
+                .execute(conn)
+                .await
+                .map_err(|error| StorageError::Internal(format!("trace flush: {error}")))?;
+            Ok(())
+        })
+        .await;
+    if result.is_ok() {
+        buf.clear();
+    }
+    result
 }
 
 /// Serialize the trace payload: the full `Decision`, plus an additive

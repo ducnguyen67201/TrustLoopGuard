@@ -108,10 +108,8 @@ fn validate_evaluation(evaluation: &EvaluationPolicy, issues: &mut Vec<Validatio
             validate_policy_refs(policy_ids, issues);
         }
         EvaluationGrader::RunMetric { metric, .. } => {
-            const METRICS: [&str; 8] = [
+            const METRICS: [&str; 6] = [
                 "denied_decisions",
-                "unapproved_tool_executions",
-                "error_count",
                 "duration_ms",
                 "tool_call_count",
                 "event_count",

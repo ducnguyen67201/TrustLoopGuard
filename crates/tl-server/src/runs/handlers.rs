@@ -374,13 +374,34 @@ async fn evaluation_capture_wait(
     let Ok(run) = state.store.get(workspace_id, environment_id, run_id).await else {
         return 30_000;
     };
-    state
+    let participant_ids = state
         .evaluation_store
-        .get_profile(workspace_id, environment_id, &run.agent_id)
+        .list_participants(workspace_id, run_id)
         .await
-        .ok()
-        .flatten()
-        .map_or(30_000, |profile| profile.max_capture_wait_ms)
+        .map(|participants| {
+            participants
+                .into_iter()
+                .map(|participant| participant.agent_id)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_else(|_| vec![run.agent_id]);
+    let mut max_capture_wait_ms = None;
+    for agent_id in participant_ids {
+        if let Ok(Some(profile)) = state
+            .evaluation_store
+            .get_profile(workspace_id, environment_id, &agent_id)
+            .await
+        {
+            if profile.enabled {
+                max_capture_wait_ms = Some(
+                    max_capture_wait_ms
+                        .unwrap_or(0)
+                        .max(profile.max_capture_wait_ms),
+                );
+            }
+        }
+    }
+    max_capture_wait_ms.unwrap_or(30_000)
 }
 
 /// `POST /v1/runs/:id/events` - append an event to a run timeline.

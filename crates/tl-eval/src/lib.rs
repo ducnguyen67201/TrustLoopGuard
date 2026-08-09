@@ -19,6 +19,7 @@ pub const EVALUATOR_VERSION: &str = "tl-eval:v1";
 pub struct SnapshotEvidence {
     pub snapshot_hash: String,
     pub capture_status: RunCaptureStatus,
+    pub on_incomplete: MissingEvidenceBehavior,
     #[serde(default)]
     pub metrics: BTreeMap<String, i64>,
     #[serde(default)]
@@ -240,9 +241,12 @@ fn evaluate_policy(
     policy: &EvaluationPolicy,
 ) -> FindingOutput {
     if snapshot.capture_status != RunCaptureStatus::Complete {
-        let status = match policy.on_missing_evidence {
-            MissingEvidenceBehavior::Fail => EvaluationFindingStatus::Failed,
-            MissingEvidenceBehavior::Inconclusive => EvaluationFindingStatus::Inconclusive,
+        let status = if snapshot.on_incomplete == MissingEvidenceBehavior::Fail
+            || policy.on_missing_evidence == MissingEvidenceBehavior::Fail
+        {
+            EvaluationFindingStatus::Failed
+        } else {
+            EvaluationFindingStatus::Inconclusive
         };
         return finding(
             entry,
@@ -546,6 +550,7 @@ mod tests {
         let snapshot = SnapshotEvidence {
             snapshot_hash: "blake3:v1:test".into(),
             capture_status: RunCaptureStatus::Incomplete,
+            on_incomplete: MissingEvidenceBehavior::Inconclusive,
             metrics: BTreeMap::new(),
             triggered_policy_counts: BTreeMap::new(),
             evidence_ids: BTreeMap::new(),
@@ -573,6 +578,42 @@ on_missing_evidence: fail
         let output = evaluate_deterministic(&snapshot, &manifest).expect("evaluation");
         assert_eq!(output.verdict, EvaluationVerdict::Failed);
         assert_ne!(output.verdict, EvaluationVerdict::Passed);
+    }
+
+    #[test]
+    fn profile_failure_behavior_overrides_inconclusive_policy() {
+        let snapshot = SnapshotEvidence {
+            snapshot_hash: "blake3:v1:test".into(),
+            capture_status: RunCaptureStatus::Incomplete,
+            on_incomplete: MissingEvidenceBehavior::Fail,
+            metrics: BTreeMap::new(),
+            triggered_policy_counts: BTreeMap::new(),
+            evidence_ids: BTreeMap::new(),
+        };
+        let manifest = vec![ManifestEntry {
+            policy_id: "required-evidence".into(),
+            policy_version: 1,
+            policy_hash: "sha256:v1:test".into(),
+            policy_yaml: r#"
+family: evaluation
+id: required-evidence
+severity: high
+scope: trajectory
+grader:
+  kind: run_metric
+  metric: event_count
+  comparator: gte
+  value: 1
+on_missing_evidence: inconclusive
+"#
+            .into(),
+            weight: 1,
+            critical: false,
+        }];
+
+        let output = evaluate_deterministic(&snapshot, &manifest).expect("evaluation");
+        assert_eq!(output.verdict, EvaluationVerdict::Failed);
+        assert_eq!(output.findings[0].status, EvaluationFindingStatus::Failed);
     }
 
     #[test]
@@ -699,6 +740,7 @@ on_missing_evidence: fail
         let snapshot = SnapshotEvidence {
             snapshot_hash: "blake3:v1:snapshot".into(),
             capture_status: RunCaptureStatus::Complete,
+            on_incomplete: MissingEvidenceBehavior::Inconclusive,
             metrics: BTreeMap::new(),
             triggered_policy_counts: BTreeMap::new(),
             evidence_ids: BTreeMap::new(),

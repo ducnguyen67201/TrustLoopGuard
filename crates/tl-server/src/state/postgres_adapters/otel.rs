@@ -62,8 +62,7 @@ impl OtelStore for PostgresOtelAdapter {
                 workspace_id: batch.workspace_id,
                 environment_id: batch.environment_id,
                 run_id: batch.run_id,
-                flush_id: batch.flush_id,
-                rejected_span_count: batch.rejected_span_count,
+                flush_receipts: batch.flush_receipts,
                 spans,
             })
             .await

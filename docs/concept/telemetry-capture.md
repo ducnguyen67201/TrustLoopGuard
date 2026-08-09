@@ -12,6 +12,10 @@ limits, normalizes the spans, validates correlation, and commits valid spans bef
 them. Invalid spans produce OTLP partial success. A transient storage failure returns a retryable
 service error rather than acknowledging evidence that was not durable.
 
+For a Run containing multiple agents, all valid span groups and their flush receipts are committed
+in one Run-scoped transaction. A receipt therefore cannot become visible before another accepted
+agent group from the same OTLP request is durable.
+
 The required correlation attributes are:
 
 - `featherlane.run.id` — an existing Rust-created Run UUID in the authenticated environment.
@@ -32,6 +36,11 @@ Metadata-only capture is the default. Prompt, completion, tool argument, body, a
 removed unless both workspace data handling and the agent evaluation profile allow a stricter
 mode. Redacted capture requires explicit redaction evidence. Encrypted-artifact mode stores bounded
 artifact references and checksums, not raw content in span or snapshot rows.
+
+The same minimization applies to runtime decision evidence: metadata-only evaluation profiles omit
+event bodies, checked excerpts, action parameters, source details, provenance, and free-form context
+before persistence. Full decision evidence is retained only for explicitly enabled redacted capture
+whose runtime decision confirms that all relevant fields were redacted.
 
 Normalization records whether content was omitted, redacted, missing redaction evidence, or replaced
 by an encrypted artifact reference. Attribute nesting, arrays, events, links, IDs, timestamps, and

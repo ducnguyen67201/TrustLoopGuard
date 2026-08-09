@@ -205,6 +205,7 @@ pub struct RunParticipantRecord {
     pub agent_id: String,
     pub role: String,
     pub joined_at: DateTime<Utc>,
+    pub manifest_frozen_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Queryable, Selectable, Serialize)]

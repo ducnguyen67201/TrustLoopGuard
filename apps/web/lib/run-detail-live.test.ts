@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseRunDetailSnapshot } from './run-detail-live';
+import { currentAssuranceStatus, parseRunDetailSnapshot } from './run-detail-live';
 
 describe('parseRunDetailSnapshot', () => {
   it('validates and maps a run detail payload for the live view', () => {
@@ -154,6 +154,43 @@ describe('parseRunDetailSnapshot', () => {
     });
 
     expect(snapshot.assurance.eligibility).toBe('legacy_incomplete');
+  });
+
+  it('uses only the latest evaluation per agent for the current assurance status', () => {
+    const assurance = {
+      eligibility: 'eligible' as const,
+      finalization: null,
+      participants: [],
+      jobs: [],
+      evaluations: [
+        {
+          id: 'old-failure',
+          run_id: 'run',
+          agent_id: 'agent',
+          snapshot_hash: 'old',
+          manifest_hash: 'manifest',
+          evaluator_version: 'tl-eval:v1',
+          verdict: 'failed',
+          score_bps: 0,
+          capture_status: 'complete',
+          created_at: '2026-01-01T00:00:00Z',
+        },
+        {
+          id: 'new-pass',
+          run_id: 'run',
+          agent_id: 'agent',
+          snapshot_hash: 'new',
+          manifest_hash: 'manifest',
+          evaluator_version: 'tl-eval:v1',
+          verdict: 'passed',
+          score_bps: 10_000,
+          capture_status: 'complete',
+          created_at: '2026-01-02T00:00:00Z',
+        },
+      ],
+    };
+
+    expect(currentAssuranceStatus(assurance)).toBe('passed');
   });
 
   it('marks untriggered allow checks with their input/output side', () => {
