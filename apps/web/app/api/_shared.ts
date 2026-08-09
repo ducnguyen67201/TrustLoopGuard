@@ -13,6 +13,7 @@ const SDK_CODE_TO_STATUS: Record<ApiErrorCode, number> = {
   unauthorized: 401,
   forbidden: 403,
   not_found: 404,
+  conflict: 409,
   gone: 410,
   unprocessable: 422,
   rate_limited: 429,

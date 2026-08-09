@@ -131,6 +131,7 @@ export type * from './generated/RunEventListResponse.js';
 export type * from './generated/RunEventSummary.js';
 export type * from './generated/RunKind.js';
 export type * from './generated/RunListResponse.js';
+export type * from './generated/RunEvaluationEligibility.js';
 export type * from './generated/RunStatus.js';
 export type * from './generated/RunSummary.js';
 export type * from './generated/CreateGatewayProviderConnectionRequest.js';
@@ -250,8 +251,12 @@ export type {
   FinancialOperationSpec,
   GuardToolCallOptions,
   ListTracesOptions,
+  RunCorrelationContext,
+  RunLifecycleWarning,
+  RunTelemetryHook,
   WithRunOptions,
 } from './client.js';
+export { runCorrelation } from './client.js';
 
 export { GuardMode, guard, guardAgent } from './guard.js';
 export type {
@@ -303,6 +308,7 @@ export {
   Unauthorized,
   Forbidden,
   NotFound,
+  Conflict,
   Gone,
   Unprocessable,
   RateLimited,

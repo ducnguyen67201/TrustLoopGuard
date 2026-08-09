@@ -112,6 +112,7 @@ diesel::table! {
         workspace_id -> Text,
         id -> Uuid,
         run_id -> Uuid,
+        agent_id -> Text,
         sequence -> Int4,
         kind -> Text,
         label -> Nullable<Text>,
@@ -137,6 +138,17 @@ diesel::table! {
         ended_at -> Nullable<Timestamptz>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        boundary_source -> Nullable<Text>,
+        boundary_confidence -> Nullable<Text>,
+        finalized_at -> Nullable<Timestamptz>,
+        capture_status -> Text,
+        capture_deadline -> Nullable<Timestamptz>,
+        expected_flush_id -> Nullable<Text>,
+        previous_run_id -> Nullable<Uuid>,
+        last_evidence_at -> Nullable<Timestamptz>,
+        dropped_trace_count -> Int8,
+        reevaluation_agent_ids -> Nullable<Array<Text>>,
+        evaluation_eligibility -> Text,
     }
 }
 
@@ -153,6 +165,258 @@ diesel::table! {
         created_at -> Timestamptz,
         run_event_id -> Nullable<Uuid>,
         session_id -> Nullable<Text>,
+        agent_id -> Nullable<Text>,
+        late_evidence -> Bool,
+    }
+}
+
+diesel::table! {
+    run_participants (workspace_id, run_id, agent_id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        run_id -> Uuid,
+        agent_id -> Text,
+        role -> Text,
+        joined_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    agent_evaluation_profiles (workspace_id, environment_id, agent_id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        agent_id -> Text,
+        enabled -> Bool,
+        capture_mode -> Text,
+        content_mode -> Text,
+        quiet_period_ms -> Int8,
+        max_capture_wait_ms -> Int8,
+        on_incomplete -> Text,
+        profile_version -> Int4,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    agent_evaluation_policy_assignments (workspace_id, environment_id, agent_id, policy_id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        agent_id -> Text,
+        policy_id -> Text,
+        policy_version -> Nullable<Int4>,
+        weight -> Int4,
+        critical -> Bool,
+        enabled -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    run_evaluation_policy_manifest (workspace_id, run_id, agent_id, policy_id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        run_id -> Uuid,
+        agent_id -> Text,
+        policy_id -> Text,
+        policy_family -> Text,
+        policy_version -> Int4,
+        policy_hash -> Text,
+        policy_yaml -> Text,
+        weight -> Int4,
+        critical -> Bool,
+        evidence_requirements -> Jsonb,
+        captured_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    run_spans (workspace_id, environment_id, otel_trace_id, otel_span_id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        run_id -> Uuid,
+        agent_id -> Text,
+        run_event_id -> Nullable<Uuid>,
+        otel_trace_id -> Text,
+        otel_span_id -> Text,
+        parent_span_id -> Nullable<Text>,
+        name -> Text,
+        span_kind -> Int4,
+        operation_name -> Nullable<Text>,
+        conversation_id -> Nullable<Text>,
+        external_agent_id -> Nullable<Text>,
+        started_at -> Timestamptz,
+        ended_at -> Timestamptz,
+        status_code -> Int4,
+        status_message -> Nullable<Text>,
+        resource -> Jsonb,
+        attributes -> Jsonb,
+        events -> Jsonb,
+        links -> Jsonb,
+        content_capture_status -> Text,
+        dropped_attribute_count -> Int4,
+        late_evidence -> Bool,
+        ingested_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    otel_flush_receipts (workspace_id, environment_id, run_id, flush_id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        run_id -> Uuid,
+        flush_id -> Text,
+        accepted_span_count -> Int4,
+        rejected_span_count -> Int4,
+        accepted_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    run_snapshots (workspace_id, id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        id -> Uuid,
+        run_id -> Uuid,
+        snapshot_version -> Int4,
+        snapshot_hash -> Text,
+        manifest_hash -> Text,
+        capture_status -> Text,
+        event_cutoff -> Timestamptz,
+        event_count -> Int8,
+        trace_count -> Int8,
+        span_count -> Int8,
+        dropped_trace_count -> Int8,
+        late_evidence_count -> Int8,
+        snapshot -> Jsonb,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    evaluation_jobs (workspace_id, id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        id -> Uuid,
+        run_id -> Uuid,
+        agent_id -> Text,
+        snapshot_id -> Uuid,
+        snapshot_hash -> Text,
+        manifest_hash -> Text,
+        evaluator_version -> Text,
+        status -> Text,
+        attempts -> Int4,
+        available_at -> Timestamptz,
+        lease_owner -> Nullable<Text>,
+        lease_expires_at -> Nullable<Timestamptz>,
+        error -> Nullable<Text>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    evaluation_results (workspace_id, id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        id -> Uuid,
+        job_id -> Uuid,
+        run_id -> Uuid,
+        agent_id -> Text,
+        snapshot_hash -> Text,
+        manifest_hash -> Text,
+        evaluator_version -> Text,
+        verdict -> Text,
+        score_bps -> Nullable<Int4>,
+        capture_status -> Text,
+        llm_audit -> Nullable<Jsonb>,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    evaluation_findings (workspace_id, id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        id -> Uuid,
+        result_id -> Uuid,
+        run_id -> Uuid,
+        agent_id -> Text,
+        policy_id -> Text,
+        policy_version -> Int4,
+        severity -> Text,
+        critical -> Bool,
+        status -> Text,
+        score_bps -> Nullable<Int4>,
+        reason -> Text,
+        evidence -> Jsonb,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    evaluation_datasets (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        agent_id -> Text,
+        name -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    evaluation_dataset_versions (workspace_id, dataset_id, version) {
+        workspace_id -> Text,
+        dataset_id -> Uuid,
+        version -> Int4,
+        manifest_hash -> Text,
+        manifest -> Jsonb,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    evaluation_cases (workspace_id, dataset_id, dataset_version, case_id) {
+        workspace_id -> Text,
+        dataset_id -> Uuid,
+        dataset_version -> Int4,
+        case_id -> Text,
+        case_hash -> Text,
+        scoring_mode -> Text,
+        weight -> Int4,
+        spec -> Jsonb,
+    }
+}
+
+diesel::table! {
+    evaluation_campaigns (workspace_id, id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        id -> Uuid,
+        dataset_id -> Uuid,
+        dataset_version -> Int4,
+        agent_id -> Text,
+        status -> Text,
+        case_runs -> Jsonb,
+        aggregate -> Nullable<Jsonb>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    evaluation_release_gates (workspace_id, id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        id -> Uuid,
+        agent_id -> Text,
+        campaign_id -> Nullable<Uuid>,
+        manifest_hash -> Text,
+        verdict -> Text,
+        evidence -> Jsonb,
+        created_at -> Timestamptz,
     }
 }
 
@@ -1008,6 +1272,21 @@ diesel::allow_tables_to_appear_in_same_query!(
     human_review_events,
     run_events,
     runs,
+    run_participants,
+    agent_evaluation_profiles,
+    agent_evaluation_policy_assignments,
+    run_evaluation_policy_manifest,
+    run_spans,
+    otel_flush_receipts,
+    run_snapshots,
+    evaluation_jobs,
+    evaluation_results,
+    evaluation_findings,
+    evaluation_datasets,
+    evaluation_dataset_versions,
+    evaluation_cases,
+    evaluation_campaigns,
+    evaluation_release_gates,
     redteam_jobs,
     redteam_attack_sessions,
     redteam_session_events,

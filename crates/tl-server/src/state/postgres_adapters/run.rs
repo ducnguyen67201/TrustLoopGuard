@@ -83,6 +83,32 @@ impl RunStore for PostgresRunAdapter {
             .map_err(run_store_error)
     }
 
+    async fn finalize(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+        input: tl_core::FinalizeRunRequest,
+        capture_wait_ms: u64,
+    ) -> Result<tl_core::FinalizeRunResponse, RunStoreError> {
+        self.0
+            .finalize(workspace_id, environment_id, run_id, input, capture_wait_ms)
+            .await
+            .map_err(run_store_error)
+    }
+
+    async fn finalization(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+    ) -> Result<Option<tl_core::RunFinalizationSummary>, RunStoreError> {
+        self.0
+            .finalization(workspace_id, environment_id, run_id)
+            .await
+            .map_err(run_store_error)
+    }
+
     async fn create_event(
         &self,
         workspace_id: &str,
@@ -143,7 +169,7 @@ impl RunStore for PostgresRunAdapter {
 fn run_store_error(error: tl_storage::StorageError) -> RunStoreError {
     match error {
         tl_storage::StorageError::NotFound => RunStoreError::NotFound,
-        tl_storage::StorageError::Conflict => RunStoreError::Internal("conflict".into()),
+        tl_storage::StorageError::Conflict => RunStoreError::Conflict,
         tl_storage::StorageError::Internal(message) if message.contains("parse") => {
             RunStoreError::Validation(message)
         }

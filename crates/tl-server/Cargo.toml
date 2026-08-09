@@ -31,6 +31,7 @@ tl-engine = { workspace = true }
 tl-llm = { workspace = true }
 tl-policy = { workspace = true }
 tl-storage = { workspace = true }
+tl-eval = { workspace = true }
 tokio = { workspace = true }
 axum = { workspace = true }
 tower = { workspace = true }
@@ -46,6 +47,8 @@ utoipa = { version = "5", features = ["axum_extras"] }
 async-trait = { workspace = true }
 serde_yaml = { workspace = true }
 bytes = "1"
+prost = { workspace = true }
+opentelemetry-proto = { workspace = true }
 futures = { workspace = true }
 base64 = "0.23"
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }

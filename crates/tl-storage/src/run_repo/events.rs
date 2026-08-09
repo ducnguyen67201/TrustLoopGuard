@@ -6,7 +6,7 @@ use tl_core::{CreateRunEventRequest, RunEventSummary};
 use uuid::Uuid;
 
 use crate::models::{NewRunEvent, RunEventRecord};
-use crate::schema::{run_events, runs};
+use crate::schema::{run_events, run_participants, runs};
 use crate::StorageError;
 
 use super::summary::event_summary;
@@ -28,15 +28,37 @@ impl RunRepo {
         let mut conn = self.connection().await?;
         let id = conn
             .transaction::<Uuid, StorageError, _>(async |conn| {
-                let locked_rows = diesel::update(
+                let locked_run = diesel::update(
                     runs::table
                         .filter(runs::workspace_id.eq(workspace_id))
                         .filter(runs::id.eq(run_uuid)),
                 )
                 .set(runs::updated_at.eq(runs::updated_at))
-                .execute(conn)
-                .await?;
-                if locked_rows == 0 {
+                .returning((runs::agent_id, runs::environment_id, runs::finalized_at))
+                .get_result::<(String, String, Option<DateTime<Utc>>)>(conn)
+                .await
+                .optional()?
+                .ok_or(StorageError::NotFound)?;
+                if locked_run.2.is_some() {
+                    return Err(StorageError::Conflict);
+                }
+                let agent_id = input
+                    .agent_id
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or(locked_run.0.as_str())
+                    .to_string();
+                let participant = run_participants::table
+                    .filter(run_participants::workspace_id.eq(workspace_id))
+                    .filter(run_participants::environment_id.eq(&locked_run.1))
+                    .filter(run_participants::run_id.eq(run_uuid))
+                    .filter(run_participants::agent_id.eq(&agent_id))
+                    .select(run_participants::agent_id)
+                    .first::<String>(conn)
+                    .await
+                    .optional()?;
+                if participant.is_none() {
                     return Err(StorageError::NotFound);
                 }
 
@@ -63,6 +85,7 @@ impl RunRepo {
                     workspace_id: workspace_id.to_string(),
                     id,
                     run_id: run_uuid,
+                    agent_id,
                     sequence,
                     kind: event_kind_text(input.kind).to_string(),
                     label: input.label.and_then(|value| non_empty_string(value.trim())),

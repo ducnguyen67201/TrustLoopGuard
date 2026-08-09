@@ -1,6 +1,6 @@
 # Crates
 
-The workspace has 13 Rust crates plus example apps. Each crate exists because
+The workspace has 14 Rust crates plus example apps. Each crate exists because
 something concrete ships from it. None are "utility bag" crates. Read them in
 this order — it follows the dependency graph from the bottom up.
 
@@ -11,7 +11,7 @@ this order — it follows the dependency graph from the bottom up.
                                                   │            │                │
               ┌───────────────────────────────────┼────────────┤                │
               ▼                                   ▼            ▼                │
-        tl-policy                            tl-engine ───► tl-llm              │
+        tl-policy ◄── tl-eval                tl-engine ───► tl-llm              │
               │                                ▲    │                           │
               │                                │    └──► tl-fuzzy               │
               │                                │    └──► tl-cache               │
@@ -25,6 +25,18 @@ this order — it follows the dependency graph from the bottom up.
 ```
 
 `tl-core` is at the bottom. Everything depends on it. `tl-core` depends on nothing of ours. Three crates landed after the initial 9 — `tl-fuzzy`, `tl-llm`, `tl-cache` — each because the engine reaches a tier where it needs new vocabulary, and that vocabulary either ships from its own crate or pollutes `tl-engine`.
+
+---
+
+## `tl-eval` — pure post-run evaluation
+
+**Files:** [`crates/tl-eval/src/`](../../crates/tl-eval/src/)
+
+Consumes immutable snapshot evidence plus frozen evaluation-policy manifests and returns
+deterministic per-policy findings and an aggregate verdict. It owns canonical content hashing,
+integer-basis-point aggregation, critical overrides, and ports for policy replay and one batched
+rubric call per Run/agent. It has no Axum, Postgres, provider, or worker dependency; those adapters
+belong to `tl-server` and durable orchestration belongs to `tl-storage`.
 
 ---
 

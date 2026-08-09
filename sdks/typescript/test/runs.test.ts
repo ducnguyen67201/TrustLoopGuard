@@ -28,6 +28,7 @@ const RUN_EVENT_BODY = {
   id: '018f2222-2222-7222-8222-222222222222',
   workspace_id: 'ws_test',
   run_id: RUN_BODY.id,
+  agent_id: 'support-agent',
   sequence: 1,
   kind: 'user_turn',
   label: 'Turn 1',
@@ -63,9 +64,20 @@ describe('Client run methods', () => {
     });
   });
 
-  it('finishRun PATCHes completed status', async () => {
+  it('finishRun finalizes the completed run', async () => {
     const fetchSpy = mockFetch(async () =>
-      jsonResponse({ ...RUN_BODY, status: 'completed', ended_at: '2026-05-17T00:01:00Z' }),
+      jsonResponse({
+        run: { ...RUN_BODY, status: 'completed', ended_at: '2026-05-17T00:01:00Z' },
+        finalization: {
+          finalized_at: '2026-05-17T00:01:00Z',
+          boundary_source: 'explicit_sdk',
+          boundary_confidence: 'authoritative',
+          capture_status: 'waiting',
+          capture_deadline: '2026-05-17T00:01:30Z',
+          expected_flush_id: null,
+        },
+        evaluation_status: 'waiting_capture',
+      }),
     );
     const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
 
@@ -73,9 +85,12 @@ describe('Client run methods', () => {
 
     expect(run.status).toBe('completed');
     const [url, init] = fetchSpy.mock.calls[0]!;
-    expect(url).toBe(`http://server.test/v1/runs/${RUN_BODY.id}`);
-    expect((init as RequestInit).method).toBe('PATCH');
-    expect(JSON.parse(String((init as RequestInit).body))).toEqual({ status: 'completed' });
+    expect(url).toBe(`http://server.test/v1/runs/${RUN_BODY.id}/finalize`);
+    expect((init as RequestInit).method).toBe('POST');
+    expect(JSON.parse(String((init as RequestInit).body))).toEqual({
+      status: 'completed',
+      boundary_source: 'explicit_sdk',
+    });
   });
 
   it('createRunEvent POSTs timeline context', async () => {

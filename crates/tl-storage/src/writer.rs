@@ -23,7 +23,7 @@ use tokio::time::{interval, MissedTickBehavior};
 
 use crate::models::NewTrace;
 use crate::postgres::DbPool;
-use crate::schema::traces;
+use crate::schema::{runs, traces};
 use crate::StorageError;
 
 /// One queued write. The hot path constructs this with the agent's
@@ -36,6 +36,8 @@ pub struct TraceWrite {
     pub event: Option<GuardEvent>,
     pub workspace_id: String,
     pub environment_id: String,
+    /// Direct registered agent attribution; never inferred from payload JSON.
+    pub agent_id: String,
     pub run_id: Option<String>,
     pub run_event_id: Option<String>,
     /// Monitoring session id, passed through verbatim (opaque string,
@@ -126,40 +128,44 @@ async fn flush(pool: &DbPool, buf: &mut Vec<TraceWrite>) -> Result<(), StorageEr
     }
 
     let rows = std::mem::take(buf);
-    let traces: Vec<NewTrace> = rows
-        .into_iter()
-        .map(|w| {
-            let trace_uuid =
-                uuid::Uuid::parse_str(&w.decision.trace_id).unwrap_or_else(|_| uuid::Uuid::nil());
-            let payload = build_trace_payload(&w.decision, w.event.as_ref());
-            NewTrace {
-                workspace_id: w.workspace_id,
-                trace_id: trace_uuid,
-                run_id: w
-                    .run_id
-                    .as_deref()
-                    .and_then(|id| uuid::Uuid::parse_str(id).ok()),
-                run_event_id: w
-                    .run_event_id
-                    .as_deref()
-                    .and_then(|id| uuid::Uuid::parse_str(id).ok()),
-                session_id: w.session_id,
-                environment_id: w.environment_id,
-                domain: w.domain,
-                decision: effect_text(&w.decision.effect).to_string(),
-                elapsed_ms: w.decision.latency_ms as i32,
-                payload,
-            }
-        })
-        .collect();
+    let mut traces_to_insert: Vec<NewTrace> = rows.into_iter().map(trace_write_to_new).collect();
 
     let mut conn = pool
         .get()
         .await
         .map_err(|e| StorageError::Internal(format!("db pool: {e}")))?;
 
+    let run_ids = traces_to_insert
+        .iter()
+        .filter_map(|trace| trace.run_id)
+        .collect::<std::collections::HashSet<_>>();
+    if !run_ids.is_empty() {
+        use diesel::{ExpressionMethods, QueryDsl};
+        let run_id_values = run_ids.iter().copied().collect::<Vec<_>>();
+        let closed_runs = runs::table
+            .filter(runs::id.eq_any(&run_id_values))
+            .filter(runs::capture_status.eq_any(["complete", "incomplete"]))
+            .select(runs::id)
+            .load::<uuid::Uuid>(&mut conn)
+            .await?
+            .into_iter()
+            .collect::<std::collections::HashSet<_>>();
+        for trace in &mut traces_to_insert {
+            trace.late_evidence = trace
+                .run_id
+                .is_some_and(|run_id| closed_runs.contains(&run_id));
+        }
+        diesel::update(runs::table.filter(runs::id.eq_any(&run_id_values)))
+            .set((
+                runs::last_evidence_at.eq(chrono::Utc::now()),
+                runs::updated_at.eq(chrono::Utc::now()),
+            ))
+            .execute(&mut conn)
+            .await?;
+    }
+
     diesel::insert_into(traces::table)
-        .values(&traces)
+        .values(&traces_to_insert)
         .on_conflict((traces::trace_id, traces::created_at))
         .do_nothing()
         .execute(&mut conn)
@@ -175,6 +181,32 @@ async fn flush(pool: &DbPool, buf: &mut Vec<TraceWrite>) -> Result<(), StorageEr
 /// enrichment is backward compatible. Evidence serialization failure
 /// degrades to the bare decision payload — enrichment must never cost
 /// a trace row.
+pub(crate) fn trace_write_to_new(w: TraceWrite) -> NewTrace {
+    let trace_uuid =
+        uuid::Uuid::parse_str(&w.decision.trace_id).unwrap_or_else(|_| uuid::Uuid::nil());
+    let payload = build_trace_payload(&w.decision, w.event.as_ref());
+    NewTrace {
+        workspace_id: w.workspace_id,
+        trace_id: trace_uuid,
+        run_id: w
+            .run_id
+            .as_deref()
+            .and_then(|id| uuid::Uuid::parse_str(id).ok()),
+        run_event_id: w
+            .run_event_id
+            .as_deref()
+            .and_then(|id| uuid::Uuid::parse_str(id).ok()),
+        session_id: w.session_id,
+        agent_id: w.agent_id,
+        environment_id: w.environment_id,
+        domain: w.domain,
+        decision: effect_text(&w.decision.effect).to_string(),
+        elapsed_ms: w.decision.latency_ms as i32,
+        payload,
+        late_evidence: false,
+    }
+}
+
 fn build_trace_payload(decision: &Decision, event: Option<&GuardEvent>) -> serde_json::Value {
     let mut payload = serde_json::to_value(decision).unwrap_or(serde_json::Value::Null);
     if let (Some(event), Some(object)) = (event, payload.as_object_mut()) {

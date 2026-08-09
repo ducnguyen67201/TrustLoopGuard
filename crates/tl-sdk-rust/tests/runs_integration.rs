@@ -46,6 +46,7 @@ fn event_body() -> serde_json::Value {
         "id": "018f2222-2222-7222-8222-222222222222",
         "workspace_id": "default",
         "run_id": "018f1111-1111-7111-8111-111111111111",
+        "agent_id": "agent-a",
         "sequence": 1,
         "kind": "assistant_turn",
         "label": "Turn 1",
@@ -103,6 +104,22 @@ async fn run_helpers_encode_ids_and_parse_typed_responses() {
         .mount(&server)
         .await;
     Mock::given(method("POST"))
+        .and(path("/v1/runs/run%2Fone/finalize"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "run": run_body("completed"),
+            "finalization": {
+                "finalized_at": "2026-05-17T00:01:00Z",
+                "boundary_source": "explicit_sdk",
+                "boundary_confidence": "authoritative",
+                "capture_status": "waiting",
+                "capture_deadline": "2026-05-17T00:01:30Z",
+                "expected_flush_id": null
+            },
+            "evaluation_status": "waiting_capture"
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
         .and(path("/v1/runs/run%2Fone/events"))
         .respond_with(ResponseTemplate::new(201).set_body_json(event_body()))
         .mount(&server)
@@ -131,6 +148,7 @@ async fn run_helpers_encode_ids_and_parse_typed_responses() {
         .create_run_event(
             "run/one",
             CreateRunEventRequest {
+                agent_id: None,
                 kind: RunEventKind::AssistantTurn,
                 sequence: None,
                 label: Some("Turn 1".into()),

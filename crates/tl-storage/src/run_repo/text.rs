@@ -1,4 +1,4 @@
-use tl_core::{HumanReviewOutcome, RunEventKind, RunKind, RunStatus};
+use tl_core::{HumanReviewOutcome, RunEvaluationEligibility, RunEventKind, RunKind, RunStatus};
 
 use crate::StorageError;
 
@@ -30,6 +30,7 @@ pub(super) fn status_text(status: RunStatus) -> &'static str {
         RunStatus::Completed => "completed",
         RunStatus::Failed => "failed",
         RunStatus::Canceled => "canceled",
+        RunStatus::TimedOut => "timed_out",
     }
 }
 
@@ -40,8 +41,21 @@ pub(super) fn parse_status(value: &str) -> Result<RunStatus, StorageError> {
         "completed" => Ok(RunStatus::Completed),
         "failed" => Ok(RunStatus::Failed),
         "canceled" => Ok(RunStatus::Canceled),
+        "timed_out" => Ok(RunStatus::TimedOut),
         other => Err(StorageError::Internal(format!(
             "unknown run status: {other}"
+        ))),
+    }
+}
+
+pub(super) fn parse_evaluation_eligibility(
+    value: &str,
+) -> Result<RunEvaluationEligibility, StorageError> {
+    match value {
+        "eligible" => Ok(RunEvaluationEligibility::Eligible),
+        "legacy_incomplete" => Ok(RunEvaluationEligibility::LegacyIncomplete),
+        other => Err(StorageError::Internal(format!(
+            "unknown run evaluation eligibility: {other}"
         ))),
     }
 }

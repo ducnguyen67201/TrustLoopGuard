@@ -1,6 +1,6 @@
 # Runs
 
-Runs are Featherlane AI's execution-level observability container. A run is one customer agent execution after guardrails have been assigned: a chat session, live call, workflow execution, or background job.
+Runs are Featherlane AI's execution-level observability container. A run is one customer agent execution after guardrails have been assigned: a chat session, live call, workflow execution, or background job. It is also the only boundary used for [post-run evaluation](evaluations.md).
 
 Featherlane AI observes runs; it does not start, host, schedule, or orchestrate the customer agent.
 
@@ -25,7 +25,7 @@ The runtime decision boundary stays unchanged:
 Workspace -> Environment -> Agent -> Run -> Run event -> Trace / Decision
 ```
 
-`POST /v1/events` evaluates one proposed event and returns one `Decision`. The run and trace are stamped with the resolved environment. When the event principal includes `run_id` and optionally `run_event_id`, the async trace writer persists those IDs on the trace row.
+`POST /v1/events` evaluates one proposed event and returns one `Decision`. The run and trace are stamped with the resolved environment. When the event principal includes `run_id` and optionally `run_event_id`, the trace writer persists those IDs plus the authenticated `agent_id` on the trace row. Eval-enabled agents may require synchronous durable trace persistence.
 
 If an event references a `run_id`, that run must belong to the same resolved environment as the runtime key or trusted dashboard context. Cross-environment run linkage is rejected so dev traffic cannot be attached to production run history.
 
@@ -98,9 +98,12 @@ POST   /v1/runs
 GET    /v1/runs
 GET    /v1/runs/{run_id}
 PATCH  /v1/runs/{run_id}
+POST   /v1/runs/{run_id}/finalize
 POST   /v1/runs/{run_id}/events
 GET    /v1/runs/{run_id}/events
 GET    /v1/runs/{run_id}/traces
+GET    /v1/runs/{run_id}/evaluations
+POST   /v1/runs/{run_id}/evaluations
 ```
 
 For an automatic session Run, the TypeScript SDK deduplicates concurrent first
@@ -134,8 +137,23 @@ Supported statuses:
 - `completed`
 - `failed`
 - `canceled`
+- `timed_out`
 
-v1 treats statuses as flexible monitoring labels. It does not enforce a strict state machine.
+`completed`, `failed`, `canceled`, and `timed_out` are terminal. Finalization is idempotent and
+first-write-wins: an exact retry returns the existing boundary and a conflicting terminal request
+returns `409`. Terminal legacy `PATCH` requests delegate to the same finalization path. New Run
+events are rejected after finalization.
+
+Finalization says the customer execution ended; it does not claim that telemetry is complete. Rust
+waits for the capture barrier before creating an immutable snapshot and starting evaluation. The
+canonical capture and evaluator contracts live in [telemetry-capture.md](telemetry-capture.md) and
+[evaluations.md](evaluations.md).
+
+Gateway requests without an external Run correlation header are one-request Runs and finalize after
+the guarded response. Supplying `x-featherlane-ai-run-external-id` makes that Run externally managed:
+the gateway reuses it across turns and the framework or SDK must call the finalization endpoint when
+the actual session ends. The correlation header therefore groups evidence but never guesses a
+session boundary.
 
 ## External ID
 

@@ -8,8 +8,9 @@ use axum::{
 use tl_core::RunEventSummary;
 #[allow(unused_imports)]
 use tl_core::{
-    ApiError, CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventListResponse,
-    RunGuardrailUsage, RunKind, RunListResponse, RunLlmBudgetDecision, RunProviderUsage, RunStatus,
+    ApiError, CreateRunEventRequest, CreateRunRequest, FinalizeRunRequest, FinalizeRunResponse,
+    RunBoundarySource, RunDetail, RunEventListResponse, RunGuardrailUsage, RunKind,
+    RunListResponse, RunLlmBudgetDecision, RunParticipantRole, RunProviderUsage, RunStatus,
     RunSummary, TraceListResponse, UpdateRunRequest,
 };
 
@@ -47,12 +48,26 @@ pub async fn create_run(
         Ok(environment_id) => environment_id,
         Err(response) => return response,
     };
+    let agent_id = input.agent_id.trim().to_string();
     match state
         .store
         .create(&workspace_id, &environment_id, input)
         .await
     {
-        Ok(run) => (StatusCode::CREATED, Json(run)).into_response(),
+        Ok(run) => match state
+            .evaluation_store
+            .register_participant_and_freeze_manifest(
+                &workspace_id,
+                &environment_id,
+                &run.id,
+                &agent_id,
+                RunParticipantRole::Primary,
+            )
+            .await
+        {
+            Ok(()) => (StatusCode::CREATED, Json(run)).into_response(),
+            Err(error) => crate::evaluations::evaluation_error_response(error),
+        },
         Err(e) => run_error_response(e),
     }
 }
@@ -154,6 +169,38 @@ pub async fn get_run(
                             })
                     })
                     .collect();
+                let finalization = match state
+                    .store
+                    .finalization(&workspace_id, &environment_id, &id)
+                    .await
+                {
+                    Ok(value) => value,
+                    Err(error) => return run_error_response(error),
+                };
+                let participants = match state
+                    .evaluation_store
+                    .list_participants(&workspace_id, &id)
+                    .await
+                {
+                    Ok(value) => value,
+                    Err(error) => return crate::evaluations::evaluation_error_response(error),
+                };
+                let evaluations = match state
+                    .evaluation_store
+                    .list_results(&workspace_id, &environment_id, &id)
+                    .await
+                {
+                    Ok(value) => value.into_iter().map(|detail| detail.result).collect(),
+                    Err(error) => return crate::evaluations::evaluation_error_response(error),
+                };
+                let evaluation_jobs = match state
+                    .evaluation_store
+                    .list_jobs(&workspace_id, &environment_id, &id)
+                    .await
+                {
+                    Ok(value) => value,
+                    Err(error) => return crate::evaluations::evaluation_error_response(error),
+                };
                 Json(RunDetail {
                     run,
                     events,
@@ -161,6 +208,10 @@ pub async fn get_run(
                     provider_usage,
                     guardrail_usage,
                     budget_decision,
+                    finalization,
+                    participants,
+                    evaluation_jobs,
+                    evaluations,
                 })
                 .into_response()
             }
@@ -214,14 +265,122 @@ pub async fn update_run(
         Ok(environment_id) => environment_id,
         Err(response) => return response,
     };
+    if input.status.is_some_and(RunStatus::is_terminal) {
+        let status = input.status.expect("terminal status was checked");
+        let capture_wait_ms =
+            evaluation_capture_wait(&state, &workspace_id, &environment_id, &id).await;
+        let finalized = state
+            .store
+            .finalize(
+                &workspace_id,
+                &environment_id,
+                &id,
+                FinalizeRunRequest {
+                    status,
+                    ended_at: input.ended_at,
+                    boundary_source: RunBoundarySource::LegacySdk,
+                    expected_flush_id: None,
+                    last_event_sequence: None,
+                },
+                capture_wait_ms,
+            )
+            .await;
+        let mut response = match finalized {
+            Ok(response) => response,
+            Err(error) => return run_error_response(error),
+        };
+        if let Some(metadata) = input.metadata {
+            match state
+                .store
+                .update(
+                    &workspace_id,
+                    &environment_id,
+                    &id,
+                    UpdateRunRequest {
+                        status: None,
+                        metadata: Some(metadata),
+                        ended_at: None,
+                    },
+                )
+                .await
+            {
+                Ok(run) => response.run = run,
+                Err(error) => return run_error_response(error),
+            }
+        }
+        Json(response.run).into_response()
+    } else {
+        match state
+            .store
+            .update(&workspace_id, &environment_id, &id, input)
+            .await
+        {
+            Ok(run) => Json(run).into_response(),
+            Err(e) => run_error_response(e),
+        }
+    }
+}
+
+/// `POST /v1/runs/:id/finalize` - authoritatively close a Run and arm capture.
+#[utoipa::path(
+    post,
+    path = "/v1/runs/{id}/finalize",
+    tag = "runs",
+    params(("id" = String, Path, description = "Run id")),
+    request_body = FinalizeRunRequest,
+    responses(
+        (status = 200, description = "Run finalized", body = FinalizeRunResponse),
+        (status = 400, description = "Invalid terminal boundary", body = ApiError),
+        (status = 409, description = "Conflicting terminal boundary", body = ApiError),
+    ),
+)]
+pub async fn finalize_run(
+    State(state): State<RunState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(input): Json<FinalizeRunRequest>,
+) -> Response {
+    if !input.status.is_terminal() {
+        return run_error_response(super::RunStoreError::Validation(
+            "final run status must be terminal".into(),
+        ));
+    }
+    let workspace_id = match crate::policies::workspace_id_from_headers(&headers) {
+        Ok(workspace_id) => workspace_id,
+        Err(response) => return response,
+    };
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
+    let capture_wait_ms =
+        evaluation_capture_wait(&state, &workspace_id, &environment_id, &id).await;
     match state
         .store
-        .update(&workspace_id, &environment_id, &id, input)
+        .finalize(&workspace_id, &environment_id, &id, input, capture_wait_ms)
         .await
     {
-        Ok(run) => Json(run).into_response(),
-        Err(e) => run_error_response(e),
+        Ok(response) => Json(response).into_response(),
+        Err(error) => run_error_response(error),
     }
+}
+
+async fn evaluation_capture_wait(
+    state: &RunState,
+    workspace_id: &str,
+    environment_id: &str,
+    run_id: &str,
+) -> u64 {
+    let Ok(run) = state.store.get(workspace_id, environment_id, run_id).await else {
+        return 30_000;
+    };
+    state
+        .evaluation_store
+        .get_profile(workspace_id, environment_id, &run.agent_id)
+        .await
+        .ok()
+        .flatten()
+        .map_or(30_000, |profile| profile.max_capture_wait_ms)
 }
 
 /// `POST /v1/runs/:id/events` - append an event to a run timeline.
@@ -255,6 +414,35 @@ pub async fn create_run_event(
         Ok(environment_id) => environment_id,
         Err(response) => return response,
     };
+    let run = match state.store.get(&workspace_id, &environment_id, &id).await {
+        Ok(run) => run,
+        Err(error) => return run_error_response(error),
+    };
+    let agent_id = input
+        .agent_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(&run.agent_id)
+        .to_string();
+    let role = if agent_id == run.agent_id {
+        RunParticipantRole::Primary
+    } else {
+        RunParticipantRole::Participant
+    };
+    if let Err(error) = state
+        .evaluation_store
+        .register_participant_and_freeze_manifest(
+            &workspace_id,
+            &environment_id,
+            &id,
+            &agent_id,
+            role,
+        )
+        .await
+    {
+        return crate::evaluations::evaluation_error_response(error);
+    }
     match state
         .store
         .create_event(&workspace_id, &environment_id, &id, input)

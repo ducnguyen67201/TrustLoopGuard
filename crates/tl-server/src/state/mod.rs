@@ -73,6 +73,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         policy_store,
         trace_store,
         run_store,
+        evaluation_store,
+        otel_store,
         analytics_store,
         human_review_store,
         financial_store,
@@ -98,7 +100,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         redteam_plan_store,
         redteam_report_share_store,
         github_integration_store,
-    ) = build_postgres_layer(opts.database_url, &policies).await?;
+    ) = build_postgres_layer(opts.database_url, &policies, llm.clone()).await?;
 
     #[cfg(not(feature = "postgres"))]
     let (
@@ -107,6 +109,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         policy_store,
         trace_store,
         run_store,
+        evaluation_store,
+        otel_store,
         analytics_store,
         human_review_store,
         financial_store,
@@ -229,6 +233,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         label_policy_store,
         trace_store,
         run_store,
+        evaluation_store,
+        otel_store,
         analytics_store,
         human_review_store,
         financial_store,

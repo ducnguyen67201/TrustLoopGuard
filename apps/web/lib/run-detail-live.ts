@@ -61,6 +61,7 @@ const runSummarySchema = z.object({
   agent_id: z.string(),
   kind: z.string(),
   status: z.string(),
+  evaluation_eligibility: z.enum(['eligible', 'legacy_incomplete']).default('eligible'),
   external_id: z.string().nullable(),
   metadata: objectSchema,
   started_at: z.string(),
@@ -78,6 +79,7 @@ const runEventSummarySchema = z.object({
   id: z.string(),
   workspace_id: z.string(),
   run_id: z.string(),
+  agent_id: z.string(),
   sequence: z.number(),
   kind: z.string(),
   label: z.string().nullable(),
@@ -90,6 +92,7 @@ const runEventSummarySchema = z.object({
 
 const traceSummarySchema = z.object({
   trace_id: z.string(),
+  agent_id: z.string().nullable().optional(),
   run_id: z.string().nullable().optional(),
   run_event_id: z.string().nullable().optional(),
   domain: z.string(),
@@ -150,6 +153,44 @@ const budgetDecisionSchema = z.object({
   windows: z.array(budgetWindowSchema),
 });
 
+const runFinalizationSchema = z.object({
+  finalized_at: z.string(),
+  boundary_source: z.string(),
+  boundary_confidence: z.string(),
+  capture_status: z.string(),
+  capture_deadline: z.string(),
+  expected_flush_id: z.string().nullable().optional(),
+});
+
+const runParticipantSchema = z.object({
+  agent_id: z.string(),
+  role: z.string(),
+  joined_at: z.string(),
+});
+
+const evaluationResultSchema = z.object({
+  id: z.string(),
+  run_id: z.string(),
+  agent_id: z.string(),
+  snapshot_hash: z.string(),
+  manifest_hash: z.string(),
+  evaluator_version: z.string(),
+  verdict: z.string(),
+  score_bps: z.number().nullable(),
+  capture_status: z.string(),
+  created_at: z.string(),
+});
+
+const evaluationJobSchema = z.object({
+  id: z.string(),
+  run_id: z.string(),
+  agent_id: z.string(),
+  status: z.string(),
+  attempts: z.number(),
+  error: z.string().nullable().optional(),
+  updated_at: z.string(),
+});
+
 const runDetailWireSchema = z.object({
   run: runSummarySchema,
   events: z.array(runEventSummarySchema),
@@ -157,6 +198,10 @@ const runDetailWireSchema = z.object({
   provider_usage: providerUsageSchema.nullable().optional(),
   guardrail_usage: z.array(guardrailUsageSchema).default([]),
   budget_decision: budgetDecisionSchema.nullable().optional(),
+  finalization: runFinalizationSchema.nullable().optional(),
+  participants: z.array(runParticipantSchema).default([]),
+  evaluation_jobs: z.array(evaluationJobSchema).default([]),
+  evaluations: z.array(evaluationResultSchema).default([]),
 });
 
 type RuntimeDecisionPayloadWire = z.infer<typeof runtimeDecisionPayloadSchema>;
@@ -188,6 +233,7 @@ export type RunDetailSnapshot = {
   };
   events: Array<{
     id: string;
+    agentId: string | null;
     sequence: number;
     kind: string;
     label: string;
@@ -200,6 +246,7 @@ export type RunDetailSnapshot = {
   }>;
   traces: Array<{
     id: string;
+    agentId: string | null;
     runEventId: string | null;
     side: TraceSide;
     phase: string;
@@ -222,6 +269,13 @@ export type RunDetailSnapshot = {
   providerUsage: z.infer<typeof providerUsageSchema> | null;
   guardrailUsage: Array<z.infer<typeof guardrailUsageSchema>>;
   budgetDecision: z.infer<typeof budgetDecisionSchema> | null;
+  assurance: {
+    eligibility: 'eligible' | 'legacy_incomplete';
+    finalization: z.infer<typeof runFinalizationSchema> | null;
+    participants: Array<z.infer<typeof runParticipantSchema>>;
+    jobs: Array<z.infer<typeof evaluationJobSchema>>;
+    evaluations: Array<z.infer<typeof evaluationResultSchema>>;
+  };
 };
 
 export type TraceSide = 'input' | 'output' | 'tool' | 'other';
@@ -249,6 +303,13 @@ export function runDetailSnapshot(detail: RunDetailWire): RunDetailSnapshot {
     providerUsage: detail.provider_usage ?? null,
     guardrailUsage: detail.guardrail_usage,
     budgetDecision: detail.budget_decision ?? null,
+    assurance: {
+      eligibility: detail.run.evaluation_eligibility,
+      finalization: detail.finalization ?? null,
+      participants: detail.participants,
+      jobs: detail.evaluation_jobs,
+      evaluations: detail.evaluations,
+    },
   };
 }
 
@@ -290,6 +351,7 @@ function eventSnapshot(
   const occurredAt = new Date(event.occurred_at);
   return {
     id: event.id,
+    agentId: event.agent_id,
     sequence: event.sequence,
     kind: titleize(event.kind),
     label: event.label?.trim() || defaultEventLabel(event.kind, event.sequence),
@@ -311,6 +373,7 @@ function traceSnapshot(
   const action = trace.payload.event?.action;
   return {
     id: trace.trace_id,
+    agentId: trace.agent_id ?? null,
     runEventId: trace.run_event_id ?? null,
     side: traceSide(trace.domain, eventKind),
     phase: titleize((eventKind ?? trace.domain).replaceAll('.', '_')),
@@ -409,6 +472,7 @@ function syntheticGatewayEvent(
 
   return {
     id,
+    agentId: inputTrace?.agent_id ?? outputTrace?.agent_id ?? null,
     sequence,
     kind: 'User Turn',
     label: `Gateway turn ${sequence}`,

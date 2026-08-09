@@ -127,6 +127,24 @@ sandbox metadata through the existing Rust `/v1/tool-metadata` API.
 The adapter contract and limitations are defined in
 [sdk-agent-adapters.md](concept/sdk-agent-adapters.md).
 
+## Run correlation and post-run evaluation
+
+All SDKs expose an explicit Run scope and dependency-free correlation values for
+`featherlane.run.id`, `featherlane.agent.id`, and optional `featherlane.run.event.id`. These values
+can be attached to any OpenTelemetry SDK without adding an OTel dependency to the Featherlane SDK.
+
+`finishRun` / `finish_run` uses the authoritative `POST /v1/runs/{id}/finalize` boundary. An
+optional telemetry hook binds the correlation context and performs a bounded `forceFlush` before
+finalization; a successful hook supplies `featherlane.flush.id` to the server capture barrier. A
+failed flush is surfaced as a lifecycle warning and causes the server to rely on its bounded
+quiet/deadline path. Evaluation begins only after capture closes, never merely because an OTel root
+span or framework session ended.
+
+Framework adapters translate framework lifecycle signals into this generic Run contract. LiveKit is
+one adapter, not a special server-side session model. See [Runs](concept/runs.md),
+[telemetry capture](concept/telemetry-capture.md), and
+[post-run evaluations](concept/evaluations.md).
+
 ## Runtime event flow
 
 1. Build a `GuardEvent` with principal, operation, parameters, tool identity, sources, and provenance. Supported TypeScript agent adapters do this automatically for exposed local tools.

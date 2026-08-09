@@ -3250,6 +3250,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "opentelemetry"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0142c63252a9e054e68a4c61a5778f7b14f576274d593f8ce883d191a099682"
+dependencies = [
+ "futures-core",
+ "futures-sink",
+ "js-sys",
+ "pin-project-lite",
+ "thiserror 2.0.19",
+]
+
+[[package]]
+name = "opentelemetry-proto"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56d658ba1faf63f7b9c492cfbe6e0ec365440a16132d3270c1065f7b33f1b638"
+dependencies = [
+ "opentelemetry",
+ "opentelemetry_sdk",
+ "prost",
+]
+
+[[package]]
+name = "opentelemetry_sdk"
+version = "0.32.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b59f80e1ac4d5ff7a2db8fb6c80badb7f0f3f858211fba08dd9aaec750894f9"
+dependencies = [
+ "futures-channel",
+ "futures-executor",
+ "futures-util",
+ "opentelemetry",
+ "percent-encoding",
+ "portable-atomic",
+ "rand 0.9.4",
+ "thiserror 2.0.19",
+]
+
+[[package]]
 name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5035,6 +5075,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "tl-eval"
+version = "0.0.1"
+dependencies = [
+ "blake3",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "thiserror 2.0.19",
+ "tl-core",
+ "tl-policy",
+]
+
+[[package]]
 name = "tl-fuzzy"
 version = "0.0.1"
 dependencies = [
@@ -5116,6 +5169,8 @@ dependencies = [
  "http-body-util",
  "jsonschema",
  "jsonwebtoken",
+ "opentelemetry-proto",
+ "prost",
  "rand 0.10.2",
  "regex",
  "reqwest 0.13.4",
@@ -5130,6 +5185,7 @@ dependencies = [
  "tl-cache",
  "tl-core",
  "tl-engine",
+ "tl-eval",
  "tl-llm",
  "tl-policy",
  "tl-storage",
@@ -5151,6 +5207,7 @@ version = "0.0.1"
 dependencies = [
  "async-trait",
  "base64 0.23.0",
+ "blake3",
  "chrono",
  "diesel",
  "diesel-async",

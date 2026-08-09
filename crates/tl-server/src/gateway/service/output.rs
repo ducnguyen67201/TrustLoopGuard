@@ -16,6 +16,7 @@ pub(super) struct OutputEnforcement<'a, P: GatewayProvider> {
     pub(super) provider_response: Value,
     pub(super) output_decision: Decision,
     pub(super) run_id: Option<&'a str>,
+    pub(super) auto_finalize_run: bool,
     pub(super) wants_stream: bool,
 }
 
@@ -31,6 +32,7 @@ pub(super) async fn handle_output_enforcement<P: GatewayProvider>(
         provider_response,
         output_decision,
         run_id,
+        auto_finalize_run,
         wants_stream,
     } = enforcement;
 
@@ -64,7 +66,14 @@ pub(super) async fn handle_output_enforcement<P: GatewayProvider>(
         }
     };
 
-    finish_completed(state, workspace_id, environment_id, run_id).await;
+    finish_completed(
+        state,
+        workspace_id,
+        environment_id,
+        run_id,
+        auto_finalize_run,
+    )
+    .await;
     response
 }
 
@@ -100,6 +109,7 @@ async fn finish_completed(
     workspace_id: &str,
     environment_id: &str,
     run_id: Option<&str>,
+    auto_finalize_run: bool,
 ) {
     finish_gateway_run(
         &state.app,
@@ -107,6 +117,7 @@ async fn finish_completed(
         environment_id,
         run_id,
         RunStatus::Completed,
+        auto_finalize_run,
     )
     .await;
 }

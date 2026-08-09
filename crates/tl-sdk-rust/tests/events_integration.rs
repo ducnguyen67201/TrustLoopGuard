@@ -195,6 +195,7 @@ async fn run_scoped_client_attaches_run_and_event_ids() {
             "id": "018f2222-2222-7222-8222-222222222222",
             "workspace_id": "ws_1",
             "run_id": "018f1111-1111-7111-8111-111111111111",
+            "agent_id": "agent-1",
             "sequence": 1,
             "kind": "user_turn",
             "label": null,
@@ -206,27 +207,40 @@ async fn run_scoped_client_attaches_run_and_event_ids() {
         })))
         .mount(&server)
         .await;
-    Mock::given(method("PATCH"))
-        .and(path("/v1/runs/018f1111-1111-7111-8111-111111111111"))
+    Mock::given(method("POST"))
+        .and(path(
+            "/v1/runs/018f1111-1111-7111-8111-111111111111/finalize",
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "id": "018f1111-1111-7111-8111-111111111111",
-            "workspace_id": "ws_1",
-            "environment_id": "production",
-            "environment": "production",
-            "agent_id": "agent-1",
-            "kind": "chat_session",
-            "status": "completed",
-            "external_id": null,
-            "metadata": {},
-            "started_at": "2026-01-01T00:00:00Z",
-            "ended_at": "2026-01-01T00:00:01Z",
-            "created_at": "2026-01-01T00:00:00Z",
-            "updated_at": "2026-01-01T00:00:01Z",
-            "trace_count": 1,
-            "blocked_count": 0,
-            "rewritten_count": 0,
-            "escalated_count": 0,
-            "p95_latency_ms": 2
+            "run": {
+                "id": "018f1111-1111-7111-8111-111111111111",
+                "workspace_id": "ws_1",
+                "environment_id": "production",
+                "environment": "production",
+                "agent_id": "agent-1",
+                "kind": "chat_session",
+                "status": "completed",
+                "external_id": null,
+                "metadata": {},
+                "started_at": "2026-01-01T00:00:00Z",
+                "ended_at": "2026-01-01T00:00:01Z",
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-01T00:00:01Z",
+                "trace_count": 1,
+                "blocked_count": 0,
+                "rewritten_count": 0,
+                "escalated_count": 0,
+                "p95_latency_ms": 2
+            },
+            "finalization": {
+                "finalized_at": "2026-01-01T00:00:01Z",
+                "boundary_source": "explicit_sdk",
+                "boundary_confidence": "authoritative",
+                "capture_status": "waiting",
+                "capture_deadline": "2026-01-01T00:00:31Z",
+                "expected_flush_id": null
+            },
+            "evaluation_status": "waiting_capture"
         })))
         .mount(&server)
         .await;
@@ -249,6 +263,7 @@ async fn run_scoped_client_attaches_run_and_event_ids() {
             |run| async move {
                 run.with_event(
                     CreateRunEventRequest {
+                        agent_id: None,
                         kind: RunEventKind::UserTurn,
                         sequence: None,
                         label: None,

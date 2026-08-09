@@ -32,6 +32,7 @@ _STATUS_TO_CODE: dict[int, ApiErrorCode] = {
     401: ApiErrorCode.unauthorized,
     403: ApiErrorCode.forbidden,
     404: ApiErrorCode.not_found,
+    409: ApiErrorCode.conflict,
     410: ApiErrorCode.gone,
     422: ApiErrorCode.unprocessable,
     429: ApiErrorCode.rate_limited,
@@ -109,6 +110,10 @@ class NotFound(SdkError):
     """404 — referenced resource not found."""
 
 
+class Conflict(SdkError):
+    """409 — first-write-wins or optimistic-concurrency conflict."""
+
+
 class Gone(SdkError):
     """410 — API version retired; caller must upgrade."""
 
@@ -168,6 +173,7 @@ _CODE_TO_CLASS: dict[ApiErrorCode, type[SdkError]] = {
     ApiErrorCode.unauthorized: Unauthorized,
     ApiErrorCode.forbidden: Forbidden,
     ApiErrorCode.not_found: NotFound,
+    ApiErrorCode.conflict: Conflict,
     ApiErrorCode.gone: Gone,
     ApiErrorCode.unprocessable: Unprocessable,
     ApiErrorCode.rate_limited: RateLimited,
@@ -214,6 +220,7 @@ __all__: list[str] = [
     "Unauthorized",
     "Forbidden",
     "NotFound",
+    "Conflict",
     "Gone",
     "Unprocessable",
     "RateLimited",

@@ -8,4 +8,4 @@
  * families with their own evaluators and product forms, but they share the
  * same policy registry, versioning, and environment deployment lifecycle.
  */
-export type PolicyFamily = "content" | "flow" | "parameter_source" | "approval" | "memory" | "financial" | "source_label" | "tool";
+export type PolicyFamily = "content" | "flow" | "parameter_source" | "approval" | "memory" | "financial" | "source_label" | "tool" | "evaluation";

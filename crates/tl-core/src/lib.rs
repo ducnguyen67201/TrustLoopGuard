@@ -25,6 +25,7 @@ pub mod budget_alert;
 pub mod dashboard;
 pub mod enforcement;
 pub mod error;
+pub mod evaluation;
 pub mod event;
 pub mod financial;
 pub mod gateway;
@@ -89,6 +90,20 @@ pub use dashboard::{
 };
 pub use enforcement::{CheckerFindingEvidence, CheckerRun, EnforcementMode, SignalEvidence};
 pub use error::{ApiError, ApiErrorCode, TlError};
+pub use evaluation::{
+    AgentEvaluationPolicyAssignment, AgentEvaluationPolicyAssignmentListResponse,
+    AgentEvaluationProfile, BoundaryConfidence, CaptureMode, ContentCaptureMode,
+    EvaluationCampaignAggregate, EvaluationCampaignCaseResult, EvaluationCaseBudget,
+    EvaluationCaseScoringMode, EvaluationCaseSpec, EvaluationCaseStatus, EvaluationDatasetVersion,
+    EvaluationEvidenceRef, EvaluationFinding, EvaluationFindingStatus, EvaluationJobStatus,
+    EvaluationJobSummary, EvaluationReleaseGate, EvaluationReleaseGateVerdict,
+    EvaluationResultDetail, EvaluationResultListResponse, EvaluationResultSummary,
+    EvaluationVerdict, FinalizeRunRequest, FinalizeRunResponse, MissingEvidenceBehavior,
+    PutAgentEvaluationPolicyAssignmentsRequest, PutAgentEvaluationProfileRequest,
+    ReevaluateRunRequest, ReevaluateRunResponse, RunBoundarySource, RunCaptureStatus,
+    RunEvaluationPolicyManifestSummary, RunFinalizationSummary, RunParticipantRole,
+    RunParticipantSummary,
+};
 pub use event::{
     Action, EventKind, GuardEvent, Principal, ShellActionParameters, ShellLanguage, SideEffectClass,
 };
@@ -185,9 +200,10 @@ pub use redteam_runner::{
     RunnerRunMode, RunnerSessionEvent, RunnerStatus,
 };
 pub use run::{
-    CreateRunEventRequest, CreateRunRequest, RunBudgetWindowSnapshot, RunDetail, RunEventKind,
-    RunEventListResponse, RunEventSummary, RunGuardrailUsage, RunKind, RunListResponse,
-    RunLlmBudgetDecision, RunProviderUsage, RunStatus, RunSummary, UpdateRunRequest,
+    CreateRunEventRequest, CreateRunRequest, RunBudgetWindowSnapshot, RunDetail,
+    RunEvaluationEligibility, RunEventKind, RunEventListResponse, RunEventSummary,
+    RunGuardrailUsage, RunKind, RunListResponse, RunLlmBudgetDecision, RunProviderUsage, RunStatus,
+    RunSummary, UpdateRunRequest,
 };
 pub use team::{
     CreateInviteRequest, CreateInviteResponse, CreateWorkspaceRequest, InviteListResponse,
@@ -225,6 +241,16 @@ mod tests {
                 assert_eq!(stronger.worst_with(*weaker), *stronger);
             }
         }
+    }
+
+    #[test]
+    fn only_completed_failed_canceled_and_timed_out_runs_are_terminal() {
+        assert!(!RunStatus::Warming.is_terminal());
+        assert!(!RunStatus::Running.is_terminal());
+        assert!(RunStatus::Completed.is_terminal());
+        assert!(RunStatus::Failed.is_terminal());
+        assert!(RunStatus::Canceled.is_terminal());
+        assert!(RunStatus::TimedOut.is_terminal());
     }
 
     #[test]

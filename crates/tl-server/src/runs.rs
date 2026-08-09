@@ -11,13 +11,15 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tl_core::{
-    CreateRunEventRequest, CreateRunRequest, RunEventSummary, RunKind, RunStatus, RunSummary,
-    TraceSummary, UpdateRunRequest,
+    CreateRunEventRequest, CreateRunRequest, FinalizeRunRequest, FinalizeRunResponse,
+    RunEventSummary, RunFinalizationSummary, RunKind, RunStatus, RunSummary, TraceSummary,
+    UpdateRunRequest,
 };
 
 use crate::environments::EnvironmentStore;
 pub use handlers::{
-    create_run, create_run_event, get_run, list_run_events, list_run_traces, list_runs, update_run,
+    create_run, create_run_event, finalize_run, get_run, list_run_events, list_run_traces,
+    list_runs, update_run,
 };
 pub use memory_store::MemoryRunStore;
 
@@ -27,6 +29,8 @@ pub enum RunStoreError {
     NotFound,
     #[error("validation: {0}")]
     Validation(String),
+    #[error("conflict")]
+    Conflict,
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -68,6 +72,20 @@ pub trait RunStore: Send + Sync {
         run_id: &str,
         input: UpdateRunRequest,
     ) -> Result<RunSummary, RunStoreError>;
+    async fn finalize(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+        input: FinalizeRunRequest,
+        capture_wait_ms: u64,
+    ) -> Result<FinalizeRunResponse, RunStoreError>;
+    async fn finalization(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+    ) -> Result<Option<RunFinalizationSummary>, RunStoreError>;
     async fn create_event(
         &self,
         workspace_id: &str,
@@ -118,4 +136,5 @@ pub trait RunStore: Send + Sync {
 pub struct RunState {
     pub store: Arc<dyn RunStore>,
     pub environment_store: Arc<dyn EnvironmentStore>,
+    pub evaluation_store: Arc<dyn crate::evaluations::EvaluationStore>,
 }

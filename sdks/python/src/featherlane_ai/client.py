@@ -6,13 +6,15 @@ Sync and async variants share the same surface.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import copy
 import contextvars
+import inspect
 import logging
 import random
 import time
 import uuid
-from typing import Any, Awaitable, Callable, Generic, TypeVar
+from typing import Any, Awaitable, Callable, Generic, Protocol, TypeVar
 
 import httpx
 
@@ -54,6 +56,7 @@ from featherlane_ai._generated.types import (
     FinancialPolicyRecord,
     FinancialRail,
     FinancialReceipt,
+    FinalizeRunResponse,
     GuardEvent,
     GuardrailGenerateResponse,
     GuardrailListResponse,
@@ -95,6 +98,37 @@ _run_context: contextvars.ContextVar[dict[str, str]] = contextvars.ContextVar(
 InputT = TypeVar("InputT")
 FactsT = TypeVar("FactsT")
 ResultT = TypeVar("ResultT")
+
+
+class RunTelemetryHook(Protocol):
+    """Dependency-free bridge to an application's telemetry provider."""
+
+    def bind_run(self, context: dict[str, Any]) -> None: ...
+
+    def force_flush(self, context: dict[str, Any]) -> Any: ...
+
+
+def run_correlation(
+    run_id: str, agent_id: str, run_event_id: str | None = None
+) -> dict[str, Any]:
+    attributes = {
+        "featherlane.run.id": run_id,
+        "featherlane.agent.id": agent_id,
+    }
+    headers = {
+        "x-featherlane-run-id": run_id,
+        "x-featherlane-agent-id": agent_id,
+    }
+    if run_event_id is not None:
+        attributes["featherlane.run.event.id"] = run_event_id
+        headers["x-featherlane-run-event-id"] = run_event_id
+    return {
+        "run_id": run_id,
+        "agent_id": agent_id,
+        "run_event_id": run_event_id,
+        "attributes": attributes,
+        "headers": headers,
+    }
 
 
 def _wire_value(value: Any) -> str:
@@ -344,11 +378,16 @@ class Client:
         timeout: float = 5.0,
         transport: httpx.BaseTransport | None = None,
         retry: RetryConfig | None = None,
+        run_telemetry: RunTelemetryHook | None = None,
+        telemetry_flush_timeout: float = 5.0,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._timeout = timeout
         self._retry = retry or RetryConfig()
+        self._run_telemetry = run_telemetry
+        self._telemetry_flush_timeout = telemetry_flush_timeout
+        self._run_correlations: dict[str, dict[str, Any]] = {}
         self._http = httpx.Client(
             base_url=self._base_url,
             timeout=timeout,
@@ -1034,7 +1073,7 @@ class Client:
         self, req: CreateRunRequest, *, timeout: float | None = None
     ) -> RunSummary:
         """Create a run grouping for subsequent ``check`` calls."""
-        return self._run_with_retry(
+        summary = self._run_with_retry(
             lambda: self._send_json_model(
                 "/v1/runs",
                 method="POST",
@@ -1043,6 +1082,11 @@ class Client:
                 model=RunSummary,
             )
         )
+        context = run_correlation(summary.id, req.agent_id)
+        self._run_correlations[summary.id] = context
+        if self._run_telemetry is not None:
+            self._run_telemetry.bind_run(context)
+        return summary
 
     def list_runs(self, *, timeout: float | None = None) -> RunListResponse:
         """List recent runs for the authenticated workspace."""
@@ -1083,10 +1127,43 @@ class Client:
         *,
         timeout: float | None = None,
     ) -> RunSummary:
-        """Mark a run completed, failed, or canceled."""
-        return self.update_run(
-            run_id, UpdateRunRequest(status=status), timeout=timeout
+        """Flush telemetry, then authoritatively finalize a Run."""
+        expected_flush_id: str | None = None
+        correlation = self._run_correlations.get(run_id)
+        if self._run_telemetry is not None and correlation is not None:
+            flush_id = str(uuid.uuid4())
+            flush_context = copy.deepcopy(correlation)
+            flush_context["attributes"]["featherlane.flush.id"] = flush_id
+            flush_context["headers"]["x-featherlane-flush-id"] = flush_id
+            executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+            future = executor.submit(self._run_telemetry.force_flush, flush_context)
+            try:
+                future.result(timeout=self._telemetry_flush_timeout)
+                expected_flush_id = flush_id
+            except Exception as error:  # noqa: BLE001
+                _logger.warning("run telemetry flush failed", exc_info=error)
+            finally:
+                executor.shutdown(wait=False, cancel_futures=True)
+        path = f"/v1/runs/{quote(run_id, safe='')}/finalize"
+        response: FinalizeRunResponse = self._run_with_retry(
+            lambda: self._send_json_model(
+                path,
+                method="POST",
+                body={
+                    "status": _wire_value(status),
+                    "boundary_source": "explicit_sdk",
+                    **(
+                        {"expected_flush_id": expected_flush_id}
+                        if expected_flush_id is not None
+                        else {}
+                    ),
+                },
+                timeout=timeout,
+                model=FinalizeRunResponse,
+            )
         )
+        self._run_correlations.pop(run_id, None)
+        return response.run
 
     def create_run_event(
         self,
@@ -1400,11 +1477,16 @@ class AsyncClient:
         timeout: float = 5.0,
         transport: httpx.AsyncBaseTransport | None = None,
         retry: RetryConfig | None = None,
+        run_telemetry: RunTelemetryHook | None = None,
+        telemetry_flush_timeout: float = 5.0,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._timeout = timeout
         self._retry = retry or RetryConfig()
+        self._run_telemetry = run_telemetry
+        self._telemetry_flush_timeout = telemetry_flush_timeout
+        self._run_correlations: dict[str, dict[str, Any]] = {}
         self._http = httpx.AsyncClient(
             base_url=self._base_url,
             timeout=timeout,
@@ -2073,7 +2155,7 @@ class AsyncClient:
         self, req: CreateRunRequest, *, timeout: float | None = None
     ) -> RunSummary:
         """Async variant of ``Client.start_run``."""
-        return await self._run_with_retry(
+        summary = await self._run_with_retry(
             lambda: self._send_json_model(
                 "/v1/runs",
                 method="POST",
@@ -2082,6 +2164,11 @@ class AsyncClient:
                 model=RunSummary,
             )
         )
+        context = run_correlation(summary.id, req.agent_id)
+        self._run_correlations[summary.id] = context
+        if self._run_telemetry is not None:
+            self._run_telemetry.bind_run(context)
+        return summary
 
     async def list_runs(self, *, timeout: float | None = None) -> RunListResponse:
         """Async variant of ``Client.list_runs``."""
@@ -2123,9 +2210,40 @@ class AsyncClient:
         timeout: float | None = None,
     ) -> RunSummary:
         """Async variant of ``Client.finish_run``."""
-        return await self.update_run(
-            run_id, UpdateRunRequest(status=status), timeout=timeout
+        expected_flush_id: str | None = None
+        correlation = self._run_correlations.get(run_id)
+        if self._run_telemetry is not None and correlation is not None:
+            flush_id = str(uuid.uuid4())
+            flush_context = copy.deepcopy(correlation)
+            flush_context["attributes"]["featherlane.flush.id"] = flush_id
+            flush_context["headers"]["x-featherlane-flush-id"] = flush_id
+            try:
+                value = self._run_telemetry.force_flush(flush_context)
+                if inspect.isawaitable(value):
+                    await asyncio.wait_for(value, timeout=self._telemetry_flush_timeout)
+                expected_flush_id = flush_id
+            except Exception as error:  # noqa: BLE001
+                _logger.warning("run telemetry flush failed", exc_info=error)
+        path = f"/v1/runs/{quote(run_id, safe='')}/finalize"
+        response: FinalizeRunResponse = await self._run_with_retry(
+            lambda: self._send_json_model(
+                path,
+                method="POST",
+                body={
+                    "status": _wire_value(status),
+                    "boundary_source": "explicit_sdk",
+                    **(
+                        {"expected_flush_id": expected_flush_id}
+                        if expected_flush_id is not None
+                        else {}
+                    ),
+                },
+                timeout=timeout,
+                model=FinalizeRunResponse,
+            )
         )
+        self._run_correlations.pop(run_id, None)
+        return response.run
 
     async def create_run_event(
         self,

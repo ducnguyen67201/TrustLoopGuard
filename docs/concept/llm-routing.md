@@ -16,6 +16,8 @@ The manifest groups routes by workload so one reviewed file remains the source
 of truth without forcing unlike tasks onto one model:
 
 - Runtime judges: `hallucination`, `tone`, `authority`, and `semantic_policy`.
+- Post-run judges: `run_evaluation`, which batches every rubric for one
+  run/agent into one structured call.
 - Control-plane assistance: `policy_draft`, `policy_ai_edit`,
   `guardrail_generation`, and `github_integration`.
 - First-party demos: `demo_default`, `demo_dispute`, and `demo_livekit`.

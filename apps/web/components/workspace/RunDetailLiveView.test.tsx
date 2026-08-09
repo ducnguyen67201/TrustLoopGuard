@@ -170,6 +170,78 @@ describe('RunDetailLiveView', () => {
     expect(screen.getByText('Deterministic only — no guardrail LLM cost.')).toBeInTheDocument();
   });
 
+  it('shows capture incompleteness and active post-run evaluation without implying a pass', () => {
+    const snapshot = {
+      ...BASE_SNAPSHOT,
+      assurance: {
+        eligibility: 'eligible',
+        finalization: {
+          finalized_at: '2026-06-25T17:35:20.000Z',
+          boundary_source: 'explicit_sdk',
+          boundary_confidence: 'authoritative',
+          capture_status: 'incomplete',
+          capture_deadline: '2026-06-25T17:35:50.000Z',
+          expected_flush_id: null,
+        },
+        participants: [
+          {
+            agent_id: 'demo-acme-support',
+            role: 'primary',
+            joined_at: '2026-06-25T17:35:19.000Z',
+          },
+        ],
+        jobs: [
+          {
+            id: 'job-1',
+            run_id: 'run-param-auth',
+            agent_id: 'demo-acme-support',
+            status: 'running',
+            attempts: 1,
+            error: null,
+            updated_at: '2026-06-25T17:35:21.000Z',
+          },
+        ],
+        evaluations: [],
+      },
+    } satisfies typeof BASE_SNAPSHOT;
+
+    render(
+      <RunDetailLiveView
+        initialData={snapshot}
+        runId="run-param-auth"
+        workspaceSlug="test-BJ-V"
+        agentIdentity={UNAVAILABLE_AGENT}
+      />,
+    );
+
+    expect(screen.getByText('Post-run assurance')).toBeInTheDocument();
+    expect(screen.getByText('Running')).toBeInTheDocument();
+    expect(screen.getByText(/cannot be reported as passed/i)).toBeInTheDocument();
+    expect(screen.getByText(/evaluation is still running/i)).toBeInTheDocument();
+  });
+
+  it('fails closed for runs created before frozen evaluation manifests', () => {
+    const snapshot = {
+      ...BASE_SNAPSHOT,
+      assurance: {
+        ...BASE_SNAPSHOT.assurance,
+        eligibility: 'legacy_incomplete' as const,
+      },
+    };
+
+    render(
+      <RunDetailLiveView
+        initialData={snapshot}
+        runId="run-param-auth"
+        workspaceSlug="test-BJ-V"
+        agentIdentity={UNAVAILABLE_AGENT}
+      />,
+    );
+
+    expect(screen.getByText('Legacy Incomplete')).toBeInTheDocument();
+    expect(screen.getByText(/cannot be reported as safely evaluable/i)).toBeInTheDocument();
+  });
+
   it('labels unbounded budget admission as soft and explains the overshoot risk', () => {
     const softSnapshot = {
       ...BASE_SNAPSHOT,
@@ -227,6 +299,7 @@ describe('RunDetailLiveView', () => {
           id: 'event-1',
           workspace_id: 'ws_demo',
           run_id: 'run-param-auth',
+          agent_id: 'demo-acme-support',
           sequence: 1,
           kind: 'tool_call',
           label: 'issue_refund',
@@ -334,6 +407,7 @@ describe('RunDetailLiveView', () => {
           id: 'assistant-event',
           workspace_id: 'ws_demo',
           run_id: 'run-output-guard',
+          agent_id: 'demo-output-agent',
           sequence: 2,
           kind: 'assistant_turn',
           label: 'agent_reply',

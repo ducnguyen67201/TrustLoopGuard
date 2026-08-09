@@ -59,6 +59,7 @@ fn parse_status(value: &str) -> Result<RunStatus, RunStoreError> {
         "completed" => Ok(RunStatus::Completed),
         "failed" => Ok(RunStatus::Failed),
         "canceled" => Ok(RunStatus::Canceled),
+        "timed_out" => Ok(RunStatus::TimedOut),
         other => Err(RunStoreError::Validation(format!(
             "unknown run status: {other}"
         ))),

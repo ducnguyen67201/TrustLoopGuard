@@ -155,12 +155,12 @@ async fn execute_event_submission_inner(
                 "run_id must be a UUID".into(),
             ));
         }
-        match state
+        let run = match state
             .run_store
             .get(workspace_id, environment_id, run_id)
             .await
         {
-            Ok(_) => {}
+            Ok(run) => run,
             Err(crate::runs::RunStoreError::NotFound) => {
                 return Err(api_error_response(
                     StatusCode::NOT_FOUND,
@@ -176,6 +176,36 @@ async fn execute_event_submission_inner(
                     "run resolution failed".into(),
                 ));
             }
+        };
+        let role = if run.agent_id == event.principal.agent_id {
+            tl_core::RunParticipantRole::Primary
+        } else {
+            tl_core::RunParticipantRole::Participant
+        };
+        if run.status.is_terminal() {
+            return Err(api_error_response(
+                StatusCode::CONFLICT,
+                ApiErrorCode::Conflict,
+                "run is already finalized; start a new run for additional decisions".into(),
+            ));
+        }
+        if let Err(error) = state
+            .evaluation_store
+            .register_participant_and_freeze_manifest(
+                workspace_id,
+                environment_id,
+                run_id,
+                &event.principal.agent_id,
+                role,
+            )
+            .await
+        {
+            tracing::warn!(workspace_id, run_id, error = %error, "run participant registration failed");
+            return Err(api_error_response(
+                StatusCode::BAD_REQUEST,
+                ApiErrorCode::Invalid,
+                "agent is not a valid participant in this run environment".into(),
+            ));
         }
     }
     if let Some(run_event_id) = event.principal.run_event_id.as_deref() {
@@ -396,6 +426,28 @@ async fn execute_event_submission_inner(
     }
 
     let agent_id = event.principal.agent_id.clone();
+    let durable_capture = if event.principal.run_id.is_some() {
+        match state
+            .evaluation_store
+            .get_profile(workspace_id, environment_id, &agent_id)
+            .await
+        {
+            Ok(Some(profile)) => {
+                profile.enabled && profile.capture_mode == tl_core::CaptureMode::Durable
+            }
+            Ok(None) => false,
+            Err(error) => {
+                tracing::error!(workspace_id, agent_id, error = %error, "evaluation profile resolution failed");
+                return Err(api_error_response(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    ApiErrorCode::Unavailable,
+                    "required trace durability could not be resolved".into(),
+                ));
+            }
+        }
+    } else {
+        false
+    };
     let trace_domain = trace_domain(&event);
 
     // One trace seam for every path (postgres batches, memory accumulates); a
@@ -408,10 +460,20 @@ async fn execute_event_submission_inner(
         event: Some(event),
         workspace_id: workspace_id.to_string(),
         environment_id: environment_id.to_string(),
+        agent_id: agent_id.clone(),
         domain: trace_domain.to_string(),
     };
-    if let Err(e) = state.trace_store.record(trace).await {
-        tracing::warn!(error = %e, "trace record failed; dropped");
+    if durable_capture {
+        if let Err(error) = state.trace_store.record_durable(trace).await {
+            tracing::error!(workspace_id, agent_id, error = %error, "durable trace record failed");
+            return Err(api_error_response(
+                StatusCode::SERVICE_UNAVAILABLE,
+                ApiErrorCode::Unavailable,
+                "required decision evidence could not be persisted".into(),
+            ));
+        }
+    } else if let Err(error) = state.trace_store.record(trace).await {
+        tracing::warn!(error = %error, "trace record failed; dropped");
     }
 
     // Enforce-mode checkers and enabled policies can require approval or defer event
@@ -774,6 +836,7 @@ async fn record_semantic_usage(
             continue;
         };
         let run_event = CreateRunEventRequest {
+            agent_id: Some(event.principal.agent_id.clone()),
             kind: RunEventKind::SystemEvent,
             sequence: None,
             label: Some("Guardrail LLM usage".to_string()),

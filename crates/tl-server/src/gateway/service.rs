@@ -84,7 +84,9 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
 
     let metered = expected_kind == GatewayProviderKind::OpenaiCompatible;
 
-    let run_external_id = gateway_run_external_id(&headers, &gateway_request_id);
+    let (run_external_id, externally_managed_run) =
+        gateway_run_external_id(&headers, &gateway_request_id);
+    let auto_finalize_run = !externally_managed_run;
     let run_id = create_gateway_run(
         &state.app,
         &workspace_id,
@@ -110,6 +112,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
                 &environment_id,
                 run_id.as_deref(),
                 RunStatus::Failed,
+                auto_finalize_run,
             )
             .await;
             return api_error_response(StatusCode::INTERNAL_SERVER_ERROR, message);
@@ -151,6 +154,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
                 &environment_id,
                 run_id.as_deref(),
                 RunStatus::Failed,
+                auto_finalize_run,
             )
             .await;
             return response;
@@ -187,6 +191,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
                     &environment_id,
                     run_id.as_deref(),
                     RunStatus::Completed,
+                    auto_finalize_run,
                 )
                 .await;
                 return response;
@@ -214,6 +219,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
                 &environment_id,
                 run_id.as_deref(),
                 RunStatus::Completed,
+                auto_finalize_run,
             )
             .await;
             return response;
@@ -247,6 +253,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
                     &environment_id,
                     run_id.as_deref(),
                     RunStatus::Completed,
+                    auto_finalize_run,
                 )
                 .await;
                 return response;
@@ -311,6 +318,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
                 &environment_id,
                 run_id.as_deref(),
                 RunStatus::Failed,
+                auto_finalize_run,
             )
             .await;
             return handle_provider_failure(error);
@@ -386,6 +394,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
                 &environment_id,
                 run_id.as_deref(),
                 RunStatus::Failed,
+                auto_finalize_run,
             )
             .await;
             return response;
@@ -411,6 +420,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
         provider_response,
         output_decision,
         run_id: run_id.as_deref(),
+        auto_finalize_run,
         wants_stream,
     })
     .await

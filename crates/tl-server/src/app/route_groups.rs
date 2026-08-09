@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::{
+    extract::DefaultBodyLimit,
     routing::{get, patch, post, put},
     Router,
 };
@@ -11,9 +12,9 @@ mod mcp_gateway_routes;
 
 use crate::{
     agents, analytics, auth_user, authorization, budget_alerts, dashboard_admin, environments,
-    financial, github_integration, human_review, knowledge_sources, label_policy, llm_pricing,
-    llm_usage, policies, redteam, runs, team, tool_metadata, traces, AgentState, AppState,
-    AuthUserState, LabelPolicyState, PolicyState, ToolMetadataState,
+    evaluations, financial, github_integration, human_review, knowledge_sources, label_policy,
+    llm_pricing, llm_usage, otel, policies, redteam, runs, team, tool_metadata, traces, AgentState,
+    AppState, AuthUserState, LabelPolicyState, PolicyState, ToolMetadataState,
 };
 
 pub(super) use mcp_gateway_routes::{mcp_gateway_routes, mcp_resource_routes};
@@ -90,6 +91,44 @@ pub(super) fn agent_routes(state: &AppState) -> Router {
         .with_state(AgentState {
             store: state.agent_store.clone(),
             policy_store: Some(state.policy_store.clone()),
+        })
+}
+
+pub(super) fn evaluation_routes(state: &AppState) -> Router {
+    Router::new()
+        .route(
+            "/v1/agents/{id}/evaluation-profile",
+            get(evaluations::get_agent_evaluation_profile)
+                .put(evaluations::put_agent_evaluation_profile),
+        )
+        .route(
+            "/v1/agents/{id}/evaluation-policy-assignments",
+            get(evaluations::list_agent_evaluation_assignments)
+                .put(evaluations::put_agent_evaluation_assignments),
+        )
+        .route(
+            "/v1/runs/{id}/evaluations",
+            get(evaluations::list_run_evaluations).post(evaluations::reevaluate_run),
+        )
+        .with_state(evaluations::EvaluationState {
+            store: state.evaluation_store.clone(),
+            environment_store: state.environment_store.clone(),
+            team_store: state.team_store.clone(),
+        })
+}
+
+pub(super) fn otel_routes(state: &AppState) -> Router {
+    let config = otel::OtlpIngestConfig::default();
+    Router::new()
+        .route("/v1/otel/v1/traces", post(otel::export_traces))
+        .layer(DefaultBodyLimit::max(config.max_body_bytes))
+        .with_state(otel::OtelState {
+            store: state.otel_store.clone(),
+            run_store: state.run_store.clone(),
+            evaluation_store: state.evaluation_store.clone(),
+            environment_store: state.environment_store.clone(),
+            settings_store: state.settings_store.clone(),
+            config,
         })
 }
 
@@ -402,6 +441,7 @@ pub(super) fn run_routes(state: &AppState) -> Router {
     Router::new()
         .route("/v1/runs", get(runs::list_runs).post(runs::create_run))
         .route("/v1/runs/{id}", get(runs::get_run).patch(runs::update_run))
+        .route("/v1/runs/{id}/finalize", post(runs::finalize_run))
         .route(
             "/v1/runs/{id}/events",
             get(runs::list_run_events).post(runs::create_run_event),
@@ -410,6 +450,7 @@ pub(super) fn run_routes(state: &AppState) -> Router {
         .with_state(runs::RunState {
             store: state.run_store.clone(),
             environment_store: state.environment_store.clone(),
+            evaluation_store: state.evaluation_store.clone(),
         })
 }
 

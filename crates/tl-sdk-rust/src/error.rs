@@ -32,6 +32,9 @@ pub enum SdkError {
     #[error("not found: {0}")]
     NotFound(ApiError),
 
+    #[error("conflict: {0}")]
+    Conflict(ApiError),
+
     #[error("api version gone: {0}")]
     Gone(ApiError),
 
@@ -73,6 +76,7 @@ impl SdkError {
             ApiErrorCode::Unauthorized => Self::Unauthorized(err),
             ApiErrorCode::Forbidden => Self::Forbidden(err),
             ApiErrorCode::NotFound => Self::NotFound(err),
+            ApiErrorCode::Conflict => Self::Conflict(err),
             ApiErrorCode::Gone => Self::Gone(err),
             ApiErrorCode::Unprocessable => Self::Unprocessable(err),
             ApiErrorCode::RateLimited => Self::RateLimited {
@@ -105,6 +109,7 @@ impl SdkError {
             | Self::Unauthorized(e)
             | Self::Forbidden(e)
             | Self::NotFound(e)
+            | Self::Conflict(e)
             | Self::Gone(e)
             | Self::Unprocessable(e)
             | Self::Internal(e)

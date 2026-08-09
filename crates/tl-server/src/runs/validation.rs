@@ -7,6 +7,11 @@ pub(super) fn validate_create_run(input: &CreateRunRequest) -> Result<(), RunSto
     if input.agent_id.trim().is_empty() {
         return Err(RunStoreError::Validation("agent_id is required".into()));
     }
+    if input.status.is_some_and(tl_core::RunStatus::is_terminal) {
+        return Err(RunStoreError::Validation(
+            "terminal runs must be closed through the finalization boundary".into(),
+        ));
+    }
     validate_metadata(&input.metadata)
 }
 
@@ -27,6 +32,15 @@ pub(crate) fn validate_create_run_event(
     if input.sequence.is_some_and(|sequence| sequence < 1) {
         return Err(RunStoreError::Validation(
             "sequence must be greater than 0".into(),
+        ));
+    }
+    if input
+        .agent_id
+        .as_ref()
+        .is_some_and(|agent_id| agent_id.trim().is_empty())
+    {
+        return Err(RunStoreError::Validation(
+            "agent_id cannot be empty when provided".into(),
         ));
     }
     if let Some(occurred_at) = input.occurred_at.as_ref() {

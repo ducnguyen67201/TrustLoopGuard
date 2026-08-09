@@ -28,6 +28,7 @@ describe('parseRunDetailSnapshot', () => {
           id: 'event-1',
           workspace_id: 'ws_demo',
           run_id: '019f0000-0000-7000-9000-000000000001',
+          agent_id: 'demo-agent',
           sequence: 1,
           kind: 'user_turn',
           label: null,
@@ -57,6 +58,42 @@ describe('parseRunDetailSnapshot', () => {
           created_at: '2026-05-25T00:00:01.000Z',
         },
       ],
+      finalization: {
+        finalized_at: '2026-05-25T00:00:02.000Z',
+        boundary_source: 'explicit_sdk',
+        boundary_confidence: 'authoritative',
+        capture_status: 'complete',
+        capture_deadline: '2026-05-25T00:00:32.000Z',
+        expected_flush_id: null,
+      },
+      participants: [
+        { agent_id: 'demo-agent', role: 'primary', joined_at: '2026-05-25T00:00:00.000Z' },
+      ],
+      evaluation_jobs: [
+        {
+          id: 'job-1',
+          run_id: '019f0000-0000-7000-9000-000000000001',
+          agent_id: 'demo-agent',
+          status: 'completed',
+          attempts: 1,
+          error: null,
+          updated_at: '2026-05-25T00:00:03.000Z',
+        },
+      ],
+      evaluations: [
+        {
+          id: 'eval-1',
+          run_id: '019f0000-0000-7000-9000-000000000001',
+          agent_id: 'demo-agent',
+          snapshot_hash: 'blake3:v1:snapshot',
+          manifest_hash: 'blake3:v1:manifest',
+          evaluator_version: 'tl-eval:v1',
+          verdict: 'failed',
+          score_bps: 0,
+          capture_status: 'complete',
+          created_at: '2026-05-25T00:00:03.000Z',
+        },
+      ],
     });
 
     expect(snapshot.run).toMatchObject({
@@ -84,6 +121,39 @@ describe('parseRunDetailSnapshot', () => {
       safeOutput: 'Blocked by Featherlane AI.',
       checkedOutput: 'That is a stupid question. Figure it out yourself.',
     });
+    expect(snapshot.assurance.finalization?.capture_status).toBe('complete');
+    expect(snapshot.assurance.eligibility).toBe('eligible');
+    expect(snapshot.assurance.participants).toHaveLength(1);
+    expect(snapshot.assurance.jobs[0]).toMatchObject({ status: 'completed', attempts: 1 });
+    expect(snapshot.assurance.evaluations[0]).toMatchObject({ verdict: 'failed', score_bps: 0 });
+  });
+
+  it('preserves legacy-incomplete evaluation eligibility', () => {
+    const snapshot = parseRunDetailSnapshot({
+      run: {
+        id: 'legacy-run',
+        workspace_id: 'ws_demo',
+        agent_id: 'demo-agent',
+        kind: 'chat_session',
+        status: 'completed',
+        evaluation_eligibility: 'legacy_incomplete',
+        external_id: null,
+        metadata: {},
+        started_at: '2026-05-25T00:00:00.000Z',
+        ended_at: '2026-05-25T00:00:01.000Z',
+        created_at: '2026-05-25T00:00:00.000Z',
+        updated_at: '2026-05-25T00:00:01.000Z',
+        trace_count: 0,
+        blocked_count: 0,
+        rewritten_count: 0,
+        escalated_count: 0,
+        p95_latency_ms: null,
+      },
+      events: [],
+      traces: [],
+    });
+
+    expect(snapshot.assurance.eligibility).toBe('legacy_incomplete');
   });
 
   it('marks untriggered allow checks with their input/output side', () => {
@@ -161,6 +231,7 @@ describe('parseRunDetailSnapshot', () => {
           id: 'event-3',
           workspace_id: 'ws_demo',
           run_id: '019f0000-0000-7000-9000-000000000003',
+          agent_id: 'booking-agent',
           sequence: 1,
           kind: 'assistant_turn',
           label: 'guarded_agent_reply',

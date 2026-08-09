@@ -237,6 +237,8 @@ export function RunDetailLiveView({
         </CardContent>
       </Card>
 
+      <AssuranceCard assurance={snapshot.assurance} />
+
       <div className="grid gap-3 lg:grid-cols-3">
         <ProviderUsageCard usage={snapshot.providerUsage} />
         <BudgetDecisionCard decision={snapshot.budgetDecision} />
@@ -338,6 +340,82 @@ export function RunDetailLiveView({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function AssuranceCard({ assurance }: { assurance: RunDetailSnapshot['assurance'] }) {
+  const finalization = assurance.finalization;
+  const worstVerdict = assurance.evaluations.find((item) => item.verdict === 'failed')?.verdict
+    ?? assurance.evaluations.find((item) => item.verdict === 'error')?.verdict
+    ?? assurance.evaluations.find((item) => item.verdict === 'inconclusive')?.verdict
+    ?? assurance.evaluations[0]?.verdict;
+  const activeJobStatus = assurance.jobs.find((job) => job.status === 'error')?.status
+    ?? assurance.jobs.find((job) => job.status === 'running')?.status
+    ?? assurance.jobs.find((job) => job.status === 'queued')?.status;
+  const assuranceStatus = assurance.eligibility === 'legacy_incomplete'
+    ? assurance.eligibility
+    : worstVerdict ?? activeJobStatus ?? finalization?.capture_status ?? 'not started';
+  return (
+    <Card className="gap-4 py-4">
+      <CardHeader className="gap-1">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-sm">Post-run assurance</CardTitle>
+          <Badge variant="secondary">
+            {titleCase(assuranceStatus)}
+          </Badge>
+        </div>
+        <CardDescription>
+          Evaluations start only after this run is finalized and its telemetry capture closes.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-5">
+          <DetailItem label="Capture" value={titleCase(finalization?.capture_status ?? 'open')} />
+          <DetailItem
+            label="Boundary"
+            value={titleCase(finalization?.boundary_source ?? 'not finalized')}
+          />
+          <DetailItem label="Agents" value={String(assurance.participants.length)} />
+          <DetailItem label="Jobs" value={String(assurance.jobs.length)} />
+          <DetailItem label="Results" value={String(assurance.evaluations.length)} />
+        </dl>
+        {finalization?.capture_status === 'incomplete' ? (
+          <p className="mt-4 rounded-lg border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            Required telemetry was missing or arrived after the capture deadline. This run cannot
+            be reported as passed.
+          </p>
+        ) : null}
+        {assurance.eligibility === 'legacy_incomplete' ? (
+          <p className="mt-4 rounded-lg border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            This run predates frozen evaluation manifests, so it cannot be reported as safely
+            evaluable. Start a new run to produce complete assurance evidence.
+          </p>
+        ) : null}
+        {assurance.jobs.some((job) => job.status === 'queued' || job.status === 'running') ? (
+          <p className="mt-4 text-xs text-muted-foreground">
+            Evaluation is still running. This page continues refreshing until results are stored.
+          </p>
+        ) : null}
+        {assurance.evaluations.length > 0 ? (
+          <div className="mt-4 grid gap-2">
+            {assurance.evaluations.map((evaluation) => (
+              <div
+                key={evaluation.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/15 px-3 py-2 text-xs"
+              >
+                <span className="font-mono">{evaluation.agent_id}</span>
+                <span>{titleCase(evaluation.verdict)}</span>
+                <span className="text-muted-foreground">
+                  {evaluation.score_bps === null
+                    ? 'No numeric score'
+                    : `${(evaluation.score_bps / 100).toFixed(2)}%`}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 

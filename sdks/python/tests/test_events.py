@@ -89,6 +89,7 @@ def run_event_summary() -> dict:
         "id": "018f2222-2222-7222-8222-222222222222",
         "workspace_id": "ws_1",
         "run_id": "018f1111-1111-7111-8111-111111111111",
+        "agent_id": "agent-1",
         "sequence": 1,
         "kind": "user_turn",
         "label": None,
@@ -97,6 +98,21 @@ def run_event_summary() -> dict:
         "metadata": {},
         "occurred_at": "2026-01-01T00:00:00Z",
         "created_at": "2026-01-01T00:00:00Z",
+    }
+
+
+def finalize_response() -> dict:
+    return {
+        "run": {**run_summary(), "status": "completed"},
+        "finalization": {
+            "finalized_at": "2026-01-01T00:01:00Z",
+            "boundary_source": "explicit_sdk",
+            "boundary_confidence": "authoritative",
+            "capture_status": "waiting",
+            "capture_deadline": "2026-01-01T00:01:30Z",
+            "expected_flush_id": None,
+        },
+        "evaluation_status": "waiting_capture",
     }
 
 
@@ -141,9 +157,9 @@ def test_run_context_inherits_run_and_event_ids() -> None:
     respx.post("https://api.example.test/v1/runs").mock(
         return_value=httpx.Response(200, json=run_summary())
     )
-    respx.patch(
-        "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111"
-    ).mock(return_value=httpx.Response(200, json={**run_summary(), "status": "completed"}))
+    respx.post(
+        "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111/finalize"
+    ).mock(return_value=httpx.Response(200, json=finalize_response()))
     respx.post(
         "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111/events"
     ).mock(return_value=httpx.Response(200, json=run_event_summary()))
@@ -173,9 +189,9 @@ def test_explicit_run_id_wins_and_tool_helper_inherits_context() -> None:
     respx.post("https://api.example.test/v1/runs").mock(
         return_value=httpx.Response(200, json=run_summary())
     )
-    respx.patch(
-        "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111"
-    ).mock(return_value=httpx.Response(200, json={**run_summary(), "status": "completed"}))
+    respx.post(
+        "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111/finalize"
+    ).mock(return_value=httpx.Response(200, json=finalize_response()))
     respx.post(
         "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111/events"
     ).mock(return_value=httpx.Response(200, json=run_event_summary()))
@@ -265,9 +281,9 @@ async def test_async_run_context_inherits_run_id() -> None:
     respx.post("https://api.example.test/v1/runs").mock(
         return_value=httpx.Response(200, json=run_summary())
     )
-    respx.patch(
-        "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111"
-    ).mock(return_value=httpx.Response(200, json={**run_summary(), "status": "completed"}))
+    respx.post(
+        "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111/finalize"
+    ).mock(return_value=httpx.Response(200, json=finalize_response()))
     event_route = respx.post("https://api.example.test/v1/events").mock(
         return_value=httpx.Response(200, json=default_allow_decision())
     )

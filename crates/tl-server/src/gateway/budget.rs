@@ -600,6 +600,7 @@ async fn record_budget_decision(
 ) {
     let Some(run_id) = run_id else { return };
     let event = CreateRunEventRequest {
+        agent_id: None,
         kind: RunEventKind::SystemEvent,
         sequence: None,
         label: Some("LLM spending cap".to_string()),

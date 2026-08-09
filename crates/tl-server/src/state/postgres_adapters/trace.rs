@@ -73,26 +73,51 @@ impl TraceStore for PostgresTraceAdapter {
         // Best-effort, matching the old inline try_send: a full or closed
         // writer channel drops the trace with a warning, never fails the
         // decision path.
-        let trace = TraceWrite {
-            decision: write.decision,
-            event: write.event,
-            workspace_id: write.workspace_id,
-            environment_id: write.environment_id,
-            run_id: write.run_id,
-            run_event_id: write.run_event_id,
-            session_id: write.session_id,
-            domain: write.domain,
-        };
+        let trace = trace_write(write);
+        let run_id = trace.run_id.clone();
+        let workspace_id = trace.workspace_id.clone();
+        let environment_id = trace.environment_id.clone();
         if let Err(e) = self.writer_tx.try_send(trace) {
-            tracing::warn!(error = %e, "trace channel full or closed; dropped");
+            tracing::warn!(run_id, error = %e, "trace channel full or closed; dropped");
+            if let Some(run_id) = run_id {
+                if let Err(error) = self
+                    .repo
+                    .increment_dropped_trace(&workspace_id, &environment_id, &run_id)
+                    .await
+                {
+                    tracing::warn!(run_id, error = %error, "dropped trace counter update failed");
+                }
+            }
         }
         Ok(())
+    }
+
+    async fn record_durable(&self, write: TraceWriteRequest) -> Result<(), TraceStoreError> {
+        self.repo
+            .insert_durable(trace_write(write))
+            .await
+            .map_err(|error| TraceStoreError::Internal(error.to_string()))
+    }
+}
+
+fn trace_write(write: TraceWriteRequest) -> TraceWrite {
+    TraceWrite {
+        decision: write.decision,
+        event: write.event,
+        workspace_id: write.workspace_id,
+        environment_id: write.environment_id,
+        agent_id: write.agent_id,
+        run_id: write.run_id,
+        run_event_id: write.run_event_id,
+        session_id: write.session_id,
+        domain: write.domain,
     }
 }
 
 fn trace_summary_from_row(row: tl_storage::TraceRow) -> tl_core::TraceSummary {
     tl_core::TraceSummary {
         trace_id: row.trace_id.to_string(),
+        agent_id: row.agent_id,
         run_id: row.run_id.map(|id| id.to_string()),
         run_event_id: row.run_event_id.map(|id| id.to_string()),
         session_id: row.session_id,

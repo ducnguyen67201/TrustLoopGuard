@@ -5,8 +5,8 @@
 use serde::{Deserialize, Serialize};
 use tl_core::{
     AllowedSource, AuthorizationEffect, Confidentiality, FinancialActionKind,
-    FinancialActionPrecondition, FinancialRail, Integrity, Origin, PolicyFamily, Severity,
-    SideEffectClass, SpendMeter, Trust,
+    FinancialActionPrecondition, FinancialRail, Integrity, MissingEvidenceBehavior, Origin,
+    PolicyFamily, Severity, SideEffectClass, SpendMeter, Trust,
 };
 
 use crate::policy_ast::{Policy, PolicyId};
@@ -80,6 +80,7 @@ pub enum FamilyPolicy {
     Financial(FinancialPolicy),
     SourceLabel(SourceLabelFamilyPolicy),
     Tool(ToolPolicy),
+    Evaluation(EvaluationPolicy),
 }
 
 impl FamilyPolicy {
@@ -92,6 +93,7 @@ impl FamilyPolicy {
             FamilyPolicy::Financial(p) => &p.id,
             FamilyPolicy::SourceLabel(p) => &p.id,
             FamilyPolicy::Tool(p) => &p.id,
+            FamilyPolicy::Evaluation(p) => &p.id,
         }
     }
 
@@ -104,6 +106,7 @@ impl FamilyPolicy {
             FamilyPolicy::Financial(_) => PolicyFamily::Financial,
             FamilyPolicy::SourceLabel(_) => PolicyFamily::SourceLabel,
             FamilyPolicy::Tool(_) => PolicyFamily::Tool,
+            FamilyPolicy::Evaluation(_) => PolicyFamily::Evaluation,
         }
     }
 
@@ -116,6 +119,7 @@ impl FamilyPolicy {
             FamilyPolicy::Financial(p) => p.description.as_deref(),
             FamilyPolicy::SourceLabel(p) => p.description.as_deref(),
             FamilyPolicy::Tool(p) => p.description.as_deref(),
+            FamilyPolicy::Evaluation(p) => p.description.as_deref(),
         }
     }
 
@@ -128,6 +132,7 @@ impl FamilyPolicy {
             FamilyPolicy::Financial(p) => p.severity,
             FamilyPolicy::SourceLabel(p) => p.severity,
             FamilyPolicy::Tool(p) => p.severity,
+            FamilyPolicy::Evaluation(p) => p.severity,
         }
     }
 
@@ -140,8 +145,94 @@ impl FamilyPolicy {
             FamilyPolicy::Financial(p) => Some(p.on_breach),
             FamilyPolicy::SourceLabel(_) => None,
             FamilyPolicy::Tool(p) => Some(p.action),
+            FamilyPolicy::Evaluation(_) => None,
         }
     }
+}
+
+/// Evidence region inspected by a post-run evaluation policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub enum EvaluationScope {
+    Trajectory,
+    FinalOutput,
+    ToolCalls,
+    RuntimeDecisions,
+}
+
+/// Comparator for deterministic run metrics.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub enum RunMetricComparator {
+    Eq,
+    Lte,
+    Gte,
+}
+
+/// Bounded built-in grader definitions. Provider calls are implemented by a
+/// server adapter; the policy AST only declares intent.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub enum EvaluationGrader {
+    RuntimePolicyObservation {
+        policy_ids: Vec<String>,
+    },
+    RunMetric {
+        metric: String,
+        comparator: RunMetricComparator,
+        value: i64,
+    },
+    PolicyReplay {
+        policy_ids: Vec<String>,
+    },
+    LlmRubric {
+        rubric: String,
+        min_score: f64,
+    },
+}
+
+fn default_max_violations() -> u32 {
+    0
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct EvaluationExpectation {
+    #[serde(default = "default_max_violations")]
+    pub max_violations: u32,
+}
+
+impl Default for EvaluationExpectation {
+    fn default() -> Self {
+        Self {
+            max_violations: default_max_violations(),
+        }
+    }
+}
+
+fn default_missing_evidence_behavior() -> MissingEvidenceBehavior {
+    MissingEvidenceBehavior::Inconclusive
+}
+
+/// A run-level assurance rule. It is versioned in the unified policy registry
+/// but never contributes an authorization effect to `/v1/events`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct EvaluationPolicy {
+    pub id: PolicyId,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default = "default_severity")]
+    pub severity: Severity,
+    pub scope: EvaluationScope,
+    pub grader: EvaluationGrader,
+    #[serde(default)]
+    pub expect: EvaluationExpectation,
+    #[serde(default = "default_missing_evidence_behavior")]
+    pub on_missing_evidence: MissingEvidenceBehavior,
 }
 
 fn default_deny_effect() -> AuthorizationEffect {

@@ -12,6 +12,7 @@ pub mod budget_alerts;
 pub mod dashboard_admin;
 pub mod environments;
 pub mod escalation;
+pub mod evaluations;
 pub mod financial;
 pub mod gateway;
 pub mod github_integration;
@@ -24,6 +25,7 @@ pub mod llm_usage;
 pub mod mcp_gateway;
 pub mod oauth;
 pub mod oauth_store;
+pub mod otel;
 pub mod policies;
 pub mod redteam;
 pub mod runs;
@@ -50,6 +52,9 @@ pub use environments::{
 pub use escalation::{
     spawn_escalation_worker, spawn_webhook_delivery_worker, EscalationConfig, EscalationPayload,
     RetryPolicy, WebhookDelivery,
+};
+pub use evaluations::{
+    EvaluationState, EvaluationStore, EvaluationStoreError, MemoryEvaluationStore,
 };
 pub use financial::{
     AgenticPaymentBudgetReservationRequest, FinancialAuthorizationService,

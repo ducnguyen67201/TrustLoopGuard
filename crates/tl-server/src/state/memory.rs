@@ -26,6 +26,9 @@ use crate::dashboard_admin::{MemoryApiKeyStore, MemorySettingsStore};
 use crate::environments::EnvironmentStore;
 use crate::environments::MemoryEnvironmentStore;
 #[cfg(not(feature = "postgres"))]
+use crate::evaluations::EvaluationStore;
+use crate::evaluations::MemoryEvaluationStore;
+#[cfg(not(feature = "postgres"))]
 use crate::financial::FinancialStore;
 use crate::financial::MemoryFinancialStore;
 #[cfg(not(feature = "postgres"))]
@@ -55,6 +58,9 @@ use crate::mcp_gateway::MemoryMcpGatewayStore;
 use crate::oauth_store::MemoryOAuthStore;
 #[cfg(not(feature = "postgres"))]
 use crate::oauth_store::OAuthStore;
+use crate::otel::MemoryOtelStore;
+#[cfg(not(feature = "postgres"))]
+use crate::otel::OtelStore;
 use crate::policies::{MemoryPolicyStore, PolicyStore};
 use crate::redteam::{
     MemoryRedteamJobStore, MemoryRedteamPlanStore, MemoryRedteamReportShareStore,
@@ -131,6 +137,8 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         label_policy_store: label_policy,
         trace_store: Arc::new(MemoryTraceStore::default()),
         run_store: Arc::new(MemoryRunStore::new()),
+        evaluation_store: Arc::new(MemoryEvaluationStore::new()),
+        otel_store: Arc::new(MemoryOtelStore::default()),
         analytics_store: Arc::new(MemoryAnalyticsStore::new()),
         human_review_store: Arc::new(MemoryHumanReviewStore::new()),
         financial_store: Arc::new(MemoryFinancialStore::new()),
@@ -173,6 +181,8 @@ pub(super) fn build_memory_layer(
     Arc<dyn PolicyStore>,
     Arc<dyn TraceStore>,
     Arc<dyn RunStore>,
+    Arc<dyn EvaluationStore>,
+    Arc<dyn OtelStore>,
     Arc<dyn AnalyticsStore>,
     Arc<dyn HumanReviewStore>,
     Arc<dyn FinancialStore>,
@@ -210,6 +220,8 @@ pub(super) fn build_memory_layer(
         )) as Arc<dyn PolicyStore>,
         Arc::new(MemoryTraceStore::default()) as Arc<dyn TraceStore>,
         Arc::new(MemoryRunStore::new()) as Arc<dyn RunStore>,
+        Arc::new(MemoryEvaluationStore::new()) as Arc<dyn EvaluationStore>,
+        Arc::new(MemoryOtelStore::default()) as Arc<dyn OtelStore>,
         Arc::new(MemoryAnalyticsStore::new()) as Arc<dyn AnalyticsStore>,
         Arc::new(MemoryHumanReviewStore::new()) as Arc<dyn HumanReviewStore>,
         Arc::new(MemoryFinancialStore::new()) as Arc<dyn FinancialStore>,

@@ -1,5 +1,9 @@
 # Architecture
 
+Subsystem details have one canonical home: [Runs](runs.md),
+[post-run evaluations](evaluations.md), and [telemetry capture](telemetry-capture.md). This document
+defines only their placement and ownership in the overall system.
+
 ## What Featherlane AI is, in one sentence
 
 A guardrail runtime that customers call **before** their AI agent's output reaches the outside world. It returns an authorization effect in milliseconds.

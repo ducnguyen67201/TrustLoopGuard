@@ -56,6 +56,10 @@ pub mod environment_repo;
 #[cfg(feature = "postgres")]
 pub mod escalations;
 #[cfg(feature = "postgres")]
+pub mod evaluation_repo;
+#[cfg(feature = "postgres")]
+pub mod evaluation_worker_repo;
+#[cfg(feature = "postgres")]
 pub mod financial_repo;
 #[cfg(feature = "postgres")]
 pub mod gateway_repo;
@@ -75,6 +79,8 @@ pub mod mcp_gateway_repo;
 pub mod models;
 #[cfg(feature = "postgres")]
 pub mod oauth_repo;
+#[cfg(feature = "postgres")]
+pub mod otel_repo;
 #[cfg(feature = "postgres")]
 pub mod policy_repo;
 #[cfg(feature = "postgres")]
@@ -117,6 +123,13 @@ pub use dashboard_admin_repo::DashboardAdminRepo;
 pub use environment_repo::EnvironmentRepo;
 #[cfg(feature = "postgres")]
 pub use escalations::{EscalationRepo, EscalationRow};
+#[cfg(feature = "postgres")]
+pub use evaluation_repo::EvaluationRepo;
+#[cfg(feature = "postgres")]
+pub use evaluation_worker_repo::{
+    CaptureAdvanceResult, EvaluationJobWork, FrozenEvaluationPolicy, PersistEvaluationFinding,
+    PersistEvaluationResult,
+};
 #[cfg(feature = "postgres")]
 pub use financial_repo::{
     FinancialBudgetConstraint, FinancialBudgetViolation, FinancialBudgetWindow,
@@ -162,6 +175,8 @@ pub use oauth_repo::{
     NewOAuthAuthorizationCode, NewOAuthRefreshToken, OAuthRepo, StoredOAuthAuthorizationCode,
     StoredOAuthClient, StoredOAuthRefreshToken,
 };
+#[cfg(feature = "postgres")]
+pub use otel_repo::{OtelIngestBatch, OtelIngestResult, OtelRepo};
 #[cfg(feature = "postgres")]
 pub use policy_repo::{PolicyRepo, PolicyRow};
 #[cfg(feature = "postgres")]

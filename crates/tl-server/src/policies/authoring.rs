@@ -160,6 +160,7 @@ fn parse_policy_family(raw: &str) -> Option<tl_core::PolicyFamily> {
         "financial" => Some(tl_core::PolicyFamily::Financial),
         "source_label" => Some(tl_core::PolicyFamily::SourceLabel),
         "tool" => Some(tl_core::PolicyFamily::Tool),
+        "evaluation" => Some(tl_core::PolicyFamily::Evaluation),
         _ => None,
     }
 }

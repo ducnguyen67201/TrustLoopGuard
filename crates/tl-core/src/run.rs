@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::TraceSummary;
+use crate::{
+    EvaluationJobSummary, EvaluationResultSummary, RunFinalizationSummary, RunParticipantSummary,
+    TraceSummary,
+};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -24,7 +27,7 @@ pub enum RunKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[cfg_attr(feature = "ts-export", derive(TS))]
@@ -35,6 +38,28 @@ pub enum RunStatus {
     Completed,
     Failed,
     Canceled,
+    TimedOut,
+}
+
+impl RunStatus {
+    pub const fn is_terminal(self) -> bool {
+        matches!(
+            self,
+            Self::Completed | Self::Failed | Self::Canceled | Self::TimedOut
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum RunEvaluationEligibility {
+    #[default]
+    Eligible,
+    LegacyIncomplete,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -99,6 +124,10 @@ pub struct UpdateRunRequest {
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct CreateRunEventRequest {
+    /// Agent responsible for this event. Defaults to the run's primary agent.
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub agent_id: Option<String>,
     pub kind: RunEventKind,
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]
@@ -134,6 +163,9 @@ pub struct RunSummary {
     pub agent_id: String,
     pub kind: RunKind,
     pub status: RunStatus,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub evaluation_eligibility: Option<RunEvaluationEligibility>,
     pub external_id: Option<String>,
     #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
     pub metadata: serde_json::Value,
@@ -174,6 +206,7 @@ pub struct RunEventSummary {
     pub id: String,
     pub workspace_id: String,
     pub run_id: String,
+    pub agent_id: String,
     pub sequence: i32,
     pub kind: RunEventKind,
     pub label: Option<String>,
@@ -282,4 +315,36 @@ pub struct RunDetail {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub budget_decision: Option<RunLlmBudgetDecision>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub finalization: Option<RunFinalizationSummary>,
+    #[serde(default)]
+    pub participants: Vec<RunParticipantSummary>,
+    #[serde(default)]
+    pub evaluation_jobs: Vec<EvaluationJobSummary>,
+    #[serde(default)]
+    pub evaluations: Vec<EvaluationResultSummary>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RunStatus;
+
+    #[test]
+    fn only_closed_run_states_are_terminal() {
+        assert!(!RunStatus::Warming.is_terminal());
+        assert!(!RunStatus::Running.is_terminal());
+        assert!(RunStatus::Completed.is_terminal());
+        assert!(RunStatus::Failed.is_terminal());
+        assert!(RunStatus::Canceled.is_terminal());
+        assert!(RunStatus::TimedOut.is_terminal());
+    }
+
+    #[test]
+    fn timed_out_uses_the_canonical_wire_value() {
+        assert_eq!(
+            serde_json::to_string(&RunStatus::TimedOut).unwrap(),
+            "\"timed_out\""
+        );
+    }
 }

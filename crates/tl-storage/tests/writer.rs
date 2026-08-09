@@ -19,7 +19,7 @@ use tl_core::{
 };
 use tl_storage::{
     connect_postgres, migrate_postgres,
-    schema::{organizations, traces, workspace_environments, workspaces},
+    schema::{agents, organizations, traces, workspace_environments, workspaces},
     spawn_writer, DbPool, TraceWrite, WriterConfig,
 };
 
@@ -67,6 +67,16 @@ async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>)
             .execute(&mut conn)
             .await
             .expect("insert environment");
+        diesel::insert_into(agents::table)
+            .values((
+                agents::workspace_id.eq("default"),
+                agents::id.eq("agent-1"),
+                agents::profile_yaml.eq("id: agent-1"),
+                agents::parsed_profile.eq(serde_json::json!({"agent_id":"agent-1"})),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert agent");
     }
     (pool, container)
 }
@@ -109,6 +119,7 @@ async fn caller_send_is_non_blocking_under_load() {
         let w = TraceWrite {
             workspace_id: "default".into(),
             environment_id: "production".into(),
+            agent_id: "agent-1".into(),
             decision: fake_decision(),
             event: None,
             run_id: None,
@@ -158,6 +169,7 @@ async fn batch_size_triggers_flush() {
         tx.send(TraceWrite {
             workspace_id: "default".into(),
             environment_id: "production".into(),
+            agent_id: "agent-1".into(),
             decision: fake_decision(),
             event: None,
             run_id: None,
@@ -192,6 +204,7 @@ async fn interval_flushes_partial_batch() {
         tx.send(TraceWrite {
             workspace_id: "default".into(),
             environment_id: "production".into(),
+            agent_id: "agent-1".into(),
             decision: fake_decision(),
             event: None,
             run_id: None,
@@ -282,6 +295,7 @@ async fn event_evidence_round_trips_in_payload() {
     tx.send(TraceWrite {
         workspace_id: "default".into(),
         environment_id: "production".into(),
+        agent_id: "agent-1".into(),
         decision: fake_decision(),
         event: Some(event),
         run_id: None,
@@ -339,6 +353,7 @@ async fn graceful_shutdown_flushes_remaining() {
         tx.send(TraceWrite {
             workspace_id: "default".into(),
             environment_id: "production".into(),
+            agent_id: "agent-1".into(),
             decision: fake_decision(),
             event: None,
             run_id: None,
@@ -368,6 +383,7 @@ async fn session_id_round_trips_and_filters_trace_lists() {
         tx.send(TraceWrite {
             workspace_id: "default".into(),
             environment_id: "production".into(),
+            agent_id: "agent-1".into(),
             decision: fake_decision(),
             event: None,
             run_id: None,

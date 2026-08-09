@@ -426,12 +426,27 @@ def test_start_and_finish_run() -> None:
     create = respx.post("https://api.example.test/v1/runs").mock(
         return_value=httpx.Response(201, json=run_body)
     )
-    update = respx.patch(
-        "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111"
+    finalize = respx.post(
+        "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111/finalize"
     ).mock(
         return_value=httpx.Response(
             200,
-            json={**run_body, "status": "completed", "ended_at": "2026-05-17T00:01:00Z"},
+            json={
+                "run": {
+                    **run_body,
+                    "status": "completed",
+                    "ended_at": "2026-05-17T00:01:00Z",
+                },
+                "finalization": {
+                    "finalized_at": "2026-05-17T00:01:00Z",
+                    "boundary_source": "explicit_sdk",
+                    "boundary_confidence": "authoritative",
+                    "capture_status": "waiting",
+                    "capture_deadline": "2026-05-17T00:01:30Z",
+                    "expected_flush_id": None,
+                },
+                "evaluation_status": "waiting_capture",
+            },
         )
     )
     create_event = respx.post(
@@ -443,6 +458,7 @@ def test_start_and_finish_run() -> None:
                 "id": "018f2222-2222-7222-8222-222222222222",
                 "workspace_id": "ws_test",
                 "run_id": "018f1111-1111-7111-8111-111111111111",
+                "agent_id": "support-agent",
                 "sequence": 1,
                 "kind": "user_turn",
                 "label": "Turn 1",
@@ -482,4 +498,7 @@ def test_start_and_finish_run() -> None:
         "label": "Turn 1",
         "input_summary": "Customer asks about a refund",
     }
-    assert update.calls.last.request.content == b'{"status":"completed"}'
+    assert json.loads(finalize.calls.last.request.content) == {
+        "status": "completed",
+        "boundary_source": "explicit_sdk",
+    }

@@ -5,4 +5,4 @@
  * failure modes; never repurpose an existing variant — SDK callers may
  * be branching on it.
  */
-export type ApiErrorCode = "invalid" | "unauthorized" | "forbidden" | "not_found" | "gone" | "unprocessable" | "rate_limited" | "internal" | "unavailable";
+export type ApiErrorCode = "invalid" | "unauthorized" | "forbidden" | "not_found" | "conflict" | "gone" | "unprocessable" | "rate_limited" | "internal" | "unavailable";

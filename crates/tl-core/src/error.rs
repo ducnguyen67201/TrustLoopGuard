@@ -67,6 +67,8 @@ pub enum ApiErrorCode {
     Forbidden,
     /// 404 — referenced resource not found.
     NotFound,
+    /// 409 — first-write-wins or optimistic-concurrency conflict.
+    Conflict,
     /// 410 — API version retired; caller must upgrade.
     Gone,
     /// 422 — well-formed but semantically rejected.
@@ -89,6 +91,7 @@ impl ApiErrorCode {
             401 => Self::Unauthorized,
             403 => Self::Forbidden,
             404 => Self::NotFound,
+            409 => Self::Conflict,
             410 => Self::Gone,
             422 => Self::Unprocessable,
             429 => Self::RateLimited,

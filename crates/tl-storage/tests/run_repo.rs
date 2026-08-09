@@ -5,12 +5,13 @@ use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{
-    CreateRunEventRequest, CreateRunRequest, RunEventKind, RunKind, RunStatus, UpdateRunRequest,
+    CreateRunEventRequest, CreateRunRequest, FinalizeRunRequest, RunBoundarySource, RunEventKind,
+    RunKind, RunStatus, UpdateRunRequest,
 };
 use tl_storage::{
     connect_postgres, migrate_postgres,
-    schema::{organizations, workspace_environments, workspaces},
-    DbPool, RunFilter, RunRepo,
+    schema::{agents, organizations, workspace_environments, workspaces},
+    DbPool, RunFilter, RunRepo, StorageError,
 };
 
 async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>) {
@@ -55,6 +56,16 @@ async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>)
             .execute(&mut conn)
             .await
             .expect("insert environment");
+        diesel::insert_into(agents::table)
+            .values((
+                agents::workspace_id.eq("ws_test"),
+                agents::id.eq("agent-a"),
+                agents::profile_yaml.eq("id: agent-a"),
+                agents::parsed_profile.eq(serde_json::json!({"agent_id":"agent-a"})),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert agent");
     }
     (pool, container)
 }
@@ -136,6 +147,7 @@ async fn create_event_rejects_invalid_input() {
             "ws_test",
             &run.id,
             CreateRunEventRequest {
+                agent_id: None,
                 kind: RunEventKind::WorkflowStep,
                 sequence: Some(0),
                 label: None,
@@ -154,6 +166,7 @@ async fn create_event_rejects_invalid_input() {
             "ws_test",
             &run.id,
             CreateRunEventRequest {
+                agent_id: None,
                 kind: RunEventKind::WorkflowStep,
                 sequence: None,
                 label: None,
@@ -196,6 +209,7 @@ async fn create_event_auto_sequence_is_concurrency_safe() {
                 "ws_test",
                 &run_id,
                 CreateRunEventRequest {
+                    agent_id: None,
                     kind: RunEventKind::WorkflowStep,
                     sequence: None,
                     label: Some(format!("step {index}")),
@@ -216,4 +230,81 @@ async fn create_event_auto_sequence_is_concurrency_safe() {
     let events = repo.events("ws_test", &run.id, 20).await.expect("events");
     let sequences: Vec<i32> = events.into_iter().map(|event| event.sequence).collect();
     assert_eq!(sequences, (1..=12).collect::<Vec<_>>());
+}
+
+#[tokio::test]
+async fn finalization_is_idempotent_and_closes_the_event_boundary() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = RunRepo::new(pool);
+    let run = repo
+        .create(
+            "ws_test",
+            "production",
+            CreateRunRequest {
+                agent_id: "agent-a".into(),
+                kind: RunKind::Workflow,
+                status: None,
+                external_id: None,
+                metadata: serde_json::json!({}),
+            },
+        )
+        .await
+        .expect("create run");
+    let request = FinalizeRunRequest {
+        status: RunStatus::Completed,
+        ended_at: None,
+        boundary_source: RunBoundarySource::ExplicitSdk,
+        expected_flush_id: Some("flush-1".into()),
+        last_event_sequence: Some(0),
+    };
+
+    let first = repo
+        .finalize("ws_test", "production", &run.id, request.clone(), 1_000)
+        .await
+        .expect("first finalization");
+    let retry = repo
+        .finalize("ws_test", "production", &run.id, request, 1_000)
+        .await
+        .expect("idempotent retry");
+    assert_eq!(
+        first.finalization.finalized_at,
+        retry.finalization.finalized_at
+    );
+
+    let conflict = repo
+        .finalize(
+            "ws_test",
+            "production",
+            &run.id,
+            FinalizeRunRequest {
+                status: RunStatus::Failed,
+                ended_at: None,
+                boundary_source: RunBoundarySource::ExplicitSdk,
+                expected_flush_id: Some("flush-1".into()),
+                last_event_sequence: None,
+            },
+            1_000,
+        )
+        .await
+        .expect_err("conflicting terminal transition");
+    assert!(matches!(conflict, StorageError::Conflict));
+
+    let late_event = repo
+        .create_event(
+            "ws_test",
+            &run.id,
+            CreateRunEventRequest {
+                agent_id: None,
+                kind: RunEventKind::WorkflowStep,
+                sequence: None,
+                label: None,
+                input_summary: None,
+                output_summary: None,
+                metadata: serde_json::json!({}),
+                occurred_at: None,
+            },
+        )
+        .await
+        .expect_err("post-finalization event");
+    assert!(matches!(late_event, StorageError::Conflict));
 }

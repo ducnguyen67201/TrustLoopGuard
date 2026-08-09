@@ -1,21 +1,24 @@
 use chrono::{DateTime, Utc};
 use diesel::{Insertable, Queryable, Selectable};
+use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::schema::{
-    agents, authorization_approvals, authorization_grants, authorization_intents,
-    authorization_leases, authorization_receipts, budget_alert_configs, budget_alert_firings,
-    entity_versions, escalations, financial_action_events, financial_action_outcomes,
-    financial_actions, financial_budget_principal_locks, financial_ledger_entries,
-    financial_payment_reservations, financial_payment_sessions, financial_receipts,
-    gateway_provider_connections, gateway_routes, github_installation_states, github_installations,
-    github_integration_jobs, github_repository_connections, human_review_events,
-    llm_budget_principal_locks, llm_budget_reservations, llm_model_prices, llm_usage_events,
-    mcp_agent_tool_assignments, mcp_oauth_authorization_codes, mcp_oauth_clients,
+    agent_evaluation_policy_assignments, agent_evaluation_profiles, agents,
+    authorization_approvals, authorization_grants, authorization_intents, authorization_leases,
+    authorization_receipts, budget_alert_configs, budget_alert_firings, entity_versions,
+    escalations, evaluation_findings, evaluation_jobs, evaluation_results, financial_action_events,
+    financial_action_outcomes, financial_actions, financial_budget_principal_locks,
+    financial_ledger_entries, financial_payment_reservations, financial_payment_sessions,
+    financial_receipts, gateway_provider_connections, gateway_routes, github_installation_states,
+    github_installations, github_integration_jobs, github_repository_connections,
+    human_review_events, llm_budget_principal_locks, llm_budget_reservations, llm_model_prices,
+    llm_usage_events, mcp_agent_tool_assignments, mcp_oauth_authorization_codes, mcp_oauth_clients,
     mcp_oauth_refresh_tokens, mcp_server_connections, mcp_tool_assignments, mcp_tools,
     oauth_identities, policies, policy_environment_deployments, redteam_attack_sessions,
-    redteam_jobs, redteam_plans, redteam_report_shares, redteam_session_events, run_events, runs,
+    redteam_jobs, redteam_plans, redteam_report_shares, redteam_session_events,
+    run_evaluation_policy_manifest, run_events, run_participants, run_snapshots, run_spans, runs,
     tool_metadata, traces, users, workspace_environments,
 };
 
@@ -54,7 +57,7 @@ pub struct NewPolicy {
     pub family: Option<String>,
 }
 
-#[derive(Debug, Queryable, Selectable)]
+#[derive(Debug, Queryable, Selectable, Serialize)]
 #[diesel(table_name = policies)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct PolicyRecord {
@@ -73,11 +76,13 @@ pub struct NewTrace {
     pub run_id: Option<Uuid>,
     pub run_event_id: Option<Uuid>,
     pub session_id: Option<String>,
+    pub agent_id: String,
     pub environment_id: String,
     pub domain: String,
     pub decision: String,
     pub elapsed_ms: i32,
     pub payload: Value,
+    pub late_evidence: bool,
 }
 
 #[derive(Debug, Insertable)]
@@ -93,7 +98,7 @@ pub struct NewRun {
     pub metadata: Value,
 }
 
-#[derive(Debug, Queryable, Selectable)]
+#[derive(Debug, Queryable, Selectable, Serialize)]
 #[diesel(table_name = runs)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct RunRecord {
@@ -109,6 +114,17 @@ pub struct RunRecord {
     pub ended_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub boundary_source: Option<String>,
+    pub boundary_confidence: Option<String>,
+    pub finalized_at: Option<DateTime<Utc>>,
+    pub capture_status: String,
+    pub capture_deadline: Option<DateTime<Utc>>,
+    pub expected_flush_id: Option<String>,
+    pub previous_run_id: Option<Uuid>,
+    pub last_evidence_at: Option<DateTime<Utc>>,
+    pub dropped_trace_count: i64,
+    pub reevaluation_agent_ids: Option<Vec<String>>,
+    pub evaluation_eligibility: String,
 }
 
 #[derive(Debug, Insertable)]
@@ -117,6 +133,7 @@ pub struct NewRunEvent {
     pub workspace_id: String,
     pub id: Uuid,
     pub run_id: Uuid,
+    pub agent_id: String,
     pub sequence: i32,
     pub kind: String,
     pub label: Option<String>,
@@ -126,13 +143,14 @@ pub struct NewRunEvent {
     pub occurred_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Queryable, Selectable)]
+#[derive(Debug, Queryable, Selectable, Serialize)]
 #[diesel(table_name = run_events)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct RunEventRecord {
     pub workspace_id: String,
     pub id: Uuid,
     pub run_id: Uuid,
+    pub agent_id: String,
     pub sequence: i32,
     pub kind: String,
     pub label: Option<String>,
@@ -140,6 +158,217 @@ pub struct RunEventRecord {
     pub output_summary: Option<String>,
     pub metadata: Value,
     pub occurred_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable, Serialize)]
+#[diesel(table_name = agent_evaluation_profiles)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct AgentEvaluationProfileRecord {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub agent_id: String,
+    pub enabled: bool,
+    pub capture_mode: String,
+    pub content_mode: String,
+    pub quiet_period_ms: i64,
+    pub max_capture_wait_ms: i64,
+    pub on_incomplete: String,
+    pub profile_version: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = agent_evaluation_policy_assignments)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct AgentEvaluationPolicyAssignmentRecord {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub agent_id: String,
+    pub policy_id: String,
+    pub policy_version: Option<i32>,
+    pub weight: i32,
+    pub critical: bool,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable, Serialize)]
+#[diesel(table_name = run_participants)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct RunParticipantRecord {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub run_id: Uuid,
+    pub agent_id: String,
+    pub role: String,
+    pub joined_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable, Serialize)]
+#[diesel(table_name = run_evaluation_policy_manifest)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct RunEvaluationPolicyManifestRecord {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub run_id: Uuid,
+    pub agent_id: String,
+    pub policy_id: String,
+    pub policy_family: String,
+    pub policy_version: i32,
+    pub policy_hash: String,
+    pub policy_yaml: String,
+    pub weight: i32,
+    pub critical: bool,
+    pub evidence_requirements: Value,
+    pub captured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Insertable)]
+#[diesel(table_name = run_spans)]
+pub struct NewRunSpan {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub run_id: Uuid,
+    pub agent_id: String,
+    pub run_event_id: Option<Uuid>,
+    pub otel_trace_id: String,
+    pub otel_span_id: String,
+    pub parent_span_id: Option<String>,
+    pub name: String,
+    pub span_kind: i32,
+    pub operation_name: Option<String>,
+    pub conversation_id: Option<String>,
+    pub external_agent_id: Option<String>,
+    pub started_at: DateTime<Utc>,
+    pub ended_at: DateTime<Utc>,
+    pub status_code: i32,
+    pub status_message: Option<String>,
+    pub resource: Value,
+    pub attributes: Value,
+    pub events: Value,
+    pub links: Value,
+    pub content_capture_status: String,
+    pub dropped_attribute_count: i32,
+    pub late_evidence: bool,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable, Serialize)]
+#[diesel(table_name = run_spans)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct RunSpanRecord {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub run_id: Uuid,
+    pub agent_id: String,
+    pub run_event_id: Option<Uuid>,
+    pub otel_trace_id: String,
+    pub otel_span_id: String,
+    pub parent_span_id: Option<String>,
+    pub name: String,
+    pub span_kind: i32,
+    pub operation_name: Option<String>,
+    pub conversation_id: Option<String>,
+    pub external_agent_id: Option<String>,
+    pub started_at: DateTime<Utc>,
+    pub ended_at: DateTime<Utc>,
+    pub status_code: i32,
+    pub status_message: Option<String>,
+    pub resource: Value,
+    pub attributes: Value,
+    pub events: Value,
+    pub links: Value,
+    pub content_capture_status: String,
+    pub dropped_attribute_count: i32,
+    pub late_evidence: bool,
+    pub ingested_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = run_snapshots)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct RunSnapshotRecord {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub id: Uuid,
+    pub run_id: Uuid,
+    pub snapshot_version: i32,
+    pub snapshot_hash: String,
+    pub manifest_hash: String,
+    pub capture_status: String,
+    pub event_cutoff: DateTime<Utc>,
+    pub event_count: i64,
+    pub trace_count: i64,
+    pub span_count: i64,
+    pub dropped_trace_count: i64,
+    pub late_evidence_count: i64,
+    pub snapshot: Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = evaluation_jobs)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct EvaluationJobRecord {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub id: Uuid,
+    pub run_id: Uuid,
+    pub agent_id: String,
+    pub snapshot_id: Uuid,
+    pub snapshot_hash: String,
+    pub manifest_hash: String,
+    pub evaluator_version: String,
+    pub status: String,
+    pub attempts: i32,
+    pub available_at: DateTime<Utc>,
+    pub lease_owner: Option<String>,
+    pub lease_expires_at: Option<DateTime<Utc>>,
+    pub error: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = evaluation_results)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct EvaluationResultRecord {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub id: Uuid,
+    pub job_id: Uuid,
+    pub run_id: Uuid,
+    pub agent_id: String,
+    pub snapshot_hash: String,
+    pub manifest_hash: String,
+    pub evaluator_version: String,
+    pub verdict: String,
+    pub score_bps: Option<i32>,
+    pub capture_status: String,
+    pub llm_audit: Option<serde_json::Value>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = evaluation_findings)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct EvaluationFindingRecord {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub id: Uuid,
+    pub result_id: Uuid,
+    pub run_id: Uuid,
+    pub agent_id: String,
+    pub policy_id: String,
+    pub policy_version: i32,
+    pub severity: String,
+    pub critical: bool,
+    pub status: String,
+    pub score_bps: Option<i32>,
+    pub reason: String,
+    pub evidence: Value,
     pub created_at: DateTime<Utc>,
 }
 

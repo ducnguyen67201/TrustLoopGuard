@@ -141,6 +141,21 @@ function sessionRunSummary(status = 'running'): { [key: string]: JsonValue } {
   };
 }
 
+function sessionFinalizeResponse(status = 'completed'): { [key: string]: JsonValue } {
+  return {
+    run: sessionRunSummary(status),
+    finalization: {
+      finalized_at: '2026-01-01T00:01:00Z',
+      boundary_source: 'framework_adapter',
+      boundary_confidence: 'strong',
+      capture_status: 'waiting',
+      capture_deadline: '2026-01-01T00:01:30Z',
+      expected_flush_id: null,
+    },
+    evaluation_status: 'waiting_capture',
+  };
+}
+
 function liveKitSessionClient(failFirstStart = false): {
   client: Client;
   requests: CapturedToolRequest[];
@@ -166,7 +181,9 @@ function liveKitSessionClient(failFirstStart = false): {
       }
       return Response.json(sessionRunSummary(), { status: 201 });
     }
-    if (method === 'PATCH') return Response.json(sessionRunSummary('completed'));
+    if (url.endsWith('/finalize') && method === 'POST') {
+      return Response.json(sessionFinalizeResponse());
+    }
     return Response.json(decision('permit'));
   });
   return {
@@ -365,7 +382,10 @@ describe('guardAgent() tool discovery', () => {
     ).toEqual(['018f1111-1111-7111-8111-111111111111', '018f1111-1111-7111-8111-111111111111']);
 
     await session.close({ reason: 'participant_disconnected' });
-    expect(requests.at(-1)?.body).toEqual({ status: 'completed' });
+    expect(requests.at(-1)?.body).toEqual({
+      status: 'completed',
+      boundary_source: 'framework_adapter',
+    });
   });
 
   it('deduplicates a concurrent first output and first tool boundary', async () => {
@@ -385,7 +405,9 @@ describe('guardAgent() tool discovery', () => {
         startSeen.resolve(undefined);
         return await startResponse.promise;
       }
-      if (method === 'PATCH') return Response.json(sessionRunSummary('completed'));
+      if (url.endsWith('/finalize') && method === 'POST') {
+        return Response.json(sessionFinalizeResponse());
+      }
       return Response.json(decision('permit'));
     });
     const client = new Client({ baseUrl: 'http://x', fetchImpl });
@@ -441,7 +463,10 @@ describe('guardAgent() tool discovery', () => {
     ]);
 
     await session.close({ reason: 'task_completed' });
-    expect(requests.at(-1)?.body).toEqual({ status: 'completed' });
+    expect(requests.at(-1)?.body).toEqual({
+      status: 'completed',
+      boundary_source: 'framework_adapter',
+    });
   });
 
   it('keeps a nested tool and output ungrouped after one failed session start attempt', async () => {
@@ -486,7 +511,7 @@ describe('guardAgent() tool discovery', () => {
     expect(warnings[0]).toMatchObject({ code: 'run_start_failed', phase: 'start' });
 
     await session.close({ reason: 'task_completed' });
-    expect(requests.filter(({ method }) => method === 'PATCH')).toHaveLength(0);
+    expect(requests.filter(({ url }) => url.endsWith('/finalize'))).toHaveLength(0);
   });
 
   it('blocks denied tool calls before the original side effect runs', async () => {

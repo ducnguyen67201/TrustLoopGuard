@@ -28,6 +28,7 @@ impl RunRepo {
                 traces::run_id,
                 traces::run_event_id,
                 traces::session_id,
+                traces::agent_id,
                 traces::environment_id,
                 traces::domain,
                 traces::decision,
@@ -51,6 +52,7 @@ impl RunRepo {
                     run_id,
                     run_event_id,
                     session_id,
+                    agent_id,
                     environment_id,
                     domain,
                     decision,
@@ -61,6 +63,7 @@ impl RunRepo {
                     let latest_review = latest_reviews.get(&trace_id);
                     TraceSummary {
                         trace_id: trace_id.to_string(),
+                        agent_id,
                         run_id: run_id.map(|id| id.to_string()),
                         run_event_id: run_event_id.map(|id| id.to_string()),
                         session_id,
