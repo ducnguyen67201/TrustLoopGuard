@@ -38,7 +38,7 @@ impl RunRepo {
             .map_err(|error| StorageError::Internal(format!("ended_at parse: {error}")))?
             .map(|value| value.with_timezone(&Utc));
         let boundary_source = boundary_source_text(input.boundary_source);
-        let boundary_confidence = boundary_confidence_for(input.boundary_source);
+        let boundary_confidence = input.boundary_source.confidence();
         let mut conn = self.connection().await?;
         conn.transaction::<(), StorageError, _>(async |conn| {
             let current = diesel::update(
@@ -171,20 +171,6 @@ impl RunRepo {
             capture_deadline: deadline.to_rfc3339(),
             expected_flush_id: flush,
         }))
-    }
-}
-
-pub(crate) fn boundary_confidence_for(source: RunBoundarySource) -> BoundaryConfidence {
-    match source {
-        RunBoundarySource::ExplicitSdk | RunBoundarySource::Admin => {
-            BoundaryConfidence::Authoritative
-        }
-        RunBoundarySource::FrameworkAdapter
-        | RunBoundarySource::OtelSessionEnd
-        | RunBoundarySource::LegacySdk => BoundaryConfidence::Strong,
-        RunBoundarySource::RootSpanEnd
-        | RunBoundarySource::IdleTimeout
-        | RunBoundarySource::MaxDuration => BoundaryConfidence::Inferred,
     }
 }
 

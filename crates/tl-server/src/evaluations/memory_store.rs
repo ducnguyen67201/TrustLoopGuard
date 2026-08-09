@@ -21,7 +21,6 @@ pub struct MemoryEvaluationStore {
     participants: RwLock<HashMap<RunKey, Vec<RunParticipantSummary>>>,
     frozen_participants: RwLock<HashSet<ParticipantKey>>,
     manifests: RwLock<HashMap<RunKey, Vec<RunEvaluationPolicyManifestSummary>>>,
-    results: RwLock<HashMap<RunKey, Vec<EvaluationResultDetail>>>,
 }
 
 impl MemoryEvaluationStore {
@@ -240,17 +239,11 @@ impl EvaluationStore for MemoryEvaluationStore {
 
     async fn list_results(
         &self,
-        workspace_id: &str,
+        _workspace_id: &str,
         _environment_id: &str,
-        run_id: &str,
+        _run_id: &str,
     ) -> Result<Vec<EvaluationResultDetail>, EvaluationStoreError> {
-        Ok(self
-            .results
-            .read()
-            .await
-            .get(&(workspace_id.to_string(), run_id.to_string()))
-            .cloned()
-            .unwrap_or_default())
+        Ok(Vec::new())
     }
 
     async fn list_jobs(

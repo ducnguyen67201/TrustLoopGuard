@@ -468,7 +468,6 @@ fn normalize_span(
     let links = span
         .links
         .into_iter()
-        .take(config.max_links)
         .map(|link| {
             Ok(json!({
                 "trace_id": fixed_hex(&link.trace_id, 16)?,

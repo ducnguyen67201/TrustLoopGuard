@@ -15,7 +15,7 @@ use tl_core::{
     RunCaptureStatus, RunEvaluationPolicyManifestSummary, RunParticipantRole,
     RunParticipantSummary, Severity,
 };
-use tl_policy::{AnyPolicy, FamilyPolicy, MatchClause, Matcher};
+use tl_policy::{AnyPolicy, FamilyPolicy};
 use uuid::Uuid;
 
 use crate::models::{
@@ -600,7 +600,7 @@ async fn build_evidence_requirements(
                     ))
                 })?;
                 match parsed {
-                    AnyPolicy::Content(content) if !match_uses_semantic(&content.r#match) => {}
+                    AnyPolicy::Content(content) if !content.r#match.uses_semantic() => {}
                     AnyPolicy::Content(_) => {
                         return Err(StorageError::Internal(format!(
                             "policy_replay source `{policy_id}` must use deterministic literal or regex matchers"
@@ -667,18 +667,6 @@ async fn resolve_replay_policy_version(
         .first::<String>(conn)
         .await?;
     Ok((version, yaml))
-}
-
-fn match_uses_semantic(clause: &MatchClause) -> bool {
-    match clause {
-        MatchClause::Single(matcher) => matches!(matcher, Matcher::Semantic(_)),
-        MatchClause::Any { any } => any
-            .iter()
-            .any(|matcher| matches!(matcher, Matcher::Semantic(_))),
-        MatchClause::All { all } => all
-            .iter()
-            .any(|matcher| matches!(matcher, Matcher::Semantic(_))),
-    }
 }
 
 fn validate_profile_input(input: &PutAgentEvaluationProfileRequest) -> Result<(), StorageError> {

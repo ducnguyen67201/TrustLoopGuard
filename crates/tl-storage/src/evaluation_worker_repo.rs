@@ -447,7 +447,6 @@ impl EvaluationRepo {
                 "events": event_rows.iter().map(|event| {
                     minimize_snapshot_event(
                         serde_json::to_value(event).unwrap_or(serde_json::Value::Null),
-                        agent_content_modes.get(&event.agent_id),
                     )
                 }).collect::<Vec<_>>(),
                 "traces": trace_json,
@@ -907,16 +906,13 @@ fn minimize_snapshot_payload(
         object.remove("checked_input_excerpt");
         object.remove("checked_output_excerpt");
         if let Some(event) = object.get_mut("event") {
-            *event = minimize_snapshot_event(std::mem::take(event), content_mode);
+            *event = minimize_snapshot_event(std::mem::take(event));
         }
     }
     payload
 }
 
-fn minimize_snapshot_event(
-    mut event: serde_json::Value,
-    _content_mode: Option<&String>,
-) -> serde_json::Value {
+fn minimize_snapshot_event(mut event: serde_json::Value) -> serde_json::Value {
     let Some(object) = event.as_object_mut() else {
         return event;
     };

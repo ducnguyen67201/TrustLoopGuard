@@ -280,9 +280,7 @@ export type RunDetailSnapshot = {
 
 export type TraceSide = 'input' | 'output' | 'tool' | 'other';
 
-export function currentAssuranceStatus(
-  assurance: RunDetailSnapshot['assurance'],
-): string {
+export function currentAssuranceStatus(assurance: RunDetailSnapshot['assurance']): string {
   if (assurance.eligibility === 'legacy_incomplete') return assurance.eligibility;
 
   const agents = new Set([

@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use tl_core::{
-    BoundaryConfidence, CreateRunEventRequest, CreateRunRequest, EvaluationJobStatus,
-    FinalizeRunRequest, FinalizeRunResponse, RunCaptureStatus, RunEventSummary,
-    RunFinalizationSummary, RunStatus, RunSummary, TraceSummary, UpdateRunRequest,
+    CreateRunEventRequest, CreateRunRequest, EvaluationJobStatus, FinalizeRunRequest,
+    FinalizeRunResponse, RunCaptureStatus, RunEventSummary, RunFinalizationSummary, RunStatus,
+    RunSummary, TraceSummary, UpdateRunRequest,
 };
 use tokio::sync::RwLock;
 
@@ -196,19 +196,10 @@ impl RunStore for MemoryRunStore {
             run.ended_at = Some(ended_at);
             run.updated_at = now.to_rfc3339();
         }
-        let confidence = match input.boundary_source {
-            tl_core::RunBoundarySource::ExplicitSdk | tl_core::RunBoundarySource::Admin => {
-                BoundaryConfidence::Authoritative
-            }
-            tl_core::RunBoundarySource::FrameworkAdapter
-            | tl_core::RunBoundarySource::OtelSessionEnd
-            | tl_core::RunBoundarySource::LegacySdk => BoundaryConfidence::Strong,
-            _ => BoundaryConfidence::Inferred,
-        };
         let finalization = RunFinalizationSummary {
             finalized_at: now.to_rfc3339(),
             boundary_source: input.boundary_source,
-            boundary_confidence: confidence,
+            boundary_confidence: input.boundary_source.confidence(),
             capture_status: RunCaptureStatus::Waiting,
             capture_deadline: (now
                 + chrono::Duration::milliseconds(

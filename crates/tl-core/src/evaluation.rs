@@ -43,6 +43,20 @@ wire_enum!(BoundaryConfidence {
     Inferred,
 });
 
+impl RunBoundarySource {
+    pub const fn confidence(self) -> BoundaryConfidence {
+        match self {
+            Self::ExplicitSdk | Self::Admin => BoundaryConfidence::Authoritative,
+            Self::FrameworkAdapter | Self::OtelSessionEnd | Self::LegacySdk => {
+                BoundaryConfidence::Strong
+            }
+            Self::RootSpanEnd | Self::IdleTimeout | Self::MaxDuration => {
+                BoundaryConfidence::Inferred
+            }
+        }
+    }
+}
+
 wire_enum!(RunCaptureStatus {
     Open,
     Waiting,

@@ -186,9 +186,7 @@ def _call_with_timeout(
         raise TimeoutError("telemetry flush timed out") from error
     if succeeded:
         return value
-    if isinstance(value, BaseException):
-        raise value
-    raise RuntimeError("telemetry flush failed without an exception")
+    raise value
 
 
 def _run_request(

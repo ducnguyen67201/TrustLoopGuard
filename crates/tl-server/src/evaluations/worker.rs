@@ -17,7 +17,7 @@ use tl_engine::{evaluate_event_policies, EventPolicyEvalCtx};
 use tl_eval::{FindingOutput, ManifestEntry, PolicyReplayPort, RubricGraderPort, SnapshotEvidence};
 use tl_llm::{JsonSchema, JudgeKind, LlmCallAudit, LlmRouteKind, LlmRouter};
 use tl_policy::family_ast::{EvaluationGrader, EvaluationPolicy};
-use tl_policy::{AnyPolicy, FamilyPolicy, MatchClause, Matcher};
+use tl_policy::{AnyPolicy, FamilyPolicy};
 use tl_storage::{
     EvaluationJobWork, EvaluationRepo, PersistEvaluationFinding, PersistEvaluationResult,
 };
@@ -322,7 +322,7 @@ async fn replay_policy(
                 source.policy_id, source.policy_version
             ));
         };
-        if policy.id != source.policy_id || match_uses_semantic(&policy.r#match) {
+        if policy.id != source.policy_id || policy.r#match.uses_semantic() {
             return Err(format!(
                 "frozen replay source {}@{} is not a deterministic content policy",
                 source.policy_id, source.policy_version
@@ -441,18 +441,6 @@ fn event_has_replayable_text(event: &GuardEvent) -> bool {
             .and_then(serde_json::Value::as_str)
             .is_some(),
         _ => false,
-    }
-}
-
-fn match_uses_semantic(clause: &MatchClause) -> bool {
-    match clause {
-        MatchClause::Single(matcher) => matches!(matcher, Matcher::Semantic(_)),
-        MatchClause::Any { any } => any
-            .iter()
-            .any(|matcher| matches!(matcher, Matcher::Semantic(_))),
-        MatchClause::All { all } => all
-            .iter()
-            .any(|matcher| matches!(matcher, Matcher::Semantic(_))),
     }
 }
 
