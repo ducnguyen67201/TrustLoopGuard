@@ -37,6 +37,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./observability": {
+      "types": "./dist/observability.d.ts",
+      "import": "./dist/observability.js",
+      "default": "./dist/observability.js"
     }
   },
   "files": [
@@ -52,7 +57,15 @@
     "prepack": "pnpm build",
     "clean": "rm -rf dist"
   },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/exporter-trace-otlp-proto": "^0.221.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-trace-base": "^2.10.0",
+    "@opentelemetry/sdk-trace-node": "^2.10.0"
+  },
   "devDependencies": {
+    "@types/node": "^24.10.1",
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
   }
