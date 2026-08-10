@@ -12,8 +12,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tl_core::{
     CreateRunEventRequest, CreateRunRequest, FinalizeRunRequest, FinalizeRunResponse,
-    RunEventSummary, RunFinalizationSummary, RunKind, RunStatus, RunSummary, TraceSummary,
-    UpdateRunRequest,
+    RunEventSummary, RunFinalizationSummary, RunKind, RunSpanSummary, RunStatus, RunSummary,
+    TraceSummary, UpdateRunRequest,
 };
 
 use crate::environments::EnvironmentStore;
@@ -107,6 +107,13 @@ pub trait RunStore: Send + Sync {
         run_id: &str,
         limit: usize,
     ) -> Result<Vec<TraceSummary>, RunStoreError>;
+    async fn spans(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+        limit: usize,
+    ) -> Result<Vec<RunSpanSummary>, RunStoreError>;
 
     async fn event_belongs_to_run(
         &self,

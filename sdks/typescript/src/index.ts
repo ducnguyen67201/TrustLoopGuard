@@ -133,6 +133,7 @@ export type * from './generated/RunKind.js';
 export type * from './generated/RunListResponse.js';
 export type * from './generated/RunEvaluationEligibility.js';
 export type * from './generated/RunStatus.js';
+export type * from './generated/RunSpanSummary.js';
 export type * from './generated/RunSummary.js';
 export type * from './generated/AgentEvaluationPolicyAssignment.js';
 export type * from './generated/AgentEvaluationPolicyAssignmentListResponse.js';

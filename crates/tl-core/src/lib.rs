@@ -202,8 +202,8 @@ pub use redteam_runner::{
 pub use run::{
     CreateRunEventRequest, CreateRunRequest, RunBudgetWindowSnapshot, RunDetail,
     RunEvaluationEligibility, RunEventKind, RunEventListResponse, RunEventSummary,
-    RunGuardrailUsage, RunKind, RunListResponse, RunLlmBudgetDecision, RunProviderUsage, RunStatus,
-    RunSummary, UpdateRunRequest,
+    RunGuardrailUsage, RunKind, RunListResponse, RunLlmBudgetDecision, RunProviderUsage,
+    RunSpanSummary, RunStatus, RunSummary, UpdateRunRequest,
 };
 pub use team::{
     CreateInviteRequest, CreateInviteResponse, CreateWorkspaceRequest, InviteListResponse,

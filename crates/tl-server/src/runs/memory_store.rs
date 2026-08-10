@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use tl_core::{
     CreateRunEventRequest, CreateRunRequest, EvaluationJobStatus, FinalizeRunRequest,
-    FinalizeRunResponse, RunCaptureStatus, RunEventSummary, RunFinalizationSummary, RunStatus,
-    RunSummary, TraceSummary, UpdateRunRequest,
+    FinalizeRunResponse, RunCaptureStatus, RunEventSummary, RunFinalizationSummary, RunSpanSummary,
+    RunStatus, RunSummary, TraceSummary, UpdateRunRequest,
 };
 use tokio::sync::RwLock;
 
@@ -236,6 +236,17 @@ impl RunStore for MemoryRunStore {
         run_id: &str,
         _limit: usize,
     ) -> Result<Vec<TraceSummary>, RunStoreError> {
+        self.get(workspace_id, environment_id, run_id).await?;
+        Ok(vec![])
+    }
+
+    async fn spans(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+        _limit: usize,
+    ) -> Result<Vec<RunSpanSummary>, RunStoreError> {
         self.get(workspace_id, environment_id, run_id).await?;
         Ok(vec![])
     }

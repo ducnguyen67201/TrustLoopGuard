@@ -170,6 +170,104 @@ describe('RunDetailLiveView', () => {
     expect(screen.getByText('Deterministic only — no guardrail LLM cost.')).toBeInTheDocument();
   });
 
+  it('renders an accessible span waterfall with tree navigation and collapse controls', async () => {
+    const user = userEvent.setup();
+    const snapshot = {
+      ...BASE_SNAPSHOT,
+      spans: [
+        {
+          key: 'trace-1:root',
+          traceId: 'trace-1',
+          spanId: 'root',
+          parentSpanId: null,
+          agentId: 'demo-acme-support',
+          runEventId: null,
+          name: 'Agent turn',
+          kind: 'Server',
+          operation: 'chat',
+          conversationId: 'conversation-1',
+          externalAgentId: null,
+          service: 'support-agent',
+          startedAt: '2026-06-25T17:35:19.000Z',
+          endedAt: '2026-06-25T17:35:20.000Z',
+          startedMicros: Date.parse('2026-06-25T17:35:19.000Z') * 1_000,
+          endedMicros: Date.parse('2026-06-25T17:35:20.000Z') * 1_000,
+          durationMs: 1_000,
+          statusCode: 1,
+          status: 'OK',
+          statusMessage: null,
+          resource: [{ label: 'service.name', value: 'support-agent' }],
+          attributes: [{ label: 'gen_ai.operation.name', value: 'chat' }],
+          eventCount: 0,
+          linkCount: 0,
+          contentCaptureStatus: 'metadata_only',
+          droppedAttributeCount: 0,
+          lateEvidence: false,
+          ingestedAt: '2026-06-25T17:35:20.100Z',
+        },
+        {
+          key: 'trace-1:child',
+          traceId: 'trace-1',
+          spanId: 'child',
+          parentSpanId: 'root',
+          agentId: 'demo-acme-support',
+          runEventId: null,
+          name: 'LLM call',
+          kind: 'Client',
+          operation: 'chat',
+          conversationId: 'conversation-1',
+          externalAgentId: null,
+          service: 'model-gateway',
+          startedAt: '2026-06-25T17:35:19.100Z',
+          endedAt: '2026-06-25T17:35:19.700Z',
+          startedMicros: Date.parse('2026-06-25T17:35:19.100Z') * 1_000,
+          endedMicros: Date.parse('2026-06-25T17:35:19.700Z') * 1_000,
+          durationMs: 600,
+          statusCode: 2,
+          status: 'Error',
+          statusMessage: 'Provider timeout',
+          resource: [{ label: 'service.name', value: 'model-gateway' }],
+          attributes: [{ label: 'gen_ai.request.model', value: 'example-model' }],
+          eventCount: 1,
+          linkCount: 0,
+          contentCaptureStatus: 'metadata_only',
+          droppedAttributeCount: 0,
+          lateEvidence: false,
+          ingestedAt: '2026-06-25T17:35:20.100Z',
+        },
+      ],
+    } satisfies typeof BASE_SNAPSHOT;
+
+    render(
+      <RunDetailLiveView
+        initialData={snapshot}
+        runId="run-param-auth"
+        workspaceSlug="test-BJ-V"
+        agentIdentity={UNAVAILABLE_AGENT}
+      />,
+    );
+
+    expect(screen.getByRole('tab', { name: 'Waterfall (2)' })).toHaveAttribute(
+      'data-state',
+      'active',
+    );
+    expect(screen.getAllByRole('treeitem')).toHaveLength(2);
+
+    const root = screen.getByRole('button', { name: /Agent turn.*support-agent.*Server/i });
+    root.focus();
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('heading', { name: 'LLM call' })).toBeInTheDocument();
+    expect(screen.getByText('Provider timeout')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Collapse Agent turn' }));
+    expect(screen.getAllByRole('treeitem')).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Expand Agent turn' }));
+    expect(screen.getAllByRole('treeitem')).toHaveLength(2);
+
+    await user.click(screen.getByRole('tab', { name: 'Audit log (0)' }));
+    expect(screen.getByText('Waiting for the first check')).toBeInTheDocument();
+  });
+
   it('shows capture incompleteness and active post-run evaluation without implying a pass', () => {
     const snapshot = {
       ...BASE_SNAPSHOT,

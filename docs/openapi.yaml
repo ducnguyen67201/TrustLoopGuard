@@ -10474,6 +10474,10 @@ components:
           - $ref: '#/components/schemas/RunProviderUsage'
         run:
           $ref: '#/components/schemas/RunSummary'
+        spans:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunSpanSummary'
         traces:
           type: array
           items:
@@ -10766,6 +10770,96 @@ components:
           - integer
           - 'null'
           format: int64
+    RunSpanSummary:
+      type: object
+      required:
+      - trace_id
+      - span_id
+      - agent_id
+      - name
+      - span_kind
+      - started_at
+      - ended_at
+      - status_code
+      - resource
+      - attributes
+      - events
+      - links
+      - content_capture_status
+      - dropped_attribute_count
+      - late_evidence
+      - ingested_at
+      properties:
+        agent_id:
+          type: string
+        attributes:
+          type: object
+          additionalProperties: {}
+          propertyNames:
+            type: string
+        content_capture_status:
+          type: string
+        conversation_id:
+          type:
+          - string
+          - 'null'
+        dropped_attribute_count:
+          type: integer
+          format: int32
+        ended_at:
+          type: string
+          description: RFC 3339 timestamp.
+        events:
+          type: array
+          items: {}
+        external_agent_id:
+          type:
+          - string
+          - 'null'
+        ingested_at:
+          type: string
+          description: RFC 3339 timestamp.
+        late_evidence:
+          type: boolean
+        links:
+          type: array
+          items: {}
+        name:
+          type: string
+        operation_name:
+          type:
+          - string
+          - 'null'
+        parent_span_id:
+          type:
+          - string
+          - 'null'
+        resource:
+          type: object
+          additionalProperties: {}
+          propertyNames:
+            type: string
+        run_event_id:
+          type:
+          - string
+          - 'null'
+        span_id:
+          type: string
+        span_kind:
+          type: integer
+          format: int32
+        started_at:
+          type: string
+          description: RFC 3339 timestamp.
+        status_code:
+          type: integer
+          format: int32
+        status_message:
+          type:
+          - string
+          - 'null'
+        trace_id:
+          type: string
     RunStatus:
       type: string
       enum:

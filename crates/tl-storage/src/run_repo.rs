@@ -13,6 +13,7 @@ use crate::StorageError;
 mod events;
 mod finalization;
 mod reviews;
+mod spans;
 mod summary;
 mod text;
 mod traces;

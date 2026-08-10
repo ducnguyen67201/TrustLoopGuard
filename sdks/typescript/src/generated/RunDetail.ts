@@ -7,7 +7,8 @@ import type { RunGuardrailUsage } from "./RunGuardrailUsage.js";
 import type { RunLlmBudgetDecision } from "./RunLlmBudgetDecision.js";
 import type { RunParticipantSummary } from "./RunParticipantSummary.js";
 import type { RunProviderUsage } from "./RunProviderUsage.js";
+import type { RunSpanSummary } from "./RunSpanSummary.js";
 import type { RunSummary } from "./RunSummary.js";
 import type { TraceSummary } from "./TraceSummary.js";
 
-export type RunDetail = { run: RunSummary, events: Array<RunEventSummary>, traces: Array<TraceSummary>, provider_usage?: RunProviderUsage, guardrail_usage: Array<RunGuardrailUsage>, budget_decision?: RunLlmBudgetDecision, finalization?: RunFinalizationSummary, participants: Array<RunParticipantSummary>, evaluation_jobs: Array<EvaluationJobSummary>, evaluations: Array<EvaluationResultSummary>, };
+export type RunDetail = { run: RunSummary, events: Array<RunEventSummary>, traces: Array<TraceSummary>, spans: Array<RunSpanSummary>, provider_usage?: RunProviderUsage, guardrail_usage: Array<RunGuardrailUsage>, budget_decision?: RunLlmBudgetDecision, finalization?: RunFinalizationSummary, participants: Array<RunParticipantSummary>, evaluation_jobs: Array<EvaluationJobSummary>, evaluations: Array<EvaluationResultSummary>, };

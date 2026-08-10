@@ -58,6 +58,35 @@ describe('parseRunDetailSnapshot', () => {
           created_at: '2026-05-25T00:00:01.000Z',
         },
       ],
+      spans: [
+        {
+          trace_id: 'otel-trace-1',
+          span_id: 'span-root',
+          parent_span_id: null,
+          agent_id: 'demo-agent',
+          run_event_id: 'event-1',
+          name: 'agent turn',
+          span_kind: 2,
+          operation_name: 'chat',
+          conversation_id: 'conversation-1',
+          external_agent_id: 'customer-agent',
+          started_at: '2026-05-25T00:00:00.000Z',
+          ended_at: '2026-05-25T00:00:00.000161Z',
+          status_code: 1,
+          status_message: null,
+          resource: {
+            attributes: { 'service.name': 'customer-agent-service' },
+            scope: { name: 'customer-agent-instrumentation' },
+          },
+          attributes: { 'gen_ai.operation.name': 'chat' },
+          events: [{ name: 'prompt-ready' }],
+          links: [],
+          content_capture_status: 'metadata_only',
+          dropped_attribute_count: 0,
+          late_evidence: false,
+          ingested_at: '2026-05-25T00:00:01.000Z',
+        },
+      ],
       finalization: {
         finalized_at: '2026-05-25T00:00:02.000Z',
         boundary_source: 'explicit_sdk',
@@ -120,6 +149,15 @@ describe('parseRunDetailSnapshot', () => {
       policy: 'policy-1',
       safeOutput: 'Blocked by Featherlane AI.',
       checkedOutput: 'That is a stupid question. Figure it out yourself.',
+    });
+    expect(snapshot.spans[0]).toMatchObject({
+      key: 'otel-trace-1:span-root',
+      name: 'agent turn',
+      service: 'customer-agent-service',
+      kind: 'Server',
+      status: 'OK',
+      durationMs: 0.161,
+      eventCount: 1,
     });
     expect(snapshot.assurance.finalization?.capture_status).toBe('complete');
     expect(snapshot.assurance.eligibility).toBe('eligible');

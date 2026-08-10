@@ -10,7 +10,8 @@ use tl_core::{
 };
 use tl_storage::{
     connect_postgres, migrate_postgres,
-    schema::{agents, organizations, workspace_environments, workspaces},
+    models::NewRunSpan,
+    schema::{agents, organizations, run_spans, workspace_environments, workspaces},
     DbPool, RunFilter, RunRepo, StorageError,
 };
 
@@ -121,6 +122,111 @@ async fn create_list_and_update_run() {
         .expect("update");
     assert_eq!(updated.status, RunStatus::Completed);
     assert!(updated.ended_at.is_some());
+}
+
+#[tokio::test]
+async fn lists_run_spans_in_waterfall_order() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = RunRepo::new(pool.clone());
+    let run = repo
+        .create(
+            "ws_test",
+            "production",
+            CreateRunRequest {
+                agent_id: "agent-a".into(),
+                kind: RunKind::Workflow,
+                status: None,
+                external_id: None,
+                metadata: serde_json::json!({}),
+            },
+        )
+        .await
+        .expect("create run");
+    let run_id = uuid::Uuid::parse_str(&run.id).expect("run uuid");
+    let root_started = chrono::Utc::now();
+    let child_started = root_started + chrono::Duration::milliseconds(10);
+    let spans = [
+        NewRunSpan {
+            workspace_id: "ws_test".into(),
+            environment_id: "production".into(),
+            run_id,
+            agent_id: "agent-a".into(),
+            run_event_id: None,
+            otel_trace_id: "0123456789abcdef0123456789abcdef".into(),
+            otel_span_id: "1111111111111111".into(),
+            parent_span_id: Some("0000000000000001".into()),
+            name: "model call".into(),
+            span_kind: 3,
+            operation_name: Some("chat".into()),
+            conversation_id: None,
+            external_agent_id: None,
+            started_at: child_started,
+            ended_at: child_started + chrono::Duration::milliseconds(20),
+            status_code: 1,
+            status_message: None,
+            resource: serde_json::json!({
+                "attributes": {"service.name": "model-gateway"},
+                "scope": {"name": "test-instrumentation"}
+            }),
+            attributes: serde_json::json!({"gen_ai.request.model": "example-model"}),
+            events: serde_json::json!([]),
+            links: serde_json::json!([]),
+            content_capture_status: "metadata_only".into(),
+            dropped_attribute_count: 0,
+            late_evidence: false,
+        },
+        NewRunSpan {
+            workspace_id: "ws_test".into(),
+            environment_id: "production".into(),
+            run_id,
+            agent_id: "agent-a".into(),
+            run_event_id: None,
+            otel_trace_id: "0123456789abcdef0123456789abcdef".into(),
+            otel_span_id: "0000000000000001".into(),
+            parent_span_id: None,
+            name: "agent turn".into(),
+            span_kind: 2,
+            operation_name: Some("workflow".into()),
+            conversation_id: None,
+            external_agent_id: Some("customer-agent".into()),
+            started_at: root_started,
+            ended_at: root_started + chrono::Duration::milliseconds(50),
+            status_code: 1,
+            status_message: None,
+            resource: serde_json::json!({
+                "attributes": {"service.name": "customer-agent"},
+                "scope": {"name": "test-instrumentation"}
+            }),
+            attributes: serde_json::json!({}),
+            events: serde_json::json!([]),
+            links: serde_json::json!([]),
+            content_capture_status: "metadata_only".into(),
+            dropped_attribute_count: 0,
+            late_evidence: false,
+        },
+    ];
+    let mut conn = pool.get().await.expect("connection");
+    diesel::insert_into(run_spans::table)
+        .values(&spans)
+        .execute(&mut conn)
+        .await
+        .expect("insert spans");
+
+    let listed = repo
+        .spans("ws_test", &run.id, 100)
+        .await
+        .expect("list spans");
+
+    assert_eq!(listed.len(), 2);
+    assert_eq!(listed[0].span_id, "0000000000000001");
+    assert_eq!(
+        listed[1].parent_span_id.as_deref(),
+        Some("0000000000000001")
+    );
+    assert_eq!(
+        listed[1].resource["attributes"]["service.name"],
+        "model-gateway"
+    );
 }
 
 #[tokio::test]

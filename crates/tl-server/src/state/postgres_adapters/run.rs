@@ -151,6 +151,20 @@ impl RunStore for PostgresRunAdapter {
             .map_err(run_store_error)
     }
 
+    async fn spans(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+        limit: usize,
+    ) -> Result<Vec<tl_core::RunSpanSummary>, RunStoreError> {
+        self.get(workspace_id, environment_id, run_id).await?;
+        self.0
+            .spans(workspace_id, run_id, limit as i64)
+            .await
+            .map_err(run_store_error)
+    }
+
     async fn event_belongs_to_run(
         &self,
         workspace_id: &str,

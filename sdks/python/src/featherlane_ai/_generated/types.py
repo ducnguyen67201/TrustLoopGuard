@@ -1453,6 +1453,31 @@ class RunProviderUsage(BaseModel):
     total_tokens: int | None = None
 
 
+class RunSpanSummary(BaseModel):
+    agent_id: str
+    attributes: dict[str, Any]
+    content_capture_status: str
+    conversation_id: str | None = None
+    dropped_attribute_count: int
+    ended_at: str = Field(..., description='RFC 3339 timestamp.')
+    events: list[Any]
+    external_agent_id: str | None = None
+    ingested_at: str = Field(..., description='RFC 3339 timestamp.')
+    late_evidence: bool
+    links: list[Any]
+    name: str
+    operation_name: str | None = None
+    parent_span_id: str | None = None
+    resource: dict[str, Any]
+    run_event_id: str | None = None
+    span_id: str
+    span_kind: int
+    started_at: str = Field(..., description='RFC 3339 timestamp.')
+    status_code: int
+    status_message: str | None = None
+    trace_id: str
+
+
 class RunStatus(Enum):
     warming = 'warming'
     running = 'running'
@@ -2750,6 +2775,7 @@ class RunDetail(BaseModel):
     participants: list[RunParticipantSummary] | None = None
     provider_usage: RunProviderUsage | None = None
     run: RunSummary
+    spans: list[RunSpanSummary] | None = None
     traces: list[TraceSummary]
 
 

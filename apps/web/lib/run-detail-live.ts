@@ -104,6 +104,31 @@ const traceSummarySchema = z.object({
   created_at: z.string(),
 });
 
+const runSpanSummarySchema = z.object({
+  trace_id: z.string(),
+  span_id: z.string(),
+  parent_span_id: z.string().nullable(),
+  agent_id: z.string(),
+  run_event_id: z.string().nullable(),
+  name: z.string(),
+  span_kind: z.number(),
+  operation_name: z.string().nullable(),
+  conversation_id: z.string().nullable(),
+  external_agent_id: z.string().nullable(),
+  started_at: z.string(),
+  ended_at: z.string(),
+  status_code: z.number(),
+  status_message: z.string().nullable(),
+  resource: objectSchema,
+  attributes: objectSchema,
+  events: z.array(objectSchema),
+  links: z.array(objectSchema),
+  content_capture_status: z.string(),
+  dropped_attribute_count: z.number(),
+  late_evidence: z.boolean(),
+  ingested_at: z.string(),
+});
+
 const providerUsageSchema = z.object({
   gateway_request_id: z.string(),
   route_id: z.string(),
@@ -195,6 +220,7 @@ const runDetailWireSchema = z.object({
   run: runSummarySchema,
   events: z.array(runEventSummarySchema),
   traces: z.array(traceSummarySchema),
+  spans: z.array(runSpanSummarySchema).default([]),
   provider_usage: providerUsageSchema.nullable().optional(),
   guardrail_usage: z.array(guardrailUsageSchema).default([]),
   budget_decision: budgetDecisionSchema.nullable().optional(),
@@ -265,6 +291,36 @@ export type RunDetailSnapshot = {
     time: string;
     clock: string;
     timestamp: number;
+  }>;
+  spans: Array<{
+    key: string;
+    traceId: string;
+    spanId: string;
+    parentSpanId: string | null;
+    agentId: string;
+    runEventId: string | null;
+    name: string;
+    kind: string;
+    operation: string | null;
+    conversationId: string | null;
+    externalAgentId: string | null;
+    service: string;
+    startedAt: string;
+    endedAt: string;
+    startedMicros: number;
+    endedMicros: number;
+    durationMs: number;
+    statusCode: number;
+    status: string;
+    statusMessage: string | null;
+    resource: Array<{ label: string; value: string }>;
+    attributes: Array<{ label: string; value: string }>;
+    eventCount: number;
+    linkCount: number;
+    contentCaptureStatus: string;
+    droppedAttributeCount: number;
+    lateEvidence: boolean;
+    ingestedAt: string;
   }>;
   providerUsage: z.infer<typeof providerUsageSchema> | null;
   guardrailUsage: Array<z.infer<typeof guardrailUsageSchema>>;
@@ -341,6 +397,7 @@ export function runDetailSnapshot(detail: RunDetailWire): RunDetailSnapshot {
     run: runSnapshot(detail.run),
     events,
     traces,
+    spans: detail.spans.map(spanSnapshot),
     providerUsage: detail.provider_usage ?? null,
     guardrailUsage: detail.guardrail_usage,
     budgetDecision: detail.budget_decision ?? null,
@@ -352,6 +409,71 @@ export function runDetailSnapshot(detail: RunDetailWire): RunDetailSnapshot {
       evaluations: detail.evaluations,
     },
   };
+}
+
+function spanSnapshot(span: RunDetailWire['spans'][number]): RunDetailSnapshot['spans'][number] {
+  const startedMicros = timestampMicros(span.started_at);
+  const endedMicros = timestampMicros(span.ended_at);
+  const resourceAttributes = span.resource['attributes'];
+  const nestedServiceName =
+    typeof resourceAttributes === 'object' &&
+    resourceAttributes !== null &&
+    !Array.isArray(resourceAttributes)
+      ? Reflect.get(resourceAttributes, 'service.name')
+      : null;
+  const serviceName = span.resource['service.name'] ?? nestedServiceName;
+  const service =
+    (typeof serviceName === 'string' && serviceName.trim()) ||
+    span.external_agent_id?.trim() ||
+    span.agent_id;
+
+  return {
+    key: `${span.trace_id}:${span.span_id}`,
+    traceId: span.trace_id,
+    spanId: span.span_id,
+    parentSpanId: span.parent_span_id,
+    agentId: span.agent_id,
+    runEventId: span.run_event_id,
+    name: span.name,
+    kind: spanKind(span.span_kind),
+    operation: span.operation_name,
+    conversationId: span.conversation_id,
+    externalAgentId: span.external_agent_id,
+    service,
+    startedAt: span.started_at,
+    endedAt: span.ended_at,
+    startedMicros,
+    endedMicros,
+    durationMs: Math.max(0, endedMicros - startedMicros) / 1_000,
+    statusCode: span.status_code,
+    status: spanStatus(span.status_code),
+    statusMessage: span.status_message,
+    resource: metadataEntries(span.resource),
+    attributes: metadataEntries(span.attributes),
+    eventCount: span.events.length,
+    linkCount: span.links.length,
+    contentCaptureStatus: span.content_capture_status,
+    droppedAttributeCount: span.dropped_attribute_count,
+    lateEvidence: span.late_evidence,
+    ingestedAt: span.ingested_at,
+  };
+}
+
+function timestampMicros(value: string): number {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return parsed;
+  const fraction = value.match(/\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/)?.[1];
+  if (!fraction) return parsed * 1_000;
+  const microseconds = Number(`${fraction}000000`.slice(0, 6));
+  return Math.floor(parsed / 1_000) * 1_000_000 + microseconds;
+}
+
+function spanKind(kind: number): string {
+  return ['Unspecified', 'Internal', 'Server', 'Client', 'Producer', 'Consumer'][kind] ?? 'Unknown';
+}
+
+function spanStatus(status: number): string {
+  return ['Unset', 'OK', 'Error'][status] ?? 'Unknown';
 }
 
 export function formatUsdNanos(value: string | null | undefined): string {

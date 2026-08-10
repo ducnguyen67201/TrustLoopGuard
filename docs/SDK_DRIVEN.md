@@ -144,6 +144,10 @@ The TypeScript client exposes typed methods to replace an agent's evaluation pro
 assignments and to read a Run's evaluation jobs/results. These methods use the Rust-generated wire
 contracts; runtimes should not duplicate those JSON shapes.
 
+All SDK `getRun` / `get_run` responses expose the Run's normalized OpenTelemetry spans through the
+generated `RunSpanSummary` contract, so custom dashboards can render the same evidence as the
+Featherlane AI waterfall without reading storage directly.
+
 Framework adapters translate framework lifecycle signals into this generic Run contract. LiveKit is
 one adapter, not a special server-side session model. See [Runs](concept/runs.md),
 [telemetry capture](concept/telemetry-capture.md), and

@@ -10,11 +10,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { InfoHint } from '@/components/ui/info-hint';
 import { Separator } from '@/components/ui/separator';
 import { AuthorizationEffectLegend } from '@/components/ui/authorization-effect-legend';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   RefreshControls,
   useAutoRefresh,
   type RefreshMode,
 } from '@/components/workspace/RefreshControls';
+import { RunWaterfall } from '@/components/workspace/RunWaterfall';
 import {
   currentAssuranceStatus,
   formatUsdNanos,
@@ -262,83 +264,98 @@ export function RunDetailLiveView({
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden gap-4 pt-4 pb-0">
-        <CardHeader className="gap-3">
-          <div className="grid gap-1">
-            <CardTitle className="text-sm">Agent events and guard checks</CardTitle>
-            <CardDescription>
-              Transcript events and Featherlane AI decisions, newest first. Click any row to see the
-              exact text, linked guard check, and policy outcome.
-            </CardDescription>
-          </div>
-          <div className="rounded-lg border bg-muted/20 px-4 py-3">
-            <p className="mb-2.5 text-xs font-medium text-muted-foreground">
-              What each effect color means
-            </p>
-            <AuthorizationEffectLegend />
-          </div>
-        </CardHeader>
-        <CardContent className="px-0">
-          {rows.length === 0 ? (
-            <div className="px-6 pb-6">
-              <TimelineEmptyState />
+      <Card className="overflow-hidden gap-0 py-0">
+        <Tabs defaultValue={snapshot.spans.length > 0 ? 'waterfall' : 'audit'} className="gap-0">
+          <CardHeader className="gap-3 py-4">
+            <div className="grid gap-1">
+              <CardTitle className="text-sm">Execution evidence</CardTitle>
+              <CardDescription>
+                Explore the OpenTelemetry span waterfall or inspect transcript events and guard
+                decisions.
+              </CardDescription>
             </div>
-          ) : (
-            <div className="max-h-[60vh] overflow-y-auto border-t">
-              <div
-                className={cn(
-                  ROW_GRID,
-                  'sticky top-0 z-10 border-b bg-card/95 px-4 py-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground backdrop-blur',
-                )}
-              >
-                <span className="inline-flex items-center gap-1">
-                  Time
-                  <InfoHint label="What does “Time” mean?">
-                    When this check happened. The smaller line is how long ago.
-                  </InfoHint>
-                </span>
-                <span className="hidden items-center gap-1 md:inline-flex">
-                  Step
-                  <InfoHint label="What does “Step” mean?">
-                    What the guardrail was checking — the request going in, or the agent’s reply
-                    coming out.
-                  </InfoHint>
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  What happened
-                  <InfoHint label="What does “What happened” mean?">
-                    A one-line plain-language summary of this step. Click the row for the full
-                    details.
-                  </InfoHint>
-                </span>
-                <span className="inline-flex items-center justify-end gap-1 text-right">
-                  Decision
-                  <InfoHint label="What does “Decision” mean?" side="left">
-                    What the guardrail decided: permitted, transformed, approval required, deferred,
-                    or denied. Colors are explained in the key above.
-                  </InfoHint>
-                </span>
+            <TabsList variant="line" aria-label="Execution evidence views">
+              <TabsTrigger value="waterfall">Waterfall ({snapshot.spans.length})</TabsTrigger>
+              <TabsTrigger value="audit">Audit log ({rows.length})</TabsTrigger>
+            </TabsList>
+          </CardHeader>
+
+          <TabsContent value="waterfall" className="border-t">
+            <RunWaterfall spans={snapshot.spans} />
+          </TabsContent>
+
+          <TabsContent value="audit">
+            <CardContent className="px-0">
+              <div className="border-t px-6 py-4">
+                <div className="rounded-lg border bg-muted/20 px-4 py-3">
+                  <p className="mb-2.5 text-xs font-medium text-muted-foreground">
+                    What each effect color means
+                  </p>
+                  <AuthorizationEffectLegend />
+                </div>
               </div>
-              {rows.map((row) =>
-                row.kind === 'trace' ? (
-                  <TraceRow
-                    key={row.id}
-                    row={row}
-                    open={expanded.has(row.id)}
-                    onToggle={() => toggle(row.id)}
-                  />
-                ) : (
-                  <EventRow
-                    key={row.id}
-                    row={row}
-                    open={expanded.has(row.id)}
-                    onToggle={() => toggle(row.id)}
-                  />
-                ),
+              {rows.length === 0 ? (
+                <div className="px-6 pb-6">
+                  <TimelineEmptyState />
+                </div>
+              ) : (
+                <div className="max-h-[60vh] overflow-y-auto border-t">
+                  <div
+                    className={cn(
+                      ROW_GRID,
+                      'sticky top-0 z-10 border-b bg-card/95 px-4 py-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground backdrop-blur',
+                    )}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Time
+                      <InfoHint label="What does “Time” mean?">
+                        When this check happened. The smaller line is how long ago.
+                      </InfoHint>
+                    </span>
+                    <span className="hidden items-center gap-1 md:inline-flex">
+                      Step
+                      <InfoHint label="What does “Step” mean?">
+                        What the guardrail was checking — the request going in, or the agent’s reply
+                        coming out.
+                      </InfoHint>
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      What happened
+                      <InfoHint label="What does “What happened” mean?">
+                        A one-line plain-language summary of this step. Click the row for the full
+                        details.
+                      </InfoHint>
+                    </span>
+                    <span className="inline-flex items-center justify-end gap-1 text-right">
+                      Decision
+                      <InfoHint label="What does “Decision” mean?" side="left">
+                        What the guardrail decided: permitted, transformed, approval required,
+                        deferred, or denied. Colors are explained in the key above.
+                      </InfoHint>
+                    </span>
+                  </div>
+                  {rows.map((row) =>
+                    row.kind === 'trace' ? (
+                      <TraceRow
+                        key={row.id}
+                        row={row}
+                        open={expanded.has(row.id)}
+                        onToggle={() => toggle(row.id)}
+                      />
+                    ) : (
+                      <EventRow
+                        key={row.id}
+                        row={row}
+                        open={expanded.has(row.id)}
+                        onToggle={() => toggle(row.id)}
+                      />
+                    ),
+                  )}
+                </div>
               )}
-            </div>
-          )}
-        </CardContent>
+            </CardContent>
+          </TabsContent>
+        </Tabs>
       </Card>
     </div>
   );

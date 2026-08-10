@@ -30,6 +30,10 @@ conversation IDs, decision trace IDs, OTel trace IDs, and OTel span IDs remain d
 Caller-provided attributes and baggage cannot select a workspace, authorize an agent, or create a
 Run. Rust validates every association against authenticated storage state.
 
+Persisted spans are returned as normalized `RunSpanSummary` records on `GET /v1/runs/{run_id}`.
+This keeps the Run detail waterfall and post-run evaluation snapshots on the same durable evidence;
+the dashboard does not query an observability service or maintain a parallel span store.
+
 ## Privacy
 
 Metadata-only capture is the default. Prompt, completion, tool argument, body, and content fields are

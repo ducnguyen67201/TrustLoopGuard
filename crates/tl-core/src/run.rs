@@ -303,10 +303,49 @@ pub struct RunLlmBudgetDecision {
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RunSpanSummary {
+    pub trace_id: String,
+    pub span_id: String,
+    pub parent_span_id: Option<String>,
+    pub agent_id: String,
+    pub run_event_id: Option<String>,
+    pub name: String,
+    pub span_kind: i32,
+    pub operation_name: Option<String>,
+    pub conversation_id: Option<String>,
+    pub external_agent_id: Option<String>,
+    /// RFC 3339 timestamp.
+    pub started_at: String,
+    /// RFC 3339 timestamp.
+    pub ended_at: String,
+    pub status_code: i32,
+    pub status_message: Option<String>,
+    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
+    pub resource: serde_json::Map<String, serde_json::Value>,
+    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
+    pub attributes: serde_json::Map<String, serde_json::Value>,
+    #[cfg_attr(feature = "ts-export", ts(type = "Array<Record<string, unknown>>"))]
+    pub events: Vec<serde_json::Value>,
+    #[cfg_attr(feature = "ts-export", ts(type = "Array<Record<string, unknown>>"))]
+    pub links: Vec<serde_json::Value>,
+    pub content_capture_status: String,
+    pub dropped_attribute_count: i32,
+    pub late_evidence: bool,
+    /// RFC 3339 timestamp.
+    pub ingested_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
 pub struct RunDetail {
     pub run: RunSummary,
     pub events: Vec<RunEventSummary>,
     pub traces: Vec<TraceSummary>,
+    #[serde(default)]
+    pub spans: Vec<RunSpanSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub provider_usage: Option<RunProviderUsage>,

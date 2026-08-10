@@ -343,6 +343,7 @@ use crate::{
         tl_core::RunGuardrailUsage,
         tl_core::RunBudgetWindowSnapshot,
         tl_core::RunLlmBudgetDecision,
+        tl_core::RunSpanSummary,
         tl_core::RunDetail,
         tl_core::RunBoundarySource,
         tl_core::BoundaryConfidence,

@@ -153,6 +153,14 @@ pub async fn get_run(
             .await
         {
             Ok(events) => {
+                let spans = match state
+                    .store
+                    .spans(&workspace_id, &environment_id, &id, 500)
+                    .await
+                {
+                    Ok(value) => value,
+                    Err(error) => return run_error_response(error),
+                };
                 let provider_usage =
                     latest_event_evidence::<RunProviderUsage>(&events, "provider_usage");
                 let budget_decision =
@@ -205,6 +213,7 @@ pub async fn get_run(
                     run,
                     events,
                     traces,
+                    spans,
                     provider_usage,
                     guardrail_usage,
                     budget_decision,
