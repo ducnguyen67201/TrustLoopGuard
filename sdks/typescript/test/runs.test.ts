@@ -114,4 +114,58 @@ describe('Client run methods', () => {
       metadata: {},
     });
   });
+
+  it('configures and reads post-run evaluations through typed endpoints', async () => {
+    const fetchSpy = mockFetch(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/evaluation-profile')) {
+        return jsonResponse({
+          workspace_id: 'ws_test',
+          environment_id: 'production',
+          agent_id: 'support-agent',
+          ...JSON.parse(String((init as RequestInit).body)),
+          profile_version: 1,
+          updated_at: '2026-05-17T00:00:00Z',
+        });
+      }
+      if (url.endsWith('/evaluation-policy-assignments')) {
+        return jsonResponse({
+          agent_id: 'support-agent',
+          environment_id: 'production',
+          assignments: JSON.parse(String((init as RequestInit).body)).assignments,
+        });
+      }
+      return jsonResponse({ jobs: [], results: [] });
+    });
+    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
+
+    const profile = await client.putAgentEvaluationProfile('support-agent', {
+      enabled: true,
+      capture_mode: 'durable',
+      content_mode: 'metadata_only',
+      quiet_period_ms: 250n,
+      max_capture_wait_ms: 5_000n,
+      on_incomplete: 'fail',
+    });
+    const assignments = await client.putAgentEvaluationPolicyAssignments('support-agent', {
+      assignments: [
+        {
+          policy_id: 'no-denials',
+          weight: 1,
+          critical: true,
+          enabled: true,
+        },
+      ],
+    });
+    const evaluations = await client.listRunEvaluations(RUN_BODY.id);
+
+    expect(profile.capture_mode).toBe('durable');
+    expect(assignments.assignments[0]?.policy_id).toBe('no-denials');
+    expect(evaluations).toEqual({ jobs: [], results: [] });
+    expect(fetchSpy.mock.calls.map(([url]) => url)).toEqual([
+      'http://server.test/v1/agents/support-agent/evaluation-profile',
+      'http://server.test/v1/agents/support-agent/evaluation-policy-assignments',
+      `http://server.test/v1/runs/${RUN_BODY.id}/evaluations`,
+    ]);
+  });
 });

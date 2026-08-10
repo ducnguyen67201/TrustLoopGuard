@@ -18,12 +18,21 @@ ALTER TABLE traces ADD COLUMN agent_id TEXT;
 UPDATE traces
 SET agent_id = NULLIF(payload #>> '{event,principal,agent_id}', '');
 
+UPDATE traces
+SET agent_id = NULL
+WHERE agent_id IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1
+      FROM agents
+      WHERE agents.workspace_id = traces.workspace_id
+        AND agents.id = traces.agent_id
+  );
+
 ALTER TABLE traces
     ADD CONSTRAINT traces_agent_fk
     FOREIGN KEY (workspace_id, agent_id)
     REFERENCES agents (workspace_id, id)
-    ON DELETE RESTRICT
-    NOT VALID;
+    ON DELETE RESTRICT;
 
 ALTER TABLE traces ADD COLUMN late_evidence BOOLEAN NOT NULL DEFAULT FALSE;
 

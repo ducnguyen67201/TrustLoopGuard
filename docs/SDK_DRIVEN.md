@@ -140,6 +140,10 @@ failed flush is surfaced as a lifecycle warning and causes the server to rely on
 quiet/deadline path. Evaluation begins only after capture closes, never merely because an OTel root
 span or framework session ended.
 
+The TypeScript client exposes typed methods to replace an agent's evaluation profile and policy
+assignments and to read a Run's evaluation jobs/results. These methods use the Rust-generated wire
+contracts; runtimes should not duplicate those JSON shapes.
+
 Framework adapters translate framework lifecycle signals into this generic Run contract. LiveKit is
 one adapter, not a special server-side session model. See [Runs](concept/runs.md),
 [telemetry capture](concept/telemetry-capture.md), and

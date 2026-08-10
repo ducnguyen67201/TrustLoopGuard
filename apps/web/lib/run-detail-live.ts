@@ -25,7 +25,7 @@ const runtimeEventSchema = z
     action: z
       .object({
         operation: z.string().optional(),
-        parameters: objectSchema.optional(),
+        parameters: objectSchema.nullable().optional(),
         tool_identity: z
           .object({
             server_id: z.string().optional(),
@@ -449,7 +449,7 @@ function traceSide(domain: string, eventKind?: string): TraceSide {
 
 function formatActionParameters(payload: RuntimeDecisionPayloadWire): string | null {
   const parameters = payload.event?.action?.parameters;
-  if (parameters === undefined || Object.keys(parameters).length === 0) return null;
+  if (parameters == null || Object.keys(parameters).length === 0) return null;
   return JSON.stringify(parameters, null, 2);
 }
 

@@ -319,6 +319,54 @@ describe('parseRunDetailSnapshot', () => {
     });
   });
 
+  it('accepts redacted tool parameters from persisted traces', () => {
+    const snapshot = parseRunDetailSnapshot({
+      run: {
+        id: 'run-redacted-tool',
+        workspace_id: 'ws_demo',
+        agent_id: 'booking-agent',
+        kind: 'chat_session',
+        status: 'completed',
+        external_id: null,
+        metadata: {},
+        started_at: '2026-05-25T00:00:00.000Z',
+        ended_at: '2026-05-25T00:00:01.000Z',
+        created_at: '2026-05-25T00:00:00.000Z',
+        updated_at: '2026-05-25T00:00:01.000Z',
+        trace_count: 1,
+        blocked_count: 0,
+        rewritten_count: 0,
+        escalated_count: 0,
+        p95_latency_ms: 8,
+      },
+      events: [],
+      traces: [
+        {
+          trace_id: 'trace-redacted-tool',
+          domain: 'event',
+          decision: 'permit',
+          elapsed_ms: 8,
+          payload: {
+            event: {
+              kind: 'tool.call.proposed',
+              action: {
+                operation: 'book_appointment',
+                parameters: null,
+              },
+            },
+          },
+          created_at: '2026-05-25T00:00:01.000Z',
+        },
+      ],
+    });
+
+    expect(snapshot.traces[0]).toMatchObject({
+      side: 'tool',
+      operation: 'book_appointment',
+      checkedInput: null,
+    });
+  });
+
   it('rejects malformed run detail payloads', () => {
     expect(() => parseRunDetailSnapshot({ run: null, events: [], traces: [] })).toThrow(
       /run detail contract/,

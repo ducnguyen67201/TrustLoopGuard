@@ -20,6 +20,8 @@ import type { GuardEvent } from './generated/GuardEvent.js';
 import type { EventKind } from './generated/EventKind.js';
 import type { AgentListResponse } from './generated/AgentListResponse.js';
 import type { AgentProfile } from './generated/AgentProfile.js';
+import type { AgentEvaluationPolicyAssignmentListResponse } from './generated/AgentEvaluationPolicyAssignmentListResponse.js';
+import type { AgentEvaluationProfile } from './generated/AgentEvaluationProfile.js';
 import type { ApiKeyBatchRevokeResponse } from './generated/ApiKeyBatchRevokeResponse.js';
 import type { GuardrailGenerateResponse } from './generated/GuardrailGenerateResponse.js';
 import type { GuardrailListResponse } from './generated/GuardrailListResponse.js';
@@ -53,6 +55,9 @@ import type { FinancialPolicyRecord } from './generated/FinancialPolicyRecord.js
 import type { FinancialReceipt } from './generated/FinancialReceipt.js';
 import type { CreateRunEventRequest } from './generated/CreateRunEventRequest.js';
 import type { CreateRunRequest } from './generated/CreateRunRequest.js';
+import type { EvaluationResultListResponse } from './generated/EvaluationResultListResponse.js';
+import type { PutAgentEvaluationPolicyAssignmentsRequest } from './generated/PutAgentEvaluationPolicyAssignmentsRequest.js';
+import type { PutAgentEvaluationProfileRequest } from './generated/PutAgentEvaluationProfileRequest.js';
 import type { RunDetail } from './generated/RunDetail.js';
 import type { RunEventListResponse } from './generated/RunEventListResponse.js';
 import type { RunEventSummary } from './generated/RunEventSummary.js';
@@ -1377,6 +1382,53 @@ export class Client {
       (signal) =>
         this.sendJson<TraceListResponse>(
           `/v1/runs/${encodeURIComponent(runId)}/traces`,
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async putAgentEvaluationProfile(
+    agentId: string,
+    request: PutAgentEvaluationProfileRequest,
+    signal?: AbortSignal,
+  ): Promise<AgentEvaluationProfile> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<AgentEvaluationProfile>(
+          `/v1/agents/${encodeURIComponent(agentId)}/evaluation-profile`,
+          { method: 'PUT', body: stringifyJson(request) },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async putAgentEvaluationPolicyAssignments(
+    agentId: string,
+    request: PutAgentEvaluationPolicyAssignmentsRequest,
+    signal?: AbortSignal,
+  ): Promise<AgentEvaluationPolicyAssignmentListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<AgentEvaluationPolicyAssignmentListResponse>(
+          `/v1/agents/${encodeURIComponent(agentId)}/evaluation-policy-assignments`,
+          { method: 'PUT', body: stringifyJson(request) },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async listRunEvaluations(
+    runId: string,
+    signal?: AbortSignal,
+  ): Promise<EvaluationResultListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<EvaluationResultListResponse>(
+          `/v1/runs/${encodeURIComponent(runId)}/evaluations`,
           { method: 'GET' },
           signal,
         ),

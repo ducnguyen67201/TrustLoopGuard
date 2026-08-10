@@ -42,6 +42,7 @@ services:
     environment:
       DATABASE_URL: postgres://featherlane_ai:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting Compose}@db:5432/featherlane_ai
       RUST_LOG: ${RUST_LOG:-info}
+      TL_APP_ENV: ${TL_APP_ENV:-development}
       TL_API_KEY: ${TL_API_KEY:?Set TL_API_KEY before starting Compose}
       TL_SERVER_ADDR: 0.0.0.0:8080
       TL_PUBLIC_URL: ${TL_PUBLIC_URL:-http://localhost:8080}
