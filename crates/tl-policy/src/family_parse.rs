@@ -10,14 +10,15 @@ use serde::Deserialize;
 use tl_core::{AuthorizationEffect, SpendMeter};
 
 use crate::family_ast::{
-    AnyPolicy, ApprovalPolicy, FamilyPolicy, FinancialPolicy, FinancialWhen, FlowPolicy, FlowRule,
-    SourceLabelFamilyPolicy, ToolMatchClause, ToolMatcher, ToolPolicy, ToolValueMatcher,
+    AnyPolicy, ApprovalPolicy, EvaluationGrader, EvaluationPolicy, FamilyPolicy, FinancialPolicy,
+    FinancialWhen, FlowPolicy, FlowRule, SourceLabelFamilyPolicy, ToolMatchClause, ToolMatcher,
+    ToolPolicy, ToolValueMatcher,
 };
 use crate::policy_parse::{format_issues, load_str, PolicyError, ValidationIssue};
 
 /// Every recognized `family:` tag value. `content` selects the legacy
 /// `Policy` shape; the rest select `FamilyPolicy` variants.
-pub const KNOWN_FAMILIES: [&str; 8] = [
+pub const KNOWN_FAMILIES: [&str; 9] = [
     "content",
     "flow",
     "parameter_source",
@@ -26,6 +27,7 @@ pub const KNOWN_FAMILIES: [&str; 8] = [
     "financial",
     "source_label",
     "tool",
+    "evaluation",
 ];
 
 #[derive(Debug, Deserialize)]
@@ -79,12 +81,83 @@ pub fn validate_family_policy(policy: &FamilyPolicy) -> Result<(), Vec<Validatio
         FamilyPolicy::Financial(financial) => validate_financial(financial, &mut issues),
         FamilyPolicy::SourceLabel(source_label) => validate_source_label(source_label, &mut issues),
         FamilyPolicy::Tool(tool) => validate_tool(tool, &mut issues),
+        FamilyPolicy::Evaluation(evaluation) => validate_evaluation(evaluation, &mut issues),
     }
 
     if issues.is_empty() {
         Ok(())
     } else {
         Err(issues)
+    }
+}
+
+fn validate_evaluation(evaluation: &EvaluationPolicy, issues: &mut Vec<ValidationIssue>) {
+    if evaluation
+        .description
+        .as_deref()
+        .is_some_and(|value| value.len() > 2_048)
+    {
+        issues.push(ValidationIssue::new(
+            "description",
+            "must not exceed 2048 bytes",
+        ));
+    }
+    match &evaluation.grader {
+        EvaluationGrader::RuntimePolicyObservation { policy_ids }
+        | EvaluationGrader::PolicyReplay { policy_ids } => {
+            validate_policy_refs(policy_ids, issues);
+        }
+        EvaluationGrader::RunMetric { metric, .. } => {
+            const METRICS: [&str; 6] = [
+                "denied_decisions",
+                "duration_ms",
+                "tool_call_count",
+                "event_count",
+                "trace_count",
+                "span_count",
+            ];
+            if !METRICS.contains(&metric.as_str()) {
+                issues.push(ValidationIssue::new(
+                    "grader.metric",
+                    format!(
+                        "unsupported metric `{}`",
+                        metric.chars().take(64).collect::<String>()
+                    ),
+                ));
+            }
+        }
+        EvaluationGrader::LlmRubric { rubric, min_score } => {
+            if rubric.trim().is_empty() || rubric.len() > 8_192 {
+                issues.push(ValidationIssue::new(
+                    "grader.rubric",
+                    "must contain between 1 and 8192 bytes",
+                ));
+            }
+            if !min_score.is_finite() || !(0.0..=1.0).contains(min_score) {
+                issues.push(ValidationIssue::new(
+                    "grader.min_score",
+                    "must be a finite value between 0 and 1",
+                ));
+            }
+        }
+    }
+}
+
+fn validate_policy_refs(policy_ids: &[String], issues: &mut Vec<ValidationIssue>) {
+    if policy_ids.is_empty() || policy_ids.len() > 64 {
+        issues.push(ValidationIssue::new(
+            "grader.policy_ids",
+            "must contain between 1 and 64 policy ids",
+        ));
+        return;
+    }
+    validate_non_empty_strings("grader.policy_ids", policy_ids, issues);
+    let unique = policy_ids.iter().collect::<std::collections::HashSet<_>>();
+    if unique.len() != policy_ids.len() {
+        issues.push(ValidationIssue::new(
+            "grader.policy_ids",
+            "must not contain duplicate policy ids",
+        ));
     }
 }
 
@@ -1100,6 +1173,52 @@ reason: invalid
                 .expect_err("policy must fail")
                 .to_string();
             assert!(error.contains(needle), "expected {needle} in {error}");
+        }
+    }
+
+    #[test]
+    fn evaluation_policy_round_trips_without_runtime_effect() {
+        let yaml = r#"
+family: evaluation
+id: no-denied-decisions
+description: Completed runs must not contain denied decisions.
+severity: critical
+scope: runtime_decisions
+grader:
+  kind: run_metric
+  metric: denied_decisions
+  comparator: lte
+  value: 0
+on_missing_evidence: fail
+"#;
+        let policy = load_any_str(yaml).expect("evaluation policy");
+        assert_eq!(policy.family(), PolicyFamily::Evaluation);
+        assert_eq!(policy.action(), None);
+        let AnyPolicy::Family(family) = policy else {
+            panic!("expected family policy");
+        };
+        let serialized = serde_yaml::to_string(&family).expect("serialize");
+        assert!(serialized.contains("family: evaluation"));
+        assert!(load_any_str(&serialized).is_ok());
+    }
+
+    #[test]
+    fn evaluation_policy_rejects_invalid_rubric_and_empty_references() {
+        for yaml in [
+            r#"
+family: evaluation
+id: bad-rubric
+scope: final_output
+grader: { kind: llm_rubric, rubric: "", min_score: 2.0 }
+"#,
+            r#"
+family: evaluation
+id: empty-replay
+scope: trajectory
+grader: { kind: policy_replay, policy_ids: [] }
+"#,
+        ] {
+            assert!(load_any_str(yaml).is_err());
         }
     }
 }

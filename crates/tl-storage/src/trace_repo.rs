@@ -1,12 +1,13 @@
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
-use diesel_async::RunQueryDsl;
+use diesel_async::{AsyncConnection, RunQueryDsl};
 use tl_core::HumanReviewOutcome;
 use uuid::Uuid;
 
 use crate::postgres::{DbConnection, DbPool};
-use crate::schema::{human_review_events, traces};
+use crate::schema::{human_review_events, runs, traces};
+use crate::writer::{trace_write_to_new, TraceWrite};
 use crate::StorageError;
 
 /// Row shape shared by every traces-table select that feeds
@@ -18,6 +19,7 @@ pub(crate) type TraceReviewLookupRow = (
     Uuid,
     Option<Uuid>,
     Option<Uuid>,
+    Option<String>,
     Option<String>,
     String,
     String,
@@ -33,6 +35,7 @@ pub struct TraceRow {
     pub run_id: Option<Uuid>,
     pub run_event_id: Option<Uuid>,
     pub session_id: Option<String>,
+    pub agent_id: Option<String>,
     pub environment_id: String,
     pub domain: String,
     pub decision: String,
@@ -53,6 +56,62 @@ impl TraceRepo {
         Self { pool }
     }
 
+    /// Synchronously persist evidence for eval-enabled durable capture.
+    pub async fn insert_durable(&self, write: TraceWrite) -> Result<(), StorageError> {
+        let mut trace = trace_write_to_new(write);
+        let mut conn = self.connection().await?;
+        conn.transaction::<(), StorageError, _>(async |conn| {
+            if let Some(run_id) = trace.run_id {
+                let capture_status = diesel::update(
+                    runs::table
+                        .filter(runs::workspace_id.eq(&trace.workspace_id))
+                        .filter(runs::environment_id.eq(&trace.environment_id))
+                        .filter(runs::id.eq(run_id)),
+                )
+                .set((
+                    runs::last_evidence_at.eq(Utc::now()),
+                    runs::updated_at.eq(Utc::now()),
+                ))
+                .returning(runs::capture_status)
+                .get_result::<String>(conn)
+                .await?;
+                trace.late_evidence = matches!(capture_status.as_str(), "complete" | "incomplete");
+            }
+            diesel::insert_into(traces::table)
+                .values(&trace)
+                .on_conflict((traces::trace_id, traces::created_at))
+                .do_nothing()
+                .execute(conn)
+                .await?;
+            Ok(())
+        })
+        .await
+    }
+
+    pub async fn increment_dropped_trace(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+    ) -> Result<(), StorageError> {
+        let run_id =
+            Uuid::parse_str(run_id).map_err(|_| StorageError::Internal("invalid run id".into()))?;
+        let mut conn = self.connection().await?;
+        diesel::update(
+            runs::table
+                .filter(runs::workspace_id.eq(workspace_id))
+                .filter(runs::environment_id.eq(environment_id))
+                .filter(runs::id.eq(run_id)),
+        )
+        .set((
+            runs::dropped_trace_count.eq(runs::dropped_trace_count + 1),
+            runs::updated_at.eq(Utc::now()),
+        ))
+        .execute(&mut conn)
+        .await?;
+        Ok(())
+    }
+
     pub async fn list_recent(
         &self,
         workspace_id: &str,
@@ -70,6 +129,7 @@ impl TraceRepo {
                 traces::run_id,
                 traces::run_event_id,
                 traces::session_id,
+                traces::agent_id,
                 traces::environment_id,
                 traces::domain,
                 traces::decision,
@@ -98,6 +158,7 @@ impl TraceRepo {
                     run_id,
                     run_event_id,
                     session_id,
+                    agent_id,
                     environment_id,
                     domain,
                     decision,
@@ -111,6 +172,7 @@ impl TraceRepo {
                         run_id,
                         run_event_id,
                         session_id,
+                        agent_id,
                         environment_id,
                         domain,
                         decision,
@@ -149,6 +211,7 @@ impl TraceRepo {
                 traces::run_id,
                 traces::run_event_id,
                 traces::session_id,
+                traces::agent_id,
                 traces::environment_id,
                 traces::domain,
                 traces::decision,
@@ -166,6 +229,7 @@ impl TraceRepo {
                 run_id,
                 run_event_id,
                 session_id,
+                agent_id,
                 environment_id,
                 domain,
                 decision,
@@ -177,6 +241,7 @@ impl TraceRepo {
                 run_id,
                 run_event_id,
                 session_id,
+                agent_id,
                 environment_id,
                 domain,
                 decision,
@@ -202,10 +267,7 @@ impl TraceRepo {
             .filter(traces::workspace_id.eq(workspace_id))
             .filter(traces::environment_id.eq(environment_id))
             .filter(traces::created_at.ge(min_created_at))
-            .filter(
-                diesel::dsl::sql::<Bool>("(payload #>> '{event,principal,agent_id}') = ")
-                    .bind::<diesel::sql_types::Text, _>(agent_id),
-            )
+            .filter(traces::agent_id.eq(agent_id))
             .filter(
                 diesel::dsl::sql::<Bool>(
                     "(payload #>> '{event,context,featherlane_ai_integration_id}') = ",
@@ -217,6 +279,7 @@ impl TraceRepo {
                 traces::run_id,
                 traces::run_event_id,
                 traces::session_id,
+                traces::agent_id,
                 traces::environment_id,
                 traces::domain,
                 traces::decision,
@@ -235,6 +298,7 @@ impl TraceRepo {
                 run_id,
                 run_event_id,
                 session_id,
+                agent_id,
                 environment_id,
                 domain,
                 decision,
@@ -246,6 +310,7 @@ impl TraceRepo {
                 run_id,
                 run_event_id,
                 session_id,
+                agent_id,
                 environment_id,
                 domain,
                 decision,

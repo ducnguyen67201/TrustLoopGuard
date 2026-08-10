@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use tl_core::{
-    CreateRunEventRequest, CreateRunRequest, RunEventSummary, RunStatus, RunSummary, TraceSummary,
-    UpdateRunRequest,
+    CreateRunEventRequest, CreateRunRequest, EvaluationJobStatus, FinalizeRunRequest,
+    FinalizeRunResponse, RunCaptureStatus, RunEventSummary, RunFinalizationSummary, RunSpanSummary,
+    RunStatus, RunSummary, TraceSummary, UpdateRunRequest,
 };
 use tokio::sync::RwLock;
 
@@ -18,6 +19,7 @@ pub struct MemoryRunStore {
     runs: RwLock<HashMap<String, RunSummary>>,
     events: RwLock<HashMap<String, Vec<RunEventSummary>>>,
     latencies: RwLock<HashMap<String, Vec<i32>>>,
+    finalizations: RwLock<HashMap<String, RunFinalizationSummary>>,
 }
 
 impl MemoryRunStore {
@@ -45,6 +47,7 @@ impl RunStore for MemoryRunStore {
             agent_id: input.agent_id.trim().to_string(),
             kind: input.kind,
             status: input.status.unwrap_or(RunStatus::Running),
+            evaluation_eligibility: Some(tl_core::RunEvaluationEligibility::Eligible),
             external_id: clean_optional(input.external_id),
             metadata: normalize_metadata(input.metadata),
             started_at: now.clone(),
@@ -124,11 +127,7 @@ impl RunStore for MemoryRunStore {
             .ok_or(RunStoreError::NotFound)?;
         if let Some(status) = input.status {
             run.status = status;
-            if matches!(
-                status,
-                RunStatus::Completed | RunStatus::Failed | RunStatus::Canceled
-            ) && run.ended_at.is_none()
-            {
+            if status.is_terminal() && run.ended_at.is_none() {
                 run.ended_at = Some(chrono::Utc::now().to_rfc3339());
             }
         }
@@ -142,6 +141,94 @@ impl RunStore for MemoryRunStore {
         Ok(run.clone())
     }
 
+    async fn finalize(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+        input: FinalizeRunRequest,
+        capture_wait_ms: u64,
+    ) -> Result<FinalizeRunResponse, RunStoreError> {
+        if !input.status.is_terminal() {
+            return Err(RunStoreError::Validation(
+                "final run status must be terminal".into(),
+            ));
+        }
+        if let Some(existing) = self.finalizations.read().await.get(run_id).cloned() {
+            let run = self.get(workspace_id, environment_id, run_id).await?;
+            if run.status != input.status
+                || existing.boundary_source != input.boundary_source
+                || existing.expected_flush_id != input.expected_flush_id
+                || input
+                    .ended_at
+                    .as_ref()
+                    .is_some_and(|ended_at| run.ended_at.as_deref() != Some(ended_at.as_str()))
+            {
+                return Err(RunStoreError::Conflict);
+            }
+            return Ok(FinalizeRunResponse {
+                run,
+                finalization: existing,
+                evaluation_status: EvaluationJobStatus::WaitingCapture,
+            });
+        }
+        if let Some(expected) = input.last_event_sequence {
+            let events = self.events.read().await;
+            let actual = events
+                .get(run_id)
+                .and_then(|events| events.iter().map(|event| event.sequence).max())
+                .unwrap_or(0);
+            if actual != expected {
+                return Err(RunStoreError::Conflict);
+            }
+        }
+        let now = chrono::Utc::now();
+        let ended_at = input.ended_at.clone().unwrap_or_else(|| now.to_rfc3339());
+        {
+            let mut runs = self.runs.write().await;
+            let run = runs
+                .get_mut(run_id)
+                .filter(|run| {
+                    run.workspace_id == workspace_id && run.environment_id == environment_id
+                })
+                .ok_or(RunStoreError::NotFound)?;
+            run.status = input.status;
+            run.ended_at = Some(ended_at);
+            run.updated_at = now.to_rfc3339();
+        }
+        let finalization = RunFinalizationSummary {
+            finalized_at: now.to_rfc3339(),
+            boundary_source: input.boundary_source,
+            boundary_confidence: input.boundary_source.confidence(),
+            capture_status: RunCaptureStatus::Waiting,
+            capture_deadline: (now
+                + chrono::Duration::milliseconds(
+                    i64::try_from(capture_wait_ms.min(3_600_000)).unwrap_or(3_600_000),
+                ))
+            .to_rfc3339(),
+            expected_flush_id: input.expected_flush_id,
+        };
+        self.finalizations
+            .write()
+            .await
+            .insert(run_id.to_string(), finalization.clone());
+        Ok(FinalizeRunResponse {
+            run: self.get(workspace_id, environment_id, run_id).await?,
+            finalization,
+            evaluation_status: EvaluationJobStatus::WaitingCapture,
+        })
+    }
+
+    async fn finalization(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+    ) -> Result<Option<RunFinalizationSummary>, RunStoreError> {
+        self.get(workspace_id, environment_id, run_id).await?;
+        Ok(self.finalizations.read().await.get(run_id).cloned())
+    }
+
     async fn traces(
         &self,
         workspace_id: &str,
@@ -149,6 +236,17 @@ impl RunStore for MemoryRunStore {
         run_id: &str,
         _limit: usize,
     ) -> Result<Vec<TraceSummary>, RunStoreError> {
+        self.get(workspace_id, environment_id, run_id).await?;
+        Ok(vec![])
+    }
+
+    async fn spans(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+        _limit: usize,
+    ) -> Result<Vec<RunSpanSummary>, RunStoreError> {
         self.get(workspace_id, environment_id, run_id).await?;
         Ok(vec![])
     }
@@ -161,7 +259,10 @@ impl RunStore for MemoryRunStore {
         input: CreateRunEventRequest,
     ) -> Result<RunEventSummary, RunStoreError> {
         validate_create_run_event(&input)?;
-        self.get(workspace_id, environment_id, run_id).await?;
+        let run = self.get(workspace_id, environment_id, run_id).await?;
+        if self.finalizations.read().await.contains_key(run_id) {
+            return Err(RunStoreError::Conflict);
+        }
         let mut events = self.events.write().await;
         let run_events = events.entry(run_id.to_string()).or_default();
         let sequence = input.sequence.unwrap_or_else(|| {
@@ -175,6 +276,13 @@ impl RunStore for MemoryRunStore {
             id: uuid::Uuid::now_v7().to_string(),
             workspace_id: workspace_id.to_string(),
             run_id: run_id.to_string(),
+            agent_id: input
+                .agent_id
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .unwrap_or(&run.agent_id)
+                .to_string(),
             sequence,
             kind: input.kind,
             label: clean_optional(input.label),

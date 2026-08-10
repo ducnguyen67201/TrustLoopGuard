@@ -1,0 +1,24 @@
+direction: right
+
+agent: "Customer agent runtime" { shape: rectangle }
+sdk: "Featherlane SDK\nRun scope + correlation" { shape: rectangle }
+runtime: "POST /v1/events\nRust policy runtime" { shape: rectangle }
+otlp: "OTLP/HTTP spans\nRust capture adapter" { shape: rectangle }
+run: "Finalized Run\nagent participants" { shape: rectangle }
+barrier: "Capture barrier\nflush or bounded quiet wait" { shape: rectangle }
+snapshot: "Immutable RunSnapshot\nsnapshot + manifest hashes" { shape: rectangle }
+worker: "Leased evaluator job\ntl-eval" { shape: rectangle }
+result: "Per-agent result\nfindings + evidence" { shape: rectangle }
+gate: "Read-only release gate" { shape: rectangle }
+
+agent -> sdk
+sdk -> runtime: "guard decisions"
+sdk -> otlp: "optional telemetry"
+runtime -> run: "decision traces"
+otlp -> run: "normalized spans"
+sdk -> run: "finalize"
+run -> barrier
+barrier -> snapshot
+snapshot -> worker
+worker -> result
+result -> gate

@@ -5,6 +5,12 @@ They route local executable tools and supported final-output boundaries through
 the same Rust authorization contract used by explicit SDK callers, while
 preserving the framework's agent object and run lifecycle.
 
+Framework adapters map lifecycle to the generic Run contract: create or obtain one Featherlane Run,
+attach Run/agent correlation to events and telemetry, optionally flush controlled telemetry, then
+finalize exactly once with `boundary_source=framework_adapter`. A framework session, OTel trace, or
+conversation identifier must never be substituted for `run_id`. Evaluation timing is owned by the
+server capture barrier described in [evaluations.md](evaluations.md).
+
 ## Supported discovery seams
 
 | SDK / host | Discovery seam | Tool enforcement seam | Final-output seam |

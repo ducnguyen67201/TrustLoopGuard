@@ -22,7 +22,7 @@ pub use authorization::AuthorizationResult;
 pub use error::SdkError;
 pub use financial::FinancialOperation;
 pub use retry::RetryConfig;
-pub use runs::RunClient;
+pub use runs::{RunClient, RunCorrelationContext, RunTelemetryHook};
 
 // Re-export the wire types so callers don't reach into `tl_core`
 // directly. Doing so would violate the SDK-driven discipline (rule 2 in
@@ -41,14 +41,15 @@ pub use tl_core::{
     CounterpartyRef, CreateAuthorizationGrantRequest, CreateFinancialActionRequest,
     CreateFinancialPolicyRequest, CreateRunEventRequest, CreateRunRequest,
     DecideAuthorizationApprovalRequest, DecideAuthorizationApprovalResponse, EventKind,
-    EvidenceRef, ExecuteFinancialActionRequest, FinancialAction, FinancialActionKind,
-    FinancialActionListResponse, FinancialActionOutcome, FinancialActionOutcomeStatus,
-    FinancialActionPrecondition, FinancialActionRecord, FinancialExecutionStatus,
-    FinancialOutcomeListResponse, FinancialPolicyListResponse, FinancialPolicyRecord,
-    FinancialPolicySelector, FinancialRail, FinancialReceipt, GrantMode, GrantStatus, GuardEvent,
-    GuardrailGenerateResponse, GuardrailListResponse, Integrity, Labels, LeaseStatus, MoneyAmount,
-    Origin, ParamRole, ParamSpec, PolicyDocument, PolicyFamily, PolicyListResponse, PolicySummary,
-    Principal, ProvenanceMap, RecoveryStatus, ReversalCapability, RunDetail, RunEventKind,
+    EvidenceRef, ExecuteFinancialActionRequest, FinalizeRunRequest, FinalizeRunResponse,
+    FinancialAction, FinancialActionKind, FinancialActionListResponse, FinancialActionOutcome,
+    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionRecord,
+    FinancialExecutionStatus, FinancialOutcomeListResponse, FinancialPolicyListResponse,
+    FinancialPolicyRecord, FinancialPolicySelector, FinancialRail, FinancialReceipt, GrantMode,
+    GrantStatus, GuardEvent, GuardrailGenerateResponse, GuardrailListResponse, Integrity, Labels,
+    LeaseStatus, MoneyAmount, Origin, ParamRole, ParamSpec, PolicyDocument, PolicyFamily,
+    PolicyListResponse, PolicySummary, Principal, ProvenanceMap, RecoveryStatus,
+    ReversalCapability, RunBoundarySource, RunDetail, RunEvaluationEligibility, RunEventKind,
     RunEventListResponse, RunEventSummary, RunKind, RunListResponse, RunStatus, RunSummary,
     Severity, ShellActionParameters, ShellLanguage, SideEffectClass, Source, SpendMeter,
     ToolIdentity, ToolMetadata, TraceListResponse, TriggeredPolicy, Trust, UpdateRunRequest,
@@ -59,13 +60,29 @@ pub use tl_core::{
 // Re-export the crate so example apps don't take a separate dependency.
 pub use serde_json;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Client {
     base_url: String,
     api_key: Option<String>,
     http: reqwest::Client,
     retry: RetryConfig,
     session_id: Option<String>,
+    run_telemetry: Option<std::sync::Arc<dyn RunTelemetryHook>>,
+    telemetry_flush_timeout: std::time::Duration,
+    run_correlations:
+        std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, RunCorrelationContext>>>,
+}
+
+impl std::fmt::Debug for Client {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Client")
+            .field("base_url", &self.base_url)
+            .field("has_api_key", &self.api_key.is_some())
+            .field("session_id", &self.session_id)
+            .field("has_run_telemetry", &self.run_telemetry.is_some())
+            .field("telemetry_flush_timeout", &self.telemetry_flush_timeout)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Client {
@@ -76,6 +93,11 @@ impl Client {
             http: reqwest::Client::new(),
             retry: RetryConfig::default(),
             session_id: None,
+            run_telemetry: None,
+            telemetry_flush_timeout: std::time::Duration::from_secs(5),
+            run_correlations: std::sync::Arc::new(std::sync::Mutex::new(
+                std::collections::HashMap::new(),
+            )),
         }
     }
 
@@ -111,6 +133,18 @@ impl Client {
     /// proxies, or test fixtures).
     pub fn with_http_client(mut self, http: reqwest::Client) -> Self {
         self.http = http;
+        self
+    }
+
+    /// Install an optional dependency-free bridge to the application's OTel
+    /// provider. The SDK never depends on an OTel crate directly.
+    pub fn with_run_telemetry(
+        mut self,
+        hook: std::sync::Arc<dyn RunTelemetryHook>,
+        flush_timeout: std::time::Duration,
+    ) -> Self {
+        self.run_telemetry = Some(hook);
+        self.telemetry_flush_timeout = flush_timeout;
         self
     }
 }

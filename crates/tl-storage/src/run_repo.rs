@@ -1,17 +1,19 @@
 use chrono::{DateTime, Utc};
 use diesel::dsl::now;
 use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use diesel_async::{AsyncConnection, RunQueryDsl};
 use tl_core::{CreateRunRequest, RunKind, RunStatus, RunSummary, UpdateRunRequest};
 use uuid::Uuid;
 
 use crate::models::{NewRun, RunRecord};
 use crate::postgres::{DbConnection, DbPool};
-use crate::schema::runs;
+use crate::schema::{run_participants, runs};
 use crate::StorageError;
 
 mod events;
+mod finalization;
 mod reviews;
+mod spans;
 mod summary;
 mod text;
 mod traces;
@@ -51,11 +53,25 @@ impl RunRepo {
             metadata: normalize_metadata(input.metadata),
         };
         let mut conn = self.connection().await?;
-        diesel::insert_into(runs::table)
-            .values(&new_run)
-            .execute(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("run create: {e}")))?;
+        conn.transaction::<(), StorageError, _>(async |conn| {
+            diesel::insert_into(runs::table)
+                .values(&new_run)
+                .execute(conn)
+                .await?;
+            diesel::insert_into(run_participants::table)
+                .values((
+                    run_participants::workspace_id.eq(workspace_id),
+                    run_participants::environment_id.eq(environment_id),
+                    run_participants::run_id.eq(id),
+                    run_participants::agent_id.eq(&new_run.agent_id),
+                    run_participants::role.eq("primary"),
+                ))
+                .execute(conn)
+                .await?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| StorageError::Internal(format!("run create: {e}")))?;
 
         self.get(workspace_id, &id.to_string()).await
     }
@@ -148,7 +164,10 @@ impl RunRepo {
             None if input.status.is_some_and(|status| {
                 matches!(
                     status,
-                    RunStatus::Completed | RunStatus::Failed | RunStatus::Canceled
+                    RunStatus::Completed
+                        | RunStatus::Failed
+                        | RunStatus::Canceled
+                        | RunStatus::TimedOut
                 )
             }) =>
             {

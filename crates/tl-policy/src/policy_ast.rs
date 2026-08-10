@@ -52,6 +52,17 @@ pub enum MatchClause {
     Single(Matcher),
 }
 
+impl MatchClause {
+    pub fn uses_semantic(&self) -> bool {
+        match self {
+            Self::Single(matcher) => matches!(matcher, Matcher::Semantic(_)),
+            Self::Any { any: matchers } | Self::All { all: matchers } => matchers
+                .iter()
+                .any(|matcher| matches!(matcher, Matcher::Semantic(_))),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]

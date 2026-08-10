@@ -10,7 +10,14 @@ Type definitions are generated from the canonical Rust types in `tl-core`
 via `cargo run -p tl-codegen`. Do not hand-edit `_generated/`.
 """
 
-from featherlane_ai.client import AsyncClient, AsyncFinancialOperation, Client, FinancialOperation
+from featherlane_ai.client import (
+    AsyncClient,
+    AsyncFinancialOperation,
+    Client,
+    FinancialOperation,
+    RunTelemetryHook,
+    run_correlation,
+)
 from featherlane_ai.authorization import AuthorizationResult
 from featherlane_ai.guard import (
     GuardLogEvent,
@@ -101,8 +108,10 @@ from featherlane_ai._generated.types import (
     RunEventKind,
     RunEventListResponse,
     RunEventSummary,
+    RunEvaluationEligibility,
     RunKind,
     RunListResponse,
+    RunSpanSummary,
     RunStatus,
     RunSummary,
     Severity,
@@ -123,6 +132,7 @@ from featherlane_ai._generated.types import (
 )
 from featherlane_ai.errors import (
     Decode,
+    Conflict,
     Forbidden,
     Gone,
     Internal,
@@ -224,8 +234,10 @@ __all__ = [
     "RunEventKind",
     "RunEventListResponse",
     "RunEventSummary",
+    "RunEvaluationEligibility",
     "RunKind",
     "RunListResponse",
+    "RunSpanSummary",
     "RunStatus",
     "RunSummary",
     "Severity",
@@ -251,6 +263,7 @@ __all__ = [
     "Unauthorized",
     "Forbidden",
     "NotFound",
+    "Conflict",
     "Gone",
     "Unprocessable",
     "RateLimited",

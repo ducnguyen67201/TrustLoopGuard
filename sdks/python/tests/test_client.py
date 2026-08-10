@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 
 import httpx
 import pytest
@@ -401,9 +403,16 @@ async def _async_value(value: str) -> str:
     return value
 
 
-@respx.mock
-def test_start_and_finish_run() -> None:
-    run_body = {
+class _BlockingRunTelemetry:
+    def bind_run(self, context: dict[str, object]) -> None:
+        self.context = context
+
+    def force_flush(self, context: dict[str, object]) -> None:
+        threading.Event().wait()
+
+
+def _run_body() -> dict[str, object]:
+    return {
         "id": "018f1111-1111-7111-8111-111111111111",
         "workspace_id": "ws_test",
         "environment_id": "production",
@@ -423,16 +432,37 @@ def test_start_and_finish_run() -> None:
         "escalated_count": 0,
         "p95_latency_ms": None,
     }
+
+
+def _finalize_body(run_body: dict[str, object]) -> dict[str, object]:
+    return {
+        "run": {
+            **run_body,
+            "status": "completed",
+            "ended_at": "2026-05-17T00:01:00Z",
+        },
+        "finalization": {
+            "finalized_at": "2026-05-17T00:01:00Z",
+            "boundary_source": "explicit_sdk",
+            "boundary_confidence": "authoritative",
+            "capture_status": "waiting",
+            "capture_deadline": "2026-05-17T00:01:30Z",
+            "expected_flush_id": None,
+        },
+        "evaluation_status": "waiting_capture",
+    }
+
+
+@respx.mock
+def test_start_and_finish_run() -> None:
+    run_body = _run_body()
     create = respx.post("https://api.example.test/v1/runs").mock(
         return_value=httpx.Response(201, json=run_body)
     )
-    update = respx.patch(
-        "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111"
+    finalize = respx.post(
+        "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111/finalize"
     ).mock(
-        return_value=httpx.Response(
-            200,
-            json={**run_body, "status": "completed", "ended_at": "2026-05-17T00:01:00Z"},
-        )
+        return_value=httpx.Response(200, json=_finalize_body(run_body))
     )
     create_event = respx.post(
         "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111/events"
@@ -443,6 +473,7 @@ def test_start_and_finish_run() -> None:
                 "id": "018f2222-2222-7222-8222-222222222222",
                 "workspace_id": "ws_test",
                 "run_id": "018f1111-1111-7111-8111-111111111111",
+                "agent_id": "support-agent",
                 "sequence": 1,
                 "kind": "user_turn",
                 "label": "Turn 1",
@@ -482,4 +513,58 @@ def test_start_and_finish_run() -> None:
         "label": "Turn 1",
         "input_summary": "Customer asks about a refund",
     }
-    assert update.calls.last.request.content == b'{"status":"completed"}'
+    assert json.loads(finalize.calls.last.request.content) == {
+        "status": "completed",
+        "boundary_source": "explicit_sdk",
+    }
+
+
+@respx.mock
+def test_finish_run_bounds_blocking_telemetry_flush() -> None:
+    run_body = _run_body()
+    respx.post("https://api.example.test/v1/runs").mock(
+        return_value=httpx.Response(201, json=run_body)
+    )
+    finalize = respx.post(
+        "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111/finalize"
+    ).mock(return_value=httpx.Response(200, json=_finalize_body(run_body)))
+
+    started_at = time.monotonic()
+    with Client(
+        "https://api.example.test",
+        run_telemetry=_BlockingRunTelemetry(),
+        telemetry_flush_timeout=0.01,
+    ) as client:
+        run = client.start_run(
+            CreateRunRequest(agent_id="support-agent", kind=RunKind.chat_session)
+        )
+        client.finish_run(run.id)
+
+    assert time.monotonic() - started_at < 0.5
+    assert "expected_flush_id" not in json.loads(finalize.calls.last.request.content)
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_async_finish_run_bounds_blocking_sync_telemetry_flush() -> None:
+    run_body = _run_body()
+    respx.post("https://api.example.test/v1/runs").mock(
+        return_value=httpx.Response(201, json=run_body)
+    )
+    finalize = respx.post(
+        "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111/finalize"
+    ).mock(return_value=httpx.Response(200, json=_finalize_body(run_body)))
+
+    started_at = time.monotonic()
+    async with AsyncClient(
+        "https://api.example.test",
+        run_telemetry=_BlockingRunTelemetry(),
+        telemetry_flush_timeout=0.01,
+    ) as client:
+        run = await client.start_run(
+            CreateRunRequest(agent_id="support-agent", kind=RunKind.chat_session)
+        )
+        await client.finish_run(run.id)
+
+    assert time.monotonic() - started_at < 0.5
+    assert "expected_flush_id" not in json.loads(finalize.calls.last.request.content)

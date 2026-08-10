@@ -58,6 +58,7 @@ pub(super) async fn create_hosted_mcp_run(
             environment_id,
             &run.id,
             CreateRunEventRequest {
+                agent_id: Some(agent_id.to_string()),
                 kind: RunEventKind::ToolCall,
                 sequence: None,
                 label: Some(format!("Hosted MCP: {public_tool_name}")),

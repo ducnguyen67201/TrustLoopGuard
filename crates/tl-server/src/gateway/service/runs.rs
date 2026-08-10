@@ -98,6 +98,7 @@ pub(super) async fn create_gateway_turn_event(
     let run_id = run_id?;
 
     let event = CreateRunEventRequest {
+        agent_id: None,
         kind: RunEventKind::UserTurn,
         sequence: None,
         label: Some("Gateway turn".to_string()),
@@ -146,6 +147,7 @@ pub(super) async fn create_gateway_assistant_event(
         environment_id,
         run_id,
         CreateRunEventRequest {
+            agent_id: None,
             kind: RunEventKind::AssistantTurn,
             sequence: None,
             label: Some("Provider response".to_string()),
@@ -177,6 +179,7 @@ pub(super) async fn create_gateway_provider_failure_event(
         environment_id,
         run_id,
         CreateRunEventRequest {
+            agent_id: None,
             kind: RunEventKind::SystemEvent,
             sequence: None,
             label: Some("Provider call failed".to_string()),
@@ -215,14 +218,13 @@ async fn create_gateway_evidence_event(
     }
 }
 
-pub(super) fn gateway_run_external_id(headers: &HeaderMap, fallback: &str) -> String {
-    headers
+pub(super) fn gateway_run_external_id(headers: &HeaderMap, fallback: &str) -> (String, bool) {
+    let external = headers
         .get(GATEWAY_RUN_EXTERNAL_ID_HEADER)
         .and_then(|value| value.to_str().ok())
         .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or(fallback)
-        .to_string()
+        .filter(|value| !value.is_empty());
+    (external.unwrap_or(fallback).to_string(), external.is_some())
 }
 
 pub(super) async fn finish_gateway_run(
@@ -231,7 +233,11 @@ pub(super) async fn finish_gateway_run(
     environment_id: &str,
     run_id: Option<&str>,
     status: RunStatus,
+    auto_finalize: bool,
 ) {
+    if !auto_finalize {
+        return;
+    }
     let Some(run_id) = run_id else {
         return;
     };

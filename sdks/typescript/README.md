@@ -48,6 +48,46 @@ export FEATHERLANE_AI_API_KEY=tl_live_...
 
 The SDK reads these variables automatically.
 
+## Observe a complete agent session
+
+Use the Node.js observability entry point when you want a full OpenTelemetry
+waterfall and post-run evaluations without configuring an exporter yourself:
+
+```ts
+import { observability } from '@featherlane-ai/sdk/observability';
+
+const observed = observability.init({ agentId: 'support-agent' });
+
+await observed.run({ externalId: sessionId }, async (run) => {
+  // Run one complete chat, call, workflow, or job here.
+});
+```
+
+`observability.init()` reads the URL and runtime key above, configures direct
+OTLP export, and adds Run correlation to OpenTelemetry spans created inside the
+callback. When `run(...)` finishes, the SDK flushes telemetry before finalizing
+the Run; assigned evaluations start asynchronously after the capture barrier
+closes.
+
+Use `run.event(...)` for transcript steps and `run.withEvent(...)` around an
+operation that should also inherit a Run event:
+
+```ts
+await run.event({ kind: 'user_turn', input_summary: message });
+const decision = await run.withEvent({ kind: 'tool_call', label: 'lookup_order' }, () =>
+  run.client.guardToolCall({
+    agentId: 'support-agent',
+    operation: 'lookup_order',
+    parameters: { orderId: '42' },
+    sideEffect: 'read',
+  }),
+);
+```
+
+Initialize once per Node.js process and call `observed.shutdown()` during
+process shutdown. Agent profiles and evaluation-policy assignments are
+control-plane configuration; do not recreate them in runtime agent code.
+
 ## 3. Decorate the Agent Once
 
 Decorate the agent object once when you create it:

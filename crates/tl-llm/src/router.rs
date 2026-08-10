@@ -29,6 +29,7 @@ pub enum JudgeKind {
     Tone,
     Authority,
     SemanticPolicy,
+    RunEvaluation,
 }
 
 /// A first-party model-selection workload in the canonical routing manifest.
@@ -38,6 +39,7 @@ pub enum LlmRouteKind {
     Tone,
     Authority,
     SemanticPolicy,
+    RunEvaluation,
     PolicyDraft,
     PolicyAiEdit,
     GuardrailGeneration,
@@ -54,6 +56,7 @@ impl LlmRouteKind {
             Self::Tone => "tone",
             Self::Authority => "authority",
             Self::SemanticPolicy => "semantic_policy",
+            Self::RunEvaluation => "run_evaluation",
             Self::PolicyDraft => "policy_draft",
             Self::PolicyAiEdit => "policy_ai_edit",
             Self::GuardrailGeneration => "guardrail_generation",
@@ -70,6 +73,7 @@ impl LlmRouteKind {
             "tone" => Some(Self::Tone),
             "authority" => Some(Self::Authority),
             "semantic_policy" => Some(Self::SemanticPolicy),
+            "run_evaluation" => Some(Self::RunEvaluation),
             "policy_draft" => Some(Self::PolicyDraft),
             "policy_ai_edit" => Some(Self::PolicyAiEdit),
             "guardrail_generation" => Some(Self::GuardrailGeneration),
@@ -89,6 +93,7 @@ impl From<JudgeKind> for LlmRouteKind {
             JudgeKind::Tone => Self::Tone,
             JudgeKind::Authority => Self::Authority,
             JudgeKind::SemanticPolicy => Self::SemanticPolicy,
+            JudgeKind::RunEvaluation => Self::RunEvaluation,
         }
     }
 }
@@ -100,6 +105,7 @@ impl JudgeKind {
             JudgeKind::Tone => "tone",
             JudgeKind::Authority => "authority",
             JudgeKind::SemanticPolicy => "semantic_policy",
+            JudgeKind::RunEvaluation => "run_evaluation",
         }
     }
 }

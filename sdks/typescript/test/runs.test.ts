@@ -28,6 +28,7 @@ const RUN_EVENT_BODY = {
   id: '018f2222-2222-7222-8222-222222222222',
   workspace_id: 'ws_test',
   run_id: RUN_BODY.id,
+  agent_id: 'support-agent',
   sequence: 1,
   kind: 'user_turn',
   label: 'Turn 1',
@@ -63,9 +64,20 @@ describe('Client run methods', () => {
     });
   });
 
-  it('finishRun PATCHes completed status', async () => {
+  it('finishRun finalizes the completed run', async () => {
     const fetchSpy = mockFetch(async () =>
-      jsonResponse({ ...RUN_BODY, status: 'completed', ended_at: '2026-05-17T00:01:00Z' }),
+      jsonResponse({
+        run: { ...RUN_BODY, status: 'completed', ended_at: '2026-05-17T00:01:00Z' },
+        finalization: {
+          finalized_at: '2026-05-17T00:01:00Z',
+          boundary_source: 'explicit_sdk',
+          boundary_confidence: 'authoritative',
+          capture_status: 'waiting',
+          capture_deadline: '2026-05-17T00:01:30Z',
+          expected_flush_id: null,
+        },
+        evaluation_status: 'waiting_capture',
+      }),
     );
     const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
 
@@ -73,9 +85,12 @@ describe('Client run methods', () => {
 
     expect(run.status).toBe('completed');
     const [url, init] = fetchSpy.mock.calls[0]!;
-    expect(url).toBe(`http://server.test/v1/runs/${RUN_BODY.id}`);
-    expect((init as RequestInit).method).toBe('PATCH');
-    expect(JSON.parse(String((init as RequestInit).body))).toEqual({ status: 'completed' });
+    expect(url).toBe(`http://server.test/v1/runs/${RUN_BODY.id}/finalize`);
+    expect((init as RequestInit).method).toBe('POST');
+    expect(JSON.parse(String((init as RequestInit).body))).toEqual({
+      status: 'completed',
+      boundary_source: 'explicit_sdk',
+    });
   });
 
   it('createRunEvent POSTs timeline context', async () => {
@@ -98,5 +113,59 @@ describe('Client run methods', () => {
       input_summary: 'Customer asks about a refund',
       metadata: {},
     });
+  });
+
+  it('configures and reads post-run evaluations through typed endpoints', async () => {
+    const fetchSpy = mockFetch(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/evaluation-profile')) {
+        return jsonResponse({
+          workspace_id: 'ws_test',
+          environment_id: 'production',
+          agent_id: 'support-agent',
+          ...JSON.parse(String((init as RequestInit).body)),
+          profile_version: 1,
+          updated_at: '2026-05-17T00:00:00Z',
+        });
+      }
+      if (url.endsWith('/evaluation-policy-assignments')) {
+        return jsonResponse({
+          agent_id: 'support-agent',
+          environment_id: 'production',
+          assignments: JSON.parse(String((init as RequestInit).body)).assignments,
+        });
+      }
+      return jsonResponse({ jobs: [], results: [] });
+    });
+    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
+
+    const profile = await client.putAgentEvaluationProfile('support-agent', {
+      enabled: true,
+      capture_mode: 'durable',
+      content_mode: 'metadata_only',
+      quiet_period_ms: 250n,
+      max_capture_wait_ms: 5_000n,
+      on_incomplete: 'fail',
+    });
+    const assignments = await client.putAgentEvaluationPolicyAssignments('support-agent', {
+      assignments: [
+        {
+          policy_id: 'no-denials',
+          weight: 1,
+          critical: true,
+          enabled: true,
+        },
+      ],
+    });
+    const evaluations = await client.listRunEvaluations(RUN_BODY.id);
+
+    expect(profile.capture_mode).toBe('durable');
+    expect(assignments.assignments[0]?.policy_id).toBe('no-denials');
+    expect(evaluations).toEqual({ jobs: [], results: [] });
+    expect(fetchSpy.mock.calls.map(([url]) => url)).toEqual([
+      'http://server.test/v1/agents/support-agent/evaluation-profile',
+      'http://server.test/v1/agents/support-agent/evaluation-policy-assignments',
+      `http://server.test/v1/runs/${RUN_BODY.id}/evaluations`,
+    ]);
   });
 });

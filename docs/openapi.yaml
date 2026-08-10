@@ -84,6 +84,104 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/agents/{agent_id}/evaluation-policy-assignments:
+    get:
+      tags:
+      - evaluations
+      operationId: list_agent_evaluation_assignments
+      parameters:
+      - name: agent_id
+        in: path
+        description: Registered agent id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Current evaluation policy assignments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentEvaluationPolicyAssignmentListResponse'
+    put:
+      tags:
+      - evaluations
+      operationId: put_agent_evaluation_assignments
+      parameters:
+      - name: agent_id
+        in: path
+        description: Registered agent id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PutAgentEvaluationPolicyAssignmentsRequest'
+        required: true
+      responses:
+        '200':
+          description: Evaluation policy assignments replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentEvaluationPolicyAssignmentListResponse'
+  /v1/agents/{agent_id}/evaluation-profile:
+    get:
+      tags:
+      - evaluations
+      operationId: get_agent_evaluation_profile
+      parameters:
+      - name: agent_id
+        in: path
+        description: Registered agent id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Agent evaluation profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentEvaluationProfile'
+        '404':
+          description: Profile not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    put:
+      tags:
+      - evaluations
+      operationId: put_agent_evaluation_profile
+      parameters:
+      - name: agent_id
+        in: path
+        description: Registered agent id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PutAgentEvaluationProfileRequest'
+        required: true
+      responses:
+        '200':
+          description: Evaluation profile replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentEvaluationProfile'
+        '409':
+          description: Profile version conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/agents/{id}:
     get:
       tags:
@@ -3754,6 +3852,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/runs/{id}/finalize:
+    post:
+      tags:
+      - runs
+      summary: '`POST /v1/runs/:id/finalize` - authoritatively close a Run and arm capture.'
+      operationId: finalize_run
+      parameters:
+      - name: id
+        in: path
+        description: Run id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinalizeRunRequest'
+        required: true
+      responses:
+        '200':
+          description: Run finalized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinalizeRunResponse'
+        '400':
+          description: Invalid terminal boundary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Conflicting terminal boundary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/runs/{id}/traces:
     get:
       tags:
@@ -3789,6 +3925,55 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '404':
           description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/runs/{run_id}/evaluations:
+    get:
+      tags:
+      - evaluations
+      operationId: list_run_evaluations
+      parameters:
+      - name: run_id
+        in: path
+        description: Run id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Participant evaluation results and findings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResultListResponse'
+    post:
+      tags:
+      - evaluations
+      operationId: reevaluate_run
+      parameters:
+      - name: run_id
+        in: path
+        description: Terminal Run id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReevaluateRunRequest'
+        required: true
+      responses:
+        '202':
+          description: New capture snapshot requested
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReevaluateRunResponse'
+        '409':
+          description: Run is not eligible for re-evaluation
           content:
             application/json:
               schema:
@@ -4413,6 +4598,86 @@ components:
           type: array
           items:
             type: string
+    AgentEvaluationPolicyAssignment:
+      type: object
+      required:
+      - policy_id
+      - weight
+      - critical
+      - enabled
+      properties:
+        critical:
+          type: boolean
+        enabled:
+          type: boolean
+        policy_id:
+          type: string
+        policy_version:
+          type:
+          - integer
+          - 'null'
+          format: int32
+        weight:
+          type: integer
+          format: int32
+          minimum: 0
+    AgentEvaluationPolicyAssignmentListResponse:
+      type: object
+      required:
+      - agent_id
+      - environment_id
+      - assignments
+      properties:
+        agent_id:
+          type: string
+        assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentEvaluationPolicyAssignment'
+        environment_id:
+          type: string
+    AgentEvaluationProfile:
+      type: object
+      required:
+      - workspace_id
+      - environment_id
+      - agent_id
+      - enabled
+      - capture_mode
+      - content_mode
+      - quiet_period_ms
+      - max_capture_wait_ms
+      - on_incomplete
+      - profile_version
+      - updated_at
+      properties:
+        agent_id:
+          type: string
+        capture_mode:
+          $ref: '#/components/schemas/CaptureMode'
+        content_mode:
+          $ref: '#/components/schemas/ContentCaptureMode'
+        enabled:
+          type: boolean
+        environment_id:
+          type: string
+        max_capture_wait_ms:
+          type: integer
+          format: int64
+          minimum: 0
+        on_incomplete:
+          $ref: '#/components/schemas/MissingEvidenceBehavior'
+        profile_version:
+          type: integer
+          format: int32
+        quiet_period_ms:
+          type: integer
+          format: int64
+          minimum: 0
+        updated_at:
+          type: string
+        workspace_id:
+          type: string
     AgentListResponse:
       type: object
       required:
@@ -4980,6 +5245,7 @@ components:
       - unauthorized
       - forbidden
       - not_found
+      - conflict
       - gone
       - unprocessable
       - rate_limited
@@ -5770,6 +6036,12 @@ components:
       properties:
         code:
           type: string
+    BoundaryConfidence:
+      type: string
+      enum:
+      - authoritative
+      - strong
+      - inferred
     BudgetAlertConfig:
       type: object
       description: One configured alert threshold.
@@ -5902,6 +6174,11 @@ components:
       - day
       - week
       - month
+    CaptureMode:
+      type: string
+      enum:
+      - best_effort
+      - durable
     ChangePasswordRequest:
       type: object
       description: |-
@@ -6013,6 +6290,12 @@ components:
       - secret
       - identity
       - unknown
+    ContentCaptureMode:
+      type: string
+      enum:
+      - metadata_only
+      - redacted
+      - encrypted_artifact_ref
     CounterpartyRef:
       type: object
       required:
@@ -6412,6 +6695,11 @@ components:
       required:
       - kind
       properties:
+        agent_id:
+          type:
+          - string
+          - 'null'
+          description: Agent responsible for this event. Defaults to the run's primary agent.
         input_summary:
           type:
           - string
@@ -6624,6 +6912,351 @@ components:
           - string
           - 'null'
           description: RFC 3339 timestamp.
+    EvaluationCampaignAggregate:
+      type: object
+      required:
+      - verdict
+      - completed_cases
+      - skipped_cases
+      - error_cases
+      - cases
+      properties:
+        cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationCampaignCaseResult'
+        completed_cases:
+          type: integer
+          format: int32
+          minimum: 0
+        error_cases:
+          type: integer
+          format: int32
+          minimum: 0
+        score_bps:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+        skipped_cases:
+          type: integer
+          format: int32
+          minimum: 0
+        verdict:
+          $ref: '#/components/schemas/EvaluationVerdict'
+    EvaluationCampaignCaseResult:
+      type: object
+      required:
+      - case_id
+      - run_id
+      - status
+      - verdict
+      properties:
+        case_id:
+          type: string
+        reason:
+          type:
+          - string
+          - 'null'
+        run_id:
+          type: string
+        score_bps:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/EvaluationCaseStatus'
+        verdict:
+          $ref: '#/components/schemas/EvaluationVerdict'
+    EvaluationCaseBudget:
+      type: object
+      required:
+      - max_turns
+      - max_tool_calls
+      - max_tokens
+      - max_duration_ms
+      properties:
+        max_duration_ms:
+          type: integer
+          format: int64
+          minimum: 0
+        max_tokens:
+          type: integer
+          format: int64
+          minimum: 0
+        max_tool_calls:
+          type: integer
+          format: int32
+          minimum: 0
+        max_turns:
+          type: integer
+          format: int32
+          minimum: 0
+    EvaluationCaseScoringMode:
+      type: string
+      enum:
+      - trajectory
+      - endstate
+    EvaluationCaseSpec:
+      type: object
+      required:
+      - case_id
+      - case_hash
+      - input_hash
+      - scoring_mode
+      - weight
+      - critical
+      - budget
+      - oracle_metadata
+      properties:
+        budget:
+          $ref: '#/components/schemas/EvaluationCaseBudget'
+        case_hash:
+          type: string
+        case_id:
+          type: string
+        critical:
+          type: boolean
+        input_hash:
+          type: string
+        oracle_metadata: {}
+        reference_hash:
+          type:
+          - string
+          - 'null'
+        scoring_mode:
+          $ref: '#/components/schemas/EvaluationCaseScoringMode'
+        weight:
+          type: integer
+          format: int32
+          minimum: 0
+    EvaluationCaseStatus:
+      type: string
+      enum:
+      - pending
+      - completed
+      - skipped
+      - error
+    EvaluationDatasetVersion:
+      type: object
+      required:
+      - dataset_id
+      - version
+      - manifest_hash
+      - cases
+      - created_at
+      properties:
+        cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationCaseSpec'
+        created_at:
+          type: string
+        dataset_id:
+          type: string
+        manifest_hash:
+          type: string
+        version:
+          type: integer
+          format: int32
+    EvaluationEvidenceRef:
+      type: object
+      required:
+      - kind
+      - id
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+    EvaluationFinding:
+      type: object
+      required:
+      - policy_id
+      - policy_version
+      - agent_id
+      - severity
+      - critical
+      - status
+      - reason
+      - evidence
+      properties:
+        agent_id:
+          type: string
+        critical:
+          type: boolean
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationEvidenceRef'
+        policy_id:
+          type: string
+        policy_version:
+          type: integer
+          format: int32
+        reason:
+          type: string
+        score_bps:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          description: Integer basis points in the inclusive range 0..=10_000.
+          minimum: 0
+        severity:
+          $ref: '#/components/schemas/Severity'
+        status:
+          $ref: '#/components/schemas/EvaluationFindingStatus'
+    EvaluationFindingStatus:
+      type: string
+      enum:
+      - passed
+      - failed
+      - inconclusive
+      - error
+      - not_applicable
+    EvaluationJobStatus:
+      type: string
+      enum:
+      - waiting_capture
+      - queued
+      - running
+      - completed
+      - failed
+      - inconclusive
+      - error
+    EvaluationJobSummary:
+      type: object
+      required:
+      - id
+      - run_id
+      - agent_id
+      - status
+      - attempts
+      - updated_at
+      properties:
+        agent_id:
+          type: string
+        attempts:
+          type: integer
+          format: int32
+        error:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+        run_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/EvaluationJobStatus'
+        updated_at:
+          type: string
+    EvaluationReleaseGate:
+      type: object
+      required:
+      - agent_id
+      - environment_id
+      - manifest_hash
+      - verdict
+      - evidence_result_ids
+      - created_at
+      properties:
+        agent_id:
+          type: string
+        created_at:
+          type: string
+        environment_id:
+          type: string
+        evidence_result_ids:
+          type: array
+          items:
+            type: string
+        manifest_hash:
+          type: string
+        verdict:
+          $ref: '#/components/schemas/EvaluationReleaseGateVerdict'
+    EvaluationReleaseGateVerdict:
+      type: string
+      enum:
+      - passed
+      - failed
+      - insufficient_evidence
+    EvaluationResultDetail:
+      type: object
+      required:
+      - result
+      - findings
+      properties:
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationFinding'
+        result:
+          $ref: '#/components/schemas/EvaluationResultSummary'
+    EvaluationResultListResponse:
+      type: object
+      required:
+      - jobs
+      - results
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationJobSummary'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationResultDetail'
+    EvaluationResultSummary:
+      type: object
+      required:
+      - id
+      - run_id
+      - agent_id
+      - snapshot_hash
+      - manifest_hash
+      - evaluator_version
+      - verdict
+      - capture_status
+      - created_at
+      properties:
+        agent_id:
+          type: string
+        capture_status:
+          $ref: '#/components/schemas/RunCaptureStatus'
+        created_at:
+          type: string
+        evaluator_version:
+          type: string
+        id:
+          type: string
+        llm_audit: {}
+        manifest_hash:
+          type: string
+        run_id:
+          type: string
+        score_bps:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+        snapshot_hash:
+          type: string
+        verdict:
+          $ref: '#/components/schemas/EvaluationVerdict'
+    EvaluationVerdict:
+      type: string
+      enum:
+      - passed
+      - failed
+      - inconclusive
+      - error
+      - not_configured
     EventKind:
       type: string
       enum:
@@ -6667,6 +7300,42 @@ components:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/AuthorizationClaim'
+    FinalizeRunRequest:
+      type: object
+      required:
+      - status
+      - boundary_source
+      properties:
+        boundary_source:
+          $ref: '#/components/schemas/RunBoundarySource'
+        ended_at:
+          type:
+          - string
+          - 'null'
+        expected_flush_id:
+          type:
+          - string
+          - 'null'
+        last_event_sequence:
+          type:
+          - integer
+          - 'null'
+          format: int32
+        status:
+          $ref: '#/components/schemas/RunStatus'
+    FinalizeRunResponse:
+      type: object
+      required:
+      - run
+      - finalization
+      - evaluation_status
+      properties:
+        evaluation_status:
+          $ref: '#/components/schemas/EvaluationJobStatus'
+        finalization:
+          $ref: '#/components/schemas/RunFinalizationSummary'
+        run:
+          $ref: '#/components/schemas/RunSummary'
     FinancialAction:
       type: object
       required:
@@ -8601,6 +9270,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/WorkspaceMember'
+    MissingEvidenceBehavior:
+      type: string
+      enum:
+      - inconclusive
+      - fail
     MoneyAmount:
       type: object
       required:
@@ -8854,6 +9528,7 @@ components:
       - financial
       - source_label
       - tool
+      - evaluation
     PolicyListResponse:
       type: object
       required:
@@ -8976,6 +9651,46 @@ components:
           type: string
       propertyNames:
         type: string
+    PutAgentEvaluationPolicyAssignmentsRequest:
+      type: object
+      required:
+      - assignments
+      properties:
+        assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentEvaluationPolicyAssignment'
+    PutAgentEvaluationProfileRequest:
+      type: object
+      required:
+      - enabled
+      - capture_mode
+      - content_mode
+      - quiet_period_ms
+      - max_capture_wait_ms
+      - on_incomplete
+      properties:
+        capture_mode:
+          $ref: '#/components/schemas/CaptureMode'
+        content_mode:
+          $ref: '#/components/schemas/ContentCaptureMode'
+        enabled:
+          type: boolean
+        expected_profile_version:
+          type:
+          - integer
+          - 'null'
+          format: int32
+        max_capture_wait_ms:
+          type: integer
+          format: int64
+          minimum: 0
+        on_incomplete:
+          $ref: '#/components/schemas/MissingEvidenceBehavior'
+        quiet_period_ms:
+          type: integer
+          format: int64
+          minimum: 0
     RecoveryStatus:
       type: string
       enum:
@@ -9625,6 +10340,25 @@ components:
           type:
           - string
           - 'null'
+    ReevaluateRunRequest:
+      type: object
+      properties:
+        agent_ids:
+          type:
+          - array
+          - 'null'
+          items:
+            type: string
+    ReevaluateRunResponse:
+      type: object
+      required:
+      - run_id
+      - status
+      properties:
+        run_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/EvaluationJobStatus'
     ReplaceMcpGatewayToolAssignmentsRequest:
       type: object
       required:
@@ -9659,6 +10393,17 @@ components:
       - compensating_charge
       - internal_balance_adjustment
       - manual_recovery
+    RunBoundarySource:
+      type: string
+      enum:
+      - explicit_sdk
+      - framework_adapter
+      - otel_session_end
+      - root_span_end
+      - idle_timeout
+      - max_duration
+      - admin
+      - legacy_sdk
     RunBudgetWindowSnapshot:
       type: object
       required:
@@ -9681,6 +10426,13 @@ components:
           type: string
         window:
           type: string
+    RunCaptureStatus:
+      type: string
+      enum:
+      - open
+      - waiting
+      - complete
+      - incomplete
     RunDetail:
       type: object
       required:
@@ -9692,24 +10444,77 @@ components:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/RunLlmBudgetDecision'
+        evaluation_jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationJobSummary'
+        evaluations:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationResultSummary'
         events:
           type: array
           items:
             $ref: '#/components/schemas/RunEventSummary'
+        finalization:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/RunFinalizationSummary'
         guardrail_usage:
           type: array
           items:
             $ref: '#/components/schemas/RunGuardrailUsage'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunParticipantSummary'
         provider_usage:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/RunProviderUsage'
         run:
           $ref: '#/components/schemas/RunSummary'
+        spans:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunSpanSummary'
         traces:
           type: array
           items:
             $ref: '#/components/schemas/TraceSummary'
+    RunEvaluationEligibility:
+      type: string
+      enum:
+      - eligible
+      - legacy_incomplete
+    RunEvaluationPolicyManifestSummary:
+      type: object
+      required:
+      - agent_id
+      - policy_id
+      - policy_family
+      - policy_version
+      - policy_hash
+      - weight
+      - critical
+      properties:
+        agent_id:
+          type: string
+        critical:
+          type: boolean
+        policy_family:
+          $ref: '#/components/schemas/PolicyFamily'
+        policy_hash:
+          type: string
+        policy_id:
+          type: string
+        policy_version:
+          type: integer
+          format: int32
+        weight:
+          type: integer
+          format: int32
+          minimum: 0
     RunEventKind:
       type: string
       enum:
@@ -9736,12 +10541,15 @@ components:
       - id
       - workspace_id
       - run_id
+      - agent_id
       - sequence
       - kind
       - metadata
       - occurred_at
       - created_at
       properties:
+        agent_id:
+          type: string
         created_at:
           type: string
           description: RFC 3339 timestamp.
@@ -9771,6 +10579,29 @@ components:
           type: integer
           format: int32
         workspace_id:
+          type: string
+    RunFinalizationSummary:
+      type: object
+      required:
+      - finalized_at
+      - boundary_source
+      - boundary_confidence
+      - capture_status
+      - capture_deadline
+      properties:
+        boundary_confidence:
+          $ref: '#/components/schemas/BoundaryConfidence'
+        boundary_source:
+          $ref: '#/components/schemas/RunBoundarySource'
+        capture_deadline:
+          type: string
+        capture_status:
+          $ref: '#/components/schemas/RunCaptureStatus'
+        expected_flush_id:
+          type:
+          - string
+          - 'null'
+        finalized_at:
           type: string
     RunGuardrailUsage:
       type: object
@@ -9866,6 +10697,24 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RunBudgetWindowSnapshot'
+    RunParticipantRole:
+      type: string
+      enum:
+      - primary
+      - participant
+    RunParticipantSummary:
+      type: object
+      required:
+      - agent_id
+      - role
+      - joined_at
+      properties:
+        agent_id:
+          type: string
+        joined_at:
+          type: string
+        role:
+          $ref: '#/components/schemas/RunParticipantRole'
     RunProviderUsage:
       type: object
       required:
@@ -9921,6 +10770,96 @@ components:
           - integer
           - 'null'
           format: int64
+    RunSpanSummary:
+      type: object
+      required:
+      - trace_id
+      - span_id
+      - agent_id
+      - name
+      - span_kind
+      - started_at
+      - ended_at
+      - status_code
+      - resource
+      - attributes
+      - events
+      - links
+      - content_capture_status
+      - dropped_attribute_count
+      - late_evidence
+      - ingested_at
+      properties:
+        agent_id:
+          type: string
+        attributes:
+          type: object
+          additionalProperties: {}
+          propertyNames:
+            type: string
+        content_capture_status:
+          type: string
+        conversation_id:
+          type:
+          - string
+          - 'null'
+        dropped_attribute_count:
+          type: integer
+          format: int32
+        ended_at:
+          type: string
+          description: RFC 3339 timestamp.
+        events:
+          type: array
+          items: {}
+        external_agent_id:
+          type:
+          - string
+          - 'null'
+        ingested_at:
+          type: string
+          description: RFC 3339 timestamp.
+        late_evidence:
+          type: boolean
+        links:
+          type: array
+          items: {}
+        name:
+          type: string
+        operation_name:
+          type:
+          - string
+          - 'null'
+        parent_span_id:
+          type:
+          - string
+          - 'null'
+        resource:
+          type: object
+          additionalProperties: {}
+          propertyNames:
+            type: string
+        run_event_id:
+          type:
+          - string
+          - 'null'
+        span_id:
+          type: string
+        span_kind:
+          type: integer
+          format: int32
+        started_at:
+          type: string
+          description: RFC 3339 timestamp.
+        status_code:
+          type: integer
+          format: int32
+        status_message:
+          type:
+          - string
+          - 'null'
+        trace_id:
+          type: string
     RunStatus:
       type: string
       enum:
@@ -9929,6 +10868,7 @@ components:
       - completed
       - failed
       - canceled
+      - timed_out
     RunSummary:
       type: object
       required:
@@ -9968,6 +10908,10 @@ components:
         escalated_count:
           type: integer
           format: int64
+        evaluation_eligibility:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/RunEvaluationEligibility'
         external_id:
           type:
           - string
@@ -10319,6 +11263,13 @@ components:
       - payload
       - created_at
       properties:
+        agent_id:
+          type:
+          - string
+          - 'null'
+          description: |-
+            Stable registered agent identity. `None` is reserved for legacy rows
+            that predate direct attribution and cannot be backfilled safely.
         created_at:
           type: string
           description: RFC 3339 timestamp.
@@ -11049,6 +12000,8 @@ tags:
   description: Policy authoring and validation
 - name: runs
   description: Agent execution runs and grouped traces
+- name: evaluations
+  description: Agent-scoped post-run evaluation configuration and results
 - name: redteam
   description: Red-team attack dispatch jobs and results
 - name: github-integration

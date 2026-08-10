@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseRunDetailSnapshot } from './run-detail-live';
+import { currentAssuranceStatus, parseRunDetailSnapshot } from './run-detail-live';
 
 describe('parseRunDetailSnapshot', () => {
   it('validates and maps a run detail payload for the live view', () => {
@@ -28,6 +28,7 @@ describe('parseRunDetailSnapshot', () => {
           id: 'event-1',
           workspace_id: 'ws_demo',
           run_id: '019f0000-0000-7000-9000-000000000001',
+          agent_id: 'demo-agent',
           sequence: 1,
           kind: 'user_turn',
           label: null,
@@ -57,6 +58,71 @@ describe('parseRunDetailSnapshot', () => {
           created_at: '2026-05-25T00:00:01.000Z',
         },
       ],
+      spans: [
+        {
+          trace_id: 'otel-trace-1',
+          span_id: 'span-root',
+          parent_span_id: null,
+          agent_id: 'demo-agent',
+          run_event_id: 'event-1',
+          name: 'agent turn',
+          span_kind: 2,
+          operation_name: 'chat',
+          conversation_id: 'conversation-1',
+          external_agent_id: 'customer-agent',
+          started_at: '2026-05-25T00:00:00.000Z',
+          ended_at: '2026-05-25T00:00:00.000161Z',
+          status_code: 1,
+          status_message: null,
+          resource: {
+            attributes: { 'service.name': 'customer-agent-service' },
+            scope: { name: 'customer-agent-instrumentation' },
+          },
+          attributes: { 'gen_ai.operation.name': 'chat' },
+          events: [{ name: 'prompt-ready' }],
+          links: [],
+          content_capture_status: 'metadata_only',
+          dropped_attribute_count: 0,
+          late_evidence: false,
+          ingested_at: '2026-05-25T00:00:01.000Z',
+        },
+      ],
+      finalization: {
+        finalized_at: '2026-05-25T00:00:02.000Z',
+        boundary_source: 'explicit_sdk',
+        boundary_confidence: 'authoritative',
+        capture_status: 'complete',
+        capture_deadline: '2026-05-25T00:00:32.000Z',
+        expected_flush_id: null,
+      },
+      participants: [
+        { agent_id: 'demo-agent', role: 'primary', joined_at: '2026-05-25T00:00:00.000Z' },
+      ],
+      evaluation_jobs: [
+        {
+          id: 'job-1',
+          run_id: '019f0000-0000-7000-9000-000000000001',
+          agent_id: 'demo-agent',
+          status: 'completed',
+          attempts: 1,
+          error: null,
+          updated_at: '2026-05-25T00:00:03.000Z',
+        },
+      ],
+      evaluations: [
+        {
+          id: 'eval-1',
+          run_id: '019f0000-0000-7000-9000-000000000001',
+          agent_id: 'demo-agent',
+          snapshot_hash: 'blake3:v1:snapshot',
+          manifest_hash: 'blake3:v1:manifest',
+          evaluator_version: 'tl-eval:v1',
+          verdict: 'failed',
+          score_bps: 0,
+          capture_status: 'complete',
+          created_at: '2026-05-25T00:00:03.000Z',
+        },
+      ],
     });
 
     expect(snapshot.run).toMatchObject({
@@ -84,6 +150,85 @@ describe('parseRunDetailSnapshot', () => {
       safeOutput: 'Blocked by Featherlane AI.',
       checkedOutput: 'That is a stupid question. Figure it out yourself.',
     });
+    expect(snapshot.spans[0]).toMatchObject({
+      key: 'otel-trace-1:span-root',
+      name: 'agent turn',
+      service: 'customer-agent-service',
+      kind: 'Server',
+      status: 'OK',
+      durationMs: 0.161,
+      eventCount: 1,
+    });
+    expect(snapshot.assurance.finalization?.capture_status).toBe('complete');
+    expect(snapshot.assurance.eligibility).toBe('eligible');
+    expect(snapshot.assurance.participants).toHaveLength(1);
+    expect(snapshot.assurance.jobs[0]).toMatchObject({ status: 'completed', attempts: 1 });
+    expect(snapshot.assurance.evaluations[0]).toMatchObject({ verdict: 'failed', score_bps: 0 });
+  });
+
+  it('preserves legacy-incomplete evaluation eligibility', () => {
+    const snapshot = parseRunDetailSnapshot({
+      run: {
+        id: 'legacy-run',
+        workspace_id: 'ws_demo',
+        agent_id: 'demo-agent',
+        kind: 'chat_session',
+        status: 'completed',
+        evaluation_eligibility: 'legacy_incomplete',
+        external_id: null,
+        metadata: {},
+        started_at: '2026-05-25T00:00:00.000Z',
+        ended_at: '2026-05-25T00:00:01.000Z',
+        created_at: '2026-05-25T00:00:00.000Z',
+        updated_at: '2026-05-25T00:00:01.000Z',
+        trace_count: 0,
+        blocked_count: 0,
+        rewritten_count: 0,
+        escalated_count: 0,
+        p95_latency_ms: null,
+      },
+      events: [],
+      traces: [],
+    });
+
+    expect(snapshot.assurance.eligibility).toBe('legacy_incomplete');
+  });
+
+  it('uses only the latest evaluation per agent for the current assurance status', () => {
+    const assurance = {
+      eligibility: 'eligible' as const,
+      finalization: null,
+      participants: [],
+      jobs: [],
+      evaluations: [
+        {
+          id: 'old-failure',
+          run_id: 'run',
+          agent_id: 'agent',
+          snapshot_hash: 'old',
+          manifest_hash: 'manifest',
+          evaluator_version: 'tl-eval:v1',
+          verdict: 'failed',
+          score_bps: 0,
+          capture_status: 'complete',
+          created_at: '2026-01-01T00:00:00Z',
+        },
+        {
+          id: 'new-pass',
+          run_id: 'run',
+          agent_id: 'agent',
+          snapshot_hash: 'new',
+          manifest_hash: 'manifest',
+          evaluator_version: 'tl-eval:v1',
+          verdict: 'passed',
+          score_bps: 10_000,
+          capture_status: 'complete',
+          created_at: '2026-01-02T00:00:00Z',
+        },
+      ],
+    };
+
+    expect(currentAssuranceStatus(assurance)).toBe('passed');
   });
 
   it('marks untriggered allow checks with their input/output side', () => {
@@ -161,6 +306,7 @@ describe('parseRunDetailSnapshot', () => {
           id: 'event-3',
           workspace_id: 'ws_demo',
           run_id: '019f0000-0000-7000-9000-000000000003',
+          agent_id: 'booking-agent',
           sequence: 1,
           kind: 'assistant_turn',
           label: 'guarded_agent_reply',
@@ -208,6 +354,54 @@ describe('parseRunDetailSnapshot', () => {
       operation: 'book_appointment',
       toolName: 'book_appointment',
       checkedInput: expect.stringContaining('"partySize": 2'),
+    });
+  });
+
+  it('accepts redacted tool parameters from persisted traces', () => {
+    const snapshot = parseRunDetailSnapshot({
+      run: {
+        id: 'run-redacted-tool',
+        workspace_id: 'ws_demo',
+        agent_id: 'booking-agent',
+        kind: 'chat_session',
+        status: 'completed',
+        external_id: null,
+        metadata: {},
+        started_at: '2026-05-25T00:00:00.000Z',
+        ended_at: '2026-05-25T00:00:01.000Z',
+        created_at: '2026-05-25T00:00:00.000Z',
+        updated_at: '2026-05-25T00:00:01.000Z',
+        trace_count: 1,
+        blocked_count: 0,
+        rewritten_count: 0,
+        escalated_count: 0,
+        p95_latency_ms: 8,
+      },
+      events: [],
+      traces: [
+        {
+          trace_id: 'trace-redacted-tool',
+          domain: 'event',
+          decision: 'permit',
+          elapsed_ms: 8,
+          payload: {
+            event: {
+              kind: 'tool.call.proposed',
+              action: {
+                operation: 'book_appointment',
+                parameters: null,
+              },
+            },
+          },
+          created_at: '2026-05-25T00:00:01.000Z',
+        },
+      ],
+    });
+
+    expect(snapshot.traces[0]).toMatchObject({
+      side: 'tool',
+      operation: 'book_appointment',
+      checkedInput: null,
     });
   });
 

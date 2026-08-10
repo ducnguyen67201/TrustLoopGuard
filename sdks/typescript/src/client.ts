@@ -20,6 +20,8 @@ import type { GuardEvent } from './generated/GuardEvent.js';
 import type { EventKind } from './generated/EventKind.js';
 import type { AgentListResponse } from './generated/AgentListResponse.js';
 import type { AgentProfile } from './generated/AgentProfile.js';
+import type { AgentEvaluationPolicyAssignmentListResponse } from './generated/AgentEvaluationPolicyAssignmentListResponse.js';
+import type { AgentEvaluationProfile } from './generated/AgentEvaluationProfile.js';
 import type { ApiKeyBatchRevokeResponse } from './generated/ApiKeyBatchRevokeResponse.js';
 import type { GuardrailGenerateResponse } from './generated/GuardrailGenerateResponse.js';
 import type { GuardrailListResponse } from './generated/GuardrailListResponse.js';
@@ -53,10 +55,14 @@ import type { FinancialPolicyRecord } from './generated/FinancialPolicyRecord.js
 import type { FinancialReceipt } from './generated/FinancialReceipt.js';
 import type { CreateRunEventRequest } from './generated/CreateRunEventRequest.js';
 import type { CreateRunRequest } from './generated/CreateRunRequest.js';
+import type { EvaluationResultListResponse } from './generated/EvaluationResultListResponse.js';
+import type { PutAgentEvaluationPolicyAssignmentsRequest } from './generated/PutAgentEvaluationPolicyAssignmentsRequest.js';
+import type { PutAgentEvaluationProfileRequest } from './generated/PutAgentEvaluationProfileRequest.js';
 import type { RunDetail } from './generated/RunDetail.js';
 import type { RunEventListResponse } from './generated/RunEventListResponse.js';
 import type { RunEventSummary } from './generated/RunEventSummary.js';
 import type { RunKind } from './generated/RunKind.js';
+import type { RunBoundarySource } from './generated/RunBoundarySource.js';
 import type { RunListResponse } from './generated/RunListResponse.js';
 import type { RunStatus } from './generated/RunStatus.js';
 import type { RunSummary } from './generated/RunSummary.js';
@@ -86,6 +92,54 @@ export interface ClientOptions {
    * dependency on the SDK.
    */
   onRetry?: (info: { attempt: number; delayS: number; error: SdkError }) => void;
+  runTelemetry?: RunTelemetryHook;
+  telemetryFlushTimeoutMs?: number;
+  onRunLifecycleWarning?: (warning: RunLifecycleWarning) => void;
+}
+
+export interface RunCorrelationContext {
+  runId: string;
+  agentId: string;
+  runEventId?: string;
+  attributes: Readonly<Record<string, string>>;
+  headers: Readonly<Record<string, string>>;
+}
+
+export interface RunTelemetryHook {
+  bindRun?(context: RunCorrelationContext): void;
+  forceFlush?(context: RunCorrelationContext): Promise<void>;
+}
+
+export interface RunLifecycleWarning {
+  code: 'telemetry_flush_failed';
+  runId: string;
+  error: Error;
+}
+
+export function runCorrelation(
+  runId: string,
+  agentId: string,
+  runEventId?: string,
+): RunCorrelationContext {
+  const attributes: Record<string, string> = {
+    'featherlane.run.id': runId,
+    'featherlane.agent.id': agentId,
+  };
+  const headers: Record<string, string> = {
+    'x-featherlane-run-id': runId,
+    'x-featherlane-agent-id': agentId,
+  };
+  if (runEventId !== undefined) {
+    attributes['featherlane.run.event.id'] = runEventId;
+    headers['x-featherlane-run-event-id'] = runEventId;
+  }
+  return Object.freeze({
+    runId,
+    agentId,
+    ...(runEventId === undefined ? {} : { runEventId }),
+    attributes: Object.freeze(attributes),
+    headers: Object.freeze(headers),
+  });
 }
 
 interface ActiveRunContext {
@@ -240,7 +294,7 @@ async function withAutomaticReplyRun<T>(
     try {
       const result = await fn();
       try {
-        await client.finishRun(summary.id, 'completed');
+        await client.finishRun(summary.id, 'completed', undefined, 'framework_adapter');
       } catch (error) {
         if (error instanceof SdkError) {
           notifyAutomaticRunWarning(opts, 'finish', error);
@@ -251,7 +305,7 @@ async function withAutomaticReplyRun<T>(
       return result;
     } catch (error) {
       try {
-        await client.finishRun(summary.id, 'failed');
+        await client.finishRun(summary.id, 'failed', undefined, 'framework_adapter');
       } catch (finishError) {
         if (finishError instanceof SdkError) {
           notifyAutomaticRunWarning(opts, 'finish', finishError);
@@ -352,7 +406,7 @@ class SessionAutomaticRunController implements AutomaticRunController {
 
     await this.waitForBoundaries();
     try {
-      await this.client.finishRun(summary.id, status);
+      await this.client.finishRun(summary.id, status, undefined, 'framework_adapter');
     } catch (error) {
       if (error instanceof SdkError) {
         notifyAutomaticRunWarning(this.opts, 'finish', error);
@@ -559,6 +613,10 @@ export class Client {
   private readonly fetchImpl: typeof fetch;
   private readonly retry: RetryConfig;
   private readonly onRetry: ClientOptions['onRetry'];
+  private readonly runTelemetry: RunTelemetryHook | undefined;
+  private readonly telemetryFlushTimeoutMs: number;
+  private readonly onRunLifecycleWarning: ClientOptions['onRunLifecycleWarning'];
+  private readonly runCorrelations = new Map<string, RunCorrelationContext>();
 
   constructor(opts: ClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/$/, '');
@@ -566,6 +624,9 @@ export class Client {
     this.fetchImpl = opts.fetchImpl ?? globalThis.fetch.bind(globalThis);
     this.retry = opts.retry ?? DEFAULT_RETRY;
     this.onRetry = opts.onRetry;
+    this.runTelemetry = opts.runTelemetry;
+    this.telemetryFlushTimeoutMs = opts.telemetryFlushTimeoutMs ?? 5_000;
+    this.onRunLifecycleWarning = opts.onRunLifecycleWarning;
   }
 
   /**
@@ -1166,7 +1227,7 @@ export class Client {
     req: Omit<CreateRunRequest, 'metadata'> & { metadata?: Record<string, unknown> },
     signal?: AbortSignal,
   ): Promise<RunSummary> {
-    return this.withRetry(
+    const summary = await this.withRetry(
       (signal) =>
         this.sendJson<RunSummary>(
           '/v1/runs',
@@ -1178,6 +1239,10 @@ export class Client {
         ),
       signal,
     );
+    const correlation = runCorrelation(summary.id, req.agent_id);
+    this.runCorrelations.set(summary.id, correlation);
+    this.runTelemetry?.bindRun?.(correlation);
+    return summary;
   }
 
   private async withActiveContext(event: GuardEvent): Promise<GuardEvent> {
@@ -1227,10 +1292,58 @@ export class Client {
 
   async finishRun(
     runId: string,
-    status: Extract<RunStatus, 'completed' | 'failed' | 'canceled'> = 'completed',
+    status: Extract<RunStatus, 'completed' | 'failed' | 'canceled' | 'timed_out'> = 'completed',
     signal?: AbortSignal,
+    boundarySource: RunBoundarySource = 'explicit_sdk',
   ): Promise<RunSummary> {
-    return this.updateRun(runId, { status }, signal);
+    const correlation = this.runCorrelations.get(runId);
+    let expectedFlushId: string | undefined;
+    if (correlation !== undefined && this.runTelemetry?.forceFlush !== undefined) {
+      const flushId = newUuid();
+      const flushContext: RunCorrelationContext = Object.freeze({
+        ...correlation,
+        attributes: Object.freeze({
+          ...correlation.attributes,
+          'featherlane.flush.id': flushId,
+        }),
+        headers: Object.freeze({
+          ...correlation.headers,
+          'x-featherlane-flush-id': flushId,
+        }),
+      });
+      try {
+        await withTimeout(
+          this.runTelemetry.forceFlush(flushContext),
+          this.telemetryFlushTimeoutMs,
+          'telemetry flush timed out',
+        );
+        expectedFlushId = flushId;
+      } catch (error) {
+        this.onRunLifecycleWarning?.({
+          code: 'telemetry_flush_failed',
+          runId,
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
+      }
+    }
+    const result = await this.withRetry(
+      (retrySignal) =>
+        this.sendJson<{ run: RunSummary }>(
+          `/v1/runs/${encodeURIComponent(runId)}/finalize`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              status,
+              boundary_source: boundarySource,
+              ...(expectedFlushId === undefined ? {} : { expected_flush_id: expectedFlushId }),
+            }),
+          },
+          retrySignal,
+        ),
+      signal,
+    );
+    this.runCorrelations.delete(runId);
+    return result.run;
   }
 
   async createRunEvent(
@@ -1269,6 +1382,53 @@ export class Client {
       (signal) =>
         this.sendJson<TraceListResponse>(
           `/v1/runs/${encodeURIComponent(runId)}/traces`,
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async putAgentEvaluationProfile(
+    agentId: string,
+    request: PutAgentEvaluationProfileRequest,
+    signal?: AbortSignal,
+  ): Promise<AgentEvaluationProfile> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<AgentEvaluationProfile>(
+          `/v1/agents/${encodeURIComponent(agentId)}/evaluation-profile`,
+          { method: 'PUT', body: stringifyJson(request) },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async putAgentEvaluationPolicyAssignments(
+    agentId: string,
+    request: PutAgentEvaluationPolicyAssignmentsRequest,
+    signal?: AbortSignal,
+  ): Promise<AgentEvaluationPolicyAssignmentListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<AgentEvaluationPolicyAssignmentListResponse>(
+          `/v1/agents/${encodeURIComponent(agentId)}/evaluation-policy-assignments`,
+          { method: 'PUT', body: stringifyJson(request) },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async listRunEvaluations(
+    runId: string,
+    signal?: AbortSignal,
+  ): Promise<EvaluationResultListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<EvaluationResultListResponse>(
+          `/v1/runs/${encodeURIComponent(runId)}/evaluations`,
           { method: 'GET' },
           signal,
         ),
@@ -1700,6 +1860,20 @@ function deepFreeze(value: object): void {
 
 function newUuid(): string {
   return globalThis.crypto.randomUUID();
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), Math.max(1, timeoutMs));
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 function abortableDelay(delayMs: number, signal?: AbortSignal): Promise<void> {

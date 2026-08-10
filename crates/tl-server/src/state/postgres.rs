@@ -8,10 +8,10 @@ use tl_engine::ProfileResolver;
 use tl_engine::ToolMetadataProvider;
 use tl_storage::{
     connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, AuthorizationRepo,
-    BudgetAlertRepo, DashboardAdminRepo, EnvironmentRepo, EscalationRepo, FinancialRepo,
-    GatewayRepo, GitHubIntegrationRepo, KnowledgeRepo, LlmPricingRepo, LlmUsageRepo,
-    McpGatewayRepo, OAuthRepo, PolicyRepo, RedteamJobRepo, RedteamPlanRepo, RedteamReportShareRepo,
-    RunRepo, TeamRepo, ToolMetadataRepo, TraceRepo, UserRepo, WriterConfig,
+    BudgetAlertRepo, DashboardAdminRepo, EnvironmentRepo, EscalationRepo, EvaluationRepo,
+    FinancialRepo, GatewayRepo, GitHubIntegrationRepo, KnowledgeRepo, LlmPricingRepo, LlmUsageRepo,
+    McpGatewayRepo, OAuthRepo, OtelRepo, PolicyRepo, RedteamJobRepo, RedteamPlanRepo,
+    RedteamReportShareRepo, RunRepo, TeamRepo, ToolMetadataRepo, TraceRepo, UserRepo, WriterConfig,
 };
 
 use crate::agents::{AgentStore, MemoryAgentStore};
@@ -21,6 +21,9 @@ use crate::authorization::{AuthorizationStore, MemoryAuthorizationStore};
 use crate::budget_alerts::{BudgetAlertStore, MemoryBudgetAlertStore};
 use crate::dashboard_admin::{ApiKeyStore, MemoryApiKeyStore, MemorySettingsStore, SettingsStore};
 use crate::environments::{EnvironmentStore, MemoryEnvironmentStore};
+use crate::evaluations::{
+    spawn_evaluation_worker, EvaluationStore, EvaluationWorkerConfig, MemoryEvaluationStore,
+};
 use crate::financial::{FinancialStore, MemoryFinancialStore};
 use crate::gateway::{GatewayStore, MemoryGatewayStore};
 use crate::github_integration::{GitHubIntegrationStore, MemoryGitHubIntegrationStore};
@@ -31,6 +34,7 @@ use crate::llm_pricing::{LlmPricingStore, MemoryLlmPricingStore};
 use crate::llm_usage::{LlmUsageStore, MemoryLlmUsageStore};
 use crate::mcp_gateway::{McpGatewayStore, MemoryMcpGatewayStore};
 use crate::oauth_store::{MemoryOAuthStore, OAuthStore};
+use crate::otel::{MemoryOtelStore, OtelStore};
 use crate::policies::{MemoryPolicyStore, PolicyStore};
 use crate::redteam::{
     MemoryRedteamJobStore, MemoryRedteamPlanStore, MemoryRedteamReportShareStore, RedteamJobStore,
@@ -48,12 +52,15 @@ use super::postgres_adapters::*;
 pub(super) async fn build_postgres_layer(
     database_url: Option<String>,
     fallback_policies: &super::LoadedPolicies,
+    llm: Arc<tl_llm::LlmRouter>,
 ) -> Result<(
     Arc<dyn AgentStore>,
     Arc<dyn ProfileResolver>,
     Arc<dyn PolicyStore>,
     Arc<dyn TraceStore>,
     Arc<dyn RunStore>,
+    Arc<dyn EvaluationStore>,
+    Arc<dyn OtelStore>,
     Arc<dyn AnalyticsStore>,
     Arc<dyn HumanReviewStore>,
     Arc<dyn FinancialStore>,
@@ -98,6 +105,8 @@ pub(super) async fn build_postgres_layer(
             )) as Arc<dyn PolicyStore>,
             Arc::new(MemoryTraceStore::default()) as Arc<dyn TraceStore>,
             Arc::new(MemoryRunStore::new()) as Arc<dyn RunStore>,
+            Arc::new(MemoryEvaluationStore::new()) as Arc<dyn EvaluationStore>,
+            Arc::new(MemoryOtelStore::default()) as Arc<dyn OtelStore>,
             Arc::new(MemoryAnalyticsStore::new()) as Arc<dyn AnalyticsStore>,
             Arc::new(MemoryHumanReviewStore::new()) as Arc<dyn HumanReviewStore>,
             Arc::new(MemoryFinancialStore::new()) as Arc<dyn FinancialStore>,
@@ -144,6 +153,12 @@ pub(super) async fn build_postgres_layer(
     let trace_adapter =
         PostgresTraceAdapter::new(Arc::new(TraceRepo::new(pool.clone())), trace_writer_tx);
     let run_adapter = PostgresRunAdapter::new(Arc::new(RunRepo::new(pool.clone())));
+    let evaluation_repo = Arc::new(EvaluationRepo::new(pool.clone()));
+    let evaluation_adapter = PostgresEvaluationAdapter::new(evaluation_repo.clone());
+    let _evaluation_worker =
+        spawn_evaluation_worker(evaluation_repo, llm, EvaluationWorkerConfig::default());
+    tracing::info!("post-run evaluation worker spawned");
+    let otel_adapter = PostgresOtelAdapter::new(Arc::new(OtelRepo::new(pool.clone())));
     let analytics_adapter =
         PostgresAnalyticsAdapter::new(Arc::new(AnalyticsRepo::new(pool.clone())));
     let human_review_adapter =
@@ -194,6 +209,8 @@ pub(super) async fn build_postgres_layer(
         policy_adapter as Arc<dyn PolicyStore>,
         trace_adapter as Arc<dyn TraceStore>,
         run_adapter as Arc<dyn RunStore>,
+        evaluation_adapter as Arc<dyn EvaluationStore>,
+        otel_adapter as Arc<dyn OtelStore>,
         analytics_adapter as Arc<dyn AnalyticsStore>,
         human_review_adapter as Arc<dyn HumanReviewStore>,
         financial_adapter as Arc<dyn FinancialStore>,

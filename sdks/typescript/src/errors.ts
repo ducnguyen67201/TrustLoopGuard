@@ -27,6 +27,7 @@ const STATUS_TO_CODE: Record<number, ApiErrorCode> = {
   401: 'unauthorized',
   403: 'forbidden',
   404: 'not_found',
+  409: 'conflict',
   410: 'gone',
   422: 'unprocessable',
   429: 'rate_limited',
@@ -106,6 +107,12 @@ export class NotFound extends SdkError {
     this.name = 'NotFound';
   }
 }
+export class Conflict extends SdkError {
+  constructor(error: ApiError) {
+    super(error);
+    this.name = 'Conflict';
+  }
+}
 export class Gone extends SdkError {
   constructor(error: ApiError) {
     super(error);
@@ -156,6 +163,7 @@ const CODE_TO_CLASS: Record<ApiErrorCode, new (e: ApiError) => SdkError> = {
   unauthorized: Unauthorized,
   forbidden: Forbidden,
   not_found: NotFound,
+  conflict: Conflict,
   gone: Gone,
   unprocessable: Unprocessable,
   rate_limited: RateLimited,

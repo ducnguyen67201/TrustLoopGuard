@@ -6,6 +6,36 @@ Every domain term defined once. If you find yourself explaining a term in a PR r
 
 ## Domain terms
 
+### Run finalization
+
+The idempotent, first-write-wins record that a Run reached a terminal status. Finalization arms the
+capture barrier; it does not assert telemetry completeness.
+
+### Capture barrier
+
+The bounded wait between Run finalization and snapshot creation. It closes on a durable expected
+flush receipt, an evidence quiet period, or the maximum capture deadline.
+
+### RunSnapshot
+
+An immutable, content-addressed, privacy-normalized projection of one finalized Run's evidence at a
+specific cutoff. Re-evaluation creates a new snapshot version rather than changing an old one.
+
+### Evaluation policy manifest
+
+The concrete policy versions, hashes, weights, and critical flags frozen for one participating agent
+when it first joins a Run.
+
+### Late evidence
+
+Valid evidence received after a snapshot has closed. It is retained and flagged, but it cannot
+mutate an existing snapshot or result.
+
+### Release gate
+
+A read-only verdict projected from immutable evaluation evidence. It may be passed, failed, or
+insufficient evidence; it never deploys customer code.
+
 ### Agent
 
 An AI program that takes actions or produces outputs on behalf of a customer's product. Examples: customer-support chatbot, sales assistant, internal IT helper, coding agent. Featherlane AI does not run the agent — it sits in the agent's output path.
@@ -366,7 +396,7 @@ UUIDv4 (or caller-supplied) string that uniquely identifies one decision. Used f
 
 ### Run
 
-One execution of a customer agent after guardrails have been assigned: a chat session, live call, workflow execution, or background job. A run groups many ordered run events and many `Decision` traces through `run_id`, but enforcement still happens per `GuardEvent`. Runs are described in [runs.md](runs.md).
+One execution of a customer agent after guardrails have been assigned: a chat session, live call, workflow execution, or background job. A run groups many ordered run events and many `Decision` traces through `run_id`, but enforcement still happens per `GuardEvent`. It is the sole post-run evaluation boundary; framework sessions and OTel traces may correlate with it but do not replace it. Runs are described in [runs.md](runs.md).
 
 ### Run ID
 
@@ -390,7 +420,7 @@ The execution envelope for a run: `chat_session`, `live_call`, `workflow`, `job`
 
 ### Run status
 
-Flexible lifecycle marker for monitoring: `warming`, `running`, `completed`, `failed`, or `canceled`. v1 allows simple status updates without enforcing a strict transition graph.
+Lifecycle marker for monitoring: `warming`, `running`, `completed`, `failed`, `canceled`, or `timed_out`. The last four states are terminal and use an idempotent first-write-wins finalization boundary.
 
 ### Automated intervention
 

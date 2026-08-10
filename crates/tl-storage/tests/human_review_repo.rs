@@ -11,7 +11,7 @@ use tl_core::{
 };
 use tl_storage::{
     connect_postgres, migrate_postgres,
-    schema::{organizations, traces, workspace_environments, workspaces},
+    schema::{agents, organizations, traces, workspace_environments, workspaces},
     DbPool, HumanReviewAnalyticsFilter, HumanReviewRepo, RunRepo,
 };
 use uuid::Uuid;
@@ -58,6 +58,16 @@ async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>)
             .execute(&mut conn)
             .await
             .expect("insert environment");
+        diesel::insert_into(agents::table)
+            .values((
+                agents::workspace_id.eq("default"),
+                agents::id.eq("tax-agent"),
+                agents::profile_yaml.eq("id: tax-agent"),
+                agents::parsed_profile.eq(serde_json::json!({"agent_id":"tax-agent"})),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert agent");
     }
     (pool, container)
 }
@@ -187,6 +197,7 @@ async fn analytics_distinguishes_guardrail_and_human_interventions() {
             "ws_review",
             &run.id,
             CreateRunEventRequest {
+                agent_id: None,
                 kind: RunEventKind::WorkflowStep,
                 sequence: None,
                 label: Some("Extract W2".into()),

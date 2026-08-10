@@ -10,12 +10,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { InfoHint } from '@/components/ui/info-hint';
 import { Separator } from '@/components/ui/separator';
 import { AuthorizationEffectLegend } from '@/components/ui/authorization-effect-legend';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   RefreshControls,
   useAutoRefresh,
   type RefreshMode,
 } from '@/components/workspace/RefreshControls';
+import { RunWaterfall } from '@/components/workspace/RunWaterfall';
 import {
+  currentAssuranceStatus,
   formatUsdNanos,
   parseRunDetailSnapshot,
   type RunAgentIdentity,
@@ -237,6 +240,8 @@ export function RunDetailLiveView({
         </CardContent>
       </Card>
 
+      <AssuranceCard assurance={snapshot.assurance} />
+
       <div className="grid gap-3 lg:grid-cols-3">
         <ProviderUsageCard usage={snapshot.providerUsage} />
         <BudgetDecisionCard decision={snapshot.budgetDecision} />
@@ -259,85 +264,167 @@ export function RunDetailLiveView({
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden gap-4 pt-4 pb-0">
-        <CardHeader className="gap-3">
-          <div className="grid gap-1">
-            <CardTitle className="text-sm">Agent events and guard checks</CardTitle>
-            <CardDescription>
-              Transcript events and Featherlane AI decisions, newest first. Click any row to see the
-              exact text, linked guard check, and policy outcome.
-            </CardDescription>
-          </div>
-          <div className="rounded-lg border bg-muted/20 px-4 py-3">
-            <p className="mb-2.5 text-xs font-medium text-muted-foreground">
-              What each effect color means
-            </p>
-            <AuthorizationEffectLegend />
-          </div>
-        </CardHeader>
-        <CardContent className="px-0">
-          {rows.length === 0 ? (
-            <div className="px-6 pb-6">
-              <TimelineEmptyState />
+      <Card className="overflow-hidden gap-0 py-0">
+        <Tabs defaultValue={snapshot.spans.length > 0 ? 'waterfall' : 'audit'} className="gap-0">
+          <CardHeader className="gap-3 py-4">
+            <div className="grid gap-1">
+              <CardTitle className="text-sm">Execution evidence</CardTitle>
+              <CardDescription>
+                Explore the OpenTelemetry span waterfall or inspect transcript events and guard
+                decisions.
+              </CardDescription>
             </div>
-          ) : (
-            <div className="max-h-[60vh] overflow-y-auto border-t">
-              <div
-                className={cn(
-                  ROW_GRID,
-                  'sticky top-0 z-10 border-b bg-card/95 px-4 py-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground backdrop-blur',
-                )}
-              >
-                <span className="inline-flex items-center gap-1">
-                  Time
-                  <InfoHint label="What does “Time” mean?">
-                    When this check happened. The smaller line is how long ago.
-                  </InfoHint>
-                </span>
-                <span className="hidden items-center gap-1 md:inline-flex">
-                  Step
-                  <InfoHint label="What does “Step” mean?">
-                    What the guardrail was checking — the request going in, or the agent’s reply
-                    coming out.
-                  </InfoHint>
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  What happened
-                  <InfoHint label="What does “What happened” mean?">
-                    A one-line plain-language summary of this step. Click the row for the full
-                    details.
-                  </InfoHint>
-                </span>
-                <span className="inline-flex items-center justify-end gap-1 text-right">
-                  Decision
-                  <InfoHint label="What does “Decision” mean?" side="left">
-                    What the guardrail decided: permitted, transformed, approval required, deferred,
-                    or denied. Colors are explained in the key above.
-                  </InfoHint>
-                </span>
+            <TabsList variant="line" aria-label="Execution evidence views">
+              <TabsTrigger value="waterfall">Waterfall ({snapshot.spans.length})</TabsTrigger>
+              <TabsTrigger value="audit">Audit log ({rows.length})</TabsTrigger>
+            </TabsList>
+          </CardHeader>
+
+          <TabsContent value="waterfall" className="border-t">
+            <RunWaterfall spans={snapshot.spans} />
+          </TabsContent>
+
+          <TabsContent value="audit">
+            <CardContent className="px-0">
+              <div className="border-t px-6 py-4">
+                <div className="rounded-lg border bg-muted/20 px-4 py-3">
+                  <p className="mb-2.5 text-xs font-medium text-muted-foreground">
+                    What each effect color means
+                  </p>
+                  <AuthorizationEffectLegend />
+                </div>
               </div>
-              {rows.map((row) =>
-                row.kind === 'trace' ? (
-                  <TraceRow
-                    key={row.id}
-                    row={row}
-                    open={expanded.has(row.id)}
-                    onToggle={() => toggle(row.id)}
-                  />
-                ) : (
-                  <EventRow
-                    key={row.id}
-                    row={row}
-                    open={expanded.has(row.id)}
-                    onToggle={() => toggle(row.id)}
-                  />
-                ),
+              {rows.length === 0 ? (
+                <div className="px-6 pb-6">
+                  <TimelineEmptyState />
+                </div>
+              ) : (
+                <div className="max-h-[60vh] overflow-y-auto border-t">
+                  <div
+                    className={cn(
+                      ROW_GRID,
+                      'sticky top-0 z-10 border-b bg-card/95 px-4 py-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground backdrop-blur',
+                    )}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Time
+                      <InfoHint label="What does “Time” mean?">
+                        When this check happened. The smaller line is how long ago.
+                      </InfoHint>
+                    </span>
+                    <span className="hidden items-center gap-1 md:inline-flex">
+                      Step
+                      <InfoHint label="What does “Step” mean?">
+                        What the guardrail was checking — the request going in, or the agent’s reply
+                        coming out.
+                      </InfoHint>
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      What happened
+                      <InfoHint label="What does “What happened” mean?">
+                        A one-line plain-language summary of this step. Click the row for the full
+                        details.
+                      </InfoHint>
+                    </span>
+                    <span className="inline-flex items-center justify-end gap-1 text-right">
+                      Decision
+                      <InfoHint label="What does “Decision” mean?" side="left">
+                        What the guardrail decided: permitted, transformed, approval required,
+                        deferred, or denied. Colors are explained in the key above.
+                      </InfoHint>
+                    </span>
+                  </div>
+                  {rows.map((row) =>
+                    row.kind === 'trace' ? (
+                      <TraceRow
+                        key={row.id}
+                        row={row}
+                        open={expanded.has(row.id)}
+                        onToggle={() => toggle(row.id)}
+                      />
+                    ) : (
+                      <EventRow
+                        key={row.id}
+                        row={row}
+                        open={expanded.has(row.id)}
+                        onToggle={() => toggle(row.id)}
+                      />
+                    ),
+                  )}
+                </div>
               )}
-            </div>
-          )}
-        </CardContent>
+            </CardContent>
+          </TabsContent>
+        </Tabs>
       </Card>
     </div>
+  );
+}
+
+function AssuranceCard({ assurance }: { assurance: RunDetailSnapshot['assurance'] }) {
+  const finalization = assurance.finalization;
+  const assuranceStatus = currentAssuranceStatus(assurance);
+  return (
+    <Card className="gap-4 py-4">
+      <CardHeader className="gap-1">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-sm">Post-run assurance</CardTitle>
+          <Badge variant="secondary">
+            {titleCase(assuranceStatus)}
+          </Badge>
+        </div>
+        <CardDescription>
+          Evaluations start only after this run is finalized and its telemetry capture closes.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-5">
+          <DetailItem label="Capture" value={titleCase(finalization?.capture_status ?? 'open')} />
+          <DetailItem
+            label="Boundary"
+            value={titleCase(finalization?.boundary_source ?? 'not finalized')}
+          />
+          <DetailItem label="Agents" value={String(assurance.participants.length)} />
+          <DetailItem label="Jobs" value={String(assurance.jobs.length)} />
+          <DetailItem label="Results" value={String(assurance.evaluations.length)} />
+        </dl>
+        {finalization?.capture_status === 'incomplete' ? (
+          <p className="mt-4 rounded-lg border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            Required telemetry was missing or arrived after the capture deadline. This run cannot
+            be reported as passed.
+          </p>
+        ) : null}
+        {assurance.eligibility === 'legacy_incomplete' ? (
+          <p className="mt-4 rounded-lg border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            This run predates frozen evaluation manifests, so it cannot be reported as safely
+            evaluable. Start a new run to produce complete assurance evidence.
+          </p>
+        ) : null}
+        {assurance.jobs.some((job) => job.status === 'queued' || job.status === 'running') ? (
+          <p className="mt-4 text-xs text-muted-foreground">
+            Evaluation is still running. This page continues refreshing until results are stored.
+          </p>
+        ) : null}
+        {assurance.evaluations.length > 0 ? (
+          <div className="mt-4 grid gap-2">
+            {assurance.evaluations.map((evaluation) => (
+              <div
+                key={evaluation.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/15 px-3 py-2 text-xs"
+              >
+                <span className="font-mono">{evaluation.agent_id}</span>
+                <span>{titleCase(evaluation.verdict)}</span>
+                <span className="text-muted-foreground">
+                  {evaluation.score_bps === null
+                    ? 'No numeric score'
+                    : `${(evaluation.score_bps / 100).toFixed(2)}%`}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 

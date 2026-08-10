@@ -131,8 +131,38 @@ export type * from './generated/RunEventListResponse.js';
 export type * from './generated/RunEventSummary.js';
 export type * from './generated/RunKind.js';
 export type * from './generated/RunListResponse.js';
+export type * from './generated/RunEvaluationEligibility.js';
 export type * from './generated/RunStatus.js';
+export type * from './generated/RunSpanSummary.js';
 export type * from './generated/RunSummary.js';
+export type * from './generated/AgentEvaluationPolicyAssignment.js';
+export type * from './generated/AgentEvaluationPolicyAssignmentListResponse.js';
+export type * from './generated/AgentEvaluationProfile.js';
+export type * from './generated/BoundaryConfidence.js';
+export type * from './generated/CaptureMode.js';
+export type * from './generated/ContentCaptureMode.js';
+export type * from './generated/EvaluationEvidenceRef.js';
+export type * from './generated/EvaluationFinding.js';
+export type * from './generated/EvaluationFindingStatus.js';
+export type * from './generated/EvaluationJobStatus.js';
+export type * from './generated/EvaluationJobSummary.js';
+export type * from './generated/EvaluationResultDetail.js';
+export type * from './generated/EvaluationResultListResponse.js';
+export type * from './generated/EvaluationResultSummary.js';
+export type * from './generated/EvaluationVerdict.js';
+export type * from './generated/FinalizeRunRequest.js';
+export type * from './generated/FinalizeRunResponse.js';
+export type * from './generated/MissingEvidenceBehavior.js';
+export type * from './generated/PutAgentEvaluationPolicyAssignmentsRequest.js';
+export type * from './generated/PutAgentEvaluationProfileRequest.js';
+export type * from './generated/ReevaluateRunRequest.js';
+export type * from './generated/ReevaluateRunResponse.js';
+export type * from './generated/RunBoundarySource.js';
+export type * from './generated/RunCaptureStatus.js';
+export type * from './generated/RunEvaluationPolicyManifestSummary.js';
+export type * from './generated/RunFinalizationSummary.js';
+export type * from './generated/RunParticipantRole.js';
+export type * from './generated/RunParticipantSummary.js';
 export type * from './generated/CreateGatewayProviderConnectionRequest.js';
 export type * from './generated/CreateGatewayRouteRequest.js';
 export type * from './generated/GatewayCredentialStatus.js';
@@ -250,8 +280,12 @@ export type {
   FinancialOperationSpec,
   GuardToolCallOptions,
   ListTracesOptions,
+  RunCorrelationContext,
+  RunLifecycleWarning,
+  RunTelemetryHook,
   WithRunOptions,
 } from './client.js';
+export { runCorrelation } from './client.js';
 
 export { GuardMode, guard, guardAgent } from './guard.js';
 export type {
@@ -303,6 +337,7 @@ export {
   Unauthorized,
   Forbidden,
   NotFound,
+  Conflict,
   Gone,
   Unprocessable,
   RateLimited,

@@ -11,6 +11,7 @@ A policy has a `family`:
 - `financial` — spending, approval requirements, counterparty, grant, and refund eligibility controls for typed financial actions.
 - `flow`, `parameter_source`, `approval`, `memory` — typed event-engine policy families.
 - `source_label` — per-origin label overrides used by event source-label resolution.
+- `evaluation` — post-run evidence rules with deterministic, replay, or batched rubric graders; no authorization effect.
 
 Documents without a top-level `family:` tag are `content` policies. Family policies keep typed evaluators; the registry unifies lifecycle, not business logic.
 
@@ -63,3 +64,9 @@ The generic guard pipeline evaluates `family: content` policies for content obse
 The financial adapter loads `family: financial` policies for `FinancialAction` subjects, emits typed findings and authority requirements, and passes them to the common authorization coordinator. Ledger windows, eligibility evidence, and current policy ceilings are still financial-domain inputs; grants, approvals, leases, and authorization receipts are common kernel concepts. Provider execution and the financial execution receipt remain separate downstream concerns.
 
 Source-label resolution reads `family: source_label` policies through the label-policy provider. The `/v1/label-policies` route remains for compatibility, but it is a wrapper over the same registry rather than a separate policy store. Its mutation methods reject workspace runtime keys.
+
+Evaluation policies stay in this registry and version history but never enter the synchronous
+runtime hot path. Environment-scoped `agent_evaluation_policy_assignments` bind them to agents for
+post-run use. Those assignments are separate from lifecycle ownership and
+`policy_environment_deployments`; concrete versions are frozen at first Run participation. See
+[evaluations.md](evaluations.md).

@@ -22,6 +22,7 @@ postgres = [
   "dep:serde",
   "dep:serde_yaml",
   "dep:sha2",
+  "dep:blake3",
   "dep:tl-policy",
   "dep:base64",
   "dep:rand",
@@ -50,6 +51,7 @@ serde_json = { workspace = true, optional = true }
 serde_yaml = { workspace = true, optional = true }
 moka = { version = "0.12", features = ["future"], optional = true }
 sha2 = { version = "0.11", optional = true }
+blake3 = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }
 

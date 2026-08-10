@@ -5,7 +5,7 @@ use crate::{
     StorageError,
 };
 
-use super::text::{parse_event_kind, parse_kind, parse_status};
+use super::text::{parse_evaluation_eligibility, parse_event_kind, parse_kind, parse_status};
 
 #[derive(Default)]
 pub(super) struct RunStats {
@@ -25,6 +25,9 @@ pub(super) fn run_summary(record: RunRecord, stats: RunStats) -> Result<RunSumma
         agent_id: record.agent_id,
         kind: parse_kind(&record.kind)?,
         status: parse_status(&record.status)?,
+        evaluation_eligibility: Some(parse_evaluation_eligibility(
+            &record.evaluation_eligibility,
+        )?),
         external_id: record.external_id,
         metadata: record.metadata,
         started_at: record.started_at.to_rfc3339(),
@@ -44,6 +47,7 @@ pub(super) fn event_summary(record: RunEventRecord) -> Result<RunEventSummary, S
         id: record.id.to_string(),
         workspace_id: record.workspace_id,
         run_id: record.run_id.to_string(),
+        agent_id: record.agent_id,
         sequence: record.sequence,
         kind: parse_event_kind(&record.kind)?,
         label: record.label,

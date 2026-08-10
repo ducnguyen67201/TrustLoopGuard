@@ -43,8 +43,9 @@ interface RunCreateBody {
   metadata: Record<string, JsonValue>;
 }
 
-interface RunUpdateBody {
+interface RunFinalizeBody {
   status: string;
+  boundary_source: 'explicit_sdk' | 'framework_adapter';
 }
 
 interface RunEventCreateBody {
@@ -54,7 +55,7 @@ interface RunEventCreateBody {
   metadata: Record<string, JsonValue>;
 }
 
-type CapturedBody = GuardWireEvent | RunCreateBody | RunUpdateBody | RunEventCreateBody;
+type CapturedBody = GuardWireEvent | RunCreateBody | RunFinalizeBody | RunEventCreateBody;
 
 interface CapturedRequest {
   url: string;
@@ -82,6 +83,21 @@ function runSummary(status = 'running'): Record<string, JsonValue> {
     rewritten_count: 0,
     escalated_count: 0,
     p95_latency_ms: null,
+  };
+}
+
+function finalizeResponse(status: string): Record<string, JsonValue> {
+  return {
+    run: runSummary(status),
+    finalization: {
+      finalized_at: '2026-01-01T00:01:00Z',
+      boundary_source: 'framework_adapter',
+      boundary_confidence: 'strong',
+      capture_status: 'waiting',
+      capture_deadline: '2026-01-01T00:01:30Z',
+      expected_flush_id: null,
+    },
+    evaluation_status: 'waiting_capture',
   };
 }
 
@@ -181,7 +197,10 @@ function automaticRunClient(failAt?: 'start' | 'event' | 'finish'): {
         { status: 201 },
       );
     }
-    if (url === 'http://x/v1/runs/018f1111-1111-7111-8111-111111111111' && method === 'PATCH') {
+    if (
+      url === 'http://x/v1/runs/018f1111-1111-7111-8111-111111111111/finalize' &&
+      method === 'POST'
+    ) {
       if (failAt === 'finish') {
         return Response.json(
           { code: 'internal', message: 'run finish failed', retriable: false },
@@ -189,7 +208,7 @@ function automaticRunClient(failAt?: 'start' | 'event' | 'finish'): {
         );
       }
       const nextStatus = body !== null && 'status' in body ? body.status : 'completed';
-      return Response.json(runSummary(nextStatus));
+      return Response.json(finalizeResponse(String(nextStatus)));
     }
     return Response.json({
       trace_id: 't-1',
@@ -787,12 +806,12 @@ describe('guardAgent()', () => {
       'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
       'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
       'POST http://x/v1/events',
-      'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/finalize',
       'POST http://x/v1/runs',
       'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
       'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
       'POST http://x/v1/events',
-      'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/finalize',
     ]);
     expect(requests[0]?.body).toEqual({
       agent_id: 'support-agent',
@@ -822,8 +841,14 @@ describe('guardAgent()', () => {
     expect((requests[8]?.body as GuardWireEvent).principal.run_event_id).toBe(
       '018f2222-2222-7222-8222-000000000004',
     );
-    expect(requests[4]?.body).toEqual({ status: 'completed' });
-    expect(requests[9]?.body).toEqual({ status: 'completed' });
+    expect(requests[4]?.body).toEqual({
+      status: 'completed',
+      boundary_source: 'framework_adapter',
+    });
+    expect(requests[9]?.body).toEqual({
+      status: 'completed',
+      boundary_source: 'framework_adapter',
+    });
   });
 
   it('keeps one run open across a LiveKit session and reuses it for every reply', async () => {
@@ -891,8 +916,8 @@ describe('guardAgent()', () => {
     await session.close({ reason: 'task_completed' });
 
     expect(requests.at(-1)).toMatchObject({
-      method: 'PATCH',
-      body: { status: 'completed' },
+      method: 'POST',
+      body: { status: 'completed', boundary_source: 'framework_adapter' },
     });
     expect(session.listenerCount()).toBe(0);
   });
@@ -932,7 +957,9 @@ describe('guardAgent()', () => {
           { status: 201 },
         );
       }
-      if (method === 'PATCH') return Response.json(runSummary('completed'));
+      if (url.endsWith('/finalize') && method === 'POST') {
+        return Response.json(finalizeResponse('completed'));
+      }
       return Response.json({
         trace_id: 't-1',
         effect: 'permit',
@@ -973,9 +1000,9 @@ describe('guardAgent()', () => {
     ]);
     await close;
 
-    expect(requests.filter(({ method }) => method === 'PATCH').map(({ body }) => body)).toEqual([
-      { status: 'completed' },
-    ]);
+    expect(
+      requests.filter(({ url }) => url.endsWith('/finalize')).map(({ body }) => body),
+    ).toEqual([{ status: 'completed', boundary_source: 'framework_adapter' }]);
     expect(
       requests
         .filter(({ url }) => url === 'http://x/v1/events')
@@ -1044,8 +1071,11 @@ describe('guardAgent()', () => {
     await session.close({ reason, error });
     await session.close({ reason, error });
 
-    expect(requests.filter(({ method }) => method === 'PATCH')).toHaveLength(1);
-    expect(requests.at(-1)?.body).toEqual({ status: expectedStatus });
+    expect(requests.filter(({ url }) => url.endsWith('/finalize'))).toHaveLength(1);
+    expect(requests.at(-1)?.body).toEqual({
+      status: expectedStatus,
+      boundary_source: 'framework_adapter',
+    });
   });
 
   it('rejects an empty session external id without falling back to agent id', async () => {
@@ -1090,7 +1120,9 @@ describe('guardAgent()', () => {
         }
         return Response.json(runSummary(), { status: 201 });
       }
-      if (method === 'PATCH') return Response.json(runSummary('completed'));
+      if (url.endsWith('/finalize') && method === 'POST') {
+        return Response.json(finalizeResponse('completed'));
+      }
       return Response.json({
         trace_id: 't-1',
         effect: 'permit',
@@ -1159,7 +1191,10 @@ describe('guardAgent()', () => {
     });
 
     await session.close({ reason: 'task_completed' });
-    expect(requests.at(-1)?.body).toEqual({ status: 'completed' });
+    expect(requests.at(-1)?.body).toEqual({
+      status: 'completed',
+      boundary_source: 'framework_adapter',
+    });
   });
 
   it('reuses an explicit run instead of creating a nested run', async () => {
@@ -1240,7 +1275,7 @@ describe('guardAgent()', () => {
     expect(
       requests.filter(({ url, method }) => url === 'http://x/v1/runs' && method === 'POST'),
     ).toHaveLength(1);
-    expect(requests.filter(({ method }) => method === 'PATCH')).toHaveLength(1);
+    expect(requests.filter(({ url }) => url.endsWith('/finalize'))).toHaveLength(1);
     const event = requests.find(({ url }) => url === 'http://x/v1/events');
     expect((event?.body as GuardWireEvent).principal.run_id).toBe(
       '018f1111-1111-7111-8111-111111111111',
@@ -1280,9 +1315,12 @@ describe('guardAgent()', () => {
     expect(requests.map(({ url, method }) => `${method} ${url}`)).toEqual([
       'POST http://x/v1/runs',
       'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
-      'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/finalize',
     ]);
-    expect(requests[2]?.body).toEqual({ status: 'failed' });
+    expect(requests[2]?.body).toEqual({
+      status: 'failed',
+      boundary_source: 'framework_adapter',
+    });
   });
 
   it('keeps guard enforcement available when automatic run creation fails', async () => {
@@ -1332,7 +1370,7 @@ describe('guardAgent()', () => {
       'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
       'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
       'POST http://x/v1/events',
-      'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/finalize',
     ]);
     expect((requests[3]?.body as GuardWireEvent).principal.run_id).toBe(
       '018f1111-1111-7111-8111-111111111111',
@@ -1369,7 +1407,7 @@ describe('guardAgent()', () => {
       'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
       'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/events',
       'POST http://x/v1/events',
-      'PATCH http://x/v1/runs/018f1111-1111-7111-8111-111111111111',
+      'POST http://x/v1/runs/018f1111-1111-7111-8111-111111111111/finalize',
     ]);
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toMatchObject({ code: 'run_finish_failed', phase: 'finish' });
@@ -1398,7 +1436,7 @@ describe('guardAgent()', () => {
     await expect(agent.reply('hello')).resolves.toBe('reply to hello');
     await expect(session.close({ reason: 'task_completed' })).resolves.toBeUndefined();
 
-    expect(requests.filter(({ method }) => method === 'PATCH')).toHaveLength(1);
+    expect(requests.filter(({ url }) => url.endsWith('/finalize'))).toHaveLength(1);
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toMatchObject({ code: 'run_finish_failed', phase: 'finish' });
   });

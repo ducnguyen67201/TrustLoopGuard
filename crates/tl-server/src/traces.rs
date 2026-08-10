@@ -29,6 +29,7 @@ pub enum TraceStoreError {
 pub struct TraceWriteRequest {
     pub workspace_id: String,
     pub environment_id: String,
+    pub agent_id: String,
     pub decision: tl_core::Decision,
     pub event: Option<tl_core::GuardEvent>,
     pub run_id: Option<String>,
@@ -50,6 +51,13 @@ pub trait TraceStore: Send + Sync {
     /// Record a decision trace. Best-effort on the postgres path (batched
     /// channel, same as before); synchronous on the memory path.
     async fn record(&self, write: TraceWriteRequest) -> Result<(), TraceStoreError>;
+
+    /// Persist required audit evidence before the guarded request succeeds.
+    /// Memory and test stores are already synchronous, so their default is
+    /// equivalent to `record`.
+    async fn record_durable(&self, write: TraceWriteRequest) -> Result<(), TraceStoreError> {
+        self.record(write).await
+    }
 
     /// Fetch a single trace by id (not window-bounded, unlike `list_recent`).
     /// Default `None` for stores without point lookup (the channel test double).
@@ -147,6 +155,7 @@ impl TraceStore for MemoryTraceStore {
         let now = Utc::now();
         let summary = TraceSummary {
             trace_id: write.decision.trace_id.clone(),
+            agent_id: Some(write.agent_id),
             run_id: write.run_id,
             run_event_id: write.run_event_id,
             session_id: write.session_id,
@@ -210,12 +219,7 @@ impl TraceStore for MemoryTraceStore {
                 trace.workspace_id == workspace_id
                     && trace.summary.environment_id == environment_id
                     && trace.created_at >= min_created_at
-                    && trace
-                        .summary
-                        .payload
-                        .pointer("/event/principal/agent_id")
-                        .and_then(|value| value.as_str())
-                        == Some(agent_id)
+                    && trace.summary.agent_id.as_deref() == Some(agent_id)
                     && trace
                         .summary
                         .payload

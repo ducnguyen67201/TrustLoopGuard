@@ -31,6 +31,8 @@ That runtime check is the product. SDK callers receive the decision and handle i
 | Financial authorization | [financial-authorization.md](financial-authorization.md) | Typed financial policy, execution, ledger, outcome, and reversal semantics. |
 | Policies | [policies.md](policies.md) | Unified Rust policy registry, policy families, environment deployment, and domain wrappers. |
 | Environments | [environments.md](environments.md) | Runtime keys, policy deployments, runs, traces, and analytics are scoped by environment. |
+| Post-run evaluations | [evaluations.md](evaluations.md) | Finalization, capture barriers, immutable snapshots, agent policy manifests, graders, and release gates. |
+| Telemetry capture | [telemetry-capture.md](telemetry-capture.md) | Direct OTLP/HTTP correlation, privacy, limits, and optional Collector deployment. |
 | Product usage analytics | [product-analytics.md](product-analytics.md) | PostHog observes marketing and dashboard use without owning guardrail/runtime data. |
 | Policy authoring | [../policies/README.md](../policies/README.md) | YAML policies are validated, saved, evaluated, and then surfaced in traces. |
 | Customer integration | [../INTEGRATION.md](../INTEGRATION.md) | Teams install an SDK, register an agent, decorate it once, then tune from traces. |
@@ -47,13 +49,15 @@ That runtime check is the product. SDK callers receive the decision and handle i
 7. [crates.md](crates.md) — what each crate is for, in order of dependency.
 8. [glossary.md](glossary.md) — every domain term defined once: Channel, Authorization effect, Policy, Decision, hot path, etc.
 9. [runs.md](runs.md) — how agent executions group decision traces for monitoring.
-10. [analytics-dashboards.md](analytics-dashboards.md) — how customizable analytics queries and saved dashboard views work.
-11. [gateway.md](gateway.md) — how proxy/gateway mode differs from SDK mode.
-12. [agent-breakaway-arena.md](agent-breakaway-arena.md) — the raw-vs-guarded comparison concept and the agent adapter contract the demos use.
-13. [sdk-publishing.md](sdk-publishing.md) — how `@featherlane-ai/sdk` is released to npm.
-14. [cli-publishing.md](cli-publishing.md) — how `@featherlane-ai/cli` is released to npm.
-15. [sdk-agent-adapters.md](sdk-agent-adapters.md) — how TypeScript agent wrappers discover local tools and where visibility stops.
-16. [llm-routing.md](llm-routing.md) — how first-party LLM workloads select providers, models, reasoning, deadlines, and fallbacks.
+10. [evaluations.md](evaluations.md) — how completed Runs become immutable per-agent assurance evidence.
+11. [telemetry-capture.md](telemetry-capture.md) — how OTLP spans are safely correlated and retained.
+12. [analytics-dashboards.md](analytics-dashboards.md) — how customizable analytics queries and saved dashboard views work.
+13. [gateway.md](gateway.md) — how proxy/gateway mode differs from SDK mode.
+14. [agent-breakaway-arena.md](agent-breakaway-arena.md) — the raw-vs-guarded comparison concept and the agent adapter contract the demos use.
+15. [sdk-publishing.md](sdk-publishing.md) — how `@featherlane-ai/sdk` is released to npm.
+16. [cli-publishing.md](cli-publishing.md) — how `@featherlane-ai/cli` is released to npm.
+17. [sdk-agent-adapters.md](sdk-agent-adapters.md) — how TypeScript agent wrappers discover local tools and where visibility stops.
+18. [llm-routing.md](llm-routing.md) — how first-party LLM workloads select providers, models, reasoning, deadlines, and fallbacks.
 
 ## When to update these docs
 

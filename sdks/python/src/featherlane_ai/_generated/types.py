@@ -17,6 +17,20 @@ class AgentAuthority(BaseModel):
     cannot_promise: list[str] | None = None
 
 
+class AgentEvaluationPolicyAssignment(BaseModel):
+    critical: bool
+    enabled: bool
+    policy_id: str
+    policy_version: int | None = None
+    weight: conint(ge=0)
+
+
+class AgentEvaluationPolicyAssignmentListResponse(BaseModel):
+    agent_id: str
+    assignments: list[AgentEvaluationPolicyAssignment]
+    environment_id: str
+
+
 class AgentScope(BaseModel):
     in_scope: list[str] | None = None
     out_of_scope: list[str] | None = None
@@ -118,6 +132,7 @@ class ApiErrorCode(Enum):
     unauthorized = 'unauthorized'
     forbidden = 'forbidden'
     not_found = 'not_found'
+    conflict = 'conflict'
     gone = 'gone'
     unprocessable = 'unprocessable'
     rate_limited = 'rate_limited'
@@ -289,6 +304,12 @@ class AuthorizeResponse(BaseModel):
     code: str
 
 
+class BoundaryConfidence(Enum):
+    authoritative = 'authoritative'
+    strong = 'strong'
+    inferred = 'inferred'
+
+
 class BudgetAlertThresholdType(Enum):
     percent = 'percent'
     absolute = 'absolute'
@@ -298,6 +319,11 @@ class BudgetAlertWindow(Enum):
     day = 'day'
     week = 'week'
     month = 'month'
+
+
+class CaptureMode(Enum):
+    best_effort = 'best_effort'
+    durable = 'durable'
 
 
 class ChangePasswordRequest(BaseModel):
@@ -339,6 +365,12 @@ class Confidentiality(Enum):
     secret = 'secret'
     identity = 'identity'
     unknown = 'unknown'
+
+
+class ContentCaptureMode(Enum):
+    metadata_only = 'metadata_only'
+    redacted = 'redacted'
+    encrypted_artifact_ref = 'encrypted_artifact_ref'
 
 
 class CounterpartyRef(BaseModel):
@@ -436,6 +468,92 @@ class EnvironmentCheckerModes(BaseModel):
     memory_checker_mode: EnforcementMode | None = None
     param_checker_mode: EnforcementMode | None = None
     updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
+
+
+class EvaluationCaseBudget(BaseModel):
+    max_duration_ms: conint(ge=0)
+    max_tokens: conint(ge=0)
+    max_tool_calls: conint(ge=0)
+    max_turns: conint(ge=0)
+
+
+class EvaluationCaseScoringMode(Enum):
+    trajectory = 'trajectory'
+    endstate = 'endstate'
+
+
+class EvaluationCaseSpec(BaseModel):
+    budget: EvaluationCaseBudget
+    case_hash: str
+    case_id: str
+    critical: bool
+    input_hash: str
+    oracle_metadata: Any
+    reference_hash: str | None = None
+    scoring_mode: EvaluationCaseScoringMode
+    weight: conint(ge=0)
+
+
+class EvaluationCaseStatus(Enum):
+    pending = 'pending'
+    completed = 'completed'
+    skipped = 'skipped'
+    error = 'error'
+
+
+class EvaluationDatasetVersion(BaseModel):
+    cases: list[EvaluationCaseSpec]
+    created_at: str
+    dataset_id: str
+    manifest_hash: str
+    version: int
+
+
+class EvaluationEvidenceRef(BaseModel):
+    id: str
+    kind: str
+
+
+class EvaluationFindingStatus(Enum):
+    passed = 'passed'
+    failed = 'failed'
+    inconclusive = 'inconclusive'
+    error = 'error'
+    not_applicable = 'not_applicable'
+
+
+class EvaluationJobStatus(Enum):
+    waiting_capture = 'waiting_capture'
+    queued = 'queued'
+    running = 'running'
+    completed = 'completed'
+    failed = 'failed'
+    inconclusive = 'inconclusive'
+    error = 'error'
+
+
+class EvaluationJobSummary(BaseModel):
+    agent_id: str
+    attempts: int
+    error: str | None = None
+    id: str
+    run_id: str
+    status: EvaluationJobStatus
+    updated_at: str
+
+
+class EvaluationReleaseGateVerdict(Enum):
+    passed = 'passed'
+    failed = 'failed'
+    insufficient_evidence = 'insufficient_evidence'
+
+
+class EvaluationVerdict(Enum):
+    passed = 'passed'
+    failed = 'failed'
+    inconclusive = 'inconclusive'
+    error = 'error'
+    not_configured = 'not_configured'
 
 
 class EventKind(Enum):
@@ -915,6 +1033,11 @@ class McpGatewayToolAssignmentsResponse(BaseModel):
     user_ids: list[str]
 
 
+class MissingEvidenceBehavior(Enum):
+    inconclusive = 'inconclusive'
+    fail = 'fail'
+
+
 class MoneyAmount(BaseModel):
     amount_minor: int
     currency: str
@@ -984,6 +1107,7 @@ class PolicyFamily(Enum):
     financial = 'financial'
     source_label = 'source_label'
     tool = 'tool'
+    evaluation = 'evaluation'
 
 
 class PolicyMatchType(Enum):
@@ -1014,6 +1138,20 @@ class Principal(BaseModel):
 
 class ProvenanceMap(RootModel[dict[str, list[str]]]):
     root: dict[str, list[str]]
+
+
+class PutAgentEvaluationPolicyAssignmentsRequest(BaseModel):
+    assignments: list[AgentEvaluationPolicyAssignment]
+
+
+class PutAgentEvaluationProfileRequest(BaseModel):
+    capture_mode: CaptureMode
+    content_mode: ContentCaptureMode
+    enabled: bool
+    expected_profile_version: int | None = None
+    max_capture_wait_ms: conint(ge=0)
+    on_incomplete: MissingEvidenceBehavior
+    quiet_period_ms: conint(ge=0)
 
 
 class RecoveryStatus(Enum):
@@ -1147,6 +1285,15 @@ class RedteamSessionEvent(BaseModel):
     trace_id: str | None = None
 
 
+class ReevaluateRunRequest(BaseModel):
+    agent_ids: list[str] | None = None
+
+
+class ReevaluateRunResponse(BaseModel):
+    run_id: str
+    status: EvaluationJobStatus
+
+
 class ReplaceMcpGatewayToolAssignmentsRequest(BaseModel):
     agent_id: str
     user_ids: list[str]
@@ -1170,6 +1317,17 @@ class ReversalCapability(Enum):
     manual_recovery = 'manual_recovery'
 
 
+class RunBoundarySource(Enum):
+    explicit_sdk = 'explicit_sdk'
+    framework_adapter = 'framework_adapter'
+    otel_session_end = 'otel_session_end'
+    root_span_end = 'root_span_end'
+    idle_timeout = 'idle_timeout'
+    max_duration = 'max_duration'
+    admin = 'admin'
+    legacy_sdk = 'legacy_sdk'
+
+
 class RunBudgetWindowSnapshot(BaseModel):
     cap_usd_nanos: str
     committed_before_usd_nanos: str
@@ -1177,6 +1335,28 @@ class RunBudgetWindowSnapshot(BaseModel):
     requested_usd_nanos: str
     reserved_before_usd_nanos: str
     window: str
+
+
+class RunCaptureStatus(Enum):
+    open = 'open'
+    waiting = 'waiting'
+    complete = 'complete'
+    incomplete = 'incomplete'
+
+
+class RunEvaluationEligibility(Enum):
+    eligible = 'eligible'
+    legacy_incomplete = 'legacy_incomplete'
+
+
+class RunEvaluationPolicyManifestSummary(BaseModel):
+    agent_id: str
+    critical: bool
+    policy_family: PolicyFamily
+    policy_hash: str
+    policy_id: str
+    policy_version: int
+    weight: conint(ge=0)
 
 
 class RunEventKind(Enum):
@@ -1191,6 +1371,7 @@ class RunEventKind(Enum):
 
 
 class RunEventSummary(BaseModel):
+    agent_id: str
     created_at: str = Field(..., description='RFC 3339 timestamp.')
     id: str
     input_summary: str | None = None
@@ -1202,6 +1383,15 @@ class RunEventSummary(BaseModel):
     run_id: str
     sequence: int
     workspace_id: str
+
+
+class RunFinalizationSummary(BaseModel):
+    boundary_confidence: BoundaryConfidence
+    boundary_source: RunBoundarySource
+    capture_deadline: str
+    capture_status: RunCaptureStatus
+    expected_flush_id: str | None = None
+    finalized_at: str
 
 
 class RunGuardrailUsage(BaseModel):
@@ -1236,6 +1426,17 @@ class RunLlmBudgetDecision(BaseModel):
     windows: list[RunBudgetWindowSnapshot]
 
 
+class RunParticipantRole(Enum):
+    primary = 'primary'
+    participant = 'participant'
+
+
+class RunParticipantSummary(BaseModel):
+    agent_id: str
+    joined_at: str
+    role: RunParticipantRole
+
+
 class RunProviderUsage(BaseModel):
     completion_tokens: int | None = None
     estimated_cost_usd_nanos: str | None = None
@@ -1252,12 +1453,38 @@ class RunProviderUsage(BaseModel):
     total_tokens: int | None = None
 
 
+class RunSpanSummary(BaseModel):
+    agent_id: str
+    attributes: dict[str, Any]
+    content_capture_status: str
+    conversation_id: str | None = None
+    dropped_attribute_count: int
+    ended_at: str = Field(..., description='RFC 3339 timestamp.')
+    events: list[Any]
+    external_agent_id: str | None = None
+    ingested_at: str = Field(..., description='RFC 3339 timestamp.')
+    late_evidence: bool
+    links: list[Any]
+    name: str
+    operation_name: str | None = None
+    parent_span_id: str | None = None
+    resource: dict[str, Any]
+    run_event_id: str | None = None
+    span_id: str
+    span_kind: int
+    started_at: str = Field(..., description='RFC 3339 timestamp.')
+    status_code: int
+    status_message: str | None = None
+    trace_id: str
+
+
 class RunStatus(Enum):
     warming = 'warming'
     running = 'running'
     completed = 'completed'
     failed = 'failed'
     canceled = 'canceled'
+    timed_out = 'timed_out'
 
 
 class RunSummary(BaseModel):
@@ -1268,6 +1495,7 @@ class RunSummary(BaseModel):
     environment: str
     environment_id: str
     escalated_count: int
+    evaluation_eligibility: RunEvaluationEligibility | None = None
     external_id: str | None = None
     id: str
     kind: RunKind
@@ -1358,6 +1586,10 @@ class ToolResolution3(BaseModel):
 
 
 class TraceSummary(BaseModel):
+    agent_id: str | None = Field(
+        None,
+        description='Stable registered agent identity. `None` is reserved for legacy rows\nthat predate direct attribution and cannot be backfilled safely.',
+    )
     created_at: str = Field(..., description='RFC 3339 timestamp.')
     decision: str
     domain: str
@@ -1633,6 +1865,20 @@ class ActionGrantScope(BaseModel):
     server_id: str | None = None
     side_effects: list[SideEffectClass] | None = None
     tool_name: str | None = None
+
+
+class AgentEvaluationProfile(BaseModel):
+    agent_id: str
+    capture_mode: CaptureMode
+    content_mode: ContentCaptureMode
+    enabled: bool
+    environment_id: str
+    max_capture_wait_ms: conint(ge=0)
+    on_incomplete: MissingEvidenceBehavior
+    profile_version: int
+    quiet_period_ms: conint(ge=0)
+    updated_at: str
+    workspace_id: str
 
 
 class AgenticPaymentAuthorizeRequest(BaseModel):
@@ -1940,6 +2186,10 @@ class CreateMcpGatewayConnectionRequest(BaseModel):
 
 
 class CreateRunEventRequest(BaseModel):
+    agent_id: str | None = Field(
+        None,
+        description="Agent responsible for this event. Defaults to the run's primary agent.",
+    )
     input_summary: str | None = None
     kind: RunEventKind
     label: str | None = None
@@ -1957,6 +2207,66 @@ class CreateRunRequest(BaseModel):
     kind: RunKind
     metadata: Any | None = None
     status: RunStatus | None = None
+
+
+class EvaluationCampaignCaseResult(BaseModel):
+    case_id: str
+    reason: str | None = None
+    run_id: str
+    score_bps: conint(ge=0) | None = None
+    status: EvaluationCaseStatus
+    verdict: EvaluationVerdict
+
+
+class EvaluationFinding(BaseModel):
+    agent_id: str
+    critical: bool
+    evidence: list[EvaluationEvidenceRef]
+    policy_id: str
+    policy_version: int
+    reason: str
+    score_bps: conint(ge=0) | None = Field(
+        None, description='Integer basis points in the inclusive range 0..=10_000.'
+    )
+    severity: Severity
+    status: EvaluationFindingStatus
+
+
+class EvaluationReleaseGate(BaseModel):
+    agent_id: str
+    created_at: str
+    environment_id: str
+    evidence_result_ids: list[str]
+    manifest_hash: str
+    verdict: EvaluationReleaseGateVerdict
+
+
+class EvaluationResultSummary(BaseModel):
+    agent_id: str
+    capture_status: RunCaptureStatus
+    created_at: str
+    evaluator_version: str
+    id: str
+    llm_audit: Any | None = None
+    manifest_hash: str
+    run_id: str
+    score_bps: conint(ge=0) | None = None
+    snapshot_hash: str
+    verdict: EvaluationVerdict
+
+
+class FinalizeRunRequest(BaseModel):
+    boundary_source: RunBoundarySource
+    ended_at: str | None = None
+    expected_flush_id: str | None = None
+    last_event_sequence: int | None = None
+    status: RunStatus
+
+
+class FinalizeRunResponse(BaseModel):
+    evaluation_status: EvaluationJobStatus
+    finalization: RunFinalizationSummary
+    run: RunSummary
 
 
 class FinancialAction(BaseModel):
@@ -2457,10 +2767,15 @@ class RedteamReportPayload(BaseModel):
 
 class RunDetail(BaseModel):
     budget_decision: RunLlmBudgetDecision | None = None
+    evaluation_jobs: list[EvaluationJobSummary] | None = None
+    evaluations: list[EvaluationResultSummary] | None = None
     events: list[RunEventSummary]
+    finalization: RunFinalizationSummary | None = None
     guardrail_usage: list[RunGuardrailUsage] | None = None
+    participants: list[RunParticipantSummary] | None = None
     provider_usage: RunProviderUsage | None = None
     run: RunSummary
+    spans: list[RunSpanSummary] | None = None
     traces: list[TraceSummary]
 
 
@@ -2722,6 +3037,25 @@ class DecideAuthorizationApprovalRequest(BaseModel):
     reason: str | None = None
     scope: AuthorizationGrantScope | None = None
     starts_at: str | None = None
+
+
+class EvaluationCampaignAggregate(BaseModel):
+    cases: list[EvaluationCampaignCaseResult]
+    completed_cases: conint(ge=0)
+    error_cases: conint(ge=0)
+    score_bps: conint(ge=0) | None = None
+    skipped_cases: conint(ge=0)
+    verdict: EvaluationVerdict
+
+
+class EvaluationResultDetail(BaseModel):
+    findings: list[EvaluationFinding]
+    result: EvaluationResultSummary
+
+
+class EvaluationResultListResponse(BaseModel):
+    jobs: list[EvaluationJobSummary]
+    results: list[EvaluationResultDetail]
 
 
 class FinancialActionRecord(BaseModel):

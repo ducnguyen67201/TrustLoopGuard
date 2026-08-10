@@ -17,6 +17,11 @@ use utoipa::ToSchema;
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct TraceSummary {
     pub trace_id: String,
+    /// Stable registered agent identity. `None` is reserved for legacy rows
+    /// that predate direct attribution and cannot be backfilled safely.
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub agent_id: Option<String>,
     pub run_id: Option<String>,
     pub run_event_id: Option<String>,
     /// Monitoring session id the trace was tagged with, if any.

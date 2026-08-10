@@ -33,7 +33,9 @@ try {
   const packageJson = JSON.parse(await readFile(join(packageDirectory, 'package.json'), 'utf8'));
   if (
     packageJson.exports?.['.']?.import !== './dist/index.js' ||
-    packageJson.exports?.['.']?.types !== './dist/index.d.ts'
+    packageJson.exports?.['.']?.types !== './dist/index.d.ts' ||
+    packageJson.exports?.['./observability']?.import !== './dist/observability.js' ||
+    packageJson.exports?.['./observability']?.types !== './dist/observability.d.ts'
   ) {
     throw new Error('packed SDK export map does not point to dist');
   }
@@ -62,6 +64,7 @@ try {
     join(temporaryDirectory, 'consumer.ts'),
     [
       "import { guardAgent, liveKitRun, ToolRegistrationMode, type AuthorizationDecision, type GuardToolDiscoveryWarning, type LiveKitCloseListener } from '@featherlane-ai/sdk';",
+      "import { observability, type ObservedRun } from '@featherlane-ai/sdk/observability';",
       'const listeners = new Set<LiveKitCloseListener>();',
       'const session = {',
       "  on(_event: 'close', listener: LiveKitCloseListener) { listeners.add(listener); return this; },",
@@ -80,8 +83,12 @@ try {
       '  },',
       '});',
       'const decision: AuthorizationDecision | undefined = undefined;',
+      "const observed = observability.init({ agentId: 'smoke-agent', apiKey: 'test-key' });",
+      'const observedRun: ObservedRun | undefined = undefined;',
       'void agent;',
       'void decision;',
+      'void observed;',
+      'void observedRun;',
       '',
     ].join('\n'),
   );

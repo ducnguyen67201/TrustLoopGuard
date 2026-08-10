@@ -11,6 +11,7 @@ use crate::budget_alerts::BudgetAlertStore;
 use crate::dashboard_admin::{ApiKeyStore, SettingsStore};
 use crate::environments::EnvironmentStore;
 use crate::escalation::{EscalationPayload, WebhookDelivery};
+use crate::evaluations::EvaluationStore;
 use crate::financial::{FinancialExecutor, FinancialStore};
 use crate::gateway::GatewayStore;
 use crate::github_integration::{GitHubIntegrationMessage, GitHubIntegrationStore};
@@ -21,6 +22,7 @@ use crate::llm_pricing::LlmPricingStore;
 use crate::llm_usage::LlmUsageStore;
 use crate::mcp_gateway::McpGatewayStore;
 use crate::oauth_store::OAuthStore;
+use crate::otel::OtelStore;
 use crate::policies::PolicyStore;
 use crate::redteam::{DispatchJob, RedteamJobStore, RedteamPlanStore, RedteamReportShareStore};
 use crate::runs::RunStore;
@@ -54,6 +56,9 @@ pub struct AppState {
     pub label_policy_store: Arc<dyn LabelPolicyStore>,
     pub trace_store: Arc<dyn TraceStore>,
     pub run_store: Arc<dyn RunStore>,
+    /// Agent-scoped evaluation configuration, frozen manifests, and results.
+    pub evaluation_store: Arc<dyn EvaluationStore>,
+    pub otel_store: Arc<dyn OtelStore>,
     pub analytics_store: Arc<dyn AnalyticsStore>,
     pub human_review_store: Arc<dyn HumanReviewStore>,
     pub financial_store: Arc<dyn FinancialStore>,

@@ -170,6 +170,176 @@ describe('RunDetailLiveView', () => {
     expect(screen.getByText('Deterministic only — no guardrail LLM cost.')).toBeInTheDocument();
   });
 
+  it('renders an accessible span waterfall with tree navigation and collapse controls', async () => {
+    const user = userEvent.setup();
+    const snapshot = {
+      ...BASE_SNAPSHOT,
+      spans: [
+        {
+          key: 'trace-1:root',
+          traceId: 'trace-1',
+          spanId: 'root',
+          parentSpanId: null,
+          agentId: 'demo-acme-support',
+          runEventId: null,
+          name: 'Agent turn',
+          kind: 'Server',
+          operation: 'chat',
+          conversationId: 'conversation-1',
+          externalAgentId: null,
+          service: 'support-agent',
+          startedAt: '2026-06-25T17:35:19.000Z',
+          endedAt: '2026-06-25T17:35:20.000Z',
+          startedMicros: Date.parse('2026-06-25T17:35:19.000Z') * 1_000,
+          endedMicros: Date.parse('2026-06-25T17:35:20.000Z') * 1_000,
+          durationMs: 1_000,
+          statusCode: 1,
+          status: 'OK',
+          statusMessage: null,
+          resource: [{ label: 'service.name', value: 'support-agent' }],
+          attributes: [{ label: 'gen_ai.operation.name', value: 'chat' }],
+          eventCount: 0,
+          linkCount: 0,
+          contentCaptureStatus: 'metadata_only',
+          droppedAttributeCount: 0,
+          lateEvidence: false,
+          ingestedAt: '2026-06-25T17:35:20.100Z',
+        },
+        {
+          key: 'trace-1:child',
+          traceId: 'trace-1',
+          spanId: 'child',
+          parentSpanId: 'root',
+          agentId: 'demo-acme-support',
+          runEventId: null,
+          name: 'LLM call',
+          kind: 'Client',
+          operation: 'chat',
+          conversationId: 'conversation-1',
+          externalAgentId: null,
+          service: 'model-gateway',
+          startedAt: '2026-06-25T17:35:19.100Z',
+          endedAt: '2026-06-25T17:35:19.700Z',
+          startedMicros: Date.parse('2026-06-25T17:35:19.100Z') * 1_000,
+          endedMicros: Date.parse('2026-06-25T17:35:19.700Z') * 1_000,
+          durationMs: 600,
+          statusCode: 2,
+          status: 'Error',
+          statusMessage: 'Provider timeout',
+          resource: [{ label: 'service.name', value: 'model-gateway' }],
+          attributes: [{ label: 'gen_ai.request.model', value: 'example-model' }],
+          eventCount: 1,
+          linkCount: 0,
+          contentCaptureStatus: 'metadata_only',
+          droppedAttributeCount: 0,
+          lateEvidence: false,
+          ingestedAt: '2026-06-25T17:35:20.100Z',
+        },
+      ],
+    } satisfies typeof BASE_SNAPSHOT;
+
+    render(
+      <RunDetailLiveView
+        initialData={snapshot}
+        runId="run-param-auth"
+        workspaceSlug="test-BJ-V"
+        agentIdentity={UNAVAILABLE_AGENT}
+      />,
+    );
+
+    expect(screen.getByRole('tab', { name: 'Waterfall (2)' })).toHaveAttribute(
+      'data-state',
+      'active',
+    );
+    expect(screen.getAllByRole('treeitem')).toHaveLength(2);
+
+    const root = screen.getByRole('button', { name: /Agent turn.*support-agent.*Server/i });
+    root.focus();
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('heading', { name: 'LLM call' })).toBeInTheDocument();
+    expect(screen.getByText('Provider timeout')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Collapse Agent turn' }));
+    expect(screen.getAllByRole('treeitem')).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Expand Agent turn' }));
+    expect(screen.getAllByRole('treeitem')).toHaveLength(2);
+
+    await user.click(screen.getByRole('tab', { name: 'Audit log (0)' }));
+    expect(screen.getByText('Waiting for the first check')).toBeInTheDocument();
+  });
+
+  it('shows capture incompleteness and active post-run evaluation without implying a pass', () => {
+    const snapshot = {
+      ...BASE_SNAPSHOT,
+      assurance: {
+        eligibility: 'eligible',
+        finalization: {
+          finalized_at: '2026-06-25T17:35:20.000Z',
+          boundary_source: 'explicit_sdk',
+          boundary_confidence: 'authoritative',
+          capture_status: 'incomplete',
+          capture_deadline: '2026-06-25T17:35:50.000Z',
+          expected_flush_id: null,
+        },
+        participants: [
+          {
+            agent_id: 'demo-acme-support',
+            role: 'primary',
+            joined_at: '2026-06-25T17:35:19.000Z',
+          },
+        ],
+        jobs: [
+          {
+            id: 'job-1',
+            run_id: 'run-param-auth',
+            agent_id: 'demo-acme-support',
+            status: 'running',
+            attempts: 1,
+            error: null,
+            updated_at: '2026-06-25T17:35:21.000Z',
+          },
+        ],
+        evaluations: [],
+      },
+    } satisfies typeof BASE_SNAPSHOT;
+
+    render(
+      <RunDetailLiveView
+        initialData={snapshot}
+        runId="run-param-auth"
+        workspaceSlug="test-BJ-V"
+        agentIdentity={UNAVAILABLE_AGENT}
+      />,
+    );
+
+    expect(screen.getByText('Post-run assurance')).toBeInTheDocument();
+    expect(screen.getByText('Running')).toBeInTheDocument();
+    expect(screen.getByText(/cannot be reported as passed/i)).toBeInTheDocument();
+    expect(screen.getByText(/evaluation is still running/i)).toBeInTheDocument();
+  });
+
+  it('fails closed for runs created before frozen evaluation manifests', () => {
+    const snapshot = {
+      ...BASE_SNAPSHOT,
+      assurance: {
+        ...BASE_SNAPSHOT.assurance,
+        eligibility: 'legacy_incomplete' as const,
+      },
+    };
+
+    render(
+      <RunDetailLiveView
+        initialData={snapshot}
+        runId="run-param-auth"
+        workspaceSlug="test-BJ-V"
+        agentIdentity={UNAVAILABLE_AGENT}
+      />,
+    );
+
+    expect(screen.getByText('Legacy Incomplete')).toBeInTheDocument();
+    expect(screen.getByText(/cannot be reported as safely evaluable/i)).toBeInTheDocument();
+  });
+
   it('labels unbounded budget admission as soft and explains the overshoot risk', () => {
     const softSnapshot = {
       ...BASE_SNAPSHOT,
@@ -227,6 +397,7 @@ describe('RunDetailLiveView', () => {
           id: 'event-1',
           workspace_id: 'ws_demo',
           run_id: 'run-param-auth',
+          agent_id: 'demo-acme-support',
           sequence: 1,
           kind: 'tool_call',
           label: 'issue_refund',
@@ -334,6 +505,7 @@ describe('RunDetailLiveView', () => {
           id: 'assistant-event',
           workspace_id: 'ws_demo',
           run_id: 'run-output-guard',
+          agent_id: 'demo-output-agent',
           sequence: 2,
           kind: 'assistant_turn',
           label: 'agent_reply',

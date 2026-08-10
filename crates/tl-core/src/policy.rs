@@ -59,6 +59,7 @@ pub enum PolicyFamily {
     Financial,
     SourceLabel,
     Tool,
+    Evaluation,
 }
 
 impl PolicyFamily {
@@ -72,6 +73,7 @@ impl PolicyFamily {
             Self::Financial => "financial",
             Self::SourceLabel => "source_label",
             Self::Tool => "tool",
+            Self::Evaluation => "evaluation",
         }
     }
 }

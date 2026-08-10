@@ -11,6 +11,7 @@ use super::RunStoreError;
 pub(super) fn run_error_response(error: RunStoreError) -> Response {
     let (status, code) = match error {
         RunStoreError::NotFound => (StatusCode::NOT_FOUND, ApiErrorCode::NotFound),
+        RunStoreError::Conflict => (StatusCode::CONFLICT, ApiErrorCode::Conflict),
         RunStoreError::Validation(_) => (StatusCode::BAD_REQUEST, ApiErrorCode::Invalid),
         RunStoreError::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, ApiErrorCode::Internal),
     };

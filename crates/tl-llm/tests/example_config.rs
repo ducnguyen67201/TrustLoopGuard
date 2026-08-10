@@ -17,6 +17,7 @@ fn committed_example_config_parses() {
         "tone",
         "authority",
         "semantic_policy",
+        "run_evaluation",
         "policy_draft",
         "policy_ai_edit",
         "guardrail_generation",

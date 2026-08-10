@@ -141,6 +141,7 @@ fn route_kind_strings_round_trip() {
         LlmRouteKind::Tone,
         LlmRouteKind::Authority,
         LlmRouteKind::SemanticPolicy,
+        LlmRouteKind::RunEvaluation,
         LlmRouteKind::PolicyDraft,
         LlmRouteKind::PolicyAiEdit,
         LlmRouteKind::GuardrailGeneration,

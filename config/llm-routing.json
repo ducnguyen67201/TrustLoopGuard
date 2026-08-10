@@ -44,6 +44,14 @@
         "deadline_ms": 700
       }
     },
+    "run_evaluation": {
+      "description": "Batched post-run rubric evaluation.",
+      "primary": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "deadline_ms": 30000
+      }
+    },
     "policy_draft": {
       "description": "Natural-language policy drafting.",
       "primary": {
