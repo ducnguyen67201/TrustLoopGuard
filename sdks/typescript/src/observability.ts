@@ -28,7 +28,7 @@ import type { RunEventSummary } from './generated/RunEventSummary.js';
 
 const DEFAULT_API_URL = 'https://api.featherlane.ai';
 const RUN_CONTEXT = createContextKey('featherlane.run.correlation');
-const EVENT_ATTRIBUTES = {
+const EVENT_SPAN_NAMES = {
   user_turn: 'agent.user_turn',
   assistant_turn: 'agent.assistant_turn',
   tool_call: 'agent.tool_call',
@@ -45,8 +45,10 @@ type RunEventInput = Omit<CreateRunEventRequest, 'metadata'> & {
 
 export type ObservedRunOptions = Omit<WithRunOptions, 'agentId'>;
 
-export interface ObservabilityInitOptions
-  extends Omit<ClientOptions, 'apiKey' | 'baseUrl' | 'runTelemetry'> {
+export interface ObservabilityInitOptions extends Omit<
+  ClientOptions,
+  'apiKey' | 'baseUrl' | 'runTelemetry'
+> {
   agentId: string;
   apiKey?: string;
   baseUrl?: string;
@@ -91,10 +93,7 @@ export const observability = {
       resource: resourceFromAttributes({
         'service.name': options.serviceName ?? options.agentId,
       }),
-      spanProcessors: [
-        new RunCorrelationSpanProcessor(),
-        new BatchSpanProcessor(exporter),
-      ],
+      spanProcessors: [new RunCorrelationSpanProcessor(), new BatchSpanProcessor(exporter)],
     });
     provider.register();
     const tracer = provider.getTracer('featherlane-observability');
@@ -112,12 +111,16 @@ export const observability = {
         : { onRunLifecycleWarning: options.onRunLifecycleWarning }),
       runTelemetry: {
         bindRun(correlation) {
-          endSpan(tracer.startSpan('agent.run.started', { attributes: correlation.attributes }));
+          const span = tracer.startSpan('agent.run.started', {
+            attributes: correlation.attributes,
+          });
+          span.end();
         },
         async forceFlush(correlation) {
-          endSpan(
-            tracer.startSpan('agent.telemetry.flush', { attributes: correlation.attributes }),
-          );
+          const span = tracer.startSpan('agent.telemetry.flush', {
+            attributes: correlation.attributes,
+          });
+          span.end();
           await provider.forceFlush();
         },
       },
@@ -147,21 +150,17 @@ async function observeRun<T>(
     const correlation = runCorrelation(activeRun.id, agentId);
     const runContext = context.active().setValue(RUN_CONTEXT, correlation);
     return context.with(runContext, () =>
-      tracer.startActiveSpan(
-        'agent.run',
-        { attributes: correlation.attributes },
-        async (span) => {
-          try {
-            const value = await operation(observedRun(client, tracer, activeRun));
-            return { runId: activeRun.id, value };
-          } catch (error) {
-            recordSpanError(span, error instanceof Error ? error : new Error(String(error)));
-            throw error;
-          } finally {
-            span.end();
-          }
-        },
-      ),
+      tracer.startActiveSpan('agent.run', { attributes: correlation.attributes }, async (span) => {
+        try {
+          const value = await operation(observedRun(client, tracer, activeRun));
+          return { runId: activeRun.id, value };
+        } catch (error) {
+          recordSpanError(span, error instanceof Error ? error : new Error(String(error)));
+          throw error;
+        } finally {
+          span.end();
+        }
+      }),
     );
   });
 }
@@ -182,7 +181,7 @@ function observedEvent<T>(
   request: RunEventInput,
   operation: () => Promise<T>,
 ): Promise<T> {
-  const name = EVENT_ATTRIBUTES[request.kind];
+  const name = EVENT_SPAN_NAMES[request.kind];
   return tracer.startActiveSpan(
     name,
     {
@@ -222,9 +221,7 @@ class RunCorrelationSpanProcessor implements SpanProcessor {
   }
 }
 
-function isRunCorrelation(
-  value: ReturnType<Context['getValue']>,
-): value is RunCorrelationContext {
+function isRunCorrelation(value: ReturnType<Context['getValue']>): value is RunCorrelationContext {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -237,10 +234,6 @@ function isRunCorrelation(
 function recordSpanError(span: Span, error: Error): void {
   span.recordException(error);
   span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
-}
-
-function endSpan(span: Span): void {
-  span.end();
 }
 
 function trailingSlash(value: string): string {

@@ -64,3 +64,11 @@ the SDK generates a flush ID, asks the integrator's telemetry provider to flush 
 ID, then supplies it to the Run finalization request. Without controlled telemetry, the capture
 barrier uses a bounded quiet period. The full snapshot/job semantics are defined in
 [evaluations.md](evaluations.md).
+
+The optional TypeScript Node.js entry point `@featherlane-ai/sdk/observability` supplies that hook
+and exporter setup. `observability.init({ agentId })` reads the standard SDK URL/key environment
+variables, while `observed.run(...)` establishes one authoritative callback boundary. A span
+processor adds the Run and agent correlation attributes to instrumented spans created inside that
+boundary; `run.event(...)` and `run.withEvent(...)` add explicit event spans without copying content
+into OTel attributes. The helper flushes before finalization, and it does not configure policies or
+poll evaluation results in the agent process.

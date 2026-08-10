@@ -131,7 +131,11 @@ The adapter contract and limitations are defined in
 
 All SDKs expose an explicit Run scope and dependency-free correlation values for
 `featherlane.run.id`, `featherlane.agent.id`, and optional `featherlane.run.event.id`. These values
-can be attached to any OpenTelemetry SDK without adding an OTel dependency to the Featherlane SDK.
+can be attached to any OpenTelemetry SDK. TypeScript applications on Node.js may instead import
+`@featherlane-ai/sdk/observability`: `observability.init({ agentId })` configures direct OTLP export,
+and `observed.run(...)` propagates Run correlation to instrumented child spans, records explicit Run
+events, flushes telemetry, and finalizes the Run at the callback boundary. The main SDK entry point
+remains browser-safe and does not load the Node.js OTel runtime.
 
 `finishRun` / `finish_run` uses the authoritative `POST /v1/runs/{id}/finalize` boundary. An
 optional telemetry hook binds the correlation context and performs a bounded `forceFlush` before
