@@ -13,7 +13,7 @@ use tl_storage::{
 };
 
 #[tokio::test]
-async fn fallback_order_and_secrets_persist_transactionally() {
+async fn fallback_and_secret_persist() {
     let container = PostgresImage::default()
         .start()
         .await
@@ -86,23 +86,21 @@ async fn fallback_order_and_secrets_persist_transactionally() {
         .expect("provider");
     }
     let route = repo
-        .create_gateway_route(
-            NewGatewayRoute {
-                workspace_id: "ws_gateway".into(),
-                id: "route-a".into(),
-                display_name: "Route A".into(),
-                provider_connection_id: "primary".into(),
-                agent_id: "agent-a".into(),
-                reliability_mode: "standard".into(),
-            },
-            vec!["fallback-a".into(), "fallback-b".into()],
-        )
+        .create_gateway_route(NewGatewayRoute {
+            workspace_id: "ws_gateway".into(),
+            id: "route-a".into(),
+            display_name: "Route A".into(),
+            provider_connection_id: "primary".into(),
+            agent_id: "agent-a".into(),
+            reliability_mode: "standard".into(),
+            fallback_provider_connection_id: Some("fallback-a".into()),
+        })
         .await
         .expect("route");
     assert_eq!(route.reliability_mode, GatewayReliabilityMode::Standard);
     assert_eq!(
-        route.fallback_provider_connection_ids,
-        vec!["fallback-a", "fallback-b"]
+        route.fallback_provider_connection_id.as_deref(),
+        Some("fallback-a")
     );
 
     let resolved = repo
@@ -110,62 +108,38 @@ async fn fallback_order_and_secrets_persist_transactionally() {
         .await
         .expect("resolve route");
     assert_eq!(resolved.encrypted_api_key, "sealed-primary");
-    assert_eq!(
-        resolved
-            .fallback_provider_connections
-            .iter()
-            .map(|provider| provider.connection.id.as_str())
-            .collect::<Vec<_>>(),
-        vec!["fallback-a", "fallback-b"]
-    );
-    assert_eq!(
-        resolved
-            .fallback_provider_connections
-            .iter()
-            .map(|provider| provider.encrypted_api_key.as_str())
-            .collect::<Vec<_>>(),
-        vec!["sealed-a", "sealed-b"]
-    );
+    let fallback = resolved
+        .fallback_provider_connection
+        .expect("resolved fallback");
+    assert_eq!(fallback.connection.id, "fallback-a");
+    assert_eq!(fallback.encrypted_api_key, "sealed-a");
 
     let updated = repo
         .update_gateway_route(
             "ws_gateway",
             "route-a",
             GatewayRoutePatch {
-                fallback_provider_connection_ids: Some(vec![
-                    "fallback-b".into(),
-                    "fallback-a".into(),
-                ]),
+                fallback_provider_connection_id: Some(Some("fallback-b".into())),
                 ..GatewayRoutePatch::default()
             },
         )
         .await
-        .expect("reverse fallback order");
+        .expect("replace fallback");
     assert_eq!(
-        updated.fallback_provider_connection_ids,
-        vec!["fallback-b", "fallback-a"]
+        updated.fallback_provider_connection_id.as_deref(),
+        Some("fallback-b")
     );
 
-    let duplicate = repo
+    let cleared = repo
         .update_gateway_route(
             "ws_gateway",
             "route-a",
             GatewayRoutePatch {
-                fallback_provider_connection_ids: Some(vec![
-                    "fallback-a".into(),
-                    "fallback-a".into(),
-                ]),
+                fallback_provider_connection_id: Some(None),
                 ..GatewayRoutePatch::default()
             },
         )
-        .await;
-    assert!(duplicate.is_err());
-    let after_conflict = repo
-        .resolve_gateway_route("ws_gateway", "route-a")
         .await
-        .expect("transaction retained previous fallback order");
-    assert_eq!(
-        after_conflict.route.fallback_provider_connection_ids,
-        vec!["fallback-b", "fallback-a"]
-    );
+        .expect("clear fallback");
+    assert!(cleared.fallback_provider_connection_id.is_none());
 }

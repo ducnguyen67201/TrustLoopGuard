@@ -33,7 +33,7 @@ function activationResponse(notificationRule = true) {
       provider_connection_id: 'primary-provider',
       agent_id: 'agent-1',
       reliability_mode: 'standard',
-      fallback_provider_connection_ids: ['fallback-provider'],
+      fallback_provider_connection_id: 'fallback-provider',
       created_at: '2026-08-11T00:00:00Z',
       updated_at: '2026-08-11T00:00:00Z',
     },
@@ -119,7 +119,7 @@ describe('ProductionLoopSetup', () => {
     const body = JSON.parse(String(init?.body));
     expect(body.provider.base_url).toBe('https://api.openai.com');
     expect(body.provider.provider_api_key).toBe('provider-secret');
-    expect(body.fallback_provider_connection_ids).toEqual(['fallback-provider']);
+    expect(body.fallback_provider_connection_id).toBe('fallback-provider');
     expect(body.verification_session_id).toBe('verify-fixed');
     expect(body.alerts_deferred).toBe(false);
     expect(body.confirm_workspace_privacy_change).toBe(true);

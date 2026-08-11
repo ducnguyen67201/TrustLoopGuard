@@ -234,7 +234,7 @@ async fn gateway_reuses_run_for_external_correlation_header() {
 }
 
 #[tokio::test]
-async fn standard_reliability_retries_primary_then_uses_one_ordered_fallback() {
+async fn standard_reliability_retries_primary_then_uses_fallback() {
     let primary = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/v1/chat/completions"))
@@ -303,7 +303,7 @@ async fn standard_reliability_retries_primary_then_uses_one_ordered_fallback() {
                 "provider_connection_id": "primary",
                 "agent_id": "agent",
                 "reliability_mode": "standard",
-                "fallback_provider_connection_ids": ["fallback"]
+                "fallback_provider_connection_id": "fallback"
             }),
         ))
         .await

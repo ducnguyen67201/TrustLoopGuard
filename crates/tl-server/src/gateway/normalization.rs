@@ -74,8 +74,9 @@ pub(super) fn normalize_gateway_route(
         )?,
         agent_id: required_trimmed(req.agent_id, "agent_id")?,
         reliability_mode: req.reliability_mode,
-        fallback_provider_connection_ids: normalize_fallbacks(
-            req.fallback_provider_connection_ids,
+        fallback_provider_connection_id: normalize_optional_text(
+            req.fallback_provider_connection_id,
+            "fallback_provider_connection_id",
         )?,
     })
 }
@@ -91,26 +92,25 @@ pub(super) fn normalize_gateway_route_patch(
         )?,
         agent_id: normalize_optional_text(req.agent_id, "agent_id")?,
         reliability_mode: req.reliability_mode,
-        fallback_provider_connection_ids: req
-            .fallback_provider_connection_ids
-            .map(normalize_fallbacks)
+        fallback_provider_connection_id: req
+            .fallback_provider_connection_id
+            .map(|value| normalize_optional_text(Some(value), "fallback_provider_connection_id"))
             .transpose()?,
     })
 }
 
-fn normalize_fallbacks(values: Vec<String>) -> Result<Vec<String>, String> {
-    if values.len() > 8 {
-        return Err("fallback_provider_connection_ids may contain at most 8 entries".into());
+pub(super) fn normalize_session_id(value: &str, field: &str) -> Result<String, String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(format!("{field} cannot be empty"));
     }
-    let mut normalized = Vec::with_capacity(values.len());
-    for value in values {
-        let value = required_trimmed(value, "fallback_provider_connection_ids")?;
-        if normalized.contains(&value) {
-            return Err("fallback provider connections must be unique".into());
-        }
-        normalized.push(value);
+    if value.len() > 200 {
+        return Err(format!("{field} cannot exceed 200 bytes"));
     }
-    Ok(normalized)
+    if value.chars().any(char::is_control) {
+        return Err(format!("{field} cannot contain control characters"));
+    }
+    Ok(value.to_string())
 }
 
 pub(super) fn normalize_optional_url(value: Option<String>) -> Result<Option<String>, String> {

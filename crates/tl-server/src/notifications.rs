@@ -21,6 +21,14 @@ pub use handlers::{
 };
 pub use worker::{spawn_notification_worker, NotificationWorkerConfig};
 
+pub(crate) fn valid_email(value: &str) -> bool {
+    let value = value.trim();
+    value.len() <= 320
+        && value
+            .split_once('@')
+            .is_some_and(|(local, domain)| !local.is_empty() && domain.contains('.'))
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum NotificationStoreError {
     #[error("not found")]

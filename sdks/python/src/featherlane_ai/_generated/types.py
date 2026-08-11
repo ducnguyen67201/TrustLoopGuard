@@ -700,7 +700,7 @@ class GatewayRoute(BaseModel):
     agent_id: str
     created_at: str
     display_name: str
-    fallback_provider_connection_ids: list[str] | None = None
+    fallback_provider_connection_id: str | None = None
     id: str
     provider_connection_id: str
     reliability_mode: GatewayReliabilityMode | None = None
@@ -1738,7 +1738,7 @@ class UpdateGatewayProviderConnectionRequest(BaseModel):
 class UpdateGatewayRouteRequest(BaseModel):
     agent_id: str | None = None
     display_name: str | None = None
-    fallback_provider_connection_ids: list[str] | None = None
+    fallback_provider_connection_id: str | None = None
     provider_connection_id: str | None = None
     reliability_mode: GatewayReliabilityMode | None = None
 
@@ -2259,7 +2259,7 @@ class CreateGatewayProviderConnectionRequest(BaseModel):
 class CreateGatewayRouteRequest(BaseModel):
     agent_id: str
     display_name: str
-    fallback_provider_connection_ids: list[str] | None = None
+    fallback_provider_connection_id: str | None = None
     id: str | None = None
     provider_connection_id: str
     reliability_mode: GatewayReliabilityMode | None = None
@@ -3150,13 +3150,13 @@ class CreateFinancialPolicyRequest(BaseModel):
 class CreateGatewayActivationRequest(BaseModel):
     agent: GatewayActivationAgentInput
     alert_email: str
-    alerts_deferred: bool | None = Field(
-        None,
+    alerts_deferred: bool = Field(
+        ...,
         description='Explicit acknowledgment that email alerts are intentionally deferred.\nWhen true, `alert_email` may be empty and readiness remains\n`needs_attention` until an enabled rule and transport are configured.',
     )
     confirm_workspace_privacy_change: bool | None = None
     data_handling_mode: DataHandlingMode
-    fallback_provider_connection_ids: list[str] | None = None
+    fallback_provider_connection_id: str | None = None
     provider: CreateGatewayProviderConnectionRequest
     reliability_mode: GatewayReliabilityMode | None = None
     route_display_name: str

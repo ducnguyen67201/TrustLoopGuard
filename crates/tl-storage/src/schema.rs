@@ -59,19 +59,10 @@ diesel::table! {
         provider_connection_id -> Text,
         agent_id -> Text,
         reliability_mode -> Text,
+        fallback_provider_connection_id -> Nullable<Text>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         deleted_at -> Nullable<Timestamptz>,
-    }
-}
-
-diesel::table! {
-    gateway_route_fallbacks (workspace_id, route_id, position) {
-        workspace_id -> Text,
-        route_id -> Text,
-        position -> Int4,
-        provider_connection_id -> Text,
-        created_at -> Timestamptz,
     }
 }
 
@@ -1287,7 +1278,6 @@ diesel::joinable!(workspace_environments -> workspaces (workspace_id));
 diesel::joinable!(knowledge_source_files -> knowledge_sources (knowledge_source_id));
 diesel::joinable!(gateway_provider_connections -> workspaces (workspace_id));
 diesel::joinable!(gateway_routes -> workspaces (workspace_id));
-diesel::joinable!(gateway_route_fallbacks -> workspaces (workspace_id));
 diesel::joinable!(notification_rules -> workspaces (workspace_id));
 diesel::joinable!(notification_deliveries -> workspaces (workspace_id));
 diesel::joinable!(analytics_dashboard_views -> workspaces (workspace_id));
@@ -1323,7 +1313,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     knowledge_source_files,
     gateway_provider_connections,
     gateway_routes,
-    gateway_route_fallbacks,
     notification_rules,
     notification_deliveries,
     human_review_events,

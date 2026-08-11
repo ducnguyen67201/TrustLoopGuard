@@ -56,7 +56,7 @@ impl ProviderError {
                 | ProviderErrorClass::Timeout
                 | ProviderErrorClass::RateLimited
                 | ProviderErrorClass::Server
-        ) || matches!(self.status, Some(408))
+        )
     }
 }
 

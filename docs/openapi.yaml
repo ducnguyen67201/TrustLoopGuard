@@ -6683,6 +6683,7 @@ components:
       - agent
       - route_display_name
       - alert_email
+      - alerts_deferred
       - data_handling_mode
       properties:
         agent:
@@ -6690,9 +6691,7 @@ components:
         alert_email:
           type: string
         alerts_deferred:
-          type:
-          - boolean
-          - 'null'
+          type: boolean
           description: |-
             Explicit acknowledgment that email alerts are intentionally deferred.
             When true, `alert_email` may be empty and readiness remains
@@ -6701,10 +6700,10 @@ components:
           type: boolean
         data_handling_mode:
           $ref: '#/components/schemas/DataHandlingMode'
-        fallback_provider_connection_ids:
-          type: array
-          items:
-            type: string
+        fallback_provider_connection_id:
+          type:
+          - string
+          - 'null'
         provider:
           $ref: '#/components/schemas/CreateGatewayProviderConnectionRequest'
         reliability_mode:
@@ -6782,10 +6781,10 @@ components:
           type: string
         display_name:
           type: string
-        fallback_provider_connection_ids:
-          type: array
-          items:
-            type: string
+        fallback_provider_connection_id:
+          type:
+          - string
+          - 'null'
         id:
           type:
           - string
@@ -8087,10 +8086,10 @@ components:
           type: string
         display_name:
           type: string
-        fallback_provider_connection_ids:
-          type: array
-          items:
-            type: string
+        fallback_provider_connection_id:
+          type:
+          - string
+          - 'null'
         id:
           type: string
         provider_connection_id:
@@ -11915,12 +11914,10 @@ components:
           type:
           - string
           - 'null'
-        fallback_provider_connection_ids:
+        fallback_provider_connection_id:
           type:
-          - array
+          - string
           - 'null'
-          items:
-            type: string
         provider_connection_id:
           type:
           - string

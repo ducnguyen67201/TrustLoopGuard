@@ -50,7 +50,7 @@ pub struct NewGatewayRoute {
     pub provider_connection_id: String,
     pub agent_id: String,
     pub reliability_mode: GatewayReliabilityMode,
-    pub fallback_provider_connection_ids: Vec<String>,
+    pub fallback_provider_connection_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -59,7 +59,7 @@ pub struct GatewayRoutePatch {
     pub provider_connection_id: Option<String>,
     pub agent_id: Option<String>,
     pub reliability_mode: Option<GatewayReliabilityMode>,
-    pub fallback_provider_connection_ids: Option<Vec<String>>,
+    pub fallback_provider_connection_id: Option<Option<String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -67,7 +67,7 @@ pub struct ResolvedGatewayRoute {
     pub route: GatewayRoute,
     pub provider_connection: GatewayProviderConnection,
     pub encrypted_api_key: String,
-    pub fallback_provider_connections: Vec<ProviderConnectionSecret>,
+    pub fallback_provider_connection: Option<ProviderConnectionSecret>,
 }
 
 #[async_trait]

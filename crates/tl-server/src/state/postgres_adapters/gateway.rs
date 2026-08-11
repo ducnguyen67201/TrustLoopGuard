@@ -109,17 +109,15 @@ impl GatewayStore for PostgresGatewayAdapter {
         }
         .to_string();
         self.0
-            .create_gateway_route(
-                tl_storage::models::NewGatewayRoute {
-                    workspace_id: input.workspace_id,
-                    id: input.id,
-                    display_name: input.display_name,
-                    provider_connection_id: input.provider_connection_id,
-                    agent_id: input.agent_id,
-                    reliability_mode,
-                },
-                input.fallback_provider_connection_ids,
-            )
+            .create_gateway_route(tl_storage::models::NewGatewayRoute {
+                workspace_id: input.workspace_id,
+                id: input.id,
+                display_name: input.display_name,
+                provider_connection_id: input.provider_connection_id,
+                agent_id: input.agent_id,
+                reliability_mode,
+                fallback_provider_connection_id: input.fallback_provider_connection_id,
+            })
             .await
             .map_err(gateway_store_error)
     }
@@ -139,7 +137,7 @@ impl GatewayStore for PostgresGatewayAdapter {
                     provider_connection_id: patch.provider_connection_id,
                     agent_id: patch.agent_id,
                     reliability_mode: patch.reliability_mode,
-                    fallback_provider_connection_ids: patch.fallback_provider_connection_ids,
+                    fallback_provider_connection_id: patch.fallback_provider_connection_id,
                 },
             )
             .await
@@ -158,14 +156,12 @@ impl GatewayStore for PostgresGatewayAdapter {
                 route: resolved.route,
                 provider_connection: resolved.provider_connection,
                 encrypted_api_key: resolved.encrypted_api_key,
-                fallback_provider_connections: resolved
-                    .fallback_provider_connections
-                    .into_iter()
-                    .map(|fallback| crate::gateway::ProviderConnectionSecret {
+                fallback_provider_connection: resolved.fallback_provider_connection.map(
+                    |fallback| crate::gateway::ProviderConnectionSecret {
                         connection: fallback.connection,
                         encrypted_api_key: fallback.encrypted_api_key,
-                    })
-                    .collect(),
+                    },
+                ),
             })
             .map_err(gateway_store_error)
     }

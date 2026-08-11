@@ -44,7 +44,7 @@ async fn activation_is_idempotent_and_reports_exact_verification_as_pending() {
         "data_handling_mode": "no_body_retention",
         "confirm_workspace_privacy_change": true,
         "reliability_mode": "standard",
-        "fallback_provider_connection_ids": ["provider-fallback"]
+        "fallback_provider_connection_id": "provider-fallback"
     });
 
     let first = app
@@ -64,8 +64,8 @@ async fn activation_is_idempotent_and_reports_exact_verification_as_pending() {
     assert_eq!(first_body["verification_session_id"], "verify-activation-1");
     assert_eq!(first_body["route"]["reliability_mode"], "standard");
     assert_eq!(
-        first_body["route"]["fallback_provider_connection_ids"],
-        json!(["provider-fallback"])
+        first_body["route"]["fallback_provider_connection_id"],
+        "provider-fallback"
     );
     assert!(first_body["notification_rule"]["id"].is_string());
     assert_eq!(first_body["readiness"]["status"], "needs_attention");
@@ -142,8 +142,7 @@ async fn activation_supports_explicit_alert_deferral_without_claiming_ready() {
                 "verification_session_id": "verify-deferred",
                 "data_handling_mode": "no_body_retention",
                 "confirm_workspace_privacy_change": true,
-                "reliability_mode": "standard",
-                "fallback_provider_connection_ids": []
+                "reliability_mode": "standard"
             }),
         ))
         .await
@@ -186,8 +185,7 @@ async fn activation_requires_explicit_deferral_when_email_transport_is_unavailab
                 "alerts_deferred": false,
                 "data_handling_mode": "no_body_retention",
                 "confirm_workspace_privacy_change": true,
-                "reliability_mode": "standard",
-                "fallback_provider_connection_ids": []
+                "reliability_mode": "standard"
             }),
         ))
         .await
@@ -240,10 +238,11 @@ async fn activation_validates_fallbacks_before_persisting_the_primary_provider()
                 },
                 "route_display_name": "Fallback validation",
                 "alert_email": "ops@example.com",
+                "alerts_deferred": false,
                 "data_handling_mode": "no_body_retention",
                 "confirm_workspace_privacy_change": true,
                 "reliability_mode": "standard",
-                "fallback_provider_connection_ids": ["missing-fallback"]
+                "fallback_provider_connection_id": "missing-fallback"
             }),
         ))
         .await
@@ -289,10 +288,10 @@ async fn activation_conflict_preserves_ready_resources_and_agent_meaning() {
         },
         "route_display_name": "Conflict production",
         "alert_email": "ops@example.com",
+        "alerts_deferred": false,
         "data_handling_mode": "no_body_retention",
         "confirm_workspace_privacy_change": true,
-        "reliability_mode": "standard",
-        "fallback_provider_connection_ids": []
+        "reliability_mode": "standard"
     });
     let first = app
         .clone()

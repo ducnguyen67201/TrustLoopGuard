@@ -245,7 +245,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
     }
 
     let provider_name = super::normalization::provider_kind_text(expected_kind);
-    for fallback in &resolved.fallback_provider_connections {
+    if let Some(fallback) = &resolved.fallback_provider_connection {
         if fallback.connection.kind != expected_kind
             || fallback.connection.kind == GatewayProviderKind::PaymentHttp
         {
@@ -273,7 +273,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
     if resolved.route.reliability_mode == GatewayReliabilityMode::Standard {
         let retry_key = attempts[0].1.clone();
         attempts.push((&resolved.provider_connection, retry_key));
-        if let Some(fallback) = resolved.fallback_provider_connections.first() {
+        if let Some(fallback) = &resolved.fallback_provider_connection {
             let key = match unseal_provider_key(&fallback.encrypted_api_key, &state.seal_key) {
                 Ok(key) => key,
                 Err(_) => {

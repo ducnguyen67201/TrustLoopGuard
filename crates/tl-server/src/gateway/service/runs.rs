@@ -11,13 +11,12 @@ use tl_core::{
 use crate::runs::RunListFilter;
 use crate::AppState;
 
-use super::super::normalization::provider_kind_text;
+use super::super::normalization::{normalize_session_id, provider_kind_text};
 use super::super::store::ResolvedGatewayRoute;
 
 const GATEWAY_SESSION_ID_HEADER: &str = "x-featherlane-session-id";
 const LEGACY_GATEWAY_SESSION_ID_HEADER: &str = "x-featherlane-ai-run-external-id";
 const GATEWAY_SESSION_END_HEADER: &str = "x-featherlane-session-end";
-const MAX_SESSION_ID_BYTES: usize = 200;
 
 #[derive(Debug, Clone)]
 pub(super) struct GatewaySessionContext {
@@ -69,18 +68,8 @@ fn session_header(headers: &HeaderMap, name: &str) -> Result<Option<String>, Str
     };
     let value = value
         .to_str()
-        .map_err(|_| format!("{name} must contain visible UTF-8 characters"))?
-        .trim();
-    if value.is_empty() {
-        return Err(format!("{name} cannot be empty"));
-    }
-    if value.len() > MAX_SESSION_ID_BYTES {
-        return Err(format!("{name} cannot exceed {MAX_SESSION_ID_BYTES} bytes"));
-    }
-    if value.chars().any(char::is_control) {
-        return Err(format!("{name} cannot contain control characters"));
-    }
-    Ok(Some(value.to_string()))
+        .map_err(|_| format!("{name} must contain visible UTF-8 characters"))?;
+    normalize_session_id(value, name).map(Some)
 }
 
 pub(super) async fn create_gateway_run(

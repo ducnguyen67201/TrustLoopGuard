@@ -83,14 +83,14 @@ export function ProductionLoopSetup({
     environmentId,
   );
 
-  const compatibleFallbacks = useMemo(
-    () => providerConnections.filter((provider) => provider.kind === providerKind),
-    [providerConnections, providerKind],
+  const compatibleFallbacks = providerConnections.filter(
+    (provider) => provider.kind === providerKind,
   );
 
-  const contextQuery = useMemo(() => {
-    return new URLSearchParams({ workspace: workspaceSlug, environment: environmentId }).toString();
-  }, [environmentId, workspaceSlug]);
+  const contextQuery = new URLSearchParams({
+    workspace: workspaceSlug,
+    environment: environmentId,
+  }).toString();
 
   const snippet = useMemo(() => {
     if (activation === null || verificationSessionId === null) return '';
@@ -208,8 +208,8 @@ export function ProductionLoopSetup({
           data_handling_mode: privacy,
           confirm_workspace_privacy_change: privacyConfirmed,
           reliability_mode: 'standard',
-          fallback_provider_connection_ids:
-            fallbackProviderId === 'none' ? [] : [fallbackProviderId],
+          fallback_provider_connection_id:
+            fallbackProviderId === 'none' ? undefined : fallbackProviderId,
         }),
       });
       const payload = (await response.json()) as CreateGatewayActivationResponse & {

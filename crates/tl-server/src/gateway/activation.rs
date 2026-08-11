@@ -19,7 +19,9 @@ use crate::runs::RunListFilter;
 
 use super::api::{reject_runtime_key_config_access, GatewayState};
 use super::errors::api_error_response;
-use super::normalization::{normalize_gateway_route, normalize_provider_connection};
+use super::normalization::{
+    normalize_gateway_route, normalize_provider_connection, normalize_session_id,
+};
 use super::store::ProviderConnectionPatch;
 
 const STARTER_DENIED_ID: &str = "featherlane-starter-no-denied-decisions";
@@ -73,8 +75,8 @@ pub async fn create_gateway_activation(
         Ok(value) => value,
         Err(error) => return crate::environments::environment_error_response(error),
     };
-    let alerts_deferred = input.alerts_deferred.unwrap_or(false);
-    if !alerts_deferred && !valid_email(&input.alert_email) {
+    let alerts_deferred = input.alerts_deferred;
+    if !alerts_deferred && !crate::notifications::valid_email(&input.alert_email) {
         return api_error_response(
             StatusCode::BAD_REQUEST,
             "alert_email must be valid unless alerts_deferred is true".into(),
@@ -97,7 +99,7 @@ pub async fn create_gateway_activation(
         );
     }
     let verification_session_id = match input.verification_session_id.take() {
-        Some(value) => match validate_verification_session_id(&value) {
+        Some(value) => match normalize_session_id(&value, "verification_session_id") {
             Ok(value) => value,
             Err(message) => return api_error_response(StatusCode::BAD_REQUEST, message),
         },
@@ -136,7 +138,7 @@ pub async fn create_gateway_activation(
             );
         }
     };
-    for fallback_id in &input.fallback_provider_connection_ids {
+    if let Some(fallback_id) = &input.fallback_provider_connection_id {
         let Some(fallback) = available_connections
             .iter()
             .find(|connection| connection.id == fallback_id.trim())
@@ -347,7 +349,7 @@ pub async fn create_gateway_activation(
             provider_connection_id: provider.id.clone(),
             agent_id: agent_id.clone(),
             reliability_mode: input.reliability_mode,
-            fallback_provider_connection_ids: input.fallback_provider_connection_ids,
+            fallback_provider_connection_id: input.fallback_provider_connection_id,
         },
     ) {
         Ok(value) => value,
@@ -360,8 +362,8 @@ pub async fn create_gateway_activation(
                     || existing.provider_connection_id != route_input.provider_connection_id
                     || existing.agent_id != route_input.agent_id
                     || existing.reliability_mode != route_input.reliability_mode
-                    || existing.fallback_provider_connection_ids
-                        != route_input.fallback_provider_connection_ids
+                    || existing.fallback_provider_connection_id
+                        != route_input.fallback_provider_connection_id
                 {
                     return activation_error_response(
                         StatusCode::CONFLICT,
@@ -663,7 +665,7 @@ pub async fn gateway_production_readiness(
             .find_map(|(key, value)| (key == "external_id").then(|| value.into_owned()))
     });
     let external_id = match requested_external_id.as_deref() {
-        Some(value) => match validate_verification_session_id(value) {
+        Some(value) => match normalize_session_id(value, "external_id") {
             Ok(value) => Some(value),
             Err(message) => return api_error_response(StatusCode::BAD_REQUEST, message),
         },
@@ -1022,27 +1024,6 @@ fn activation_error_response(
         .into_response()
 }
 
-fn validate_verification_session_id(value: &str) -> Result<String, String> {
-    let value = value.trim();
-    if value.is_empty() {
-        return Err("verification_session_id cannot be empty".into());
-    }
-    if value.len() > 200 {
-        return Err("verification_session_id cannot exceed 200 bytes".into());
-    }
-    if value.chars().any(char::is_control) {
-        return Err("verification_session_id cannot contain control characters".into());
-    }
-    Ok(value.to_string())
-}
-
-fn valid_email(value: &str) -> bool {
-    let value = value.trim();
-    value.len() <= 320
-        && value
-            .split_once('@')
-            .is_some_and(|(local, domain)| !local.is_empty() && domain.contains('.'))
-}
 fn stable_slug(value: &str) -> String {
     let slug = value
         .chars()

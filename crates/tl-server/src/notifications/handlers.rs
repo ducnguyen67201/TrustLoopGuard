@@ -13,7 +13,7 @@ use tl_core::{
     UpdateNotificationRuleRequest,
 };
 
-use super::{EnqueueNotification, NotificationStore, NotificationStoreError};
+use super::{valid_email, EnqueueNotification, NotificationStore, NotificationStoreError};
 use crate::environments::EnvironmentStore;
 
 #[derive(Clone)]
@@ -235,14 +235,6 @@ fn validate_rule(
         ));
     }
     Ok(())
-}
-
-fn valid_email(value: &str) -> bool {
-    let value = value.trim();
-    value.len() <= 320
-        && value
-            .split_once('@')
-            .is_some_and(|(local, domain)| !local.is_empty() && domain.contains('.'))
 }
 
 fn reject_runtime_key(

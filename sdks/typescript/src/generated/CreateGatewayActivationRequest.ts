@@ -10,9 +10,9 @@ export type CreateGatewayActivationRequest = { provider: CreateGatewayProviderCo
  * When true, `alert_email` may be empty and readiness remains
  * `needs_attention` until an enabled rule and transport are configured.
  */
-alerts_deferred?: boolean,
+alerts_deferred: boolean,
 /**
  * Exact customer correlation id used by the generated verification
  * request. The server generates one when omitted.
  */
-verification_session_id?: string, data_handling_mode: DataHandlingMode, confirm_workspace_privacy_change: boolean, reliability_mode: GatewayReliabilityMode, fallback_provider_connection_ids: Array<string>, };
+verification_session_id?: string, data_handling_mode: DataHandlingMode, confirm_workspace_privacy_change: boolean, reliability_mode: GatewayReliabilityMode, fallback_provider_connection_id?: string, };

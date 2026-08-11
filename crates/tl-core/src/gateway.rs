@@ -125,7 +125,8 @@ pub struct GatewayRoute {
     #[serde(default)]
     pub reliability_mode: GatewayReliabilityMode,
     #[serde(default)]
-    pub fallback_provider_connection_ids: Vec<String>,
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub fallback_provider_connection_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -145,7 +146,8 @@ pub struct CreateGatewayRouteRequest {
     #[serde(default)]
     pub reliability_mode: GatewayReliabilityMode,
     #[serde(default)]
-    pub fallback_provider_connection_ids: Vec<String>,
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub fallback_provider_connection_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -168,7 +170,7 @@ pub struct UpdateGatewayRouteRequest {
     pub reliability_mode: Option<GatewayReliabilityMode>,
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub fallback_provider_connection_ids: Option<Vec<String>>,
+    pub fallback_provider_connection_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -204,9 +206,7 @@ pub struct CreateGatewayActivationRequest {
     /// Explicit acknowledgment that email alerts are intentionally deferred.
     /// When true, `alert_email` may be empty and readiness remains
     /// `needs_attention` until an enabled rule and transport are configured.
-    #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub alerts_deferred: Option<bool>,
+    pub alerts_deferred: bool,
     /// Exact customer correlation id used by the generated verification
     /// request. The server generates one when omitted.
     #[serde(default)]
@@ -218,7 +218,8 @@ pub struct CreateGatewayActivationRequest {
     #[serde(default)]
     pub reliability_mode: GatewayReliabilityMode,
     #[serde(default)]
-    pub fallback_provider_connection_ids: Vec<String>,
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub fallback_provider_connection_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -286,7 +287,7 @@ mod tests {
         .expect("legacy route JSON should remain valid");
 
         assert_eq!(route.reliability_mode, GatewayReliabilityMode::None);
-        assert!(route.fallback_provider_connection_ids.is_empty());
+        assert!(route.fallback_provider_connection_id.is_none());
     }
 
     #[test]

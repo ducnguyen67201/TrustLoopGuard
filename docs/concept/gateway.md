@@ -52,7 +52,7 @@ A route binds a stable public route id to:
 
 - one provider connection
 - one agent id
-- a reliability mode and an ordered list of same-kind fallback connections
+- a reliability mode and one optional same-kind fallback connection
 
 Every enabled policy for the active workspace environment and route agent applies automatically.
 Routes do not select or override policies.
@@ -84,7 +84,7 @@ context.
 An operator may explicitly set `alerts_deferred`. That skips rule creation but deliberately leaves
 the email-rule and transport checks in `needs_attention`; omission of an email without that explicit
 choice is invalid. The guided form offers one same-protocol fallback for the bounded standard plan;
-the route contract retains an ordered fallback list for control-plane clients.
+the route contract represents that same bounded plan directly.
 
 The dashboard setup flow is:
 
