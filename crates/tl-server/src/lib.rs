@@ -23,6 +23,7 @@ pub mod label_policy;
 pub mod llm_pricing;
 pub mod llm_usage;
 pub mod mcp_gateway;
+pub mod notifications;
 pub mod oauth;
 pub mod oauth_store;
 pub mod otel;
@@ -76,6 +77,7 @@ pub use llm_pricing::{
     LlmPricingState, LlmPricingStore, LlmPricingStoreError, LlmPricingTable, MemoryLlmPricingStore,
 };
 pub use llm_usage::{LlmUsageState, LlmUsageStore, LlmUsageStoreError, MemoryLlmUsageStore};
+pub use notifications::{MemoryNotificationStore, NotificationState, NotificationStore};
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use redteam::{MemoryRedteamJobStore, RedteamJobStore, RedteamJobStoreError, RedteamState};
 pub use runs::{MemoryRunStore, RunState, RunStore, RunStoreError};

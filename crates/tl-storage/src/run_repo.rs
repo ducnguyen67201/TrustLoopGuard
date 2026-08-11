@@ -28,6 +28,15 @@ pub struct RunRepo {
     pool: DbPool,
 }
 
+#[derive(Debug, Clone)]
+pub struct StaleGatewayRun {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub run_id: String,
+    pub agent_id: String,
+    pub max_duration_exceeded: bool,
+}
+
 impl RunRepo {
     pub fn new(pool: DbPool) -> Self {
         Self { pool }
@@ -70,10 +79,83 @@ impl RunRepo {
                 .await?;
             Ok(())
         })
-        .await
-        .map_err(|e| StorageError::Internal(format!("run create: {e}")))?;
+        .await?;
 
         self.get(workspace_id, &id.to_string()).await
+    }
+
+    pub async fn touch_gateway_activity(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+    ) -> Result<(), StorageError> {
+        let id = parse_run_id(run_id)?;
+        let mut conn = self.connection().await?;
+        let count = diesel::update(
+            runs::table
+                .filter(runs::workspace_id.eq(workspace_id))
+                .filter(runs::environment_id.eq(environment_id))
+                .filter(runs::id.eq(id))
+                .filter(runs::status.eq("running"))
+                .filter(runs::kind.eq("chat_session"))
+                .filter(runs::metadata.contains(serde_json::json!({"integration_mode":"gateway"}))),
+        )
+        .set((
+            runs::last_evidence_at.eq(Utc::now()),
+            runs::updated_at.eq(now),
+        ))
+        .execute(&mut conn)
+        .await?;
+        if count == 0 {
+            return Err(StorageError::NotFound);
+        }
+        Ok(())
+    }
+
+    pub async fn list_stale_gateway_runs(
+        &self,
+        idle_before: DateTime<Utc>,
+        max_started_before: DateTime<Utc>,
+        limit: i64,
+    ) -> Result<Vec<StaleGatewayRun>, StorageError> {
+        let mut conn = self.connection().await?;
+        let rows = runs::table
+            .filter(runs::status.eq("running"))
+            .filter(runs::kind.eq("chat_session"))
+            .filter(runs::metadata.contains(serde_json::json!({"integration_mode":"gateway"})))
+            .filter(
+                runs::started_at
+                    .le(max_started_before)
+                    .or(runs::last_evidence_at
+                        .le(idle_before)
+                        .or(runs::last_evidence_at
+                            .is_null()
+                            .and(runs::started_at.le(idle_before)))),
+            )
+            .order(runs::started_at.asc())
+            .limit(limit.clamp(1, 100))
+            .select((
+                runs::workspace_id,
+                runs::environment_id,
+                runs::id,
+                runs::agent_id,
+                runs::started_at,
+            ))
+            .load::<(String, String, Uuid, String, DateTime<Utc>)>(&mut conn)
+            .await?;
+        Ok(rows
+            .into_iter()
+            .map(
+                |(workspace_id, environment_id, id, agent_id, started_at)| StaleGatewayRun {
+                    workspace_id,
+                    environment_id,
+                    run_id: id.to_string(),
+                    agent_id,
+                    max_duration_exceeded: started_at <= max_started_before,
+                },
+            )
+            .collect())
     }
 
     pub async fn list(

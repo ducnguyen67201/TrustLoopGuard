@@ -8,7 +8,7 @@ use diesel::dsl::{max, now};
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
 use serde::{Deserialize, Serialize};
-use tl_core::{EvaluationJobStatus, EvaluationJobSummary};
+use tl_core::{EvaluationJobStatus, EvaluationJobSummary, NotificationEventKind};
 use uuid::Uuid;
 
 use crate::evaluation_repo::EvaluationRepo;
@@ -16,6 +16,7 @@ use crate::models::{
     EvaluationJobRecord, RunEvaluationPolicyManifestRecord, RunEventRecord, RunParticipantRecord,
     RunRecord, RunSnapshotRecord, RunSpanRecord,
 };
+use crate::notification_repo::enqueue_matching_on_connection;
 use crate::schema::{
     agent_evaluation_profiles, evaluation_findings, evaluation_jobs, evaluation_results,
     otel_flush_receipts, run_evaluation_policy_manifest, run_events, run_participants,
@@ -75,6 +76,15 @@ pub struct PersistEvaluationResult {
     pub score_bps: Option<i32>,
     pub llm_audit: Option<serde_json::Value>,
     pub findings: Vec<PersistEvaluationFinding>,
+}
+
+fn evaluation_notification_kind(verdict: &str) -> Option<NotificationEventKind> {
+    match verdict {
+        "failed" => Some(NotificationEventKind::EvaluationFailed),
+        "inconclusive" => Some(NotificationEventKind::EvaluationInconclusive),
+        "error" => Some(NotificationEventKind::EvaluationError),
+        _ => None,
+    }
 }
 
 impl EvaluationRepo {
@@ -375,6 +385,21 @@ impl EvaluationRepo {
                 .iter()
                 .filter(|event| event.kind == "tool_call")
                 .count() as i64;
+            let provider_terminal_failures = i64::from(
+                run.status == "failed"
+                    && event_rows.iter().any(|event| {
+                        event
+                            .metadata
+                            .get("evidence_kind")
+                            .and_then(serde_json::Value::as_str)
+                            == Some("provider_usage")
+                            && event
+                                .metadata
+                                .pointer("/provider_usage/status")
+                                .and_then(serde_json::Value::as_str)
+                                == Some("failed")
+                    }),
+            );
             let metrics = BTreeMap::from([
                 ("denied_decisions".to_string(), denied),
                 ("event_count".to_string(), event_rows.len() as i64),
@@ -382,6 +407,10 @@ impl EvaluationRepo {
                 ("span_count".to_string(), span_rows.len() as i64),
                 ("tool_call_count".to_string(), tool_call_count),
                 ("duration_ms".to_string(), duration_ms),
+                (
+                    "provider_terminal_failures".to_string(),
+                    provider_terminal_failures,
+                ),
             ]);
             let mut agent_metrics = agent_ids
                 .iter()
@@ -395,6 +424,7 @@ impl EvaluationRepo {
                             ("span_count".to_string(), 0_i64),
                             ("tool_call_count".to_string(), 0_i64),
                             ("duration_ms".to_string(), duration_ms),
+                            ("provider_terminal_failures".to_string(), 0_i64),
                         ]),
                     )
                 })
@@ -428,6 +458,13 @@ impl EvaluationRepo {
                     .entry(span.agent_id.clone())
                     .or_default()
                     .entry("span_count".into())
+                    .or_default() += 1;
+            }
+            if provider_terminal_failures > 0 {
+                *agent_metrics
+                    .entry(run.agent_id.clone())
+                    .or_default()
+                    .entry("provider_terminal_failures".into())
                     .or_default() += 1;
             }
             let snapshot_version = run_snapshots::table
@@ -701,6 +738,7 @@ impl EvaluationRepo {
                 return Err(StorageError::Conflict);
             }
             let result_id = Uuid::now_v7();
+            let verdict = result.verdict.clone();
             diesel::insert_into(evaluation_results::table)
                 .values((
                     evaluation_results::workspace_id.eq(&work.workspace_id),
@@ -712,7 +750,7 @@ impl EvaluationRepo {
                     evaluation_results::snapshot_hash.eq(&work.snapshot_hash),
                     evaluation_results::manifest_hash.eq(&work.manifest_hash),
                     evaluation_results::evaluator_version.eq("tl-eval:v1"),
-                    evaluation_results::verdict.eq(&result.verdict),
+                    evaluation_results::verdict.eq(&verdict),
                     evaluation_results::score_bps.eq(result.score_bps),
                     evaluation_results::capture_status.eq(&work.capture_status),
                     evaluation_results::llm_audit.eq(result.llm_audit),
@@ -749,7 +787,7 @@ impl EvaluationRepo {
                     .execute(conn)
                     .await?;
             }
-            let job_status = match result.verdict.as_str() {
+            let job_status = match verdict.as_str() {
                 "passed" => "completed",
                 "failed" => "failed",
                 "inconclusive" => "inconclusive",
@@ -769,6 +807,24 @@ impl EvaluationRepo {
             ))
             .execute(conn)
             .await?;
+            if let Some(event_kind) = evaluation_notification_kind(&verdict) {
+                enqueue_matching_on_connection(
+                    conn,
+                    &work.workspace_id,
+                    &work.environment_id,
+                    Some(&work.agent_id),
+                    None,
+                    event_kind,
+                    &persisted_id.to_string(),
+                    &work.snapshot_hash,
+                    Some(work.run_id),
+                    serde_json::json!({
+                        "title": "Run evaluation needs attention",
+                        "detail": format!("Evaluation finished with verdict {verdict}."),
+                    }),
+                )
+                .await?;
+            }
             Ok(persisted_id)
         })
         .await
@@ -781,31 +837,52 @@ impl EvaluationRepo {
         max_attempts: i32,
     ) -> Result<(), StorageError> {
         let mut conn = self.connection().await?;
-        let terminal = work.attempt >= max_attempts;
-        let updated = diesel::update(
-            evaluation_jobs::table
-                .filter(evaluation_jobs::workspace_id.eq(&work.workspace_id))
-                .filter(evaluation_jobs::id.eq(work.job_id))
-                .filter(evaluation_jobs::status.eq("running"))
-                .filter(evaluation_jobs::lease_owner.eq(&work.lease_owner))
-                .filter(evaluation_jobs::attempts.eq(work.attempt))
-                .filter(evaluation_jobs::lease_expires_at.gt(Some(Utc::now()))),
-        )
-        .set((
-            evaluation_jobs::status.eq(if terminal { "error" } else { "queued" }),
-            evaluation_jobs::available_at
-                .eq(Utc::now() + Duration::seconds(2_i64.pow(work.attempt.min(6) as u32))),
-            evaluation_jobs::lease_owner.eq::<Option<String>>(None),
-            evaluation_jobs::lease_expires_at.eq::<Option<chrono::DateTime<Utc>>>(None),
-            evaluation_jobs::error.eq(error.chars().take(1_000).collect::<String>()),
-            evaluation_jobs::updated_at.eq(now),
-        ))
-        .execute(&mut conn)
-        .await?;
-        if updated != 1 {
-            return Err(StorageError::Conflict);
-        }
-        Ok(())
+        conn.transaction::<(), StorageError, _>(async |conn| {
+            let terminal = work.attempt >= max_attempts;
+            let updated = diesel::update(
+                evaluation_jobs::table
+                    .filter(evaluation_jobs::workspace_id.eq(&work.workspace_id))
+                    .filter(evaluation_jobs::id.eq(work.job_id))
+                    .filter(evaluation_jobs::status.eq("running"))
+                    .filter(evaluation_jobs::lease_owner.eq(&work.lease_owner))
+                    .filter(evaluation_jobs::attempts.eq(work.attempt))
+                    .filter(evaluation_jobs::lease_expires_at.gt(Some(Utc::now()))),
+            )
+            .set((
+                evaluation_jobs::status.eq(if terminal { "error" } else { "queued" }),
+                evaluation_jobs::available_at
+                    .eq(Utc::now() + Duration::seconds(2_i64.pow(work.attempt.min(6) as u32))),
+                evaluation_jobs::lease_owner.eq::<Option<String>>(None),
+                evaluation_jobs::lease_expires_at.eq::<Option<chrono::DateTime<Utc>>>(None),
+                evaluation_jobs::error.eq(error.chars().take(1_000).collect::<String>()),
+                evaluation_jobs::updated_at.eq(now),
+            ))
+            .execute(conn)
+            .await?;
+            if updated != 1 {
+                return Err(StorageError::Conflict);
+            }
+            if terminal {
+                enqueue_matching_on_connection(
+                    conn,
+                    &work.workspace_id,
+                    &work.environment_id,
+                    Some(&work.agent_id),
+                    None,
+                    NotificationEventKind::EvaluationError,
+                    &work.job_id.to_string(),
+                    &format!("attempt-{}", work.attempt),
+                    Some(work.run_id),
+                    serde_json::json!({
+                        "title": "Run evaluation errored",
+                        "detail": "Evaluation exhausted its retry budget.",
+                    }),
+                )
+                .await?;
+            }
+            Ok(())
+        })
+        .await
     }
 
     pub async fn request_reevaluation(

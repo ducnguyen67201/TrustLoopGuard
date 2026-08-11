@@ -1,5 +1,7 @@
 use async_trait::async_trait;
-use tl_core::{GatewayProviderConnection, GatewayProviderKind, GatewayRoute};
+use tl_core::{
+    GatewayProviderConnection, GatewayProviderKind, GatewayReliabilityMode, GatewayRoute,
+};
 
 mod memory;
 
@@ -47,6 +49,8 @@ pub struct NewGatewayRoute {
     pub display_name: String,
     pub provider_connection_id: String,
     pub agent_id: String,
+    pub reliability_mode: GatewayReliabilityMode,
+    pub fallback_provider_connection_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -54,6 +58,8 @@ pub struct GatewayRoutePatch {
     pub display_name: Option<String>,
     pub provider_connection_id: Option<String>,
     pub agent_id: Option<String>,
+    pub reliability_mode: Option<GatewayReliabilityMode>,
+    pub fallback_provider_connection_ids: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -61,6 +67,7 @@ pub struct ResolvedGatewayRoute {
     pub route: GatewayRoute,
     pub provider_connection: GatewayProviderConnection,
     pub encrypted_api_key: String,
+    pub fallback_provider_connections: Vec<ProviderConnectionSecret>,
 }
 
 #[async_trait]

@@ -49,6 +49,7 @@ export async function proxyRustResource(
   rustPathPrefix: string,
   method: 'PATCH' | 'PUT' | 'POST' | 'DELETE',
   suffix?: string,
+  successStatus = 200,
 ): Promise<Response> {
   try {
     const { id } = await params;
@@ -62,7 +63,7 @@ export async function proxyRustResource(
     if (method === 'DELETE') {
       return new Response(null, { status: 204 });
     }
-    return NextResponse.json(data);
+    return NextResponse.json(data, { status: successStatus });
   } catch (err) {
     return handleRustError(err);
   }

@@ -1,4 +1,5 @@
 pub(crate) mod event_service;
+pub(crate) mod evidence_privacy;
 
 use tl_core::{EnvironmentCheckerModes, WorkspaceSettings};
 use tl_engine::CheckerModes;

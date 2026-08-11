@@ -41,10 +41,12 @@ removed unless both workspace data handling and the agent evaluation profile all
 mode. Redacted capture requires explicit redaction evidence. Encrypted-artifact mode stores bounded
 artifact references and checksums, not raw content in span or snapshot rows.
 
-The same minimization applies to runtime decision evidence: metadata-only evaluation profiles omit
-event bodies, checked excerpts, action parameters, source details, provenance, and free-form context
-before persistence. Full decision evidence is retained only for explicitly enabled redacted capture
-whose runtime decision confirms that all relevant fields were redacted.
+The same pre-persistence projection applies to runtime decisions and Gateway turn events.
+`no_body_retention` and metadata-only evaluation omit event bodies, checked excerpts, action
+parameters, source details, provenance, free-form context, and turn summaries without rejecting the
+runtime decision. `redacted_only` retains content only when the decision records verified applied
+redaction; otherwise it degrades to metadata-only. The in-memory decision returned to the caller is
+not changed by this storage projection.
 
 Normalization records whether content was omitted, redacted, missing redaction evidence, or replaced
 by an encrypted artifact reference. Attribute nesting, arrays, events, links, IDs, timestamps, and
@@ -72,3 +74,12 @@ processor adds the Run and agent correlation attributes to instrumented spans cr
 boundary; `run.event(...)` and `run.withEvent(...)` add explicit event spans without copying content
 into OTel attributes. The helper flushes before finalization, and it does not configure policies or
 poll evaluation results in the agent process.
+
+## Coverage
+
+Run coverage is derived from durable evidence, not inferred from span count. Runtime decisions
+alone are `runtime_only`; provider-compatible Gateway evidence is `llm_boundary`; correlated tool,
+workflow, or non-provider spans can establish `llm_and_workflow`. Dropped evidence, an unfinished
+capture barrier, or another known gap marks coverage incomplete. The coverage summary is a claim
+about what Featherlane observed, never a claim that it executed or fully controlled the customer
+workflow.

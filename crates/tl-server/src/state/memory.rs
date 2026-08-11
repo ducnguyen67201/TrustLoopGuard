@@ -55,6 +55,9 @@ use crate::llm_usage::MemoryLlmUsageStore;
 #[cfg(not(feature = "postgres"))]
 use crate::mcp_gateway::McpGatewayStore;
 use crate::mcp_gateway::MemoryMcpGatewayStore;
+use crate::notifications::MemoryNotificationStore;
+#[cfg(not(feature = "postgres"))]
+use crate::notifications::NotificationStore;
 use crate::oauth_store::MemoryOAuthStore;
 #[cfg(not(feature = "postgres"))]
 use crate::oauth_store::OAuthStore;
@@ -160,6 +163,8 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         gateway_store: Arc::new(MemoryGatewayStore::new()),
         oauth_store: Arc::new(MemoryOAuthStore::default()),
         mcp_gateway_store: Arc::new(MemoryMcpGatewayStore::default()),
+        notification_store: Arc::new(MemoryNotificationStore::new()),
+        notification_transport_configured: false,
         jwt_signer: None,
         escalation_tx: None,
         redteam_job_store: Arc::new(MemoryRedteamJobStore::new()),
@@ -198,6 +203,8 @@ pub(super) fn build_memory_layer(
     Arc<dyn GatewayStore>,
     Arc<dyn OAuthStore>,
     Arc<dyn McpGatewayStore>,
+    Arc<dyn NotificationStore>,
+    bool,
     Arc<dyn ToolMetadataStore>,
     Arc<dyn tl_engine::ToolMetadataProvider>,
     Arc<dyn AuthorizationStore>,
@@ -237,6 +244,8 @@ pub(super) fn build_memory_layer(
         Arc::new(MemoryGatewayStore::new()) as Arc<dyn GatewayStore>,
         Arc::new(MemoryOAuthStore::default()) as Arc<dyn OAuthStore>,
         Arc::new(MemoryMcpGatewayStore::default()) as Arc<dyn McpGatewayStore>,
+        Arc::new(MemoryNotificationStore::new()) as Arc<dyn NotificationStore>,
+        false,
         tool_metadata.clone() as Arc<dyn ToolMetadataStore>,
         tool_metadata as Arc<dyn tl_engine::ToolMetadataProvider>,
         Arc::new(MemoryAuthorizationStore::new()) as Arc<dyn AuthorizationStore>,

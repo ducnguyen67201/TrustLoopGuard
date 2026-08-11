@@ -94,14 +94,16 @@ async fn process_job(
     let outcome = evaluate(&work, llm).await;
     match outcome {
         Ok(result) => match repo.complete_evaluation_job(&work, result).await {
-            Ok(result_id) => tracing::info!(
-                worker_id,
-                job_id = %work.job_id,
-                result_id = %result_id,
-                run_id = %work.run_id,
-                agent_id = %work.agent_id,
-                "evaluation job completed"
-            ),
+            Ok(result_id) => {
+                tracing::info!(
+                    worker_id,
+                    job_id = %work.job_id,
+                    result_id = %result_id,
+                    run_id = %work.run_id,
+                    agent_id = %work.agent_id,
+                    "evaluation job completed"
+                );
+            }
             Err(error) => {
                 tracing::warn!(
                     worker_id,

@@ -38,6 +38,7 @@ pub mod label_policy;
 pub mod llm_pricing;
 pub mod llm_usage;
 pub mod mcp_gateway;
+pub mod notification;
 pub mod policy;
 pub mod provenance;
 pub mod redteam;
@@ -122,10 +123,12 @@ pub use financial::{
     X402SettlementProof, USD,
 };
 pub use gateway::{
-    CreateGatewayProviderConnectionRequest, CreateGatewayRouteRequest, GatewayCredentialStatus,
-    GatewayProviderConnection, GatewayProviderConnectionListResponse, GatewayProviderKind,
-    GatewayRoute, GatewayRouteListResponse, UpdateGatewayProviderConnectionRequest,
-    UpdateGatewayRouteRequest,
+    CreateGatewayActivationRequest, CreateGatewayActivationResponse,
+    CreateGatewayProviderConnectionRequest, CreateGatewayRouteRequest, GatewayActivationAgentInput,
+    GatewayCredentialStatus, GatewayProductionReadiness, GatewayProviderConnection,
+    GatewayProviderConnectionListResponse, GatewayProviderKind, GatewayReliabilityMode,
+    GatewayRoute, GatewayRouteListResponse, ProductionReadinessCheck, ProductionReadinessStatus,
+    UpdateGatewayProviderConnectionRequest, UpdateGatewayRouteRequest,
 };
 pub use github_integration::{
     GitHubCallbackRequest, GitHubCallbackResponse, GitHubConnectionCreateRequest,
@@ -176,6 +179,11 @@ pub use mcp_gateway::{
     ReplaceMcpGatewayToolAssignmentsRequest, UpdateMcpGatewayConnectionRequest,
     UpdateMcpGatewayToolRequest,
 };
+pub use notification::{
+    CreateNotificationRuleRequest, NotificationDeliveryListResponse, NotificationDeliveryStatus,
+    NotificationDeliverySummary, NotificationEventKind, NotificationReadiness, NotificationRule,
+    NotificationRuleListResponse, UpdateNotificationRuleRequest,
+};
 pub use policy::{
     AiEditRequest, AiEditResponse, EntityVersionDetail, EntityVersionListResponse,
     EntityVersionSummary, GuardrailGenerateResponse, GuardrailListResponse,
@@ -200,10 +208,10 @@ pub use redteam_runner::{
     RunnerRunMode, RunnerSessionEvent, RunnerStatus,
 };
 pub use run::{
-    CreateRunEventRequest, CreateRunRequest, RunBudgetWindowSnapshot, RunDetail,
-    RunEvaluationEligibility, RunEventKind, RunEventListResponse, RunEventSummary,
-    RunGuardrailUsage, RunKind, RunListResponse, RunLlmBudgetDecision, RunProviderUsage,
-    RunSpanSummary, RunStatus, RunSummary, UpdateRunRequest,
+    CreateRunEventRequest, CreateRunRequest, RunBudgetWindowSnapshot, RunCoverageLevel,
+    RunCoverageSummary, RunDetail, RunEvaluationEligibility, RunEventKind, RunEventListResponse,
+    RunEventSummary, RunGuardrailUsage, RunKind, RunListResponse, RunLlmBudgetDecision,
+    RunProviderUsage, RunSpanSummary, RunStatus, RunSummary, UpdateRunRequest,
 };
 pub use team::{
     CreateInviteRequest, CreateInviteResponse, CreateWorkspaceRequest, InviteListResponse,

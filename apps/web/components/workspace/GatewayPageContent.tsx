@@ -59,6 +59,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { GatewayPageData } from '@/lib/server/dashboard-data';
+import { ProductionLoopSetup } from '@/components/onboarding/ProductionLoopSetup';
 
 type ProviderConnection = GatewayProviderConnection;
 
@@ -259,6 +260,15 @@ export function GatewayPageContent({
             agents={data.agents}
           />
         }
+      />
+
+      <ProductionLoopSetup
+        workspaceSlug={data.activeWorkspace.slug}
+        environmentId={data.activeEnvironment.id}
+        apiBaseUrl={apiBaseUrl}
+        agents={data.agents}
+        providerConnections={data.providerConnections}
+        activeRuntimeKeyCount={data.activeRuntimeKeyCount}
       />
 
       <section className="grid gap-3 sm:grid-cols-3">
@@ -936,8 +946,9 @@ function IntegrationCard({
                 <IconAlertTriangle />
                 <AlertTitle>You need an API key first</AlertTitle>
                 <AlertDescription>
-                  Put your gateway API key in the <code className="font-mono">FEATHERLANE_AI_API_KEY</code>{' '}
-                  setting before running the examples below.
+                  Put your gateway API key in the{' '}
+                  <code className="font-mono">FEATHERLANE_AI_API_KEY</code> setting before running
+                  the examples below.
                   <Button asChild variant="link" className="h-auto px-1 py-0">
                     <Link href={`/api-keys?workspace=${encodeURIComponent(workspaceSlug)}`}>
                       Create an API key.

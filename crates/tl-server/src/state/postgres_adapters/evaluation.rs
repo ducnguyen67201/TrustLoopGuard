@@ -65,6 +65,19 @@ impl EvaluationStore for PostgresEvaluationAdapter {
             .map_err(map_error)
     }
 
+    async fn ensure_assignment(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        agent_id: &str,
+        assignment: tl_core::AgentEvaluationPolicyAssignment,
+    ) -> Result<Vec<tl_core::AgentEvaluationPolicyAssignment>, EvaluationStoreError> {
+        self.0
+            .ensure_assignment(workspace_id, environment_id, agent_id, assignment)
+            .await
+            .map_err(map_error)
+    }
+
     async fn register_participant_and_freeze_manifest(
         &self,
         workspace_id: &str,

@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { GatewayPageContent } from './GatewayPageContent';
 
@@ -61,6 +61,17 @@ const shell: Pick<
 };
 
 describe('GatewayPageContent', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+  });
+
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();

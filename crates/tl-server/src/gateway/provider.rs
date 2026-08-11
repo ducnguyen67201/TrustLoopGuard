@@ -4,6 +4,7 @@ mod payment;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
+use std::time::Duration;
 use tl_core::GatewayProviderConnection;
 
 pub(super) use anthropic::AnthropicGatewayProvider;
@@ -11,6 +12,53 @@ pub(super) use openai::OpenAiCompatibleGatewayProvider;
 pub(crate) use payment::forward_payment;
 
 pub(super) const BLOCKED_MESSAGE: &str = "Blocked by Featherlane AI.";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ProviderErrorClass {
+    Transport,
+    Timeout,
+    RateLimited,
+    Server,
+    Client,
+    InvalidResponse,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct ProviderError {
+    pub(super) class: ProviderErrorClass,
+    pub(super) status: Option<u16>,
+    pub(super) retry_after: Option<Duration>,
+    pub(super) code: &'static str,
+}
+
+impl ProviderError {
+    pub(super) fn transport(error: &reqwest::Error) -> Self {
+        Self {
+            class: if error.is_timeout() {
+                ProviderErrorClass::Timeout
+            } else {
+                ProviderErrorClass::Transport
+            },
+            status: None,
+            retry_after: None,
+            code: if error.is_timeout() {
+                "provider_timeout"
+            } else {
+                "provider_transport"
+            },
+        }
+    }
+
+    pub(super) const fn is_retryable(&self) -> bool {
+        matches!(
+            self.class,
+            ProviderErrorClass::Transport
+                | ProviderErrorClass::Timeout
+                | ProviderErrorClass::RateLimited
+                | ProviderErrorClass::Server
+        ) || matches!(self.status, Some(408))
+    }
+}
 
 #[async_trait]
 pub(super) trait GatewayProvider: Send + Sync {
@@ -57,7 +105,7 @@ pub(super) trait GatewayProvider: Send + Sync {
         connection: &GatewayProviderConnection,
         api_key: &str,
         request: Value,
-    ) -> Result<Value, String>;
+    ) -> Result<Value, ProviderError>;
 }
 
 fn message_content_text(value: &Value) -> String {
@@ -116,15 +164,117 @@ fn provider_url(connection: &GatewayProviderConnection, default_base: &str, path
     }
 }
 
-pub(super) async fn provider_json_response(response: reqwest::Response) -> Result<Value, String> {
+pub(super) async fn provider_json_response(
+    response: reqwest::Response,
+) -> Result<Value, ProviderError> {
     let status = response.status();
+    let retry_after = parse_retry_after(response.headers().get(reqwest::header::RETRY_AFTER));
     if !status.is_success() {
-        let body = response.text().await.unwrap_or_default();
-        tracing::warn!(status = status.as_u16(), body = %body, "upstream provider returned error");
-        return Err(format!("provider returned status {}", status.as_u16()));
+        let body_bytes = response.bytes().await.map_or(0, |body| body.len());
+        tracing::warn!(
+            status = status.as_u16(),
+            body_bytes,
+            "upstream provider returned error"
+        );
+        let class = if status.as_u16() == 429 {
+            ProviderErrorClass::RateLimited
+        } else if status.is_server_error() || status.as_u16() == 408 {
+            ProviderErrorClass::Server
+        } else {
+            ProviderErrorClass::Client
+        };
+        return Err(ProviderError {
+            class,
+            status: Some(status.as_u16()),
+            retry_after,
+            code: match class {
+                ProviderErrorClass::RateLimited => "provider_rate_limited",
+                ProviderErrorClass::Server => "provider_unavailable",
+                _ => "provider_rejected_request",
+            },
+        });
     }
-    response
-        .json::<Value>()
-        .await
-        .map_err(|e| format!("provider response must be JSON: {e}"))
+    response.json::<Value>().await.map_err(|_| ProviderError {
+        class: ProviderErrorClass::InvalidResponse,
+        status: Some(status.as_u16()),
+        retry_after: None,
+        code: "provider_invalid_json",
+    })
+}
+
+fn parse_retry_after(value: Option<&reqwest::header::HeaderValue>) -> Option<Duration> {
+    let value = value?.to_str().ok()?.trim();
+    let delay = if let Ok(seconds) = value.parse::<u64>() {
+        Duration::from_secs(seconds)
+    } else {
+        let at = chrono::DateTime::parse_from_rfc2822(value)
+            .ok()?
+            .with_timezone(&chrono::Utc);
+        let milliseconds = (at - chrono::Utc::now()).num_milliseconds().max(0) as u64;
+        Duration::from_millis(milliseconds)
+    };
+    Some(delay.min(Duration::from_secs(30)))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use reqwest::header::HeaderValue;
+
+    use super::{parse_retry_after, ProviderError, ProviderErrorClass};
+
+    #[test]
+    fn retry_classifier_is_bounded_to_temporary_failures() {
+        for class in [
+            ProviderErrorClass::Transport,
+            ProviderErrorClass::Timeout,
+            ProviderErrorClass::RateLimited,
+            ProviderErrorClass::Server,
+        ] {
+            assert!(ProviderError {
+                class,
+                status: None,
+                retry_after: None,
+                code: "temporary",
+            }
+            .is_retryable());
+        }
+        assert!(!ProviderError {
+            class: ProviderErrorClass::Client,
+            status: Some(401),
+            retry_after: None,
+            code: "credential",
+        }
+        .is_retryable());
+        assert!(!ProviderError {
+            class: ProviderErrorClass::InvalidResponse,
+            status: Some(200),
+            retry_after: None,
+            code: "invalid",
+        }
+        .is_retryable());
+    }
+
+    #[test]
+    fn retry_after_seconds_and_http_dates_are_capped() {
+        assert_eq!(
+            parse_retry_after(Some(&HeaderValue::from_static("2"))),
+            Some(Duration::from_secs(2))
+        );
+        assert_eq!(
+            parse_retry_after(Some(&HeaderValue::from_static("120"))),
+            Some(Duration::from_secs(30))
+        );
+        assert_eq!(
+            parse_retry_after(Some(&HeaderValue::from_static(
+                "Wed, 21 Oct 2037 07:28:00 GMT",
+            ))),
+            Some(Duration::from_secs(30))
+        );
+        assert_eq!(
+            parse_retry_after(Some(&HeaderValue::from_static("invalid"))),
+            None
+        );
+    }
 }

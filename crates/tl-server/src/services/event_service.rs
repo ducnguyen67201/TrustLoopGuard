@@ -9,9 +9,9 @@ use axum::{http::StatusCode, response::Response};
 use tl_core::{
     ActionGrantScope, ApiErrorCode, ApprovalRule, AuthorityRequirement, AuthorizationCapabilityId,
     AuthorizationClaim, AuthorizationDecision, AuthorizationEffect, AuthorizationFinding,
-    AuthorizationGrantScope, AuthorizationSubject, Channel, CreateRunEventRequest,
-    DataHandlingMode, Decision, EnforcementMode, GuardEvent, LlmUsageKind, RunEventKind,
-    RunGuardrailUsage, Severity, ShellActionParameters, SideEffectClass, ToolResolution, USD,
+    AuthorizationGrantScope, AuthorizationSubject, Channel, CreateRunEventRequest, Decision,
+    EnforcementMode, GuardEvent, LlmUsageKind, RunEventKind, RunGuardrailUsage, Severity,
+    ShellActionParameters, SideEffectClass, ToolResolution, USD,
 };
 use tl_engine::{evaluate_event_policies, EventPolicyEvalCtx};
 
@@ -135,18 +135,6 @@ async fn execute_event_submission_inner(
             ));
         }
     };
-    // Event redaction does not exist yet; never silently persist raw
-    // payloads for a workspace that asked for redaction guarantees.
-    if workspace_settings.data_handling_mode != DataHandlingMode::RawAllowed {
-        return Err(api_error_response(
-            StatusCode::BAD_REQUEST,
-            ApiErrorCode::Invalid,
-            "workspace data handling mode requires redaction; event ingestion supports \
-             raw_allowed workspaces only"
-                .into(),
-        ));
-    }
-
     if let Some(run_id) = event.principal.run_id.as_deref() {
         if uuid::Uuid::parse_str(run_id).is_err() {
             return Err(api_error_response(
@@ -453,7 +441,12 @@ async fn execute_event_submission_inner(
     let trace_run_event_id = event.principal.run_event_id.clone();
     let trace_session_id = event.principal.session_id.clone();
     let (trace_decision, trace_event) =
-        evaluation_trace_evidence(decision.clone(), event, evaluation_profile.as_ref());
+        crate::services::evidence_privacy::project_evidence_for_persistence(
+            workspace_settings.data_handling_mode,
+            decision.clone(),
+            event,
+            evaluation_profile.as_ref(),
+        );
 
     // One trace seam for every path (postgres batches, memory accumulates); a
     // failed write is logged but never fails the decision.
@@ -501,38 +494,6 @@ async fn execute_event_submission_inner(
         decision,
         authorization: authorization_decision,
     })
-}
-
-fn evaluation_trace_evidence(
-    mut decision: tl_core::Decision,
-    mut event: GuardEvent,
-    profile: Option<&tl_core::AgentEvaluationProfile>,
-) -> (tl_core::Decision, Option<GuardEvent>) {
-    let Some(profile) = profile.filter(|profile| profile.enabled) else {
-        // Preserve the existing trace contract when post-run evaluation is
-        // not enabled. Evaluation configuration must not change unrelated
-        // runtime observability.
-        return (decision, Some(event));
-    };
-    let verified_redacted = profile.content_mode == tl_core::ContentCaptureMode::Redacted
-        && decision.redaction.as_ref().is_some_and(|redaction| {
-            redaction.status == tl_core::RedactionStatus::Applied
-                && redaction.input_redacted
-                && redaction.proposed_output_redacted
-                && redaction.context_redacted
-        });
-    if verified_redacted {
-        return (decision, Some(event));
-    }
-
-    decision.safe_output = None;
-    decision.checked_input_excerpt = None;
-    decision.checked_output_excerpt = None;
-    event.action.parameters = serde_json::Value::Null;
-    event.sources.clear();
-    event.provenance = Default::default();
-    event.context = serde_json::Value::Null;
-    (decision, Some(event))
 }
 
 #[allow(clippy::result_large_err)]
@@ -1231,7 +1192,12 @@ mod tests {
             updated_at: "2026-01-01T00:00:00Z".into(),
         };
 
-        let (decision, event) = evaluation_trace_evidence(decision, input, Some(&profile));
+        let (decision, event) = crate::services::evidence_privacy::project_evidence_for_persistence(
+            tl_core::DataHandlingMode::RawAllowed,
+            decision,
+            input,
+            Some(&profile),
+        );
         let event = event.expect("metadata event");
         assert!(decision.safe_output.is_none());
         assert!(decision.checked_input_excerpt.is_none());

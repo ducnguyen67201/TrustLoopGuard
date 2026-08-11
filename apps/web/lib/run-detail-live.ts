@@ -132,10 +132,13 @@ const runSpanSummarySchema = z.object({
 const providerUsageSchema = z.object({
   gateway_request_id: z.string(),
   route_id: z.string(),
+  attempt: z.number().default(1),
+  provider_connection_id: z.string().default(''),
   provider: z.string(),
   model: z.string(),
   provider_response_id: z.string().nullable(),
   status: z.string(),
+  failure_code: z.string().nullable().default(null),
   prompt_tokens: z.number().nullable(),
   completion_tokens: z.number().nullable(),
   total_tokens: z.number().nullable(),
@@ -143,6 +146,14 @@ const providerUsageSchema = z.object({
   estimated_cost_usd_nanos: z.string().nullable(),
   input_rate_usd_per_million_nanos: z.string().nullable(),
   output_rate_usd_per_million_nanos: z.string().nullable(),
+});
+
+const coverageSchema = z.object({
+  level: z.enum(['runtime_only', 'llm_boundary', 'llm_and_workflow', 'incomplete']),
+  has_runtime_decisions: z.boolean(),
+  has_llm_boundary: z.boolean(),
+  has_workflow_evidence: z.boolean(),
+  capture_complete: z.boolean(),
 });
 
 const guardrailUsageSchema = z.object({
@@ -222,6 +233,14 @@ const runDetailWireSchema = z.object({
   traces: z.array(traceSummarySchema),
   spans: z.array(runSpanSummarySchema).default([]),
   provider_usage: providerUsageSchema.nullable().optional(),
+  provider_attempts: z.array(providerUsageSchema).default([]),
+  coverage: coverageSchema.default({
+    level: 'runtime_only',
+    has_runtime_decisions: false,
+    has_llm_boundary: false,
+    has_workflow_evidence: false,
+    capture_complete: true,
+  }),
   guardrail_usage: z.array(guardrailUsageSchema).default([]),
   budget_decision: budgetDecisionSchema.nullable().optional(),
   finalization: runFinalizationSchema.nullable().optional(),
@@ -323,6 +342,8 @@ export type RunDetailSnapshot = {
     ingestedAt: string;
   }>;
   providerUsage: z.infer<typeof providerUsageSchema> | null;
+  providerAttempts: Array<z.infer<typeof providerUsageSchema>>;
+  coverage: z.infer<typeof coverageSchema>;
   guardrailUsage: Array<z.infer<typeof guardrailUsageSchema>>;
   budgetDecision: z.infer<typeof budgetDecisionSchema> | null;
   assurance: {
@@ -399,6 +420,8 @@ export function runDetailSnapshot(detail: RunDetailWire): RunDetailSnapshot {
     traces,
     spans: detail.spans.map(spanSnapshot),
     providerUsage: detail.provider_usage ?? null,
+    providerAttempts: detail.provider_attempts,
+    coverage: detail.coverage,
     guardrailUsage: detail.guardrail_usage,
     budgetDecision: detail.budget_decision ?? null,
     assurance: {

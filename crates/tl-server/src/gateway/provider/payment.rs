@@ -42,5 +42,7 @@ pub(crate) async fn forward_payment(
         .send()
         .await
         .map_err(|e| format!("payment provider request failed: {e}"))?;
-    provider_json_response(response).await
+    provider_json_response(response)
+        .await
+        .map_err(|error| error.code.to_string())
 }

@@ -11,7 +11,7 @@ use tl_core::{
 use tl_storage::{
     connect_postgres, migrate_postgres,
     models::NewRunSpan,
-    schema::{agents, organizations, run_spans, workspace_environments, workspaces},
+    schema::{agents, organizations, run_spans, runs, workspace_environments, workspaces},
     DbPool, RunFilter, RunRepo, StorageError,
 };
 
@@ -413,4 +413,94 @@ async fn finalization_is_idempotent_and_closes_the_event_boundary() {
         .await
         .expect_err("post-finalization event");
     assert!(matches!(late_event, StorageError::Conflict));
+}
+
+#[tokio::test]
+async fn concurrent_gateway_session_has_one_active_winner_and_can_restart_after_terminal() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = RunRepo::new(pool.clone());
+    let input = CreateRunRequest {
+        agent_id: "agent-a".into(),
+        kind: RunKind::ChatSession,
+        status: Some(RunStatus::Running),
+        external_id: Some("customer-session-1".into()),
+        metadata: serde_json::json!({
+            "integration_mode": "gateway",
+            "route_id": "route-a"
+        }),
+    };
+
+    let (left, right) = tokio::join!(
+        repo.create("ws_test", "production", input.clone()),
+        repo.create("ws_test", "production", input.clone())
+    );
+    let winner = match (left, right) {
+        (Ok(winner), Err(StorageError::Conflict)) | (Err(StorageError::Conflict), Ok(winner)) => {
+            winner
+        }
+        outcomes => panic!("expected one winner and one conflict, got {outcomes:?}"),
+    };
+    let active = repo
+        .list(
+            "ws_test",
+            RunFilter {
+                environment_id: Some("production".into()),
+                agent_id: Some("agent-a".into()),
+                kind: Some(RunKind::ChatSession),
+                status: Some(RunStatus::Running),
+                external_id: Some("customer-session-1".into()),
+                limit: 10,
+            },
+        )
+        .await
+        .expect("list active session");
+    assert_eq!(active.len(), 1);
+
+    {
+        let mut conn = pool.get().await.expect("connection");
+        let stale_at = chrono::Utc::now() - chrono::Duration::minutes(10);
+        diesel::update(
+            runs::table
+                .filter(runs::workspace_id.eq("ws_test"))
+                .filter(runs::id.eq(uuid::Uuid::parse_str(&winner.id).unwrap())),
+        )
+        .set(runs::last_evidence_at.eq(stale_at))
+        .execute(&mut conn)
+        .await
+        .expect("age gateway activity");
+    }
+    let stale = repo
+        .list_stale_gateway_runs(
+            chrono::Utc::now() - chrono::Duration::minutes(5),
+            chrono::Utc::now() - chrono::Duration::hours(1),
+            10,
+        )
+        .await
+        .expect("list stale gateway sessions");
+    assert_eq!(stale.len(), 1);
+    assert_eq!(stale[0].run_id, winner.id);
+    assert!(!stale[0].max_duration_exceeded);
+
+    repo.finalize(
+        "ws_test",
+        "production",
+        &winner.id,
+        FinalizeRunRequest {
+            status: RunStatus::Completed,
+            ended_at: None,
+            boundary_source: RunBoundarySource::FrameworkAdapter,
+            expected_flush_id: None,
+            last_event_sequence: None,
+        },
+        1_000,
+    )
+    .await
+    .expect("finalize winner");
+
+    let later = repo
+        .create("ws_test", "production", input)
+        .await
+        .expect("same customer session starts a later bounded run");
+    assert_ne!(later.id, winner.id);
+    assert_eq!(later.status, RunStatus::Running);
 }

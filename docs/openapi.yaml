@@ -1871,6 +1871,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FinancialReceipt'
+  /v1/gateway/activations:
+    post:
+      tags:
+      - gateway
+      operationId: create_gateway_activation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGatewayActivationRequest'
+        required: true
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateGatewayActivationResponse'
   /v1/gateway/provider-connections:
     get:
       tags:
@@ -2077,6 +2095,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/gateway/routes/{id}/production-readiness:
+    get:
+      tags:
+      - gateway
+      operationId: gateway_production_readiness
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: external_id
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayProductionReadiness'
   /v1/gateway/{route_id}/anthropic/v1/messages:
     post:
       tags:
@@ -2885,6 +2926,114 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/McpGatewayToolAssignmentsResponse'
+  /v1/notification-deliveries:
+    get:
+      tags:
+      - notifications
+      operationId: list_notification_deliveries
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationDeliveryListResponse'
+  /v1/notification-rules:
+    get:
+      tags:
+      - notifications
+      operationId: list_notification_rules
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationRuleListResponse'
+    post:
+      tags:
+      - notifications
+      operationId: create_notification_rule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNotificationRuleRequest'
+        required: true
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationRule'
+  /v1/notification-rules/{id}:
+    delete:
+      tags:
+      - notifications
+      operationId: delete_notification_rule
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: ''
+    patch:
+      tags:
+      - notifications
+      operationId: patch_notification_rule
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNotificationRuleRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationRule'
+  /v1/notification-rules/{id}/test:
+    post:
+      tags:
+      - notifications
+      operationId: test_notification
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '202':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationDeliveryListResponse'
+  /v1/notifications/readiness:
+    get:
+      tags:
+      - notifications
+      operationId: notification_readiness
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationReadiness'
   /v1/oauth/authorize:
     post:
       tags:
@@ -6527,6 +6676,77 @@ components:
             Omitted means "match everything on the policy's meter" — valid
             for `llm_usage` budgets; `actions` policies must set at least
             one selector (enforced at creation).
+    CreateGatewayActivationRequest:
+      type: object
+      required:
+      - provider
+      - agent
+      - route_display_name
+      - alert_email
+      - data_handling_mode
+      properties:
+        agent:
+          $ref: '#/components/schemas/GatewayActivationAgentInput'
+        alert_email:
+          type: string
+        alerts_deferred:
+          type:
+          - boolean
+          - 'null'
+          description: |-
+            Explicit acknowledgment that email alerts are intentionally deferred.
+            When true, `alert_email` may be empty and readiness remains
+            `needs_attention` until an enabled rule and transport are configured.
+        confirm_workspace_privacy_change:
+          type: boolean
+        data_handling_mode:
+          $ref: '#/components/schemas/DataHandlingMode'
+        fallback_provider_connection_ids:
+          type: array
+          items:
+            type: string
+        provider:
+          $ref: '#/components/schemas/CreateGatewayProviderConnectionRequest'
+        reliability_mode:
+          $ref: '#/components/schemas/GatewayReliabilityMode'
+        route_display_name:
+          type: string
+        verification_session_id:
+          type:
+          - string
+          - 'null'
+          description: |-
+            Exact customer correlation id used by the generated verification
+            request. The server generates one when omitted.
+    CreateGatewayActivationResponse:
+      type: object
+      required:
+      - route
+      - agent_id
+      - evaluation_profile
+      - alerts_deferred
+      - verification_session_id
+      - data_handling_mode
+      - readiness
+      properties:
+        agent_id:
+          type: string
+        alerts_deferred:
+          type: boolean
+        data_handling_mode:
+          $ref: '#/components/schemas/DataHandlingMode'
+        evaluation_profile:
+          $ref: '#/components/schemas/AgentEvaluationProfile'
+        notification_rule:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/NotificationRule'
+        readiness:
+          $ref: '#/components/schemas/GatewayProductionReadiness'
+        route:
+          $ref: '#/components/schemas/GatewayRoute'
+        verification_session_id:
+          type: string
     CreateGatewayProviderConnectionRequest:
       type: object
       required:
@@ -6562,12 +6782,18 @@ components:
           type: string
         display_name:
           type: string
+        fallback_provider_connection_ids:
+          type: array
+          items:
+            type: string
         id:
           type:
           - string
           - 'null'
         provider_connection_id:
           type: string
+        reliability_mode:
+          $ref: '#/components/schemas/GatewayReliabilityMode'
     CreateHumanReviewEventRequest:
       type: object
       required:
@@ -6669,6 +6895,20 @@ components:
           type: string
         server_slug:
           type: string
+    CreateNotificationRuleRequest:
+      type: object
+      required:
+      - email
+      - event_kinds
+      properties:
+        email:
+          type: string
+        enabled:
+          type: boolean
+        event_kinds:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationEventKind'
     CreateReportRequest:
       type: object
       description: Body of `POST /v1/redteam/reports` — mint a shareable report link.
@@ -7738,11 +7978,50 @@ components:
           type:
           - string
           - 'null'
+    GatewayActivationAgentInput:
+      oneOf:
+      - type: object
+        required:
+        - agent_id
+        - mode
+        properties:
+          agent_id:
+            type: string
+          mode:
+            type: string
+            enum:
+            - existing
+      - type: object
+        required:
+        - name
+        - purpose
+        - mode
+        properties:
+          mode:
+            type: string
+            enum:
+            - new
+          name:
+            type: string
+          purpose:
+            type: string
     GatewayCredentialStatus:
       type: string
       enum:
       - configured
       - missing
+    GatewayProductionReadiness:
+      type: object
+      required:
+      - status
+      - checks
+      properties:
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductionReadinessCheck'
+        status:
+          $ref: '#/components/schemas/ProductionReadinessStatus'
     GatewayProviderConnection:
       type: object
       required:
@@ -7787,6 +8066,11 @@ components:
       - openai_compatible
       - anthropic
       - payment_http
+    GatewayReliabilityMode:
+      type: string
+      enum:
+      - none
+      - standard
     GatewayRoute:
       type: object
       required:
@@ -7803,10 +8087,16 @@ components:
           type: string
         display_name:
           type: string
+        fallback_provider_connection_ids:
+          type: array
+          items:
+            type: string
         id:
           type: string
         provider_connection_id:
           type: string
+        reliability_mode:
+          $ref: '#/components/schemas/GatewayReliabilityMode'
         updated_at:
           type: string
     GatewayRouteListResponse:
@@ -9330,6 +9620,124 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MyWorkspace'
+    NotificationDeliveryListResponse:
+      type: object
+      required:
+      - deliveries
+      properties:
+        deliveries:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationDeliverySummary'
+    NotificationDeliveryStatus:
+      type: string
+      enum:
+      - pending
+      - sending
+      - sent
+      - failed
+    NotificationDeliverySummary:
+      type: object
+      required:
+      - id
+      - rule_id
+      - event_kind
+      - subject_id
+      - subject_version
+      - status
+      - attempt_count
+      - created_at
+      - updated_at
+      properties:
+        attempt_count:
+          type: integer
+          format: int32
+        created_at:
+          type: string
+        event_kind:
+          $ref: '#/components/schemas/NotificationEventKind'
+        id:
+          type: string
+        last_error_code:
+          type:
+          - string
+          - 'null'
+        rule_id:
+          type: string
+        sent_at:
+          type:
+          - string
+          - 'null'
+        status:
+          $ref: '#/components/schemas/NotificationDeliveryStatus'
+        subject_id:
+          type: string
+        subject_version:
+          type: string
+        updated_at:
+          type: string
+    NotificationEventKind:
+      type: string
+      enum:
+      - evaluation_failed
+      - evaluation_inconclusive
+      - evaluation_error
+      - provider_terminal_failure
+      - test
+    NotificationReadiness:
+      type: object
+      required:
+      - configured
+      properties:
+        configured:
+          type: boolean
+        detail:
+          type:
+          - string
+          - 'null'
+    NotificationRule:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - environment_id
+      - email
+      - event_kinds
+      - enabled
+      - created_at
+      - updated_at
+      properties:
+        agent_id:
+          type:
+          - string
+          - 'null'
+        created_at:
+          type: string
+        email:
+          type: string
+        enabled:
+          type: boolean
+        environment_id:
+          type: string
+        event_kinds:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationEventKind'
+        id:
+          type: string
+        updated_at:
+          type: string
+        workspace_id:
+          type: string
+    NotificationRuleListResponse:
+      type: object
+      required:
+      - notification_rules
+      properties:
+        notification_rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationRule'
     OAuthIdentityRequest:
       type: object
       description: |-
@@ -9643,6 +10051,28 @@ components:
           - 'null'
         workspace_id:
           type: string
+    ProductionReadinessCheck:
+      type: object
+      required:
+      - id
+      - label
+      - ready
+      properties:
+        detail:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+        label:
+          type: string
+        ready:
+          type: boolean
+    ProductionReadinessStatus:
+      type: string
+      enum:
+      - ready
+      - needs_attention
     ProvenanceMap:
       type: object
       additionalProperties:
@@ -10433,6 +10863,32 @@ components:
       - waiting
       - complete
       - incomplete
+    RunCoverageLevel:
+      type: string
+      enum:
+      - runtime_only
+      - llm_boundary
+      - llm_and_workflow
+      - incomplete
+    RunCoverageSummary:
+      type: object
+      required:
+      - level
+      - has_runtime_decisions
+      - has_llm_boundary
+      - has_workflow_evidence
+      - capture_complete
+      properties:
+        capture_complete:
+          type: boolean
+        has_llm_boundary:
+          type: boolean
+        has_runtime_decisions:
+          type: boolean
+        has_workflow_evidence:
+          type: boolean
+        level:
+          $ref: '#/components/schemas/RunCoverageLevel'
     RunDetail:
       type: object
       required:
@@ -10444,6 +10900,8 @@ components:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/RunLlmBudgetDecision'
+        coverage:
+          $ref: '#/components/schemas/RunCoverageSummary'
         evaluation_jobs:
           type: array
           items:
@@ -10468,6 +10926,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RunParticipantSummary'
+        provider_attempts:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunProviderUsage'
         provider_usage:
           oneOf:
           - type: 'null'
@@ -10725,12 +11187,20 @@ components:
       - status
       - latency_ms
       properties:
+        attempt:
+          type: integer
+          format: int32
+          minimum: 0
         completion_tokens:
           type:
           - integer
           - 'null'
           format: int64
         estimated_cost_usd_nanos:
+          type:
+          - string
+          - 'null'
+        failure_code:
           type:
           - string
           - 'null'
@@ -10756,6 +11226,8 @@ components:
           - 'null'
           format: int64
         provider:
+          type: string
+        provider_connection_id:
           type: string
         provider_response_id:
           type:
@@ -11443,10 +11915,20 @@ components:
           type:
           - string
           - 'null'
+        fallback_provider_connection_ids:
+          type:
+          - array
+          - 'null'
+          items:
+            type: string
         provider_connection_id:
           type:
           - string
           - 'null'
+        reliability_mode:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/GatewayReliabilityMode'
     UpdateMcpGatewayConnectionRequest:
       type: object
       properties:
@@ -11477,6 +11959,23 @@ components:
       properties:
         side_effect:
           $ref: '#/components/schemas/SideEffectClass'
+    UpdateNotificationRuleRequest:
+      type: object
+      properties:
+        email:
+          type:
+          - string
+          - 'null'
+        enabled:
+          type:
+          - boolean
+          - 'null'
+        event_kinds:
+          type:
+          - array
+          - 'null'
+          items:
+            $ref: '#/components/schemas/NotificationEventKind'
     UpdateRunRequest:
       type: object
       properties:
@@ -12026,6 +12525,8 @@ tags:
   description: Workspace runtime settings
 - name: gateway
   description: AI provider gateway and proxy configuration
+- name: notifications
+  description: Durable production-loop notification rules and deliveries
 - name: knowledge-sources
   description: Workspace knowledge source metadata and files
 - name: auth

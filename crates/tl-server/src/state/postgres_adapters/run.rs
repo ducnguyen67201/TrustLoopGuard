@@ -178,6 +178,41 @@ impl RunStore for PostgresRunAdapter {
             .await
             .map_err(run_store_error)
     }
+
+    async fn touch_gateway_activity(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+    ) -> Result<(), RunStoreError> {
+        self.0
+            .touch_gateway_activity(workspace_id, environment_id, run_id)
+            .await
+            .map_err(run_store_error)
+    }
+
+    async fn list_stale_gateway_runs(
+        &self,
+        idle_before: chrono::DateTime<chrono::Utc>,
+        max_started_before: chrono::DateTime<chrono::Utc>,
+        limit: usize,
+    ) -> Result<Vec<crate::runs::StaleGatewayRun>, RunStoreError> {
+        self.0
+            .list_stale_gateway_runs(idle_before, max_started_before, limit as i64)
+            .await
+            .map(|runs| {
+                runs.into_iter()
+                    .map(|run| crate::runs::StaleGatewayRun {
+                        workspace_id: run.workspace_id,
+                        environment_id: run.environment_id,
+                        run_id: run.run_id,
+                        agent_id: run.agent_id,
+                        max_duration_exceeded: run.max_duration_exceeded,
+                    })
+                    .collect()
+            })
+            .map_err(run_store_error)
+    }
 }
 
 fn run_store_error(error: tl_storage::StorageError) -> RunStoreError {

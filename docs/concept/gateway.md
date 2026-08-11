@@ -52,6 +52,7 @@ A route binds a stable public route id to:
 
 - one provider connection
 - one agent id
+- a reliability mode and an ordered list of same-kind fallback connections
 
 Every enabled policy for the active workspace environment and route agent applies automatically.
 Routes do not select or override policies.
@@ -64,13 +65,35 @@ Provider credentials are encrypted with `TL_GATEWAY_CREDENTIAL_KEY`. Development
 `TL_API_KEY`; without either secret, credential sealing requires the explicit local-only
 `TL_GATEWAY_ALLOW_INSECURE_DEV_KEY` escape hatch.
 
+The guided production-loop activation reconciles the provider, agent, route, deterministic starter
+evaluations, email rule, and workspace privacy choice through one Rust-owned control-plane action.
+Stable ids are reused only when the existing provider, agent, route, and starter-policy semantics
+are compatible; otherwise activation returns a conflict with `activation_step` and the ids already
+ready. It reports each readiness check independently so an interrupted activation can repeat the
+same request without creating a parallel source of truth. Provider and runtime key plaintext are
+one-time values and are never returned by readiness APIs.
+
+Activation accepts one exact `verification_session_id` (or generates one) before configuration is
+returned. Readiness is `ready` only after traffic with that external id reaches the activated route,
+the matching Run is terminal through the finalization boundary, and its non-empty deterministic
+manifest reaches a terminal result other than `not_configured`. Configuration rows alone never
+satisfy those traffic checks. `GET /v1/gateway/routes/{id}/production-readiness` accepts that value
+as `external_id`; the dashboard proxy forwards it unchanged along with workspace/environment
+context.
+
+An operator may explicitly set `alerts_deferred`. That skips rule creation but deliberately leaves
+the email-rule and transport checks in `needs_attention`; omission of an email without that explicit
+choice is invalid. The guided form offers one same-protocol fallback for the bounded standard plan;
+the route contract retains an ordered fallback list for control-plane clients.
+
 The dashboard setup flow is:
 
-1. Connect a provider.
-2. Create or select an agent.
-3. Create a route binding the provider and agent.
-4. Create a workspace runtime API key.
-5. Copy the route-specific client configuration shown under Routes.
+1. Connect a provider and create or select an agent.
+2. Activate the route, optional fallback, starter evaluations, alert rule (or explicitly defer it),
+   and privacy mode.
+3. Create a workspace runtime API key if none is active.
+4. Copy the route-specific provider configuration and send a harmless verification request.
+5. Confirm the exact Run, evaluation, and notification readiness checks.
 
 OpenAI-compatible clients use:
 
@@ -103,9 +126,24 @@ the provider again to regenerate a response.
 Provider failures are availability failures, not policy decisions. They return a sanitized
 `502 Bad Gateway` and mark the Gateway run failed.
 
+## Provider reliability
+
+Existing routes default to `none`: Gateway makes exactly one call to the primary connection.
+`standard` uses a bounded plan: one primary call, one retry of that primary only for a retryable
+transport/408/429/5xx failure, then one same-kind fallback. `Retry-After` is bounded by the total
+request deadline. Authentication, authorization, client, and provider response-shape errors do not
+amplify calls. Payment HTTP connections are never LLM fallbacks.
+
+Each attempt has its own budget reservation identity and durable evidence record. Run detail shows
+attempt order, provider connection, model, latency, usage, cost, and sanitized failure code. A
+fallback success completes the Run; a provider-terminal notification is queued only when the
+bounded plan is exhausted. Notification delivery semantics live in
+[notifications.md](notifications.md).
+
 ## Response signals
 
-Non-permit responses include:
+Gateway responses include `X-Featherlane-Run-Id` and `X-Featherlane-Session-State` so callers can
+correlate the automatically captured Run. Non-permit responses also include:
 
 - provider-native `content_filter` finish/stop reason
 - `X-Featherlane AI-Effect`
@@ -171,9 +209,18 @@ checked input attaches to a `user_turn`; a successful provider response creates 
 same persisted traces as SDK events, using `gateway_input` and `gateway_output` domains so the run
 UI places them in the correct guard phase.
 
-Run metadata records integration mode, route id, Gateway request id, and provider kind. Callers may
-send `X-FEATHERLANE-AI-Run-External-Id` to group multiple provider calls into one upstream session. Policy-
-shaped responses complete the run; provider and internal check failures mark it failed.
+Run metadata records integration mode, route id, Gateway request id, and provider kind. With no
+session header, every request is a one-request Run and finalizes after its guarded response. A caller
+groups turns by sending a stable `X-Featherlane-Session-Id`; the legacy
+`X-FEATHERLANE-AI-Run-External-Id` header remains compatible. When both are present they must match.
+`X-Featherlane-Session-End: true` finalizes after that response. Otherwise a Rust worker finalizes
+idle sessions and times out sessions that exceed the configured maximum duration. Concurrent first
+turns for the same route agent and session converge on one active Run. A later request with the same
+session ID creates a new Run after the previous one is terminal.
+
+Session IDs are opaque correlation metadata, not authorization inputs. They are length-bounded and
+must not contain secrets or personal data. Every terminal path uses the same transactional Run
+finalization boundary, which in turn closes capture and schedules post-Run evaluation.
 
 `GET /v1/runs/{run_id}` joins the run timeline with typed Gateway evidence:
 
@@ -206,6 +253,8 @@ the top-level system prompt. Output checks evaluate the provider's assistant res
 - `GET /v1/gateway/routes`
 - `POST /v1/gateway/routes`
 - `PATCH /v1/gateway/routes/{id}`
+- `POST /v1/gateway/activations`
+- `GET /v1/gateway/routes/{id}/production-readiness`
 - `POST /v1/gateway/{route_id}/openai/chat/completions`
 - `POST /v1/gateway/{route_id}/anthropic/v1/messages`
 

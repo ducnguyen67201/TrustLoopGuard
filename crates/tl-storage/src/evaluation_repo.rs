@@ -259,6 +259,63 @@ impl EvaluationRepo {
             .await
     }
 
+    pub async fn ensure_assignment(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        agent_id: &str,
+        assignment: AgentEvaluationPolicyAssignment,
+    ) -> Result<Vec<AgentEvaluationPolicyAssignment>, StorageError> {
+        validate_assignments(std::slice::from_ref(&assignment))?;
+        let mut conn = self.connection().await?;
+        conn.transaction::<(), StorageError, _>(async |conn| {
+            require_agent_and_environment(conn, workspace_id, environment_id, agent_id).await?;
+            let profile_exists = agent_evaluation_profiles::table
+                .filter(agent_evaluation_profiles::workspace_id.eq(workspace_id))
+                .filter(agent_evaluation_profiles::environment_id.eq(environment_id))
+                .filter(agent_evaluation_profiles::agent_id.eq(agent_id))
+                .select(agent_evaluation_profiles::agent_id)
+                .first::<String>(conn)
+                .await
+                .optional()?;
+            if profile_exists.is_none() {
+                return Err(StorageError::NotFound);
+            }
+            let (_, policy_yaml) = resolve_evaluation_policy_version(
+                conn,
+                workspace_id,
+                &assignment.policy_id,
+                assignment.policy_version,
+            )
+            .await?;
+            build_evidence_requirements(conn, workspace_id, &policy_yaml).await?;
+            diesel::insert_into(agent_evaluation_policy_assignments::table)
+                .values(NewAssignment {
+                    workspace_id: workspace_id.to_string(),
+                    environment_id: environment_id.to_string(),
+                    agent_id: agent_id.to_string(),
+                    policy_id: assignment.policy_id.trim().to_string(),
+                    policy_version: assignment.policy_version,
+                    weight: assignment.weight as i32,
+                    critical: assignment.critical,
+                    enabled: assignment.enabled,
+                })
+                .on_conflict((
+                    agent_evaluation_policy_assignments::workspace_id,
+                    agent_evaluation_policy_assignments::environment_id,
+                    agent_evaluation_policy_assignments::agent_id,
+                    agent_evaluation_policy_assignments::policy_id,
+                ))
+                .do_nothing()
+                .execute(conn)
+                .await?;
+            Ok(())
+        })
+        .await?;
+        self.list_assignments(workspace_id, environment_id, agent_id)
+            .await
+    }
+
     pub async fn register_participant_and_freeze_manifest(
         &self,
         workspace_id: &str,

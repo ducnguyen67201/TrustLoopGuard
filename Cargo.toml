@@ -81,6 +81,7 @@ diesel = { version = "2.3.8", default-features = false, features = ["postgres", 
 diesel-async = { version = "0.9", default-features = false, features = ["postgres", "bb8"] }
 diesel_migrations = { version = "2.3", default-features = false, features = ["postgres"] }
 url = "2"
+lettre = { version = "0.11.18", default-features = false, features = ["builder", "smtp-transport", "tokio1-rustls-tls"] }
 
 # Auth
 argon2 = "0.5"

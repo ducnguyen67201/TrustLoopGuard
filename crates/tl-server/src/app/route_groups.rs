@@ -13,8 +13,8 @@ mod mcp_gateway_routes;
 use crate::{
     agents, analytics, auth_user, authorization, budget_alerts, dashboard_admin, environments,
     evaluations, financial, github_integration, human_review, knowledge_sources, label_policy,
-    llm_pricing, llm_usage, otel, policies, redteam, runs, team, tool_metadata, traces, AgentState,
-    AppState, AuthUserState, LabelPolicyState, PolicyState, ToolMetadataState,
+    llm_pricing, llm_usage, notifications, otel, policies, redteam, runs, team, tool_metadata,
+    traces, AgentState, AppState, AuthUserState, LabelPolicyState, PolicyState, ToolMetadataState,
 };
 
 pub(super) use mcp_gateway_routes::{mcp_gateway_routes, mcp_resource_routes};
@@ -114,6 +114,37 @@ pub(super) fn evaluation_routes(state: &AppState) -> Router {
             store: state.evaluation_store.clone(),
             environment_store: state.environment_store.clone(),
             team_store: state.team_store.clone(),
+        })
+}
+
+pub(super) fn notification_routes(state: &AppState) -> Router {
+    Router::new()
+        .route(
+            "/v1/notification-rules",
+            get(notifications::list_notification_rules)
+                .post(notifications::create_notification_rule),
+        )
+        .route(
+            "/v1/notification-rules/{id}",
+            patch(notifications::patch_notification_rule)
+                .delete(notifications::delete_notification_rule),
+        )
+        .route(
+            "/v1/notification-rules/{id}/test",
+            post(notifications::test_notification),
+        )
+        .route(
+            "/v1/notification-deliveries",
+            get(notifications::list_notification_deliveries),
+        )
+        .route(
+            "/v1/notifications/readiness",
+            get(notifications::notification_readiness),
+        )
+        .with_state(notifications::NotificationState {
+            store: state.notification_store.clone(),
+            environment_store: state.environment_store.clone(),
+            transport_configured: state.notification_transport_configured,
         })
 }
 
