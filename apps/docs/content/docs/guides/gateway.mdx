@@ -17,6 +17,11 @@ the base URL and API key so requests pass through Featherlane AI first.
 Routes do not have a separate rule set. Every policy enabled for the selected environment and route
 agent applies automatically, using the same event service as `POST /v1/events`.
 
+If you want production capture and evaluation without policy effects, follow
+[Monitor Before You Enforce](/docs/guides/monitor-before-enforce). Built-in checkers support
+`shadow`, while enabled typed runtime policies remain enforcing and must stay disabled in a
+monitor-only environment.
+
 ## Set up a route
 
 1. Open **Gateway → Providers** and connect an OpenAI-compatible or Anthropic provider.

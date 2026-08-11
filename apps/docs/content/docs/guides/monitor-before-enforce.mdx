@@ -1,0 +1,156 @@
+---
+title: Monitor before you enforce
+description: Observe production traffic safely, validate findings, and then promote selected controls from shadow mode to enforcement.
+---
+
+Use monitoring when you want production evidence without letting a policy change live provider
+traffic. Move to enforcement only after the findings, latency, and alert volume look correct for the
+environment.
+
+This rollout choice is different from the SDK's [Guard Modes](/docs/guides/guard-modes). Guard
+modes choose how an SDK handles an enforcing `transform` or `deny` decision. The rollout modes on
+this page choose whether built-in checkers can contribute an enforcing decision at all.
+
+## Off, shadow, and enforce
+
+| Mode | Evaluates the checker | Persists hypothetical findings | Changes the live decision |
+| ---- | --------------------- | -------------------------------- | ------------------------- |
+| `off` | No | No | No |
+| `shadow` | Yes | Yes | No |
+| `enforce` | Yes | Yes | Yes |
+
+Choose `shadow`, not `off`, for monitoring. Shadow evidence records the recommended effect—such as
+`deny`, `transform`, or `require_approval`—while the applied checker effect remains `permit`.
+
+## What monitor-only includes
+
+A monitor-only Gateway rollout still provides:
+
+- automatic input and output capture;
+- session-correlated Runs and bounded automatic finalization;
+- provider attempts, latency, token usage, cost, and coverage evidence;
+- shadow findings from enabled built-in checkers;
+- post-Run evaluation policies and immutable manifests;
+- deduplicated evaluation and provider-failure notifications.
+
+Policy findings do not block, rewrite, defer, or require approval for live provider traffic in this
+rollout. Authentication, provider availability, privacy projection, and platform integrity checks
+still apply. A separately enabled hard spending policy also remains an enforcing cost control.
+
+## Start in monitor-only
+
+1. Create or select the environment that will receive production traffic.
+2. Activate a Gateway route and send a stable `X-Featherlane-Session-Id` with related turns.
+3. Set the environment's built-in checkers to `shadow`.
+4. Leave typed runtime policies disabled in that environment.
+5. Keep the agent evaluation profile, evaluation-policy assignments, and notifications enabled.
+6. Send representative traffic and review Runs, traces, findings, evaluation results, and alerts.
+
+Set per-environment checker modes with the Settings API:
+
+```http
+PUT /v1/environments/production/checker-modes
+Content-Type: application/json
+
+{
+  "flow_checker_mode": "shadow",
+  "memory_checker_mode": "shadow",
+  "param_checker_mode": "shadow",
+  "approval_checker_mode": "shadow"
+}
+```
+
+This is a control-plane operation. It requires an Owner or Admin identity; a workspace runtime key
+cannot weaken or promote enforcement settings. See the [Settings API](/docs/reference/api/settings)
+for authentication and response details.
+
+The dashboard exposes the approval checker selector as **Off**, **Shadow**, or **Enforce**. Runtime
+policy deployment remains environment-specific under **Policies**.
+
+## Typed-policy limitation
+
+Checker rollout mode and typed-policy deployment are separate controls.
+
+An enabled content, tool, or financial runtime policy is enforcing today. It does not inherit the
+built-in checkers' `shadow` setting. To observe production without typed-policy effects:
+
+- keep that runtime policy disabled in the observation environment;
+- express the production assertion as a post-Run evaluation policy when appropriate; or
+- use a separate observation environment and promote the validated policy into the enforcing
+  environment later.
+
+Gateway routes do not currently provide a route-level switch that converts every enabled typed
+policy into a hypothetical decision. Do not describe a route as monitor-only if enforcing runtime
+policies are deployed in the runtime key's environment.
+
+## Review the evidence
+
+Before promotion, confirm:
+
+- Runs finish with the expected session boundaries and coverage level;
+- shadow findings contain useful `recommended_effect` evidence;
+- expected safe traffic does not produce high false-positive volume;
+- post-Run evaluations reach a terminal result with a non-empty manifest;
+- notification recipients and deduplication behave as expected;
+- semantic-judge latency and provider reliability remain inside your operational budget.
+
+Use a review window that includes ordinary traffic and known risky test cases. A clean dashboard is
+not sufficient if coverage shows only the LLM boundary while the controls are meant to cover tool
+execution.
+
+## Promote to enforce
+
+Promote one environment or checker family at a time:
+
+```http
+PUT /v1/environments/production/checker-modes
+Content-Type: application/json
+
+{
+  "flow_checker_mode": "enforce",
+  "memory_checker_mode": "shadow",
+  "param_checker_mode": "shadow",
+  "approval_checker_mode": "shadow"
+}
+```
+
+Then enable only the typed runtime policies that have been reviewed for that environment. In
+enforcement, the strongest applicable effect wins:
+
+| Effect | Gateway behavior |
+| ------ | ---------------- |
+| `permit` | Forward or return content unchanged. |
+| `transform` | Return the policy's safe replacement. |
+| `deny` | Suppress content; an input denial does not call the provider. |
+| `require_approval` | Hold the action and create an approval item. |
+| `defer` | Hold the action until required evidence or system state is available. |
+
+For Gateway content blocks, the response uses the provider-compatible content-filter shape and
+includes Featherlane correlation headers. Provider failures remain sanitized availability errors,
+not policy denials.
+
+## Roll back safely
+
+If enforcement produces unexpected impact:
+
+1. Change the affected checker from `enforce` back to `shadow`.
+2. Disable the affected typed runtime policy in that environment.
+3. Keep Gateway capture, evaluation assignments, and notifications active.
+4. Compare enforcing traces with the new shadow evidence before promoting again.
+
+Returning to shadow preserves visibility. Switching to `off` removes the checker evidence needed to
+understand what would have happened.
+
+## Recommended rollout
+
+```text
+monitor-only
+  -> collect representative Runs
+  -> inspect hypothetical findings and evaluation results
+  -> enforce one control in one environment
+  -> watch blocks, rewrites, latency, and alerts
+  -> expand or return the control to shadow
+```
+
+The safe default for a new observability-led integration is monitoring. Enforcement is an explicit
+promotion after the team trusts the evidence.
