@@ -9,9 +9,10 @@ use tl_core::RunEventSummary;
 #[allow(unused_imports)]
 use tl_core::{
     ApiError, CreateRunEventRequest, CreateRunRequest, FinalizeRunRequest, FinalizeRunResponse,
-    RunBoundarySource, RunDetail, RunEventListResponse, RunGuardrailUsage, RunKind,
-    RunListResponse, RunLlmBudgetDecision, RunParticipantRole, RunProviderUsage, RunStatus,
-    RunSummary, TraceListResponse, UpdateRunRequest,
+    RunBoundarySource, RunCaptureStatus, RunCoverageLevel, RunCoverageSummary, RunDetail,
+    RunEventKind, RunEventListResponse, RunFinalizationSummary, RunGuardrailUsage, RunKind,
+    RunListResponse, RunLlmBudgetDecision, RunParticipantRole, RunProviderUsage, RunSpanSummary,
+    RunStatus, RunSummary, TraceListResponse, UpdateRunRequest,
 };
 
 use super::context::resolve_environment_id;
@@ -161,8 +162,14 @@ pub async fn get_run(
                     Ok(value) => value,
                     Err(error) => return run_error_response(error),
                 };
-                let provider_usage =
-                    latest_event_evidence::<RunProviderUsage>(&events, "provider_usage");
+                let provider_attempts =
+                    event_evidence::<RunProviderUsage>(&events, "provider_usage");
+                let provider_usage = provider_attempts
+                    .iter()
+                    .rev()
+                    .find(|usage| usage.status == "succeeded")
+                    .or_else(|| provider_attempts.last())
+                    .cloned();
                 let budget_decision =
                     latest_event_evidence::<RunLlmBudgetDecision>(&events, "budget_decision");
                 let guardrail_usage = events
@@ -209,12 +216,22 @@ pub async fn get_run(
                     Ok(value) => value,
                     Err(error) => return crate::evaluations::evaluation_error_response(error),
                 };
+                let coverage = derive_coverage(
+                    &run,
+                    &events,
+                    &traces,
+                    &spans,
+                    finalization.as_ref(),
+                    !provider_attempts.is_empty(),
+                );
                 Json(RunDetail {
                     run,
                     events,
                     traces,
                     spans,
                     provider_usage,
+                    provider_attempts,
+                    coverage,
                     guardrail_usage,
                     budget_decision,
                     finalization,
@@ -230,6 +247,80 @@ pub async fn get_run(
     }
 }
 
+fn event_evidence<T: serde::de::DeserializeOwned>(events: &[RunEventSummary], key: &str) -> Vec<T> {
+    events
+        .iter()
+        .filter_map(|event| {
+            event
+                .metadata
+                .get(key)
+                .cloned()
+                .and_then(|value| serde_json::from_value(value).ok())
+        })
+        .collect()
+}
+
+fn derive_coverage(
+    run: &RunSummary,
+    events: &[RunEventSummary],
+    traces: &[tl_core::TraceSummary],
+    spans: &[RunSpanSummary],
+    finalization: Option<&RunFinalizationSummary>,
+    has_provider_attempts: bool,
+) -> RunCoverageSummary {
+    let has_runtime_decisions = !traces.is_empty();
+    let is_gateway = run
+        .metadata
+        .get("integration_mode")
+        .and_then(serde_json::Value::as_str)
+        == Some("gateway");
+    let has_llm_boundary = has_provider_attempts || is_gateway;
+    let has_workflow_evidence = events.iter().any(|event| {
+        matches!(
+            event.kind,
+            RunEventKind::ToolCall | RunEventKind::WorkflowStep
+        )
+    }) || spans.iter().any(|span| {
+        let operation = span.operation_name.as_deref().unwrap_or(&span.name);
+        ["tool", "workflow", "retriev", "rag"]
+            .iter()
+            .any(|marker| operation.to_ascii_lowercase().contains(marker))
+    });
+    let capture_complete = run
+        .metadata
+        .get("capture_incomplete")
+        .and_then(serde_json::Value::as_bool)
+        != Some(true)
+        && spans
+            .iter()
+            .all(|span| span.dropped_attribute_count == 0 && !span.late_evidence)
+        && finalization.is_some_and(|summary| summary.capture_status == RunCaptureStatus::Complete);
+    let level = coverage_level(capture_complete, has_llm_boundary, has_workflow_evidence);
+    RunCoverageSummary {
+        level,
+        has_runtime_decisions,
+        has_llm_boundary,
+        has_workflow_evidence,
+        capture_complete,
+    }
+}
+
+fn coverage_level(
+    capture_complete: bool,
+    has_llm_boundary: bool,
+    has_workflow_evidence: bool,
+) -> RunCoverageLevel {
+    if !capture_complete {
+        RunCoverageLevel::Incomplete
+    } else if has_llm_boundary && has_workflow_evidence {
+        RunCoverageLevel::LlmAndWorkflow
+    } else if has_llm_boundary {
+        RunCoverageLevel::LlmBoundary
+    } else {
+        RunCoverageLevel::RuntimeOnly
+    }
+}
+
 fn latest_event_evidence<T: serde::de::DeserializeOwned>(
     events: &[RunEventSummary],
     key: &str,
@@ -241,6 +332,33 @@ fn latest_event_evidence<T: serde::de::DeserializeOwned>(
             .cloned()
             .and_then(|value| serde_json::from_value(value).ok())
     })
+}
+
+#[cfg(test)]
+mod coverage_tests {
+    use tl_core::RunCoverageLevel;
+
+    use super::coverage_level;
+
+    #[test]
+    fn coverage_levels_are_conservative() {
+        assert_eq!(
+            coverage_level(true, false, false),
+            RunCoverageLevel::RuntimeOnly
+        );
+        assert_eq!(
+            coverage_level(true, true, false),
+            RunCoverageLevel::LlmBoundary
+        );
+        assert_eq!(
+            coverage_level(true, true, true),
+            RunCoverageLevel::LlmAndWorkflow
+        );
+        assert_eq!(
+            coverage_level(false, true, true),
+            RunCoverageLevel::Incomplete
+        );
+    }
 }
 
 /// `PATCH /v1/runs/:id` - update a run.

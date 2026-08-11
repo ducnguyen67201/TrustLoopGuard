@@ -790,7 +790,7 @@ async fn oversized_body_rejected_before_deserialization() {
 }
 
 #[tokio::test]
-async fn non_raw_allowed_workspace_rejected() {
+async fn redacted_only_workspace_allows_decision_and_omits_unverified_body() {
     use async_trait::async_trait;
     use tl_server::dashboard_admin::DashboardAdminStoreError;
     use tl_server::SettingsStore;
@@ -819,8 +819,12 @@ async fn non_raw_allowed_workspace_rejected() {
         }
     }
 
+    use tl_server::traces::{MemoryTraceStore, TraceStore};
+
     let mut state = memory_app_state(Arc::new(Engine::empty()));
     state.settings_store = Arc::new(RedactedOnlySettings);
+    let traces = Arc::new(MemoryTraceStore::default());
+    state.trace_store = traces.clone();
     let app = router(state, None, [0u8; 32]);
 
     let resp = app
@@ -830,10 +834,20 @@ async fn non_raw_allowed_workspace_rejected() {
         ))
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp.status(), StatusCode::OK);
 
-    let value = read_body(resp).await;
-    assert!(value["message"].as_str().unwrap().contains("raw_allowed"));
+    let persisted = traces
+        .list_recent(
+            DEFAULT_WORKSPACE_ID,
+            tl_core::DEFAULT_ENVIRONMENT_ID,
+            None,
+            1,
+        )
+        .await
+        .unwrap();
+    let payload = persisted[0].payload.to_string();
+    assert!(!payload.contains("a@b.c"));
+    assert!(!payload.contains("\"body\":\"hi\""));
 }
 
 fn legacy_check_body() -> serde_json::Value {

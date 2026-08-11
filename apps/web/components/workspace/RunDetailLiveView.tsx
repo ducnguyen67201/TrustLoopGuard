@@ -242,6 +242,8 @@ export function RunDetailLiveView({
 
       <AssuranceCard assurance={snapshot.assurance} />
 
+      <CoverageCard coverage={snapshot.coverage} attempts={snapshot.providerAttempts} />
+
       <div className="grid gap-3 lg:grid-cols-3">
         <ProviderUsageCard usage={snapshot.providerUsage} />
         <BudgetDecisionCard decision={snapshot.budgetDecision} />
@@ -944,6 +946,55 @@ function ProviderUsageCard({ usage }: { usage: RunDetailSnapshot['providerUsage'
             Provider usage was not recorded for this historical run.
           </p>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CoverageCard({
+  coverage,
+  attempts,
+}: {
+  coverage: RunDetailSnapshot['coverage'];
+  attempts: RunDetailSnapshot['providerAttempts'];
+}) {
+  const label = {
+    runtime_only: 'Runtime decisions only',
+    llm_boundary: 'LLM boundary',
+    llm_and_workflow: 'LLM and workflow',
+    incomplete: 'Incomplete capture',
+  }[coverage.level];
+  return (
+    <Card className="gap-3 py-4">
+      <CardHeader className="gap-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle className="text-sm">Observed coverage</CardTitle>
+          <Badge variant={coverage.level === 'incomplete' ? 'destructive' : 'secondary'}>
+            {label}
+          </Badge>
+        </div>
+        <CardDescription>
+          {coverage.level === 'llm_boundary'
+            ? 'Gateway capture includes model input/output, policy decisions, attempts, and cost. Add correlated OpenTelemetry for tools, RAG, and workflow state.'
+            : coverage.level === 'llm_and_workflow'
+              ? 'This Run includes provider-boundary and correlated workflow evidence.'
+              : coverage.level === 'incomplete'
+                ? 'Some expected evidence was dropped, late, or outside the capture barrier.'
+                : 'No provider boundary was observed; this Run contains runtime decision evidence only.'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        {attempts.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="text-muted-foreground"><tr><th className="p-2">Attempt</th><th className="p-2">Connection</th><th className="p-2">Model</th><th className="p-2">Status</th><th className="p-2">Latency</th><th className="p-2">Error</th></tr></thead>
+              <tbody>{attempts.map((attempt) => <tr key={`${attempt.gateway_request_id}:${attempt.attempt}`} className="border-t"><td className="p-2">{attempt.attempt}</td><td className="p-2 font-mono">{attempt.provider_connection_id || attempt.provider}</td><td className="p-2 font-mono">{attempt.model}</td><td className="p-2">{titleCase(attempt.status)}</td><td className="p-2">{attempt.latency_ms}ms</td><td className="p-2 font-mono">{attempt.failure_code ?? '—'}</td></tr>)}</tbody>
+            </table>
+          </div>
+        ) : <p className="text-xs text-muted-foreground">No provider attempts were recorded for this Run.</p>}
+        <Link className="text-sm text-primary underline-offset-4 hover:underline" href="/docs/concept/telemetry-capture">
+          Add workflow and tool capture
+        </Link>
       </CardContent>
     </Card>
   );

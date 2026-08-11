@@ -60,7 +60,7 @@ async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>)
             .expect("insert environment");
         diesel::insert_into(agents::table)
             .values((
-                agents::workspace_id.eq("default"),
+                agents::workspace_id.eq("ws_review"),
                 agents::id.eq("tax-agent"),
                 agents::profile_yaml.eq("id: tax-agent"),
                 agents::parsed_profile.eq(serde_json::json!({"agent_id":"tax-agent"})),

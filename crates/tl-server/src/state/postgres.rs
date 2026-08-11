@@ -10,8 +10,9 @@ use tl_storage::{
     connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, AuthorizationRepo,
     BudgetAlertRepo, DashboardAdminRepo, EnvironmentRepo, EscalationRepo, EvaluationRepo,
     FinancialRepo, GatewayRepo, GitHubIntegrationRepo, KnowledgeRepo, LlmPricingRepo, LlmUsageRepo,
-    McpGatewayRepo, OAuthRepo, OtelRepo, PolicyRepo, RedteamJobRepo, RedteamPlanRepo,
-    RedteamReportShareRepo, RunRepo, TeamRepo, ToolMetadataRepo, TraceRepo, UserRepo, WriterConfig,
+    McpGatewayRepo, NotificationRepo, OAuthRepo, OtelRepo, PolicyRepo, RedteamJobRepo,
+    RedteamPlanRepo, RedteamReportShareRepo, RunRepo, TeamRepo, ToolMetadataRepo, TraceRepo,
+    UserRepo, WriterConfig,
 };
 
 use crate::agents::{AgentStore, MemoryAgentStore};
@@ -33,6 +34,9 @@ use crate::label_policy::{LabelPolicyStore, MemoryLabelPolicyStore};
 use crate::llm_pricing::{LlmPricingStore, MemoryLlmPricingStore};
 use crate::llm_usage::{LlmUsageStore, MemoryLlmUsageStore};
 use crate::mcp_gateway::{McpGatewayStore, MemoryMcpGatewayStore};
+use crate::notifications::{
+    spawn_notification_worker, MemoryNotificationStore, NotificationStore, NotificationWorkerConfig,
+};
 use crate::oauth_store::{MemoryOAuthStore, OAuthStore};
 use crate::otel::{MemoryOtelStore, OtelStore};
 use crate::policies::{MemoryPolicyStore, PolicyStore};
@@ -76,6 +80,8 @@ pub(super) async fn build_postgres_layer(
     Arc<dyn GatewayStore>,
     Arc<dyn OAuthStore>,
     Arc<dyn McpGatewayStore>,
+    Arc<dyn NotificationStore>,
+    bool,
     Arc<dyn ToolMetadataStore>,
     Arc<dyn ToolMetadataProvider>,
     Arc<dyn AuthorizationStore>,
@@ -122,6 +128,8 @@ pub(super) async fn build_postgres_layer(
             Arc::new(MemoryGatewayStore::new()) as Arc<dyn GatewayStore>,
             Arc::new(MemoryOAuthStore::default()) as Arc<dyn OAuthStore>,
             Arc::new(MemoryMcpGatewayStore::default()) as Arc<dyn McpGatewayStore>,
+            Arc::new(MemoryNotificationStore::new()) as Arc<dyn NotificationStore>,
+            false,
             tool_metadata.clone() as Arc<dyn ToolMetadataStore>,
             tool_metadata as Arc<dyn ToolMetadataProvider>,
             Arc::new(MemoryAuthorizationStore::new()) as Arc<dyn AuthorizationStore>,
@@ -155,6 +163,9 @@ pub(super) async fn build_postgres_layer(
     let run_adapter = PostgresRunAdapter::new(Arc::new(RunRepo::new(pool.clone())));
     let evaluation_repo = Arc::new(EvaluationRepo::new(pool.clone()));
     let evaluation_adapter = PostgresEvaluationAdapter::new(evaluation_repo.clone());
+    let notification_adapter: Arc<dyn NotificationStore> = Arc::new(
+        PostgresNotificationAdapter::new(Arc::new(NotificationRepo::new(pool.clone()))),
+    );
     let _evaluation_worker =
         spawn_evaluation_worker(evaluation_repo, llm, EvaluationWorkerConfig::default());
     tracing::info!("post-run evaluation worker spawned");
@@ -186,6 +197,16 @@ pub(super) async fn build_postgres_layer(
     let oauth_adapter = PostgresOAuthAdapter::new(Arc::new(OAuthRepo::new(pool.clone())));
     let mcp_gateway_adapter =
         PostgresMcpGatewayAdapter::new(Arc::new(McpGatewayRepo::new(pool.clone())));
+    let notification_transport_configured =
+        if let Some((config, transport)) = NotificationWorkerConfig::from_env() {
+            let _notification_worker =
+                spawn_notification_worker(notification_adapter.clone(), config, transport);
+            tracing::info!("notification delivery worker spawned");
+            true
+        } else {
+            tracing::warn!("notification SMTP transport is not configured");
+            false
+        };
     let tool_metadata_adapter =
         PostgresToolMetadataAdapter::new(Arc::new(ToolMetadataRepo::new(pool.clone())));
     let authorization_adapter =
@@ -226,6 +247,8 @@ pub(super) async fn build_postgres_layer(
         gateway_adapter as Arc<dyn GatewayStore>,
         Arc::new(oauth_adapter) as Arc<dyn OAuthStore>,
         Arc::new(mcp_gateway_adapter) as Arc<dyn McpGatewayStore>,
+        notification_adapter,
+        notification_transport_configured,
         tool_metadata_adapter.clone() as Arc<dyn ToolMetadataStore>,
         tool_metadata_adapter as Arc<dyn ToolMetadataProvider>,
         authorization_adapter as Arc<dyn AuthorizationStore>,

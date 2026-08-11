@@ -2,7 +2,7 @@ mod mapping;
 mod provider_connections;
 mod routes;
 
-use tl_core::{GatewayProviderConnection, GatewayRoute};
+use tl_core::{GatewayProviderConnection, GatewayReliabilityMode, GatewayRoute};
 
 use crate::postgres::{DbConnection, DbPool};
 use crate::StorageError;
@@ -23,6 +23,7 @@ pub struct ResolvedGatewayRoute {
     pub route: GatewayRoute,
     pub provider_connection: GatewayProviderConnection,
     pub encrypted_api_key: String,
+    pub fallback_provider_connections: Vec<GatewayProviderConnectionSecret>,
 }
 
 impl GatewayRepo {
@@ -43,4 +44,6 @@ pub struct GatewayRoutePatch {
     pub display_name: Option<String>,
     pub provider_connection_id: Option<String>,
     pub agent_id: Option<String>,
+    pub reliability_mode: Option<GatewayReliabilityMode>,
+    pub fallback_provider_connection_ids: Option<Vec<String>>,
 }

@@ -78,6 +78,8 @@ pub mod mcp_gateway_repo;
 #[cfg(feature = "postgres")]
 pub mod models;
 #[cfg(feature = "postgres")]
+pub mod notification_repo;
+#[cfg(feature = "postgres")]
 pub mod oauth_repo;
 #[cfg(feature = "postgres")]
 pub mod otel_repo;
@@ -171,6 +173,8 @@ pub use mcp_gateway_repo::{
 #[cfg(feature = "postgres")]
 pub use models::UserRecord;
 #[cfg(feature = "postgres")]
+pub use notification_repo::{ClaimedNotificationDelivery, NotificationRepo};
+#[cfg(feature = "postgres")]
 pub use oauth_repo::{
     NewOAuthAuthorizationCode, NewOAuthRefreshToken, OAuthRepo, StoredOAuthAuthorizationCode,
     StoredOAuthClient, StoredOAuthRefreshToken,
@@ -192,7 +196,7 @@ pub use redteam_plan_repo::RedteamPlanRepo;
 #[cfg(feature = "postgres")]
 pub use redteam_report_share_repo::{NewShare, RedteamReportShareRepo, ReportShareRow};
 #[cfg(feature = "postgres")]
-pub use run_repo::{RunFilter, RunRepo};
+pub use run_repo::{RunFilter, RunRepo, StaleGatewayRun};
 #[cfg(feature = "postgres")]
 pub use team_repo::{AddMemberOutcome, TeamRepo, WorkspaceDeletionOutcome};
 #[cfg(feature = "postgres")]

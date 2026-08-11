@@ -58,9 +58,59 @@ diesel::table! {
         display_name -> Text,
         provider_connection_id -> Text,
         agent_id -> Text,
+        reliability_mode -> Text,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         deleted_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    gateway_route_fallbacks (workspace_id, route_id, position) {
+        workspace_id -> Text,
+        route_id -> Text,
+        position -> Int4,
+        provider_connection_id -> Text,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    notification_rules (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        environment_id -> Text,
+        agent_id -> Nullable<Text>,
+        email -> Text,
+        event_kinds -> Array<Text>,
+        enabled -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        deleted_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    notification_deliveries (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        rule_id -> Uuid,
+        environment_id -> Text,
+        run_id -> Nullable<Uuid>,
+        event_kind -> Text,
+        subject_id -> Text,
+        subject_version -> Text,
+        status -> Text,
+        payload -> Jsonb,
+        attempt_count -> Int4,
+        next_attempt_at -> Timestamptz,
+        lease_owner -> Nullable<Text>,
+        lease_expires_at -> Nullable<Timestamptz>,
+        last_error_code -> Nullable<Text>,
+        last_error_message -> Nullable<Text>,
+        sent_at -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
@@ -1237,6 +1287,9 @@ diesel::joinable!(workspace_environments -> workspaces (workspace_id));
 diesel::joinable!(knowledge_source_files -> knowledge_sources (knowledge_source_id));
 diesel::joinable!(gateway_provider_connections -> workspaces (workspace_id));
 diesel::joinable!(gateway_routes -> workspaces (workspace_id));
+diesel::joinable!(gateway_route_fallbacks -> workspaces (workspace_id));
+diesel::joinable!(notification_rules -> workspaces (workspace_id));
+diesel::joinable!(notification_deliveries -> workspaces (workspace_id));
 diesel::joinable!(analytics_dashboard_views -> workspaces (workspace_id));
 diesel::joinable!(financial_actions -> workspaces (workspace_id));
 diesel::joinable!(financial_action_outcomes -> workspaces (workspace_id));
@@ -1270,6 +1323,9 @@ diesel::allow_tables_to_appear_in_same_query!(
     knowledge_source_files,
     gateway_provider_connections,
     gateway_routes,
+    gateway_route_fallbacks,
+    notification_rules,
+    notification_deliveries,
     human_review_events,
     run_events,
     runs,

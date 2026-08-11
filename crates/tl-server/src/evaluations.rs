@@ -69,6 +69,14 @@ pub trait EvaluationStore: Send + Sync {
         assignments: Vec<AgentEvaluationPolicyAssignment>,
     ) -> Result<Vec<AgentEvaluationPolicyAssignment>, EvaluationStoreError>;
 
+    async fn ensure_assignment(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        agent_id: &str,
+        assignment: AgentEvaluationPolicyAssignment,
+    ) -> Result<Vec<AgentEvaluationPolicyAssignment>, EvaluationStoreError>;
+
     async fn register_participant_and_freeze_manifest(
         &self,
         workspace_id: &str,

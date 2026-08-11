@@ -3,7 +3,9 @@ use serde_json::{json, Value};
 use tl_core::GatewayProviderConnection;
 use uuid::Uuid;
 
-use super::{provider_json_response, provider_url, GatewayProvider, BLOCKED_MESSAGE};
+use super::{
+    provider_json_response, provider_url, GatewayProvider, ProviderError, BLOCKED_MESSAGE,
+};
 
 pub(in crate::gateway) struct OpenAiCompatibleGatewayProvider;
 
@@ -92,7 +94,7 @@ impl GatewayProvider for OpenAiCompatibleGatewayProvider {
         connection: &GatewayProviderConnection,
         api_key: &str,
         mut request: Value,
-    ) -> Result<Value, String> {
+    ) -> Result<Value, ProviderError> {
         if request.get("model").is_none() {
             request["model"] = json!(connection.default_model);
         }
@@ -103,7 +105,7 @@ impl GatewayProvider for OpenAiCompatibleGatewayProvider {
             .json(&request)
             .send()
             .await
-            .map_err(|e| format!("provider request failed: {e}"))?;
+            .map_err(|error| ProviderError::transport(&error))?;
         provider_json_response(response).await
     }
 }

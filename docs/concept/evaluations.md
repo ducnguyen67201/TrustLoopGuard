@@ -39,6 +39,12 @@ versions and freezes their YAML, hash, weight, and critical flag in the Run mani
 edits cannot change that Run's evidence contract. The first resolution freezes the manifest even
 when no policies are assigned, so later assignments cannot apply retroactively.
 
+Gateway production activation enables a durable profile and additively assigns two deterministic
+starter policies: intervention count and terminal provider failure count. Existing assignments are
+preserved. A retry followed by success is not a terminal provider failure; only an exhausted
+provider plan on a failed Run increments that metric. An empty manifest remains `not_configured`
+and never satisfies production readiness.
+
 Runs created before this pipeline was installed are returned with
 `evaluation_eligibility: legacy_incomplete`. They retain their historical evidence but do not
 receive a retroactive manifest. Runs created after the migration are marked `eligible`.
@@ -83,6 +89,10 @@ required evidence follows the stricter profile/policy behavior frozen into the s
 never produce `passed`.
 For a multi-agent Run, each participant receives its own manifest and result; consumers project the
 worst participant verdict when they need one Run-level status.
+
+Failed, inconclusive, and errored results can enqueue durable email deliveries after persistence.
+The evaluator does not send network requests in its database transaction; delivery ownership,
+deduplication, leasing, and retries are defined in [notifications.md](notifications.md).
 
 ## Golden Datasets and Release Gates
 

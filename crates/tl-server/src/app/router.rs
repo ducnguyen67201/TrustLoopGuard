@@ -52,6 +52,7 @@ pub fn router(
         .with_state(state.clone())
         .merge(route_groups::agent_routes(&state))
         .merge(route_groups::evaluation_routes(&state))
+        .merge(route_groups::notification_routes(&state))
         .merge(route_groups::otel_routes(&state))
         .merge(route_groups::tool_metadata_routes(&state))
         .merge(route_groups::authorization_routes(&state))

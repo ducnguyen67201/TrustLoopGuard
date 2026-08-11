@@ -390,13 +390,6 @@ class CreateApiKeyRequest(BaseModel):
     )
 
 
-class CreateGatewayRouteRequest(BaseModel):
-    agent_id: str
-    display_name: str
-    id: str | None = None
-    provider_connection_id: str
-
-
 class Kind(Enum):
     added = 'added'
 
@@ -662,6 +655,31 @@ class FinancialReceipt(BaseModel):
     trace_id: str | None = None
 
 
+class Mode(Enum):
+    existing = 'existing'
+
+
+class GatewayActivationAgentInput1(BaseModel):
+    agent_id: str
+    mode: Mode
+
+
+class Mode1(Enum):
+    new = 'new'
+
+
+class GatewayActivationAgentInput2(BaseModel):
+    mode: Mode1
+    name: str
+    purpose: str
+
+
+class GatewayActivationAgentInput(
+    RootModel[GatewayActivationAgentInput1 | GatewayActivationAgentInput2]
+):
+    root: GatewayActivationAgentInput1 | GatewayActivationAgentInput2
+
+
 class GatewayCredentialStatus(Enum):
     configured = 'configured'
     missing = 'missing'
@@ -673,12 +691,19 @@ class GatewayProviderKind(Enum):
     payment_http = 'payment_http'
 
 
+class GatewayReliabilityMode(Enum):
+    none = 'none'
+    standard = 'standard'
+
+
 class GatewayRoute(BaseModel):
     agent_id: str
     created_at: str
     display_name: str
+    fallback_provider_connection_ids: list[str] | None = None
     id: str
     provider_connection_id: str
+    reliability_mode: GatewayReliabilityMode | None = None
     updated_at: str
 
 
@@ -1043,6 +1068,42 @@ class MoneyAmount(BaseModel):
     currency: str
 
 
+class NotificationDeliveryStatus(Enum):
+    pending = 'pending'
+    sending = 'sending'
+    sent = 'sent'
+    failed = 'failed'
+
+
+class NotificationEventKind(Enum):
+    evaluation_failed = 'evaluation_failed'
+    evaluation_inconclusive = 'evaluation_inconclusive'
+    evaluation_error = 'evaluation_error'
+    provider_terminal_failure = 'provider_terminal_failure'
+    test = 'test'
+
+
+class NotificationReadiness(BaseModel):
+    configured: bool
+    detail: str | None = None
+
+
+class NotificationRule(BaseModel):
+    agent_id: str | None = None
+    created_at: str
+    email: str
+    enabled: bool
+    environment_id: str
+    event_kinds: list[NotificationEventKind]
+    id: str
+    updated_at: str
+    workspace_id: str
+
+
+class NotificationRuleListResponse(BaseModel):
+    notification_rules: list[NotificationRule]
+
+
 class OAuthIdentityRequest(BaseModel):
     email: str = Field(
         ...,
@@ -1134,6 +1195,18 @@ class Principal(BaseModel):
     task_id: str | None = None
     user_id: str | None = None
     workspace_id: str
+
+
+class ProductionReadinessCheck(BaseModel):
+    detail: str | None = None
+    id: str
+    label: str
+    ready: bool
+
+
+class ProductionReadinessStatus(Enum):
+    ready = 'ready'
+    needs_attention = 'needs_attention'
 
 
 class ProvenanceMap(RootModel[dict[str, list[str]]]):
@@ -1344,6 +1417,21 @@ class RunCaptureStatus(Enum):
     incomplete = 'incomplete'
 
 
+class RunCoverageLevel(Enum):
+    runtime_only = 'runtime_only'
+    llm_boundary = 'llm_boundary'
+    llm_and_workflow = 'llm_and_workflow'
+    incomplete = 'incomplete'
+
+
+class RunCoverageSummary(BaseModel):
+    capture_complete: bool
+    has_llm_boundary: bool
+    has_runtime_decisions: bool
+    has_workflow_evidence: bool
+    level: RunCoverageLevel
+
+
 class RunEvaluationEligibility(Enum):
     eligible = 'eligible'
     legacy_incomplete = 'legacy_incomplete'
@@ -1438,8 +1526,10 @@ class RunParticipantSummary(BaseModel):
 
 
 class RunProviderUsage(BaseModel):
+    attempt: conint(ge=0) | None = None
     completion_tokens: int | None = None
     estimated_cost_usd_nanos: str | None = None
+    failure_code: str | None = None
     gateway_request_id: str
     input_rate_usd_per_million_nanos: str | None = None
     latency_ms: conint(ge=0)
@@ -1447,6 +1537,7 @@ class RunProviderUsage(BaseModel):
     output_rate_usd_per_million_nanos: str | None = None
     prompt_tokens: int | None = None
     provider: str
+    provider_connection_id: str | None = None
     provider_response_id: str | None = None
     route_id: str
     status: str
@@ -1647,7 +1738,9 @@ class UpdateGatewayProviderConnectionRequest(BaseModel):
 class UpdateGatewayRouteRequest(BaseModel):
     agent_id: str | None = None
     display_name: str | None = None
+    fallback_provider_connection_ids: list[str] | None = None
     provider_connection_id: str | None = None
+    reliability_mode: GatewayReliabilityMode | None = None
 
 
 class UpdateMcpGatewayConnectionRequest(BaseModel):
@@ -1660,6 +1753,12 @@ class UpdateMcpGatewayConnectionRequest(BaseModel):
 
 class UpdateMcpGatewayToolRequest(BaseModel):
     side_effect: SideEffectClass
+
+
+class UpdateNotificationRuleRequest(BaseModel):
+    email: str | None = None
+    enabled: bool | None = None
+    event_kinds: list[NotificationEventKind] | None = None
 
 
 class UpdateRunRequest(BaseModel):
@@ -2157,6 +2256,15 @@ class CreateGatewayProviderConnectionRequest(BaseModel):
     provider_api_key: str
 
 
+class CreateGatewayRouteRequest(BaseModel):
+    agent_id: str
+    display_name: str
+    fallback_provider_connection_ids: list[str] | None = None
+    id: str | None = None
+    provider_connection_id: str
+    reliability_mode: GatewayReliabilityMode | None = None
+
+
 class CreateHumanReviewEventRequest(BaseModel):
     metadata: Any | None = None
     note: str | None = None
@@ -2183,6 +2291,12 @@ class CreateMcpGatewayConnectionRequest(BaseModel):
     display_name: str
     endpoint_url: str
     server_slug: str
+
+
+class CreateNotificationRuleRequest(BaseModel):
+    email: str
+    enabled: bool | None = None
+    event_kinds: list[NotificationEventKind]
 
 
 class CreateRunEventRequest(BaseModel):
@@ -2318,6 +2432,11 @@ class FinancialPolicySelector(BaseModel):
     currencies: list[str] | None = None
     operations: list[str] | None = None
     rails: list[FinancialRail] | None = None
+
+
+class GatewayProductionReadiness(BaseModel):
+    checks: list[ProductionReadinessCheck]
+    status: ProductionReadinessStatus
 
 
 class GatewayProviderConnection(BaseModel):
@@ -2568,6 +2687,20 @@ class MyWorkspacesResponse(BaseModel):
     workspaces: list[MyWorkspace]
 
 
+class NotificationDeliverySummary(BaseModel):
+    attempt_count: int
+    created_at: str
+    event_kind: NotificationEventKind
+    id: str
+    last_error_code: str | None = None
+    rule_id: str
+    sent_at: str | None = None
+    status: NotificationDeliveryStatus
+    subject_id: str
+    subject_version: str
+    updated_at: str
+
+
 class ParamSpec(BaseModel):
     allowed_sources: list[AllowedSource] | None = None
     limit: ParamLimit | None = None
@@ -2767,12 +2900,14 @@ class RedteamReportPayload(BaseModel):
 
 class RunDetail(BaseModel):
     budget_decision: RunLlmBudgetDecision | None = None
+    coverage: RunCoverageSummary | None = None
     evaluation_jobs: list[EvaluationJobSummary] | None = None
     evaluations: list[EvaluationResultSummary] | None = None
     events: list[RunEventSummary]
     finalization: RunFinalizationSummary | None = None
     guardrail_usage: list[RunGuardrailUsage] | None = None
     participants: list[RunParticipantSummary] | None = None
+    provider_attempts: list[RunProviderUsage] | None = None
     provider_usage: RunProviderUsage | None = None
     run: RunSummary
     spans: list[RunSpanSummary] | None = None
@@ -3012,6 +3147,36 @@ class CreateFinancialPolicyRequest(BaseModel):
     )
 
 
+class CreateGatewayActivationRequest(BaseModel):
+    agent: GatewayActivationAgentInput
+    alert_email: str
+    alerts_deferred: bool | None = Field(
+        None,
+        description='Explicit acknowledgment that email alerts are intentionally deferred.\nWhen true, `alert_email` may be empty and readiness remains\n`needs_attention` until an enabled rule and transport are configured.',
+    )
+    confirm_workspace_privacy_change: bool | None = None
+    data_handling_mode: DataHandlingMode
+    fallback_provider_connection_ids: list[str] | None = None
+    provider: CreateGatewayProviderConnectionRequest
+    reliability_mode: GatewayReliabilityMode | None = None
+    route_display_name: str
+    verification_session_id: str | None = Field(
+        None,
+        description='Exact customer correlation id used by the generated verification\nrequest. The server generates one when omitted.',
+    )
+
+
+class CreateGatewayActivationResponse(BaseModel):
+    agent_id: str
+    alerts_deferred: bool
+    data_handling_mode: DataHandlingMode
+    evaluation_profile: AgentEvaluationProfile
+    notification_rule: NotificationRule | None = None
+    readiness: GatewayProductionReadiness
+    route: GatewayRoute
+    verification_session_id: str
+
+
 class CreateInviteResponse1(BaseModel):
     kind: Kind
     member: WorkspaceMember
@@ -3194,6 +3359,10 @@ class LabelResolution(BaseModel):
 
 class MemberListResponse(BaseModel):
     members: list[WorkspaceMember]
+
+
+class NotificationDeliveryListResponse(BaseModel):
+    deliveries: list[NotificationDeliverySummary]
 
 
 class PolicyBatchSetEnabledResponse(BaseModel):

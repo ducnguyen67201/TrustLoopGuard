@@ -73,6 +73,10 @@ pub(super) fn normalize_gateway_route(
             "provider_connection_id",
         )?,
         agent_id: required_trimmed(req.agent_id, "agent_id")?,
+        reliability_mode: req.reliability_mode,
+        fallback_provider_connection_ids: normalize_fallbacks(
+            req.fallback_provider_connection_ids,
+        )?,
     })
 }
 
@@ -86,7 +90,27 @@ pub(super) fn normalize_gateway_route_patch(
             "provider_connection_id",
         )?,
         agent_id: normalize_optional_text(req.agent_id, "agent_id")?,
+        reliability_mode: req.reliability_mode,
+        fallback_provider_connection_ids: req
+            .fallback_provider_connection_ids
+            .map(normalize_fallbacks)
+            .transpose()?,
     })
+}
+
+fn normalize_fallbacks(values: Vec<String>) -> Result<Vec<String>, String> {
+    if values.len() > 8 {
+        return Err("fallback_provider_connection_ids may contain at most 8 entries".into());
+    }
+    let mut normalized = Vec::with_capacity(values.len());
+    for value in values {
+        let value = required_trimmed(value, "fallback_provider_connection_ids")?;
+        if normalized.contains(&value) {
+            return Err("fallback provider connections must be unique".into());
+        }
+        normalized.push(value);
+    }
+    Ok(normalized)
 }
 
 pub(super) fn normalize_optional_url(value: Option<String>) -> Result<Option<String>, String> {

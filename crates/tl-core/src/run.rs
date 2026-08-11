@@ -237,10 +237,16 @@ pub struct RunEventListResponse {
 pub struct RunProviderUsage {
     pub gateway_request_id: String,
     pub route_id: String,
+    #[serde(default)]
+    pub attempt: u32,
+    #[serde(default)]
+    pub provider_connection_id: String,
     pub provider: String,
     pub model: String,
     pub provider_response_id: Option<String>,
     pub status: String,
+    #[serde(default)]
+    pub failure_code: Option<String>,
     pub prompt_tokens: Option<i64>,
     pub completion_tokens: Option<i64>,
     pub total_tokens: Option<i64>,
@@ -248,6 +254,44 @@ pub struct RunProviderUsage {
     pub estimated_cost_usd_nanos: Option<String>,
     pub input_rate_usd_per_million_nanos: Option<String>,
     pub output_rate_usd_per_million_nanos: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum RunCoverageLevel {
+    RuntimeOnly,
+    LlmBoundary,
+    LlmAndWorkflow,
+    Incomplete,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RunCoverageSummary {
+    pub level: RunCoverageLevel,
+    pub has_runtime_decisions: bool,
+    pub has_llm_boundary: bool,
+    pub has_workflow_evidence: bool,
+    pub capture_complete: bool,
+}
+
+impl Default for RunCoverageSummary {
+    fn default() -> Self {
+        Self {
+            level: RunCoverageLevel::Incomplete,
+            has_runtime_decisions: false,
+            has_llm_boundary: false,
+            has_workflow_evidence: false,
+            capture_complete: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -349,6 +393,10 @@ pub struct RunDetail {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub provider_usage: Option<RunProviderUsage>,
+    #[serde(default)]
+    pub provider_attempts: Vec<RunProviderUsage>,
+    #[serde(default)]
+    pub coverage: RunCoverageSummary,
     #[serde(default)]
     pub guardrail_usage: Vec<RunGuardrailUsage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

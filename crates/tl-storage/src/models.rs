@@ -11,15 +11,16 @@ use crate::schema::{
     escalations, evaluation_findings, evaluation_jobs, evaluation_results, financial_action_events,
     financial_action_outcomes, financial_actions, financial_budget_principal_locks,
     financial_ledger_entries, financial_payment_reservations, financial_payment_sessions,
-    financial_receipts, gateway_provider_connections, gateway_routes, github_installation_states,
-    github_installations, github_integration_jobs, github_repository_connections,
-    human_review_events, llm_budget_principal_locks, llm_budget_reservations, llm_model_prices,
-    llm_usage_events, mcp_agent_tool_assignments, mcp_oauth_authorization_codes, mcp_oauth_clients,
-    mcp_oauth_refresh_tokens, mcp_server_connections, mcp_tool_assignments, mcp_tools,
-    oauth_identities, policies, policy_environment_deployments, redteam_attack_sessions,
-    redteam_jobs, redteam_plans, redteam_report_shares, redteam_session_events,
-    run_evaluation_policy_manifest, run_events, run_participants, run_snapshots, run_spans, runs,
-    tool_metadata, traces, users, workspace_environments,
+    financial_receipts, gateway_provider_connections, gateway_route_fallbacks, gateway_routes,
+    github_installation_states, github_installations, github_integration_jobs,
+    github_repository_connections, human_review_events, llm_budget_principal_locks,
+    llm_budget_reservations, llm_model_prices, llm_usage_events, mcp_agent_tool_assignments,
+    mcp_oauth_authorization_codes, mcp_oauth_clients, mcp_oauth_refresh_tokens,
+    mcp_server_connections, mcp_tool_assignments, mcp_tools, notification_deliveries,
+    notification_rules, oauth_identities, policies, policy_environment_deployments,
+    redteam_attack_sessions, redteam_jobs, redteam_plans, redteam_report_shares,
+    redteam_session_events, run_evaluation_policy_manifest, run_events, run_participants,
+    run_snapshots, run_spans, runs, tool_metadata, traces, users, workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -1349,6 +1350,7 @@ pub struct NewGatewayRoute {
     pub display_name: String,
     pub provider_connection_id: String,
     pub agent_id: String,
+    pub reliability_mode: String,
 }
 
 #[derive(Debug, Queryable, Selectable)]
@@ -1360,6 +1362,94 @@ pub struct GatewayRouteRecord {
     pub display_name: String,
     pub provider_connection_id: String,
     pub agent_id: String,
+    pub reliability_mode: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = gateway_route_fallbacks)]
+pub struct NewGatewayRouteFallback {
+    pub workspace_id: String,
+    pub route_id: String,
+    pub position: i32,
+    pub provider_connection_id: String,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = gateway_route_fallbacks)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct GatewayRouteFallbackRecord {
+    pub workspace_id: String,
+    pub route_id: String,
+    pub position: i32,
+    pub provider_connection_id: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = notification_rules)]
+pub struct NewNotificationRule {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub environment_id: String,
+    pub agent_id: Option<String>,
+    pub email: String,
+    pub event_kinds: Vec<String>,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = notification_rules)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct NotificationRuleRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub environment_id: String,
+    pub agent_id: Option<String>,
+    pub email: String,
+    pub event_kinds: Vec<String>,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = notification_deliveries)]
+pub struct NewNotificationDelivery {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub rule_id: Uuid,
+    pub environment_id: String,
+    pub run_id: Option<Uuid>,
+    pub event_kind: String,
+    pub subject_id: String,
+    pub subject_version: String,
+    pub payload: Value,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = notification_deliveries)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct NotificationDeliveryRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub rule_id: Uuid,
+    pub environment_id: String,
+    pub run_id: Option<Uuid>,
+    pub event_kind: String,
+    pub subject_id: String,
+    pub subject_version: String,
+    pub status: String,
+    pub payload: Value,
+    pub attempt_count: i32,
+    pub next_attempt_at: DateTime<Utc>,
+    pub lease_owner: Option<String>,
+    pub lease_expires_at: Option<DateTime<Utc>>,
+    pub last_error_code: Option<String>,
+    pub last_error_message: Option<String>,
+    pub sent_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

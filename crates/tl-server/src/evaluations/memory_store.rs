@@ -136,6 +136,39 @@ impl EvaluationStore for MemoryEvaluationStore {
         Ok(assignments)
     }
 
+    async fn ensure_assignment(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        agent_id: &str,
+        assignment: AgentEvaluationPolicyAssignment,
+    ) -> Result<Vec<AgentEvaluationPolicyAssignment>, EvaluationStoreError> {
+        if assignment.policy_id.trim().is_empty() || !(1..=10_000).contains(&assignment.weight) {
+            return Err(EvaluationStoreError::Validation(
+                "evaluation assignment must have a policy id and valid weight".into(),
+            ));
+        }
+        let key = profile_key(workspace_id, environment_id, agent_id);
+        if !self.profiles.read().await.contains_key(&key) {
+            return Err(EvaluationStoreError::NotFound);
+        }
+        let mut assignments = self.assignments.write().await;
+        let rows = assignments.entry(key).or_default();
+        if !rows
+            .iter()
+            .any(|existing| existing.policy_id == assignment.policy_id)
+        {
+            if rows.len() >= 256 {
+                return Err(EvaluationStoreError::Validation(
+                    "at most 256 evaluation assignments are allowed".into(),
+                ));
+            }
+            rows.push(assignment);
+            rows.sort_by(|left, right| left.policy_id.cmp(&right.policy_id));
+        }
+        Ok(rows.clone())
+    }
+
     async fn register_participant_and_freeze_manifest(
         &self,
         workspace_id: &str,

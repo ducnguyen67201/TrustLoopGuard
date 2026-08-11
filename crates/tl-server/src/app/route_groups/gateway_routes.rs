@@ -28,6 +28,14 @@ pub(super) fn gateway_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> Ro
             patch(gateway::patch_gateway_route),
         )
         .route(
+            "/v1/gateway/activations",
+            post(gateway::create_gateway_activation),
+        )
+        .route(
+            "/v1/gateway/routes/{id}/production-readiness",
+            get(gateway::gateway_production_readiness),
+        )
+        .route(
             "/v1/gateway/{route_id}/openai/chat/completions",
             post(gateway::proxy_openai_chat_completions),
         )

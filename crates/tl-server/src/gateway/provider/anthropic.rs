@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use super::{
     latest_user_message_input_text, message_content_text, provider_json_response, provider_url,
-    GatewayProvider, BLOCKED_MESSAGE,
+    GatewayProvider, ProviderError, BLOCKED_MESSAGE,
 };
 
 pub(in crate::gateway) struct AnthropicGatewayProvider;
@@ -137,7 +137,7 @@ impl GatewayProvider for AnthropicGatewayProvider {
         connection: &GatewayProviderConnection,
         api_key: &str,
         mut request: Value,
-    ) -> Result<Value, String> {
+    ) -> Result<Value, ProviderError> {
         if request.get("model").is_none() {
             request["model"] = json!(connection.default_model);
         }
@@ -150,7 +150,7 @@ impl GatewayProvider for AnthropicGatewayProvider {
             .json(&request)
             .send()
             .await
-            .map_err(|e| format!("provider request failed: {e}"))?;
+            .map_err(|error| ProviderError::transport(&error))?;
         provider_json_response(response).await
     }
 }

@@ -45,6 +45,15 @@ pub struct RunListFilter {
     pub limit: usize,
 }
 
+#[derive(Debug, Clone)]
+pub struct StaleGatewayRun {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub run_id: String,
+    pub agent_id: String,
+    pub max_duration_exceeded: bool,
+}
+
 #[async_trait]
 pub trait RunStore: Send + Sync {
     async fn create(
@@ -136,6 +145,24 @@ pub trait RunStore: Send + Sync {
         _elapsed_ms: i32,
     ) -> Result<(), RunStoreError> {
         Ok(())
+    }
+
+    async fn touch_gateway_activity(
+        &self,
+        _workspace_id: &str,
+        _environment_id: &str,
+        _run_id: &str,
+    ) -> Result<(), RunStoreError> {
+        Ok(())
+    }
+
+    async fn list_stale_gateway_runs(
+        &self,
+        _idle_before: chrono::DateTime<chrono::Utc>,
+        _max_started_before: chrono::DateTime<chrono::Utc>,
+        _limit: usize,
+    ) -> Result<Vec<StaleGatewayRun>, RunStoreError> {
+        Ok(vec![])
     }
 }
 

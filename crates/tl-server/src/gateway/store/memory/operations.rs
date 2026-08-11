@@ -139,6 +139,8 @@ impl GatewayStore for MemoryGatewayStore {
             display_name: input.display_name,
             provider_connection_id: input.provider_connection_id,
             agent_id: input.agent_id,
+            reliability_mode: input.reliability_mode,
+            fallback_provider_connection_ids: input.fallback_provider_connection_ids,
             created_at: now.clone(),
             updated_at: now,
         };
@@ -171,6 +173,12 @@ impl GatewayStore for MemoryGatewayStore {
         if let Some(value) = patch.agent_id {
             row.route.agent_id = value;
         }
+        if let Some(value) = patch.reliability_mode {
+            row.route.reliability_mode = value;
+        }
+        if let Some(value) = patch.fallback_provider_connection_ids {
+            row.route.fallback_provider_connection_ids = value;
+        }
         row.route.updated_at = chrono::Utc::now().to_rfc3339();
         Ok(row.route.clone())
     }
@@ -190,10 +198,18 @@ impl GatewayStore for MemoryGatewayStore {
         let provider = self
             .get_provider_connection_secret(workspace_id, &route.provider_connection_id)
             .await?;
+        let mut fallbacks = Vec::new();
+        for fallback_id in &route.fallback_provider_connection_ids {
+            fallbacks.push(
+                self.get_provider_connection_secret(workspace_id, fallback_id)
+                    .await?,
+            );
+        }
         Ok(ResolvedGatewayRoute {
             route,
             provider_connection: provider.connection,
             encrypted_api_key: provider.encrypted_api_key,
+            fallback_provider_connections: fallbacks,
         })
     }
 }

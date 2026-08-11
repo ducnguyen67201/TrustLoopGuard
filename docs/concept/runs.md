@@ -118,11 +118,15 @@ metadata. Raw input and output are stored on their turn events, not copied into
 Run metadata. Durable state and environment validation remain owned by the
 Rust Run API.
 
-Gateway integrations create runs automatically. Each accepted provider-compatible gateway request becomes one `chat_session` run, and the gateway links its input/output policy checks to that run. If the request carries `X-FEATHERLANE-AI-Run-External-Id`, the gateway uses that value as the run `external_id` and reuses an existing run for the same route agent plus external id. Streaming integrations use this to group all model calls from one external session into a single dashboard run.
+Gateway integrations create runs automatically. A request without a session header becomes one
+`chat_session` Run. `X-Featherlane-Session-Id` groups multiple calls for the same route agent into
+one active Run; the legacy `X-FEATHERLANE-AI-Run-External-Id` spelling remains compatible. The
+database enforces one active Gateway Run for that identity so concurrent first turns converge on
+the same Run.
 
 The dashboard run detail view uses the same Rust-owned run detail API and refreshes while the page is open so live demos can show new evidence without manually reloading. `RunDetail` includes the normalized OpenTelemetry spans persisted in `run_spans`; the dashboard renders them as a parent/child waterfall with a shared time domain, span details, collapse controls, and keyboard navigation. Span evidence is immutable in this view. The transcript and guard-decision audit log remains a separate view of the same Run rather than a second telemetry store. The capture and privacy rules for these spans live in [telemetry-capture.md](telemetry-capture.md).
 
-The web server resolves the persisted `agent_id` against the Rust-owned agent profiles already loaded for the active workspace and environment. When the profile is available, the page shows its display name and links to that Agent configuration while keeping the raw identifier visible and copyable; when it is unavailable, the page labels that state and retains the raw identifier. Gateway-created chat sessions create one `user_turn` for the exact checked request and one `assistant_turn` for a successful provider response. Input and output checks link to their respective turns, so the timeline reads as a transcript instead of an ungrouped trace list. Gateway system events carry provider usage, deterministic LLM budget decisions, and semantic-judge usage as typed audit evidence. `RunDetail` also exposes the latest provider and budget evidence plus every guardrail invocation without making run events a second enforcement or accounting store.
+The web server resolves the persisted `agent_id` against the Rust-owned agent profiles already loaded for the active workspace and environment. When the profile is available, the page shows its display name and links to that Agent configuration while keeping the raw identifier visible and copyable; when it is unavailable, the page labels that state and retains the raw identifier. Gateway-created chat sessions create one `user_turn` for the checked request and one `assistant_turn` for a successful provider response, subject to the workspace privacy projection. Input and output checks link to their respective turns, so the timeline reads as a transcript instead of an ungrouped trace list. Gateway system events carry ordered provider attempts, deterministic LLM budget decisions, and semantic-judge usage as typed audit evidence. `RunDetail` retains `provider_usage` as a compatibility projection while exposing all attempts and a conservative coverage summary. Gateway-only evidence is `llm_boundary`; only correlated tool/workflow evidence can establish `llm_and_workflow`, and dropped or unfinished capture is explicitly incomplete.
 
 Supported kinds:
 
@@ -151,11 +155,12 @@ waits for the capture barrier before creating an immutable snapshot and starting
 canonical capture and evaluator contracts live in [telemetry-capture.md](telemetry-capture.md) and
 [evaluations.md](evaluations.md).
 
-Gateway requests without an external Run correlation header are one-request Runs and finalize after
-the guarded response. Supplying `x-featherlane-ai-run-external-id` makes that Run externally managed:
-the gateway reuses it across turns and the framework or SDK must call the finalization endpoint when
-the actual session ends. The correlation header therefore groups evidence but never guesses a
-session boundary.
+Gateway requests without a session header are one-request Runs and finalize after the guarded
+response. A correlated session finalizes when `X-Featherlane-Session-End: true` is sent, after a
+bounded idle period, or at the maximum session duration. All paths use `POST /v1/runs/{id}/finalize`
+semantics and therefore arm the same capture/evaluation boundary. Activity is touched on terminal
+request paths so the background worker does not depend on asynchronous trace persistence. An exact
+finalization race is idempotent; a later call with the same external session ID starts a new Run.
 
 ## External ID
 

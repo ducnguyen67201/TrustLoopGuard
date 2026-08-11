@@ -90,6 +90,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         gateway_store,
         oauth_store,
         mcp_gateway_store,
+        notification_store,
+        notification_transport_configured,
         tool_metadata_store,
         tool_metadata_provider,
         authorization_store,
@@ -126,6 +128,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         gateway_store,
         oauth_store,
         mcp_gateway_store,
+        notification_store,
+        notification_transport_configured,
         tool_metadata_store,
         tool_metadata_provider,
         authorization_store,
@@ -204,7 +208,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         Arc::new(crate::authorization::adapters::AuthorizationAdapterRegistry::new()),
     ));
 
-    Ok(AppState {
+    let state = AppState {
         engine,
         handler_ctx,
         // Live tool-metadata resolution (action semantics), label
@@ -257,6 +261,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         gateway_store,
         oauth_store,
         mcp_gateway_store,
+        notification_store,
+        notification_transport_configured,
         jwt_signer,
         escalation_tx,
         redteam_job_store,
@@ -265,7 +271,10 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         redteam_dispatch_tx,
         github_integration_store,
         github_integration_tx,
-    })
+    };
+    let _gateway_session_worker = crate::gateway::spawn_gateway_session_worker(state.clone());
+    tracing::info!("gateway session boundary worker spawned");
+    Ok(state)
 }
 
 /// Spawn the in-process red-team dispatch worker when a runner URL is

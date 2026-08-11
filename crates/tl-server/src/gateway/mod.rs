@@ -5,6 +5,7 @@
 //! resolves dashboard config and applies the decision before returning a
 //! provider-compatible response.
 
+mod activation;
 pub mod api;
 mod budget;
 mod crypto;
@@ -12,8 +13,13 @@ mod errors;
 mod normalization;
 mod provider;
 mod service;
+mod session_worker;
 mod store;
 
+pub use activation::{
+    __path_create_gateway_activation, __path_gateway_production_readiness,
+    create_gateway_activation, gateway_production_readiness,
+};
 pub use api::{
     __path_create_gateway_provider_connection, __path_create_gateway_route,
     __path_delete_gateway_provider_connection, __path_list_gateway_provider_connections,
@@ -30,6 +36,7 @@ pub(crate) use crypto::unseal_provider_key;
 #[cfg(feature = "postgres")]
 pub(crate) use normalization::provider_kind_storage_text;
 pub(crate) use provider::forward_payment;
+pub(crate) use session_worker::spawn_gateway_session_worker;
 pub use store::{
     GatewayRoutePatch, GatewayStore, GatewayStoreError, MemoryGatewayStore,
     NewGatewayProviderConnection, NewGatewayRoute, ProviderConnectionPatch,

@@ -7,6 +7,7 @@ use serde_json::Value;
 
 use super::super::errors::api_error_response;
 use super::super::provider::GatewayProvider;
+use super::super::provider::ProviderError;
 
 pub(super) struct EnforcementHeaders<'a> {
     pub effect: &'static str,
@@ -43,8 +44,12 @@ pub(super) fn finalize_gateway_response<P: GatewayProvider>(
     response
 }
 
-pub(super) fn handle_provider_failure(error: String) -> Response {
-    tracing::warn!(error = %error, "upstream provider request failed");
+pub(super) fn handle_provider_failure(error: ProviderError) -> Response {
+    tracing::warn!(
+        code = error.code,
+        status = error.status,
+        "upstream provider request failed"
+    );
     api_error_response(
         StatusCode::BAD_GATEWAY,
         "upstream provider request failed".into(),

@@ -157,6 +157,14 @@ one adapter, not a special server-side session model. See [Runs](concept/runs.md
 [telemetry capture](concept/telemetry-capture.md), and
 [post-run evaluations](concept/evaluations.md).
 
+Provider clients can use the Gateway without initializing ingestion or an SDK Run. Point the
+provider base URL at the route and authenticate with the Featherlane runtime key. A request without
+a session header becomes a one-request Run. For multi-turn correlation, send a stable
+`X-Featherlane-Session-Id` and send `X-Featherlane-Session-End: true` on the final turn; bounded
+idle/max-duration finalization is the safety net. `X-Featherlane-Run-Id` on the response binds logs
+and OTel evidence to the Rust-owned Run. Gateway supplies LLM-boundary coverage; SDK Run events or
+correlated OTel spans add workflow depth without changing the Gateway session model.
+
 ## Runtime event flow
 
 1. Build a `GuardEvent` with principal, operation, parameters, tool identity, sources, and provenance. Supported TypeScript agent adapters do this automatically for exposed local tools.

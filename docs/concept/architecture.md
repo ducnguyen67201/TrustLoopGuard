@@ -1,8 +1,9 @@
 # Architecture
 
-Subsystem details have one canonical home: [Runs](runs.md),
-[post-run evaluations](evaluations.md), and [telemetry capture](telemetry-capture.md). This document
-defines only their placement and ownership in the overall system.
+Subsystem details have one canonical home: [Gateway](gateway.md), [Runs](runs.md),
+[post-run evaluations](evaluations.md), [telemetry capture](telemetry-capture.md), and
+[notifications](notifications.md). This document defines only their placement and ownership in the
+overall system.
 
 ## What Featherlane AI is, in one sentence
 
@@ -43,7 +44,7 @@ That boundary keeps one source of truth:
 | Data or behavior | Owner | Why |
 |---|---|---|
 | Runtime checks and authorization decisions | `crates/tl-server` + `crates/tl-engine` | The hot path must be shared by SDK, HTTP, and dashboard-visible traces. |
-| Environments, policies, agents, traces, API keys, knowledge sources | `crates/tl-storage` | Durable guardrail data must not split between Rust and the web app. |
+| Environments, policies, agents, traces, API keys, knowledge sources, notification rules and deliveries | `crates/tl-storage` | Durable guardrail data must not split between Rust and the web app. |
 | Dashboard pages and browser-friendly proxy routes | `apps/web` | The web layer handles UI concerns, session context, and same-origin calls. |
 | Wire contracts | `crates/tl-core` | SDKs, OpenAPI, server handlers, and storage agree on one type vocabulary. |
 | Personalized outbound demo profiles | Private marketing Postgres + `apps/marketing` | These records contain public presentation content for campaign pages, not runtime policies or decisions. See [personalized marketing demos](personalized-marketing-demos.md). |

@@ -18,7 +18,12 @@ fn gateway_owner_id() -> Uuid {
 }
 
 async fn build_app() -> axum::Router {
+    build_app_with_notification_transport(true).await
+}
+
+async fn build_app_with_notification_transport(configured: bool) -> axum::Router {
     let mut state = memory_app_state(Arc::new(Engine::empty()));
+    state.notification_transport_configured = configured;
     let user_store = Arc::new(MemoryUserStore::new());
     user_store
         .insert_approved_for_tests(gateway_owner_id(), "gateway-owner@example.com")
@@ -188,6 +193,8 @@ action: deny
 }
 
 include!("gateway/provider_flow.rs");
+
+include!("gateway/activation.rs");
 
 include!("gateway/streaming.rs");
 

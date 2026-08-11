@@ -255,6 +255,8 @@ pub(super) struct MeterLlmUsage<'a> {
     pub environment_id: &'a str,
     pub key: Option<&'a WorkspaceKeyContext>,
     pub route_id: &'a str,
+    pub provider_connection_id: &'a str,
+    pub attempt: u32,
     pub gateway_request_id: &'a str,
     pub reservation: Option<&'a LlmBudgetReservation>,
     pub request: &'a Value,
@@ -273,6 +275,8 @@ pub(super) async fn meter_llm_usage(
         environment_id,
         key,
         route_id,
+        provider_connection_id,
+        attempt,
         gateway_request_id,
         reservation,
         request,
@@ -360,6 +364,8 @@ pub(super) async fn meter_llm_usage(
     let evidence = RunProviderUsage {
         gateway_request_id: gateway_request_id.to_string(),
         route_id: route_id.to_string(),
+        attempt,
+        provider_connection_id: provider_connection_id.to_string(),
         provider: provider.to_string(),
         model: model.clone(),
         provider_response_id: provider_response
@@ -367,6 +373,7 @@ pub(super) async fn meter_llm_usage(
             .and_then(Value::as_str)
             .map(str::to_string),
         status: "succeeded".to_string(),
+        failure_code: None,
         prompt_tokens: usage.map(|_| prompt_tokens),
         completion_tokens: usage.map(|_| completion_tokens),
         total_tokens: usage.map(|_| prompt_tokens.saturating_add(completion_tokens)),

@@ -406,6 +406,24 @@ Featherlane AI-generated UUID string that identifies one `Run`. SDKs pass it on 
 
 An SDK-generated id (`sess_<uuid>`) attached to the principal of every event a client emits after opting into monitoring at init (`with_monitoring()` in the Rust SDK). Caller-reported metadata used to isolate one process's traces — promoted to the `session_id` trace column and filterable via `GET /v1/traces?session_id=`. Never an enforcement or trust boundary; the server treats it as an opaque, length-bounded string and a caller-explicit `session_id` always wins over the SDK's.
 
+### Gateway session
+
+An opaque customer correlation ID supplied in `X-Featherlane-Session-Id` to group provider-compatible
+Gateway calls into one active `chat_session` Run for a route agent. It is metadata, not authority.
+Explicit end, idle timeout, or maximum duration closes the Run; later reuse creates a new Run.
+
+### Run coverage
+
+A conservative Rust-derived summary of which boundaries a Run observed: runtime decisions only,
+the provider/LLM boundary, or the LLM boundary plus correlated workflow/tool evidence. Known dropped
+or unfinished capture is incomplete. Coverage never means Featherlane executed the workflow.
+
+### Notification delivery
+
+A durable at-least-once email outbox record created for a matching evaluation or terminal provider
+event. Postgres owns deduplication, leases, attempts, and terminal delivery status; SMTP runs outside
+the producer transaction. See [notifications.md](notifications.md).
+
 ### Run Event
 
 One ordered moment inside a `Run`, such as a user turn, assistant turn, tool call, workflow step, interruption, retry, or system event. SDKs can pass `run_event_id` on `GuardEvent.principal` so a decision trace is attached to the exact moment that produced it.
