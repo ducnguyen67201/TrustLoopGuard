@@ -24,6 +24,7 @@ thing you need to control:
 | --- | --- |
 | **Protection policy** | Content, requests, or tool traffic that should be denied, transformed, or held for approval. |
 | **Financial authorization** | Money-moving actions or Gateway LLM spend that needs caps, evidence, or approval. |
+| **Evaluation** | Immutable post-run grading over captured Run metrics, runtime-policy observations, replayable policies, or a bounded LLM rubric. |
 
 Every policy is saved in the same Rust-owned registry. The selected workspace
 owns the definition, and the selected environment controls whether the policy
@@ -80,6 +81,14 @@ they do not execute the payment. See
 [Financial authorization](../concept/financial-authorization.md) for grants,
 leases, evidence, and execution boundaries. For Gateway LLM budgets, follow
 [Set AI usage cost caps](../../apps/docs/content/docs/guides/llm-spending-caps.mdx).
+
+### Evaluation Policies
+
+Evaluation policies use `family: evaluation` and are assigned separately from
+runtime deployment. They grade a completed Run without changing a synchronous
+authorization decision. Start with a deterministic `run_metric` policy, then
+follow [Instrument an Agent and Run Evaluations](../../apps/docs/content/docs/guides/agent-observability-evaluations.mdx)
+to enable capture, assign the policy, instrument a Run, and inspect its result.
 
 ## Copy This Rule
 
