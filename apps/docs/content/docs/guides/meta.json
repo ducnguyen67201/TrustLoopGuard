@@ -6,6 +6,7 @@
     "hosted-mcp-access",
     "gateway",
     "python-agent-frameworks",
+    "agent-observability-evaluations",
     "llm-spending-caps",
     "policy-authoring",
     "guard-modes"

@@ -1,0 +1,357 @@
+---
+title: Instrument an Agent and Run Evaluations
+description: Capture an OpenTelemetry waterfall, finalize complete Runs, and evaluate them against frozen post-run policies.
+---
+
+This guide sets up the complete post-run assurance path for a Node.js agent:
+
+```text
+admin creates evaluation policy and assignment
+  -> agent opens one Run
+  -> OpenTelemetry spans and Run events are captured
+  -> SDK flushes telemetry and finalizes the Run
+  -> Featherlane AI freezes an evidence snapshot
+  -> evaluation worker stores a verdict and findings
+```
+
+![Run capture and evaluation flow](/diagrams/agent-run-evaluation.svg)
+
+The example uses a deterministic policy that requires a completed Run to contain zero denied
+runtime decisions. It does not require an evaluation model. You can add an LLM rubric after the
+basic path works.
+
+## Before you begin
+
+You need:
+
+- a registered agent ID, such as `support-agent`
+- a runtime API key for the environment where the agent will run
+- Owner or Admin access for evaluation configuration
+- Node.js 22 or later
+- a Postgres-backed Featherlane AI server; the evaluation worker starts with the server
+
+At the time of writing, evaluation profile and assignment setup is an admin API workflow. Keep its
+credential separate from the runtime key:
+
+| Credential                                      | Use it for                                                                                |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Workspace-scoped admin/control-plane credential | Create policies, change the evaluation profile or assignments, and request re-evaluation. |
+| Runtime key (`tl_live_...`)                     | Create Runs, submit guard events and telemetry, and read Run results.                     |
+
+The Rust server rejects runtime keys on evaluation configuration mutations. Never put an admin,
+OAuth, or internal service credential in agent code. Run the next three setup steps from a trusted
+admin environment.
+
+Set these placeholders in that admin environment:
+
+```bash
+export FEATHERLANE_AI_URL=https://api.featherlane.ai
+export FEATHERLANE_AI_CONTROL_TOKEN=<workspace-scoped-admin-token>
+export FEATHERLANE_AI_WORKSPACE_ID=<workspace-id>
+export FEATHERLANE_AI_ENVIRONMENT_ID=<environment-id>
+export FEATHERLANE_AI_AGENT_ID=support-agent
+export FEATHERLANE_AI_ADMIN_USER_ID=<owner-or-admin-user-uuid>
+```
+
+`FEATHERLANE_AI_CONTROL_TOKEN` is a guide placeholder; the SDK does not read it. Hosted deployments
+should use a workspace-scoped admin access token. Self-hosted operators may use their protected
+server-to-server admin lane and must supply the authenticated Owner/Admin user ID shown above. Never
+expose that lane's credential to browsers or agent processes.
+
+## 1. Create an evaluation policy
+
+Save this as `no-denied-decisions.yaml`:
+
+```yaml
+family: evaluation
+id: no-denied-decisions
+description: Completed runs must not contain denied decisions.
+severity: critical
+scope: runtime_decisions
+grader:
+  kind: run_metric
+  metric: denied_decisions
+  comparator: lte
+  value: 0
+on_missing_evidence: fail
+```
+
+Publish it to the unified policy registry:
+
+```bash
+curl --fail-with-body \
+  --request POST \
+  --url "$FEATHERLANE_AI_URL/v1/policies" \
+  --header "Authorization: Bearer $FEATHERLANE_AI_CONTROL_TOKEN" \
+  --header "X-Featherlane-AI-Workspace-Id: $FEATHERLANE_AI_WORKSPACE_ID" \
+  --header "X-Featherlane-AI-Environment-Id: $FEATHERLANE_AI_ENVIRONMENT_ID" \
+  --header "X-Featherlane-AI-User-Id: $FEATHERLANE_AI_ADMIN_USER_ID" \
+  --header "Content-Type: application/yaml" \
+  --data-binary @no-denied-decisions.yaml
+```
+
+An evaluation policy never changes a synchronous `/v1/events` authorization decision. Runtime
+deployment and post-run assignment are separate controls.
+
+Evaluation policies support four bounded graders:
+
+| Grader                       | Configuration                                       | Use it for                                                                                                                     |
+| ---------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `run_metric`                 | `metric`, `comparator`, `value`                     | Deterministic limits over `denied_decisions`, `duration_ms`, `tool_call_count`, `event_count`, `trace_count`, or `span_count`. |
+| `runtime_policy_observation` | `policy_ids`, plus optional `expect.max_violations` | Count findings already produced by selected runtime policies.                                                                  |
+| `policy_replay`              | `policy_ids`, plus optional `expect.max_violations` | Replay frozen deterministic content policies over verified redacted event evidence.                                            |
+| `llm_rubric`                 | `rubric`, `min_score` from `0.0` to `1.0`           | Batch remaining rubric checks through the configured `run_evaluation` model route.                                             |
+
+Choose the evidence region with `scope: trajectory`, `final_output`, `tool_calls`, or
+`runtime_decisions`. Semantic and unsupported replay policies are rejected when assigned instead
+of silently using a mutable live policy.
+
+## 2. Enable evaluation capture for the agent
+
+Create the environment-scoped evaluation profile:
+
+```bash
+curl --fail-with-body \
+  --request PUT \
+  --url "$FEATHERLANE_AI_URL/v1/agents/$FEATHERLANE_AI_AGENT_ID/evaluation-profile" \
+  --header "Authorization: Bearer $FEATHERLANE_AI_CONTROL_TOKEN" \
+  --header "X-Featherlane-AI-Workspace-Id: $FEATHERLANE_AI_WORKSPACE_ID" \
+  --header "X-Featherlane-AI-Environment-Id: $FEATHERLANE_AI_ENVIRONMENT_ID" \
+  --header "X-Featherlane-AI-User-Id: $FEATHERLANE_AI_ADMIN_USER_ID" \
+  --header "Content-Type: application/json" \
+  --data '{
+    "enabled": true,
+    "capture_mode": "durable",
+    "content_mode": "metadata_only",
+    "quiet_period_ms": 2000,
+    "max_capture_wait_ms": 30000,
+    "on_incomplete": "fail"
+  }'
+```
+
+This is a strict starting profile:
+
+- `durable` makes evaluation evidence wait for durable trace persistence.
+- `metadata_only` strips prompt, completion, tool argument, body, and content fields from captured
+  span evidence.
+- `on_incomplete: fail` prevents missing required evidence from passing.
+- The quiet period is a fallback for integrations that cannot send a durable flush receipt. The
+  TypeScript helper below sends one after flushing.
+
+Use `on_incomplete: inconclusive` when missing evidence should produce an explicit inconclusive
+result instead of failure. Do not switch to `redacted` or `encrypted_artifact_ref` until the
+workspace data-handling configuration and your telemetry pipeline satisfy those modes.
+
+## 3. Assign the policy
+
+Assignments are agent- and environment-scoped. This `PUT` replaces the complete assignment list,
+so include every policy the agent should keep:
+
+```bash
+curl --fail-with-body \
+  --request PUT \
+  --url "$FEATHERLANE_AI_URL/v1/agents/$FEATHERLANE_AI_AGENT_ID/evaluation-policy-assignments" \
+  --header "Authorization: Bearer $FEATHERLANE_AI_CONTROL_TOKEN" \
+  --header "X-Featherlane-AI-Workspace-Id: $FEATHERLANE_AI_WORKSPACE_ID" \
+  --header "X-Featherlane-AI-Environment-Id: $FEATHERLANE_AI_ENVIRONMENT_ID" \
+  --header "X-Featherlane-AI-User-Id: $FEATHERLANE_AI_ADMIN_USER_ID" \
+  --header "Content-Type: application/json" \
+  --data '{
+    "assignments": [
+      {
+        "policy_id": "no-denied-decisions",
+        "weight": 1,
+        "critical": true,
+        "enabled": true
+      }
+    ]
+  }'
+```
+
+Leaving out `policy_version` selects the latest version when a new Run first registers the agent.
+Featherlane AI then freezes the selected version, YAML, hash, weight, and critical flag into that
+Run. Changing an assignment later does not rewrite an existing Run.
+
+Complete these three control-plane steps before sending test traffic. A Run freezes its manifest
+when the agent first participates, including when the assignment list is empty.
+
+## 4. Install and configure the SDK
+
+In the agent application:
+
+```bash
+npm install @featherlane-ai/sdk
+export FEATHERLANE_AI_URL=https://api.featherlane.ai
+export FEATHERLANE_AI_API_KEY=tl_live_...
+```
+
+The runtime key must resolve to the same workspace and environment used in the admin setup. The SDK
+reads both variables automatically.
+
+## 5. Instrument one complete Run
+
+Initialize observability once per Node.js process, then put exactly one complete chat, call,
+workflow, or job inside `observed.run(...)`:
+
+```ts
+import { observability } from '@featherlane-ai/sdk/observability';
+
+const ticketId = 'ticket-42';
+const observed = observability.init({
+  agentId: 'support-agent',
+  serviceName: 'support-workflow',
+  onRunLifecycleWarning(warning) {
+    console.warn(warning.code, warning.runId, warning.error.message);
+  },
+});
+
+try {
+  const { runId, value: decision } = await observed.run(
+    { kind: 'workflow', externalId: ticketId },
+    async (run) => {
+      await run.event({
+        kind: 'user_turn',
+        label: 'support request received',
+        input_summary: 'Customer asked for help with an order.',
+      });
+
+      const decision = await run.withEvent({ kind: 'tool_call', label: 'lookup_order' }, () =>
+        run.client.guardToolCall({
+          agentId: 'support-agent',
+          operation: 'lookup_order',
+          parameters: { orderId: '42' },
+          sideEffect: 'read',
+        }),
+      );
+
+      await run.event({
+        kind: 'assistant_turn',
+        label: 'support response prepared',
+        output_summary: `Guard decision: ${decision.effect}`,
+      });
+
+      return decision;
+    },
+  );
+
+  console.log({ runId, effect: decision.effect });
+} finally {
+  await observed.shutdown();
+}
+```
+
+When the callback finishes, the helper:
+
+1. ends the Run span
+2. flushes the OpenTelemetry provider with a unique receipt ID
+3. calls `POST /v1/runs/{id}/finalize`
+4. waits only for finalization—not for the asynchronous evaluation result
+
+OpenTelemetry-instrumented libraries called inside the callback inherit the Run and agent
+correlation. Use `run.event(...)` for a recorded step and `run.withEvent(...)` when an operation
+should also inherit one Run event. Libraries that emit no OpenTelemetry spans do not become
+instrumented automatically.
+
+Call `observability.init(...)` only once in a process. If the application already owns a global
+OpenTelemetry provider, keep it and attach the values from the SDK's `runCorrelation(...)` helper
+to your spans instead of registering a second provider.
+
+`input_summary` and `output_summary` are durable Run-event fields. Keep them short and
+privacy-safe even with a `metadata_only` evaluation profile.
+
+## 6. Verify the waterfall and evaluation
+
+Open **Runs** in the dashboard, select the new Run, and verify:
+
+- **Execution evidence → Waterfall** contains the `agent.run` span and recorded event spans.
+- **Post-run assurance → Capture** becomes `Complete`.
+- The evaluation job advances from `Waiting capture` to `Queued`, `Running`, and `Completed`.
+- The stored result is `Passed` when the Run contains no denied decisions.
+- The `no-denied-decisions` finding shows the frozen policy version and grading reason.
+
+The Run page refreshes while capture or evaluation is active. You can also read the typed result
+from the runtime client:
+
+```ts
+const evaluation = await observed.client.listRunEvaluations(runId);
+
+for (const item of evaluation.results) {
+  console.log(item.result.verdict, item.result.score_bps);
+  for (const finding of item.findings) {
+    console.log(finding.policy_id, finding.status, finding.reason);
+  }
+}
+```
+
+The first read may contain an active job and no result because evaluation is asynchronous. Poll
+with a bounded timeout when another system needs to wait; do not loop forever in the agent process.
+
+## 7. Request a new snapshot
+
+An Owner or Admin can request re-evaluation of a terminal Run:
+
+```bash
+curl --fail-with-body \
+  --request POST \
+  --url "$FEATHERLANE_AI_URL/v1/runs/<run-id>/evaluations" \
+  --header "Authorization: Bearer $FEATHERLANE_AI_CONTROL_TOKEN" \
+  --header "X-Featherlane-AI-Workspace-Id: $FEATHERLANE_AI_WORKSPACE_ID" \
+  --header "X-Featherlane-AI-Environment-Id: $FEATHERLANE_AI_ENVIRONMENT_ID" \
+  --header "X-Featherlane-AI-User-Id: $FEATHERLANE_AI_ADMIN_USER_ID" \
+  --header "Content-Type: application/json" \
+  --data '{"agent_ids":["support-agent"]}'
+```
+
+This creates a new immutable evidence snapshot and preserves earlier results. It reuses the Run's
+already-frozen policy manifest. Start a new Run when you need a newer policy assignment or version.
+
+## Use an existing OpenTelemetry Collector
+
+The one-call helper exports OTLP/HTTP protobuf directly to:
+
+```text
+POST <FEATHERLANE_AI_URL>/v1/otel/v1/traces
+```
+
+If you already operate a Collector, export there instead and preserve these attributes on every
+span:
+
+```text
+featherlane.run.id=<Rust-created Run UUID>
+featherlane.agent.id=<registered agent ID>
+featherlane.run.event.id=<optional Run-event UUID>
+featherlane.flush.id=<optional durable flush receipt ID>
+```
+
+The repository's [Collector recipe](https://github.com/ducnguyen67201/FeatherlaneAI/tree/main/examples/otel-collector)
+adds batching, retry, memory limiting, attribute filtering, and authenticated export. Attributes
+cannot select a workspace, authorize an agent, or create a Run; the Rust endpoint derives scope
+from the bearer credential and validates every correlation.
+
+## Troubleshooting
+
+- **403 while saving a profile, assignment, or re-evaluation:** a runtime key was used for an
+  admin mutation, or the signed-in member is not an Owner/Admin.
+- **404 while assigning policies:** create the agent and its evaluation profile first. The assigned
+  policy must exist and use `family: evaluation`.
+- **No evaluation or `not_configured`:** the profile or assignment was disabled before the Run first
+  registered its participant. Fix configuration, then start a new Run.
+- **`waiting_capture` never advances:** confirm the `observed.run(...)` callback exited and the
+  server received finalization. Check lifecycle warnings for a failed telemetry flush.
+- **Capture is `incomplete`:** required evidence was dropped, rejected, or arrived after
+  `max_capture_wait_ms`. An incomplete strict profile cannot pass.
+- **No waterfall spans:** confirm the URL, runtime key, agent ID, and environment; keep the work
+  inside the callback and call `observed.shutdown()` before process exit.
+- **Jobs remain queued in a self-hosted deployment:** use Postgres-backed server state. The durable
+  evaluation worker starts with the Postgres server; in-memory mode is not the production queue.
+- **An LLM rubric errors:** configure the `run_evaluation` LLM route and its provider credential.
+  The deterministic `run_metric` example in this guide does not need a model.
+- **Run says `legacy_incomplete`:** it predates frozen evaluation manifests. Start a new Run rather
+  than trying to make the historical Run pass.
+
+## Related reference
+
+- [Evaluation HTTP API](/docs/reference/api/evaluations)
+- [Runs HTTP API](/docs/reference/api/runs)
+- [Policy Authoring](/docs/guides/policy-authoring)
+- [Guard Modes](/docs/guides/guard-modes)

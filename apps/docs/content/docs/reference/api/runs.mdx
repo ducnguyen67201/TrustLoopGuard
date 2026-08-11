@@ -24,6 +24,10 @@ _openapi:
       title: '`POST /v1/runs/:id/events` - append an event to a run timeline.'
       url: '#post-v1runsidevents---append-an-event-to-a-run-timeline'
     - depth: 2
+      title: '`POST /v1/runs/:id/finalize` - authoritatively close a Run and arm
+        capture.'
+      url: '#post-v1runsidfinalize---authoritatively-close-a-run-and-arm-capture'
+    - depth: 2
       title: '`GET /v1/runs/:id/traces` - list traces for a run.'
       url: '#get-v1runsidtraces---list-traces-for-a-run'
   structuredData:
@@ -40,6 +44,9 @@ _openapi:
         id: get-v1runsidevents---list-events-for-a-run-timeline
       - content: '`POST /v1/runs/:id/events` - append an event to a run timeline.'
         id: post-v1runsidevents---append-an-event-to-a-run-timeline
+      - content: '`POST /v1/runs/:id/finalize` - authoritatively close a Run and arm
+          capture.'
+        id: post-v1runsidfinalize---authoritatively-close-a-run-and-arm-capture
       - content: '`GET /v1/runs/:id/traces` - list traces for a run.'
         id: get-v1runsidtraces---list-traces-for-a-run
     contents: []
@@ -54,7 +61,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <Comp document="../../docs/openapi.yaml" webhooks={[]} operations={[{"path":"/v1/runs","method":"get"},{"path":"/v1/runs","method":"post"},{"path":"/v1/runs/{id}","method":"get"},{"path":"/v1/runs/{id}","method":"patch"},{"path":"/v1/runs/{id}/events","method":"get"},{"path":"/v1/runs/{id}/events","method":"post"},{"path":"/v1/runs/{id}/traces","method":"get"}]} showTitle showDescription />
+      <Comp document="../../docs/openapi.yaml" webhooks={[]} operations={[{"path":"/v1/runs","method":"get"},{"path":"/v1/runs","method":"post"},{"path":"/v1/runs/{id}","method":"get"},{"path":"/v1/runs/{id}","method":"patch"},{"path":"/v1/runs/{id}/events","method":"get"},{"path":"/v1/runs/{id}/events","method":"post"},{"path":"/v1/runs/{id}/finalize","method":"post"},{"path":"/v1/runs/{id}/traces","method":"get"}]} showTitle showDescription />
     </>
   );
 }
